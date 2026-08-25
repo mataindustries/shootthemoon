@@ -1,8 +1,8 @@
 # Moon Core architecture
 
-Status: design contract for review, 2026-08-25. The current scaffold implements
-only App, one R3F Canvas, and an empty SceneRoot. Everything else in this
-document is a boundary for later milestones, not existing functionality.
+Status: implemented first-playable contract, 2026-08-25. Canonical coordinate
+and state boundaries are active; future asset-pipeline and multiplayer sections
+remain design boundaries rather than implemented systems.
 
 ## Architectural goals
 
@@ -211,39 +211,44 @@ shorten or replace travel animation without changing the destination.
 ## Scene structure
 
 One Canvas owns one renderer, one scene, one event system, and one active
-camera. The planned component topology is:
+camera. The implemented component topology is:
 
 ~~~text
 App
-└─ MoonCanvas
-   └─ SceneRoot
-      ├─ RenderCoordinator
-      │  ├─ OrbitalRepresentation
-      │  └─ SurfaceRepresentation
-      ├─ CameraRig
-      ├─ LightingRig
-      ├─ InteractionLayer
-      ├─ LandingCapsule
-      └─ Robot
+├─ Canvas
+│  └─ SceneRoot
+│     ├─ CinematicClockProvider
+│     ├─ CameraRig
+│     ├─ LightingRig
+│     ├─ Starfield
+│     ├─ Moon
+│     ├─ LandingMarker
+│     ├─ SurfacePatch
+│     ├─ InvasionCapsule
+│     ├─ ImpactEffects
+│     └─ SceneMetrics
+└─ CinematicHud
 ~~~
 
 Rules:
 
 - SceneRoot composes 3D systems; it does not hold authoritative game state.
-- RenderCoordinator selects a RenderFrame and projects snapshots.
-- OrbitalRepresentation and SurfaceRepresentation are LOD views of one Moon,
-  not two game worlds.
+- Focused render-coordinate utilities project canonical snapshots.
+- Moon and SurfacePatch are LOD views of one Moon, not two game worlds.
 - CameraRig is the only writer of the Three.js camera transform.
-- InteractionLayer owns ray filtering and the 3D selection marker.
+- Moon's input adapter classifies its pointer gestures and performs the
+  ephemeral ray query; LandingMarker derives only from the saved site.
 - LightingRig owns the small fixed light budget.
-- Capsule and Robot consume projected entity views keyed by stable entity IDs.
+- The capsule consumes the projected landing-site transform. No robot exists in
+  this checkpoint.
 - Debug counters may exist in development, but no elaborate HUD is part of the
   first playable.
 - No nested Canvas, 2D gameplay canvas, CSS3DRenderer, DOM sprite, or
   per-entity React root is permitted.
 
-The current repository intentionally implements only the outer App, Canvas, an
-empty SceneRoot, and the scene background.
+The HUD is presentation-only: it emits reducer actions and reads canonical
+coordinates, but it is never used as a gameplay object or a source of spatial
+truth.
 
 ## State separation
 
@@ -265,8 +270,8 @@ Additional constraints:
 - High-frequency frame values live in refs or purpose-built stores and do not
   trigger a React tree render every animation frame.
 - React state is reserved for coarse transitions that affect composition.
-- No state library is selected until M1/M2 demonstrates a need. Adding one to
-  the empty scaffold would create an unearned dependency.
+- No external state library is needed; a pure reducer owns the five coarse
+  experience phases.
 - Resource setup must be idempotent and cleanup complete under React
   StrictMode's development setup/cleanup cycle.
 
@@ -274,12 +279,19 @@ Additional constraints:
 
 ### Runtime formats and manifest
 
-Runtime mesh assets use GLB/glTF 2.0. Geometry compression should use Meshopt by
-default, with Draco considered only after decode-time and size measurement.
+The current external runtime assets are two immutable NASA lunar JPEGs recorded
+with source, license, dimensions, byte size, and hash in ASSETS.md. They load
+once through R3F's shared TextureLoader cache inside Suspense. The color map is
+sRGB; the height/bump map remains linear. A deterministic R8 DataTexture adds
+local close-range detail and is disposed when its surface patch unmounts.
+
+Future runtime mesh assets use GLB/glTF 2.0. Geometry compression should use
+Meshopt by default, with Draco considered only after decode-time and size
+measurement.
 Color, normal, and material textures use KTX2/Basis universal compression when
 supported, with a documented fallback only if required by the target browsers.
 
-Every asset is declared in a versioned manifest with:
+Every future imported asset is declared in a versioned manifest with:
 
 - logical asset ID and semantic role;
 - content URL and content hash/version;
@@ -290,22 +302,23 @@ Every asset is declared in a versioned manifest with:
 - texture dimensions, formats, mip status, and estimated GPU bytes;
 - required loader extensions and declared LODs.
 
-Capsule and robot authoring roots are normalized during the asset build, not
+Future imported model authoring roots are normalized during the asset build, not
 with unexplained runtime scale/rotation fixes. A model's local origin must be a
 documented placement point.
 
 ### Loader boundary
 
-An AssetRepository wraps Three.js LoadingManager and GLTFLoader configuration.
-It owns decoder setup, URL resolution, caching, progress, errors, retry policy,
-and reference counts. Components request logical IDs rather than constructing
-loaders or embedding URLs.
+When external models arrive, an AssetRepository wraps Three.js LoadingManager
+and GLTFLoader configuration. It owns decoder setup, URL resolution, caching,
+progress, errors, retry policy, and reference counts. Components request
+logical IDs rather than constructing loaders or embedding URLs.
 
 Loading is phase-based:
 
 - boot loads only code and the smallest orbital Moon representation;
 - intent to select may preload the approach/surface representation;
-- confirmed descent preloads the capsule and robot before their reveal;
+- confirmed descent creates the current code-authored capsule and procedural
+  surface without a network request;
 - higher detail never blocks basic interaction when a valid lower LOD exists.
 
 React Suspense may coordinate scene readiness, but a rejected load must reach an
@@ -321,7 +334,9 @@ resources are reference-counted so one component cannot dispose another's
 texture. Development tests compare renderer.info memory counts across repeated
 load/unload cycles, allowing for documented renderer-internal caches.
 
-No runtime asset exists in the current scaffold.
+The two persistent global textures intentionally remain cached for the life of
+the one-Moon scene. Phase-scoped geometry, procedural textures, shader
+materials, controls, and listeners provide explicit cleanup hooks.
 
 ## Future multiplayer boundary
 
@@ -379,19 +394,18 @@ the single-player prototype to implement a speculative distributed system.
 - Quality regression: reduce render scale/LOD, not coordinate precision or
   selection correctness.
 
-## Planned source boundaries
+## Implemented source boundaries
 
-Directories are introduced only with their milestone:
+Current directories follow these dependency boundaries:
 
 ~~~text
 src/
   app/             React composition and error boundaries
   domain/          coordinates, datum, entities, commands, snapshots
   simulation/      local SimulationPort implementation
-  input/           Pointer Events and semantic gesture classification
   camera/          camera state machine and canonical journey
-  render/          frame projection, scene composition, quality adaptation
-  assets/          manifest types, loaders, ownership and disposal
+  render/          coordinate projection and quality adaptation
+  scene/           R3F representations, light, effects, and input adapter
   instrumentation/ renderer counters and performance measurements
 ~~~
 
@@ -412,35 +426,34 @@ adapters together.
 6. Use one Canvas and one camera across all phases.
 7. Keep domain, camera/view, render resources, and assets as separate state
    classes.
-8. Use GLB plus mobile texture/geometry compression with a manifest-owned
-   loader and explicit disposal.
+8. Record every external asset in ASSETS.md now; require GLB plus mobile
+   texture/geometry compression and a manifest-owned loader when imported
+   models enter scope.
 9. Reserve command/snapshot ports for future multiplayer but implement only a
    local simulation during Moon Core.
 10. Prefer demand rendering while static and a bounded continuous loop only
     during interaction or travel.
 
-## Unresolved risks before Moon work
+## Remaining risks after this implementation
 
-| Risk | Why it matters | Required resolution or prototype assumption |
+| Risk | Current decision | Remaining work |
 | --- | --- | --- |
-| Lunar datum and terrain source | Radius, longitude, elevation, visual texture, and picking can disagree | Choose a source, license, datum metadata, and conversion; otherwise declare mean-sphere-only accuracy |
-| Surface visual strategy | A sphere texture cannot provide credible metre-scale descent | Decide whether the first playable uses a simple procedural/local patch or a sourced terrain tile |
-| Frame handoff | Orbit-to-tangent LOD replacement may pop, seam, or change apparent target | Prototype the transform with debug geometry and require the screen-space continuity test before art |
-| Camera path comfort | A long automated descent can cause motion discomfort or lose orientation | Define duration, easing, horizon behavior, cancel/return, and reduced-motion path |
-| Touch gesture policy | Tap, drag, and pinch compete on a small screen | Fix measurable thresholds and test with real device event cancellation |
-| Selection accuracy claim | Analytic mean-sphere picking is precise but not terrain-accurate | Approve the label or fund terrain refinement using the same height source as rendering |
-| Asset availability and rights | Capsule/robot scope cannot be budgeted or shipped without final assets | Obtain licensed source files and enforce manifest validation before M5 |
-| Physical Android access | Desktop emulation cannot validate GPU, thermals, or actual touch | Reserve a Pixel 6a or an explicitly slower 6 GB Android reference device |
-| Browser/GPU variation | WebGL limits and compressed-texture support differ | Capture capabilities at boot and maintain a measured fallback quality tier |
-| JavaScript bundle headroom | The empty R3F/Three shell is already 294.10 KiB gzip against a 325 KiB target | Track the production bundle on every dependency/feature change and introduce deliberate code splitting before crossing the target |
-| Context restoration | Mobile browsers may evict a graphics context under memory pressure | Test loss/restoration after the asset repository exists |
-| Future multiplayer semantics | Premature network assumptions could contaminate domain state | Keep only command/snapshot interfaces; defer authority, tick rate, and protocol decisions |
+| Selection versus visual relief | Canonical selection is explicitly the 1,737,400-m mean sphere; NASA bump and the procedural patch are render-only | Add a versioned CPU height query before making terrain-accurate claims |
+| Frame handoff and camera comfort | A deterministic curved journey, local tangent overlay, cancel path, return path, and reduced-motion duration exist | Validate comfort, seams, orientation changes, and frame pacing on a physical phone |
+| Touch gesture variation | Automated CDP touch covers drag, pinch, tap, cooldown, limb, poles, and seam cases | Verify real Android pointer cancellation, browser bars, edge gestures, and palm behavior |
+| Physical Android performance | Drawing-buffer, draw-call, triangle, texture, and shader counters pass in headless Chromium | Run the full Pixel 6a frame-time, memory, thermal, and ten-minute soak protocol |
+| Surface detail fidelity | A deterministic curved procedural overlay supports this fixed close shot | Wider traversal requires tiled, canonical terrain data and rebasing; neither is implemented |
+| JavaScript bundle headroom | The current production JavaScript is 296.75 KiB with `gzip -9` against the 325 KiB target | Introduce deliberate scene/code splitting before another substantial feature |
+| Runtime asset pipeline | NASA textures are fully recorded; the capsule is code-authored | Build the manifest/GLB/KTX2 repository only when an imported model is approved |
+| Context restoration | The WebGL 2 fallback exists, but loss/restoration is not exercised | Add a controlled context-loss browser test and verify resource reconstruction |
+| Future multiplayer semantics | Domain data remains plain canonical snapshots and no network code exists | Define authority, protocol, tick, and reconciliation only in a future phase |
 
 ## Documentation basis
 
 - [R3F Canvas defaults and configuration](https://r3f.docs.pmnd.rs/api/canvas)
 - [R3F pointer events](https://r3f.docs.pmnd.rs/api/events)
 - [R3F performance scaling](https://r3f.docs.pmnd.rs/advanced/scaling-performance)
+- [Three.js OrbitControls](https://threejs.org/docs/pages/OrbitControls.html)
 - [Three.js Object3D Y-up convention](https://threejs.org/docs/pages/Object3D.html)
 - [Three.js Raycaster](https://threejs.org/docs/pages/Raycaster.html)
 - [Three.js PerspectiveCamera](https://threejs.org/docs/pages/PerspectiveCamera.html)
@@ -448,3 +461,4 @@ adapters together.
 - [Three.js recommended glTF workflow](https://threejs.org/manual/en/loading-3d-models.html)
 - [Three.js GLTFLoader and compression hooks](https://threejs.org/docs/pages/GLTFLoader.html)
 - [Three.js resource disposal](https://threejs.org/manual/en/how-to-dispose-of-objects.html)
+- [NASA SVS CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/)

@@ -1,29 +1,28 @@
 # Moon Core implementation plan
 
-Status: planning baseline, 2026-08-25
+Status: first-playable implementation checkpoint, 2026-08-25
 
 Moon Core is a narrow technical prototype. This plan deliberately stops at a
-verified 3D scaffold. The Moon and the playable milestone are future work and
-must begin only after the architecture, budgets, and open risks have been
-reviewed.
+verified first-playable slice: orbit, inspect, select, claim, land, and return.
+The architecture and budgets remain gates for every extension.
 
 ## Product boundary
 
-This planning-and-scaffold phase contains:
+The implemented checkpoint contains:
 
 - the architecture and performance contracts;
-- a minimal Vite, React, strict TypeScript, Three.js, and React Three Fiber app;
-- one empty WebGL 2 canvas with a non-gameplay fallback message;
-- reproducible build, type-check, lint, and production-preview commands.
-
-The eventual first playable contains only:
-
+- a Vite, React, strict TypeScript, Three.js, and React Three Fiber app;
 - one rotatable, true-3D Moon;
-- pointer and touch controls;
-- precise selection of a lunar surface location;
-- one continuous orbital-to-surface camera journey;
-- one landing capsule;
-- one robot.
+- pointer and touch orbit/zoom controls;
+- precise mean-sphere selection stored as canonical latitude, longitude,
+  altitude, and orientation;
+- one continuous orbital-to-surface camera journey and return;
+- one code-authored landing capsule, local curved terrain overlay, and bounded
+  impact effect;
+- reproducible unit, build, production-preview, and browser-interaction gates.
+
+The robot from the earlier eventual-first-playable outline is explicitly
+deferred by the current implementation scope.
 
 Explicitly excluded from the first playable are dashboards, resource economy,
 combat, accounts, multiplayer, matchmaking, persistence services, elaborate
@@ -94,7 +93,8 @@ Acceptance:
 - the source contains no Moon, controls, game entities, asset loaders, network
   code, state library, physics library, or gameplay UI.
 
-Status: this is the only milestone implemented by the current pass.
+Status: complete at the planning/scaffold checkpoint; retained as historical
+acceptance context.
 
 ### M1 — pure lunar coordinate kernel
 
@@ -118,6 +118,9 @@ Acceptance:
   20 kilometres from the anchor;
 - the domain package has no dependency on Three.js.
 
+Status: complete. Sixteen unit tests cover the coordinate kernel and orbital
+ray selection, including randomized millimetre-scale round trips.
+
 ### M2 — orbital Moon and touch rotation
 
 M2.1 renders one geometric Moon with a low-cost material and an explicit lunar
@@ -138,6 +141,10 @@ Acceptance:
 - no DOM sprites, Canvas 2D rendering, fake perspective, or gameplay overlay is
   introduced;
 - orbital counters stay inside the typical limits in PERFORMANCE_BUDGET.md.
+
+Status: complete for the current scope. NASA's 2K lunar imagery, provenance,
+Pointer Events/OrbitControls behavior, demand rendering, DPR limits, and three
+quality tiers are implemented.
 
 ### M3 — precise surface selection
 
@@ -162,6 +169,10 @@ Acceptance:
 Terrain-accurate selection is deferred until a terrain datum exists. The first
 playable must label mean-sphere selection honestly if it ships without terrain.
 
+Status: complete as mean-sphere selection. Automated browser cases cover a
+near-side hit, a limb hit, both polar regions, and both sides of the longitude
+seam; raw mesh intersections never enter simulation state.
+
 ### M4 — orbital-to-surface camera journey
 
 M4.1 adds a cancellable camera state machine: orbital, targeting, approach,
@@ -185,7 +196,12 @@ Acceptance:
 - a full descent and return remain within the transition limits in
   PERFORMANCE_BUDGET.md.
 
-### M5 — one capsule and one robot
+Status: implemented for the capsule journey. The browser suite fixes cinematic
+progress for deterministic impact/landed captures and verifies the complete
+return-to-orbit state transition. Physical-device comfort and frame pacing
+remain M6 work.
+
+### M5 — landing entities
 
 M5.1 defines an asset manifest and validates one optimized capsule GLB.
 
@@ -204,10 +220,14 @@ Acceptance:
 - only one capsule and one robot exist;
 - the complete scene remains within every hard performance ceiling.
 
+Status: the capsule-only slice is complete using code-authored true-3D geometry
+and therefore needs no external model loader. The robot and general GLB asset
+repository are deferred and are not part of this checkpoint.
+
 ### M6 — first-playable hardening
 
 M6.1 captures deterministic visual baselines for orbit, selected location,
-mid-descent, landed capsule, and landed robot.
+impact, and landed capsule. A robot baseline is deferred with the robot.
 
 M6.2 completes the physical-Android performance and thermal soak protocol.
 
@@ -225,6 +245,10 @@ Acceptance:
 
 This milestone ends Moon Core. A later product phase needs a new plan.
 
+Status: automated portrait and desktop coverage is implemented. Physical Pixel
+6a performance, thermals, actual Android touch, orientation, context recovery,
+and a long soak remain open and cannot be replaced by headless Chromium.
+
 ## Verification commands
 
 Current automated gates:
@@ -232,18 +256,21 @@ Current automated gates:
     npm ci
     npm run lint
     npm run typecheck
+    npm test
     npm run build
     npm run check
+    npm run test:e2e
 
 Current local review:
 
     npm run dev -- --host 0.0.0.0
     npm run preview -- --host 0.0.0.0
 
-npm run check is the CI-sized gate: lint, strict type checking, and a production
-Vite build. npm run preview serves built output for review; it is not a
-production server. M1 adds npm test. Later milestones add deterministic browser
-visual tests and budget assertions rather than weakening the existing gates.
+npm run check is the CI-sized gate: lint, strict type checking, unit tests, and
+a production Vite build. npm run test:e2e starts that production preview and
+runs the deterministic 390 × 844 touch flow, coordinate edge cases, render
+budget assertions, console checks, and a desktop sanity case. npm run preview
+serves built output for review; it is not a production server.
 
 ## Mobile visual-testing gate
 
@@ -268,10 +295,14 @@ At minimum, review:
 The complete measurement protocol and numeric limits are in
 PERFORMANCE_BUDGET.md.
 
-## Gate before Moon implementation
+## Assumptions accepted for this checkpoint
 
-Do not begin M1 or render the Moon until the unresolved risks in
-ARCHITECTURE.md have owners or explicit prototype assumptions. In particular,
-the team must confirm the lunar datum/terrain source and license, physical
-Android device availability, desired visual accuracy of the initial Moon
-texture, and whether mean-sphere picking is acceptable for the first playable.
+- Selection uses the declared 1,737,400-m mean sphere; visual height/bump data
+  is not claimed as terrain-accurate picking.
+- NASA SVS imagery is used under its public-domain terms; hashes and links are
+  recorded in ASSETS.md.
+- A deterministic procedural tangent patch supplies close-range visual relief
+  while canonical location remains independent of that render representation.
+- Headless Chromium validates browser behavior and framing, but a physical
+  Android device is still required before claiming the Pixel 6a performance
+  gate or real-touch/thermal acceptance.

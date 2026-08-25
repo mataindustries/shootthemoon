@@ -1,0 +1,44 @@
+# Moon Core asset provenance
+
+Status: runtime asset record, 2026-08-25
+
+Moon Core ships two external lunar textures. Both are unmodified downloads from
+NASA's Scientific Visualization Studio (SVS) CGI Moon Kit. The procedural
+surface detail, stars, marker, impact effect, and capsule geometry are generated
+by this repository and do not contain third-party art.
+
+## NASA lunar textures
+
+Source collection: [NASA SVS CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/)
+
+NASA SVS states that its visualizations are public domain unless a page says
+otherwise. The CGI Moon Kit page contains no contrary rights notice. Use remains
+subject to NASA's media-usage rules, including no implied NASA endorsement and
+separate restrictions on NASA identifiers. See [SVS help and permissions](https://svs.gsfc.nasa.gov/help/)
+and [NASA media usage guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/).
+
+| Runtime file | Role | Dimensions | Transfer bytes | SHA-256 | Direct source |
+| --- | --- | ---: | ---: | --- | --- |
+| `public/assets/moon/lroc_color_2k.jpg` | sRGB global lunar color/albedo | 2048 × 1024 RGB JPEG | 457,942 | `f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170` | [NASA SVS file](https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg) |
+| `public/assets/moon/ldem_3_8bit.jpg` | linear global height/bump input | 1024 × 512 grayscale JPEG | 111,552 | `6d93f887e7d8bedfe35ab89ba785e5e3ca12381bd092a5e6abe2c707dda8bb98` | [NASA SVS file](https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_3_8bit.jpg) |
+
+The checked-in files total 569,494 bytes. Conservative RGBA8 upload estimates,
+including mip chains, are about 10.67 MiB for the 2K color texture and 2.67 MiB
+for the 1K bump texture. Actual driver storage is implementation-dependent.
+
+The global height image affects shading only. It does not alter the canonical
+selection surface; the coordinate readout explicitly remains on the
+1,737,400-m mean sphere.
+
+## Project-authored runtime visuals
+
+- The invasion capsule is assembled from indexed Three.js primitives at
+  runtime. It has no external model or texture.
+- The close-range curved terrain overlay and its 128 × 128 single-channel bump
+  texture are deterministic procedural data seeded from the selected canonical
+  coordinate.
+- The starfield and impact dust are deterministic point geometries. Dust uses a
+  tiny round-point shader and no bitmap sprite.
+- The landing marker is true 3D torus, ring, and beam geometry.
+
+No robot asset is present in this milestone.

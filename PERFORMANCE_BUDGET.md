@@ -1,8 +1,7 @@
 # Moon Core Android performance budget
 
-Status: initial enforceable budget, 2026-08-25. Limits apply to the eventual
-first playable described in PLAN.md. The current empty scaffold is expected to
-sit far below them.
+Status: enforced first-playable budget with automated measurements, 2026-08-25.
+Physical Pixel 6a frame-time, memory, and thermal acceptance remains open.
 
 ## Target and measurement conditions
 
@@ -34,6 +33,56 @@ profiling because it changes performance.
 The renderer requires WebGL 2. The app must show its accessible fallback rather
 than attempt a partial 2D implementation when WebGL 2 is unavailable.
 
+## Current checkpoint measurements
+
+These are automated production-build counters, not physical-device frame-time
+evidence. They were captured in Chromium 151 at a 390 × 844 CSS-pixel viewport,
+DPR 1.0, a 390 × 844 drawing buffer, and the deterministic medium tier. The
+working tree is intentionally uncommitted; the tested base revision is
+`121c73e`, and the built JavaScript SHA-256 is
+`f08b6866f757ff09e1ce8ffa431e01f62b7aebc93317de1e0d10dc3ce8dd5dd9`.
+
+| Representative frame | Draw calls | Triangles | Points | Geometries | Texture objects | Programs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Initial orbit | 3 | 31,520 | 640 | 3 | 3 | 3 |
+| Landed capsule | 44 | 52,128 | 784 | 28 | 6 | 15 |
+
+The landed demand loop was observed for an additional 450 ms after settling
+with no new frame. The automated suite also recorded zero console errors, a
+WebGL 2 context with no GL error, and a drawing-buffer area of 329,160 pixels.
+
+Production transfer/build observations:
+
+- JavaScript: 1,124,583 bytes minified; Vite reports 308.55 kB gzip and
+  `gzip -9` produces 303,869 bytes (296.75 KiB);
+- CSS: 5.16 kB minified, 1.86 kB gzip;
+- HTML: 0.50 kB, 0.32 kB gzip;
+- checked-in lunar JPEGs: 569,494 bytes total;
+- conservative decoded lunar texture estimate with mipmaps: about 13.34 MiB;
+- procedural surface detail texture: 128 × 128 R8, about 21 KiB with mipmaps;
+- one medium/high close-view shadow target: approximately 4 MiB color plus
+  driver-dependent depth storage at 1,024 × 1,024.
+
+The app-owned texture estimate is therefore roughly 18–22 MiB during the
+shadowed close view, below the 48 MiB target. Geometry is far below the 20 MiB
+target based on the measured 52,128-triangle frame, but neither GPU allocation
+nor JavaScript heap was directly measured in headless Chromium.
+
+Current compromises and mobile risks:
+
+- the NASA JPEGs are small on the wire but upload as uncompressed GPU textures;
+  a measured KTX2 conversion is deferred while residency remains below budget;
+- the 1K directional shadow is the largest optional close-view GPU cost and is
+  disabled on the low tier;
+- quality is selected once from memory/core hints and the pixel cap; sustained
+  frame-time hysteresis is not implemented yet;
+- the local terrain is a deterministic visual overlay, not a canonical height
+  query or a traversable terrain-tile system;
+- headless SwiftShader-style execution proves counters and behavior, not Pixel
+  6a FPS, thermals, driver allocation, or touch latency;
+- the single JavaScript chunk passes transfer budget but has limited headroom
+  and retains Vite's raw-size warning.
+
 ## Frame and interaction budget
 
 | Scenario | Target | Hard acceptance ceiling/floor |
@@ -51,9 +100,10 @@ GPU work at the high quality tier. These are diagnostic allocations, not an
 excuse to pass one side when the presented-frame criteria fail.
 
 Animation uses elapsed time or a deterministic journey sample, never frame
-count. Delta time is clamped after tab suspension. Per-frame loops do not call
-React setState, allocate transient vectors in bulk, parse assets, compile new
-materials, or rebuild geometry.
+count. Page visibility pauses the journey wall clock so a backgrounded tab does
+not jump to the endpoint on return. Per-frame loops do not call React setState,
+allocate transient vectors in bulk, parse assets, compile new materials, or
+rebuild geometry.
 
 ## Drawing-buffer budget
 
@@ -95,8 +145,8 @@ Additional geometry limits:
 - LOD replacement must be selected before rendering; hidden duplicate LODs may
   not continue drawing.
 - Frustum culling remains enabled unless a measured exception is documented.
-- Repeated props, if later needed, use instancing; the first playable has only
-  one capsule and one robot.
+- Repeated props, if later needed, use instancing; this checkpoint has only one
+  capsule. The robot line item is retained for a deferred milestone.
 - Mesh subdivision is driven by projected error. A high-resolution Moon mesh is
   not retained merely because its texture is detailed.
 
@@ -151,21 +201,26 @@ The Moon is lit primarily by one sun:
 - one DirectionalLight is the direct light;
 - at most one low-cost ambient or hemisphere contribution may aid readability;
 - no point or spot lights affect the first-playable scene;
-- no real-time shadow map is enabled by default;
+- no real-time shadow map is active in orbit;
 - no SSAO, bloom, depth of field, motion blur, volumetrics, screen-space
   reflections, or extra post-processing pass is included.
 
 Surface relief should come from geometry, normal maps, material response, and
 careful sun direction. The capsule and robot may use baked ambient occlusion.
 
-If contact clarity proves inadequate, one surface-only directional shadow
-experiment may be proposed with:
+The implemented close view uses the approved surface-only directional shadow
+experiment with:
 
 - one 1,024 × 1,024 map;
 - a tightly fitted shadow camera;
 - capsule and robot as the only dynamic casters;
 - all shadow-pass calls included in the draw-call budget;
 - a measured Pixel 6a comparison and an immediate quality-tier disable path.
+
+The 1,024 × 1,024 map is enabled only on medium/high tiers during approach,
+landed, and return phases. The low tier disables it. Physical Pixel 6a evidence
+is still required to retain the medium-tier shadow; automated counters alone do
+not settle GPU frame time.
 
 Point-light shadows are forbidden: a point light requires six shadow views, and
 each shadow-casting light redraws scene geometry. Any shadow experiment is a
@@ -214,11 +269,11 @@ mobile connection:
 | Bytes required for rotatable orbital Moon | 3 MiB | 5 MiB |
 | All first-playable assets transferred | 8 MiB | 12 MiB |
 
-The M0 empty production scaffold measures 294.10 KiB gzip JavaScript with Vite
-8.2.2. It passes the target but leaves only 30.90 KiB of target headroom and
-currently triggers Vite's 500 kB raw-chunk warning. Track this baseline rather
-than raising or hiding the warning; introduce measured code splitting before
-feature code crosses the 325 KiB target.
+The current first-playable production bundle's exact `gzip -9` result is
+296.75 KiB with Vite 8.2.2. It passes the 325 KiB target with roughly 28.25 KiB
+of headroom and still triggers Vite's 500 kB raw-chunk warning. Track the
+warning rather than hiding it; introduce measured code splitting before the
+next substantial feature.
 
 The background canvas should present within 1 second on a warm load. On a cold
 Fast-4G profile, the orbital Moon target is interactive within 5 seconds and
@@ -285,7 +340,8 @@ Once the corresponding milestone exists, capture these fixed scenes:
 2. orbital limb selection at a known canonical coordinate;
 3. exactly 50% through descent;
 4. landed view with one capsule;
-5. landed view with one capsule and one robot.
+5. landed view with one capsule and one robot, only after the deferred robot
+   enters scope.
 
 Use fixed viewport, DPR, camera state, clock, sun direction, quality tier, asset
 versions, and color settings. Maintain portrait and landscape baselines.

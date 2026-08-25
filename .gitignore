@@ -15,4 +15,5 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 *.tsbuildinfo
-
+test-results
+playwright-report
