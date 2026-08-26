@@ -49,8 +49,8 @@ export function LightingRig({
     return targetPosition
       .clone()
       .addScaledVector(transform.east, 4.8)
-      .addScaledVector(transform.up, 1.65)
-      .addScaledVector(transform.south, -2.1)
+      .addScaledVector(transform.up, 1.38)
+      .addScaledVector(transform.south, 2.1)
   }, [castsSurfaceShadow, landingSite, targetPosition])
 
   useEffect(() => {
@@ -66,14 +66,14 @@ export function LightingRig({
     light.target = target
     light.castShadow = castsSurfaceShadow
     light.shadow.mapSize.set(1024, 1024)
-    light.shadow.bias = -0.00002
-    light.shadow.normalBias = 0.00012
+    light.shadow.bias = -0.000012
+    light.shadow.normalBias = 0.000065
 
     const shadowCamera = light.shadow.camera as OrthographicCamera
-    shadowCamera.left = -0.038
-    shadowCamera.right = 0.038
-    shadowCamera.top = 0.038
-    shadowCamera.bottom = -0.038
+    shadowCamera.left = -0.022
+    shadowCamera.right = 0.022
+    shadowCamera.top = 0.022
+    shadowCamera.bottom = -0.022
     shadowCamera.near = 4.3
     shadowCamera.far = 6.8
     shadowCamera.updateProjectionMatrix()
@@ -84,13 +84,13 @@ export function LightingRig({
     <>
       <ambientLight
         color="#68788d"
-        intensity={castsSurfaceShadow ? 0.11 : 0.055}
+        intensity={castsSurfaceShadow ? 0.19 : 0.055}
       />
       <directionalLight
         ref={lightRef}
         castShadow={castsSurfaceShadow}
         color="#eef3ff"
-        intensity={castsSurfaceShadow ? 3.65 : 3.05}
+        intensity={castsSurfaceShadow ? 3.7 : 3.05}
         position={lightPosition}
       />
       <object3D ref={targetRef} position={targetPosition} />

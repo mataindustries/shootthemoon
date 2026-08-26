@@ -2,7 +2,9 @@ import { Suspense, useMemo } from 'react'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
+import { isRobotTransient } from '../simulation/outpostSimulation.ts'
 import type { QualitySettings } from '../render/quality.ts'
+import { useDemandAnimation } from '../render/useDemandAnimation.ts'
 import { CinematicClockProvider } from '../camera/CinematicClock.tsx'
 import { CameraRig } from '../camera/CameraRig.tsx'
 import { SceneMetrics } from '../instrumentation/SceneMetrics.tsx'
@@ -66,6 +68,12 @@ export function SceneRoot({
       landingSite === null ? null : createSurfaceTerrainProfile(landingSite),
     [landingSite],
   )
+  const outpostAnimationActive =
+    phase === 'landed' &&
+    outpost !== null &&
+    (isRobotTransient(outpost.robot.state) ||
+      outpost.extractor?.status === 'constructing')
+  useDemandAnimation(outpostAnimationActive)
 
   return (
     <CinematicClockProvider
@@ -78,6 +86,8 @@ export function SceneRoot({
         phase={phase}
         landingSite={landingSite}
         orbitalFocusSite={outpost?.site ?? null}
+        outpost={outpost}
+        terrain={terrain}
       />
       <LightingRig
         phase={phase}

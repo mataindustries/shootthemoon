@@ -7,6 +7,7 @@ import {
   LinearFilter,
   MeshStandardMaterial,
   RedFormat,
+  RepeatWrapping,
 } from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
@@ -56,6 +57,9 @@ function createSurfaceDetailTexture(site: LandingSite): DataTexture {
     RedFormat,
   )
   texture.magFilter = LinearFilter
+  texture.wrapS = RepeatWrapping
+  texture.wrapT = RepeatWrapping
+  texture.repeat.set(6, 6)
   texture.name = 'procedural-lunar-surface-detail'
   texture.needsUpdate = true
   return texture
@@ -70,9 +74,9 @@ function createSurfaceGeometry(
   const colors = new Float32Array(vertexCount * 3)
   const uvs = new Float32Array(vertexCount * 2)
   const indices: number[] = []
-  const shadow = new Color('#545c65')
-  const midtone = new Color('#9299a1')
-  const highlight = new Color('#bdc1c4')
+  const shadow = new Color('#3f4853')
+  const midtone = new Color('#7c8792')
+  const highlight = new Color('#b6bdc3')
   const temporaryColor = new Color()
 
   for (let row = 0; row <= segments; row += 1) {
@@ -84,7 +88,13 @@ function createSurfaceGeometry(
       const offset = index * 3
       const sample = localSurfaceToRender(terrain, xM, zM)
       const reliefM = sampleTerrainHeightM(terrain, xM, zM)
-      const tone = Math.max(0, Math.min(1, 0.48 + reliefM * 0.12))
+      const regolithVariation =
+        Math.sin(xM * 0.105 + terrain.seed * 0.0000017) * 0.035 +
+        Math.sin(zM * 0.081 - terrain.seed * 0.0000023) * 0.028
+      const tone = Math.max(
+        0.08,
+        Math.min(0.94, 0.45 + reliefM * 0.15 + regolithVariation),
+      )
 
       positions[offset] = sample.x
       positions[offset + 1] = sample.y
@@ -179,10 +189,10 @@ export function SurfacePatch({
         <meshStandardMaterial
           ref={materialRef}
           bumpMap={detailTexture}
-          bumpScale={0.000055}
-          color="#9aa0a7"
-          emissive="#101721"
-          emissiveIntensity={0.55}
+          bumpScale={0.000082}
+          color="#a3aab1"
+          emissive="#0c121b"
+          emissiveIntensity={0.24}
           metalness={0}
           opacity={phase === 'landed' ? 1 : 0}
           polygonOffset

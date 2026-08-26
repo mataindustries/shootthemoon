@@ -1,10 +1,14 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import {
   AdditiveBlending,
+  BoxGeometry,
+  Color,
   DoubleSide,
   Group,
+  InstancedMesh,
   MathUtils,
   MeshStandardMaterial,
+  Object3D,
 } from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
@@ -29,6 +33,137 @@ interface InvasionCapsuleProps {
 function smoothstep(value: number): number {
   const clamped = MathUtils.clamp(value, 0, 1)
   return clamped * clamped * (3 - 2 * clamped)
+}
+
+function CapsuleLandingLegs() {
+  const structureRef = useRef<InstancedMesh>(null)
+  const lightRef = useRef<InstancedMesh>(null)
+  const geometry = useMemo(() => new BoxGeometry(1, 1, 1), [])
+  const structureMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: '#ffffff',
+        metalness: 0.64,
+        roughness: 0.44,
+        vertexColors: true,
+      }),
+    [],
+  )
+  const lightMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: '#ff8a45',
+        emissive: '#ff5b21',
+        emissiveIntensity: 1.8,
+        metalness: 0.2,
+        roughness: 0.36,
+      }),
+    [],
+  )
+
+  useLayoutEffect(() => {
+    const structure = structureRef.current
+    const lights = lightRef.current
+
+    if (structure === null || lights === null) {
+      return
+    }
+
+    const root = new Object3D()
+    const part = new Object3D()
+    const parts = [
+      {
+        position: [0.58, -0.5, 0] as const,
+        rotationZ: -0.24,
+        scale: [0.48, 0.12, 0.12] as const,
+        color: new Color('#282d33'),
+      },
+      {
+        position: [0.7, -0.9, 0] as const,
+        rotationZ: -0.58,
+        scale: [0.62, 0.1, 0.12] as const,
+        color: new Color('#22272c'),
+      },
+      {
+        position: [0.98, -1.08, 0] as const,
+        rotationZ: 0,
+        scale: [0.28, 0.08, 0.22] as const,
+        color: new Color('#353a40'),
+      },
+      {
+        position: [0.82, -0.76, 0] as const,
+        rotationZ: -0.18,
+        scale: [0.09, 0.5, 0.09] as const,
+        color: new Color('#59616a'),
+      },
+    ]
+    let structureIndex = 0
+
+    for (let legIndex = 0; legIndex < 4; legIndex += 1) {
+      const rotationY = legIndex * (Math.PI / 2)
+      root.rotation.set(0, rotationY, 0)
+      root.updateMatrixWorld(true)
+
+      for (const definition of parts) {
+        part.position.set(
+          definition.position[0],
+          definition.position[1],
+          definition.position[2],
+        )
+        part.rotation.set(0, 0, definition.rotationZ)
+        part.scale.set(
+          definition.scale[0],
+          definition.scale[1],
+          definition.scale[2],
+        )
+        root.add(part)
+        part.updateMatrixWorld(true)
+        structure.setMatrixAt(structureIndex, part.matrixWorld)
+        structure.setColorAt(structureIndex, definition.color)
+        root.remove(part)
+        structureIndex += 1
+      }
+
+      part.position.set(0.72, -0.5, 0)
+      part.rotation.set(0, 0, 0)
+      part.scale.set(0.14, 0.035, 0.075)
+      root.add(part)
+      part.updateMatrixWorld(true)
+      lights.setMatrixAt(legIndex, part.matrixWorld)
+      root.remove(part)
+    }
+
+    structure.instanceMatrix.needsUpdate = true
+    lights.instanceMatrix.needsUpdate = true
+
+    if (structure.instanceColor !== null) {
+      structure.instanceColor.needsUpdate = true
+    }
+  }, [])
+
+  useEffect(
+    () => () => {
+      geometry.dispose()
+      structureMaterial.dispose()
+      lightMaterial.dispose()
+    },
+    [geometry, lightMaterial, structureMaterial],
+  )
+
+  return (
+    <>
+      <instancedMesh
+        ref={structureRef}
+        args={[geometry, structureMaterial, 16]}
+        castShadow
+        receiveShadow
+      />
+      <instancedMesh
+        ref={lightRef}
+        args={[geometry, lightMaterial, 4]}
+      />
+    </>
+  )
 }
 
 function CapsuleModel({ outpost }: { readonly outpost: OutpostSnapshot | null }) {
@@ -61,7 +196,6 @@ function CapsuleModel({ outpost }: { readonly outpost: OutpostSnapshot | null })
               DEPLOYMENT_DURATION_MS,
           ),
         )
-        state.invalidate()
       } else if (outpost.robot.state !== 'stored') {
         progress = 1
       }
@@ -154,42 +288,7 @@ function CapsuleModel({ outpost }: { readonly outpost: OutpostSnapshot | null })
           />
         </mesh>
       </group>
-      {[0, Math.PI / 2, Math.PI, (Math.PI * 3) / 2].map((rotation) => (
-        <group key={rotation} rotation-y={rotation}>
-          <mesh castShadow position={[0.58, -0.5, 0]} rotation-z={-0.24}>
-            <boxGeometry args={[0.48, 0.12, 0.12]} />
-            <meshStandardMaterial
-              color="#24282d"
-              metalness={0.64}
-              roughness={0.4}
-            />
-          </mesh>
-          <mesh position={[0.72, -0.5, 0]}>
-            <boxGeometry args={[0.14, 0.035, 0.075]} />
-            <meshBasicMaterial color="#ff7b32" />
-          </mesh>
-          <mesh
-            castShadow
-            position={[0.7, -0.9, 0]}
-            rotation-z={-0.58}
-          >
-            <boxGeometry args={[0.62, 0.1, 0.12]} />
-            <meshStandardMaterial
-              color="#20242a"
-              metalness={0.62}
-              roughness={0.46}
-            />
-          </mesh>
-          <mesh castShadow position={[0.98, -1.08, 0]}>
-            <boxGeometry args={[0.28, 0.08, 0.22]} />
-            <meshStandardMaterial
-              color="#30343a"
-              metalness={0.56}
-              roughness={0.52}
-            />
-          </mesh>
-        </group>
-      ))}
+      <CapsuleLandingLegs />
       <mesh position-y={-1.03}>
         <cylinderGeometry args={[0.16, 0.28, 0.34, 12, 1, true]} />
         <meshBasicMaterial

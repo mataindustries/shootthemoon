@@ -270,6 +270,13 @@ M7.3 adds one staged extractor with controlled open-scene production timestamps,
 a compact touch-first HUD, a versioned local save, safe restore, reset, orbital
 signature, and revisit path.
 
+M7.4 is the Surface Presence + Performance Headroom pass. It tightens the
+surface composition and contextual action framing, strengthens bounded terrain
+relief and grounding, improves mobile HUD readability, and batches capsule,
+robot, extractor, and surface details. Transient action animation uses one
+shared demand-invalidation loop; static and low-frequency idle behavior remain
+demand rendered.
+
 Acceptance:
 
 - the explicit robot sequence is `stored → deploying → idle → traveling →
@@ -287,9 +294,10 @@ Acceptance:
 - orbital and active-surface frames remain within the established hard mobile
   render ceilings.
 
-Status: implemented and automated. Physical Android touch, frame pacing,
-memory, and thermal acceptance remain required before claiming device-level
-performance completion.
+Status: implemented and automated. The settled active scene measures 50 draw
+calls against the previous 78, with 58,160 triangles and a 321.27 kB gzip
+JavaScript bundle. Physical Android touch, frame pacing, memory, and thermal
+acceptance remain required before claiming device-level performance completion.
 
 ## Verification commands
 

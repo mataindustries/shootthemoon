@@ -12,6 +12,7 @@ import {
   MeshStandardMaterial,
   Object3D,
   PointsMaterial,
+  Vector3,
 } from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
@@ -22,10 +23,7 @@ import {
   type SurfaceTerrainProfile,
 } from '../render/surfaceTerrain.ts'
 import { getRobotKinematics } from '../simulation/outpostSimulation.ts'
-import {
-  isSimulationTimePaused,
-  simulationNowMs,
-} from '../simulation/simulationTime.ts'
+import { simulationNowMs } from '../simulation/simulationTime.ts'
 
 interface MinerRobotProps {
   readonly outpost: OutpostSnapshot
@@ -49,7 +47,7 @@ function MiningEffects({ outpost, terrain }: MiningEffectsProps) {
         color: new Color('#ff9b52'),
         depthWrite: false,
         opacity: 0.86,
-        size: 0.000055,
+        size: 0.00008,
         sizeAttenuation: true,
         transparent: true,
       }),
@@ -65,23 +63,35 @@ function MiningEffects({ outpost, terrain }: MiningEffectsProps) {
     [geometry, material],
   )
 
-  useFrame((state) => {
-    if (outpost.robot.state !== 'mining' || groupRef.current === null) {
+  useFrame(() => {
+    if (groupRef.current === null) {
       return
     }
 
     const nowMs = simulationNowMs()
     const kinematics = getRobotKinematics(outpost, nowMs)
+    const mining = outpost.robot.state === 'mining'
+
+    if (!mining && !kinematics.moving) {
+      return
+    }
+
     const contactXM =
-      kinematics.position.xM + Math.sin(kinematics.headingRad) * 1.05
+      kinematics.position.xM +
+      (mining ? Math.sin(kinematics.headingRad) * 1.92 : 0)
     const contactZM =
-      kinematics.position.zM + Math.cos(kinematics.headingRad) * 1.05
+      kinematics.position.zM +
+      (mining ? Math.cos(kinematics.headingRad) * 1.92 : 0)
     const contact = localSurfaceToRender(terrain, contactXM, contactZM)
     groupRef.current.position.set(
       contact.x,
-      contact.y + 0.12 * LOCAL_METRES_TO_RENDER_UNITS,
+      contact.y + (mining ? 0.12 : 0.06) * LOCAL_METRES_TO_RENDER_UNITS,
       contact.z,
     )
+
+    material.color.set(mining ? '#ff9b52' : '#aaa49d')
+    material.opacity = mining ? 0.86 : 0.3
+    material.size = mining ? 0.00008 : 0.000072
 
     const positions = geometry.getAttribute('position') as BufferAttribute
     const array = positions.array as Float32Array
@@ -90,30 +100,47 @@ function MiningEffects({ outpost, terrain }: MiningEffectsProps) {
     for (let index = 0; index < 24; index += 1) {
       const offset = index * 3
       const age = (elapsed * (1.35 + (index % 5) * 0.11) + index * 0.071) % 1
-      const angle = index * 2.399 + elapsed * 0.7
-      const radialM = age * (0.45 + (index % 4) * 0.12)
-      array[offset] = Math.cos(angle) * radialM * LOCAL_METRES_TO_RENDER_UNITS
-      array[offset + 1] =
-        (age * 0.72 - age * age * 0.62) * LOCAL_METRES_TO_RENDER_UNITS
-      array[offset + 2] = Math.sin(angle) * radialM * LOCAL_METRES_TO_RENDER_UNITS
+      if (mining) {
+        const angle = index * 2.399 + elapsed * 0.7
+        const radialM = age * (0.45 + (index % 4) * 0.12)
+        array[offset] = Math.cos(angle) * radialM * LOCAL_METRES_TO_RENDER_UNITS
+        array[offset + 1] =
+          (age * 0.72 - age * age * 0.62) * LOCAL_METRES_TO_RENDER_UNITS
+        array[offset + 2] = Math.sin(angle) * radialM * LOCAL_METRES_TO_RENDER_UNITS
+      } else {
+        const heading = kinematics.headingRad
+        const trailM = age * (0.72 + (index % 5) * 0.11)
+        const lateralM = Math.sin(index * 2.17) * (0.12 + age * 0.38)
+        array[offset] =
+          (-Math.sin(heading) * trailM + Math.cos(heading) * lateralM) *
+          LOCAL_METRES_TO_RENDER_UNITS
+        array[offset + 1] =
+          (0.025 + age * (1 - age) * 0.22) * LOCAL_METRES_TO_RENDER_UNITS
+        array[offset + 2] =
+          (-Math.cos(heading) * trailM - Math.sin(heading) * lateralM) *
+          LOCAL_METRES_TO_RENDER_UNITS
+      }
     }
 
     positions.needsUpdate = true
-    if (!isSimulationTimePaused()) {
-      state.invalidate()
-    }
   })
 
   return (
     <group
       ref={groupRef}
-      visible={outpost.robot.state === 'mining'}
+      visible={
+        outpost.robot.state === 'deploying' ||
+        outpost.robot.state === 'traveling' ||
+        outpost.robot.state === 'mining' ||
+        outpost.robot.state === 'returning'
+      }
     >
       <points geometry={geometry} material={material} />
       <mesh
         position-y={0.000012}
         rotation-x={-Math.PI / 2}
         scale={0.0003}
+        visible={outpost.robot.state === 'mining'}
       >
         <ringGeometry args={[0.62, 1, 18]} />
         <meshBasicMaterial
@@ -132,17 +159,21 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
   const chassisRef = useRef<Group>(null)
   const wheelRef = useRef<InstancedMesh>(null)
   const treadRef = useRef<InstancedMesh>(null)
+  const structureRef = useRef<InstancedMesh>(null)
   const drillArmRef = useRef<Group>(null)
   const drillBitRef = useRef<Mesh>(null)
   const statusMaterialRef = useRef<MeshStandardMaterial>(null)
   const cargoRef = useRef<Group>(null)
   const wheelDummyRef = useRef(new Object3D())
+  const structureDummyRef = useRef(new Object3D())
+  const projectedPointRef = useRef(new Vector3())
   const transform = useMemo(
     () => landingSiteToRenderTransform(outpost.site),
     [outpost.site],
   )
   const wheelGeometry = useMemo(() => new CylinderGeometry(0.22, 0.22, 0.16, 10), [])
   const treadGeometry = useMemo(() => new BoxGeometry(0.22, 0.34, 1.42), [])
+  const structureGeometry = useMemo(() => new BoxGeometry(1, 1, 1), [])
   const wheelMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
@@ -161,11 +192,28 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
       }),
     [],
   )
+  const structureMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: '#ffffff',
+        emissive: '#596672',
+        emissiveIntensity: 0.48,
+        metalness: 0.72,
+        roughness: 0.34,
+        vertexColors: true,
+      }),
+    [],
+  )
+  const isE2e = useMemo(
+    () => new URLSearchParams(window.location.search).has('e2e'),
+    [],
+  )
 
   useLayoutEffect(() => {
     const treadMesh = treadRef.current
+    const structureMesh = structureRef.current
 
-    if (treadMesh === null) {
+    if (treadMesh === null || structureMesh === null) {
       return
     }
 
@@ -178,22 +226,92 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
     }
 
     treadMesh.instanceMatrix.needsUpdate = true
+
+    const structureParts = [
+      {
+        position: [0, 0.22, 0] as const,
+        scale: [1.16, 0.52, 1.3] as const,
+        color: '#6f7983',
+      },
+      {
+        position: [0, 0.61, -0.1] as const,
+        scale: [0.78, 0.42, 0.68] as const,
+        color: '#59636d',
+      },
+      {
+        position: [0, 0.98, -0.17] as const,
+        scale: [0.07, 0.5, 0.07] as const,
+        color: '#9099a1',
+      },
+      {
+        position: [-0.66, 0.09, 0] as const,
+        scale: [0.13, 0.16, 1.46] as const,
+        color: '#343a40',
+      },
+      {
+        position: [0.66, 0.09, 0] as const,
+        scale: [0.13, 0.16, 1.46] as const,
+        color: '#343a40',
+      },
+    ]
+    const structureDummy = structureDummyRef.current
+
+    structureParts.forEach((definition, index) => {
+      structureDummy.position.set(
+        definition.position[0],
+        definition.position[1],
+        definition.position[2],
+      )
+      structureDummy.rotation.set(0, 0, 0)
+      structureDummy.scale.set(
+        definition.scale[0],
+        definition.scale[1],
+        definition.scale[2],
+      )
+      structureDummy.updateMatrix()
+      structureMesh.setMatrixAt(index, structureDummy.matrix)
+      structureMesh.setColorAt(index, new Color(definition.color))
+    })
+
+    structureDummy.position.set(0, 0.294, 1.06)
+    structureDummy.rotation.set(-0.04, 0, 0)
+    structureDummy.scale.set(0.22, 0.2, 0.74)
+    structureDummy.updateMatrix()
+    structureMesh.setMatrixAt(5, structureDummy.matrix)
+    structureMesh.setColorAt(5, new Color('#77808a'))
+
+    structureMesh.instanceMatrix.setUsage(DynamicDrawUsage)
+    structureMesh.instanceMatrix.needsUpdate = true
+
+    if (structureMesh.instanceColor !== null) {
+      structureMesh.instanceColor.needsUpdate = true
+    }
   }, [])
 
   useEffect(
     () => () => {
       wheelGeometry.dispose()
       treadGeometry.dispose()
+      structureGeometry.dispose()
       wheelMaterial.dispose()
       treadMaterial.dispose()
+      structureMaterial.dispose()
     },
-    [treadGeometry, treadMaterial, wheelGeometry, wheelMaterial],
+    [
+      structureGeometry,
+      structureMaterial,
+      treadGeometry,
+      treadMaterial,
+      wheelGeometry,
+      wheelMaterial,
+    ],
   )
 
   useFrame((state) => {
     const robot = robotRef.current
     const chassis = chassisRef.current
     const wheels = wheelRef.current
+    const structure = structureRef.current
     const drillArm = drillArmRef.current
     const drillBit = drillBitRef.current
 
@@ -201,6 +319,7 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
       robot === null ||
       chassis === null ||
       wheels === null ||
+      structure === null ||
       drillArm === null ||
       drillBit === null
     ) {
@@ -216,6 +335,36 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
     )
     const elapsed = (nowMs - outpost.robot.stateStartedAtMs) / 1_000
     const movingPulse = kinematics.moving ? Math.sin(elapsed * 17) : 0
+    const slopeSampleOffsetM = 0.72
+    const eastGround = localSurfaceToRender(
+      terrain,
+      kinematics.position.xM + slopeSampleOffsetM,
+      kinematics.position.zM,
+    )
+    const westGround = localSurfaceToRender(
+      terrain,
+      kinematics.position.xM - slopeSampleOffsetM,
+      kinematics.position.zM,
+    )
+    const southGround = localSurfaceToRender(
+      terrain,
+      kinematics.position.xM,
+      kinematics.position.zM + slopeSampleOffsetM,
+    )
+    const northGround = localSurfaceToRender(
+      terrain,
+      kinematics.position.xM,
+      kinematics.position.zM - slopeSampleOffsetM,
+    )
+    const sampleSpan = slopeSampleOffsetM * 2 * LOCAL_METRES_TO_RENDER_UNITS
+    const slopeX = (eastGround.y - westGround.y) / sampleSpan
+    const slopeZ = (southGround.y - northGround.y) / sampleSpan
+    const forwardSlope =
+      slopeX * Math.sin(kinematics.headingRad) +
+      slopeZ * Math.cos(kinematics.headingRad)
+    const sideSlope =
+      slopeX * Math.cos(kinematics.headingRad) -
+      slopeZ * Math.sin(kinematics.headingRad)
 
     robot.position.set(
       ground.x,
@@ -224,7 +373,27 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
     )
     robot.rotation.y = kinematics.headingRad
     chassis.position.y = movingPulse * 0.035
-    chassis.rotation.z = movingPulse * 0.018
+    chassis.rotation.x = -Math.atan(forwardSlope) + movingPulse * 0.009
+    chassis.rotation.z = Math.atan(sideSlope) + movingPulse * 0.018
+
+    if (isE2e && outpost.robot.state !== 'stored') {
+      projectedPointRef.current
+        .set(
+          robot.position.x,
+          robot.position.y + 0.95 * LOCAL_METRES_TO_RENDER_UNITS,
+          robot.position.z,
+        )
+        .applyQuaternion(transform.orientation)
+        .add(transform.position)
+        .project(state.camera)
+      const canvas = state.gl.domElement
+      canvas.dataset.robotX = String(
+        ((projectedPointRef.current.x + 1) / 2) * canvas.clientWidth,
+      )
+      canvas.dataset.robotY = String(
+        ((1 - projectedPointRef.current.y) / 2) * canvas.clientHeight,
+      )
+    }
 
     const dummy = wheelDummyRef.current
     const wheelSpin = kinematics.moving ? elapsed * 13.5 : 0
@@ -246,6 +415,19 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
     drillArm.position.z = mining ? 0.78 + Math.sin(elapsed * 11) * 0.05 : 0.72
     drillBit.rotation.z = mining ? elapsed * 28 : 0
 
+    const structureDummy = structureDummyRef.current
+    const armAngle = drillArm.rotation.x
+    structureDummy.position.set(
+      0,
+      drillArm.position.y - Math.sin(armAngle) * 0.34,
+      drillArm.position.z + Math.cos(armAngle) * 0.34,
+    )
+    structureDummy.rotation.set(armAngle, 0, 0)
+    structureDummy.scale.set(0.22, 0.2, 0.74)
+    structureDummy.updateMatrix()
+    structure.setMatrixAt(5, structureDummy.matrix)
+    structure.instanceMatrix.needsUpdate = true
+
     if (statusMaterialRef.current !== null) {
       statusMaterialRef.current.emissiveIntensity =
         1.6 + Math.sin(state.clock.elapsedTime * 6.5) * 0.5
@@ -261,17 +443,6 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
         outpost.robot.carriedOre > 0 && unloadingScale > 0.02
     }
 
-    if (
-      outpost.robot.state === 'deploying' ||
-      outpost.robot.state === 'traveling' ||
-      outpost.robot.state === 'mining' ||
-      outpost.robot.state === 'returning' ||
-      outpost.robot.state === 'unloading'
-    ) {
-      if (!isSimulationTimePaused()) {
-        state.invalidate()
-      }
-    }
   })
 
   return (
@@ -292,26 +463,12 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
             ref={wheelRef}
             args={[wheelGeometry, wheelMaterial, 6]}
           />
-          <mesh castShadow position-y={0.22} receiveShadow>
-            <boxGeometry args={[1.16, 0.52, 1.3]} />
-            <meshStandardMaterial
-              color="#505861"
-              emissive="#10151a"
-              emissiveIntensity={0.35}
-              metalness={0.7}
-              roughness={0.34}
-            />
-          </mesh>
-          <mesh castShadow position={[0, 0.61, -0.1]} receiveShadow>
-            <boxGeometry args={[0.78, 0.42, 0.68]} />
-            <meshStandardMaterial
-              color="#414850"
-              emissive="#0e1318"
-              emissiveIntensity={0.28}
-              metalness={0.72}
-              roughness={0.3}
-            />
-          </mesh>
+          <instancedMesh
+            ref={structureRef}
+            args={[structureGeometry, structureMaterial, 6]}
+            castShadow
+            receiveShadow
+          />
           <mesh position={[0, 0.61, 0.255]}>
             <boxGeometry args={[0.5, 0.085, 0.035]} />
             <meshStandardMaterial
@@ -324,22 +481,16 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
             />
           </mesh>
           <group ref={drillArmRef} position={[0, 0.28, 0.72]}>
-            <mesh castShadow position-z={0.34}>
-              <boxGeometry args={[0.22, 0.2, 0.74]} />
-              <meshStandardMaterial
-                color="#4b5157"
-                metalness={0.72}
-                roughness={0.3}
-              />
-            </mesh>
             <mesh
               ref={drillBitRef}
               position-z={0.86}
               rotation-x={Math.PI / 2}
             >
-              <coneGeometry args={[0.17, 0.55, 8, 2]} />
+              <coneGeometry args={[0.22, 0.68, 8, 2]} />
               <meshStandardMaterial
-                color="#b4a38f"
+                color="#e0c19c"
+                emissive="#7a3a18"
+                emissiveIntensity={0.45}
                 metalness={0.82}
                 roughness={0.24}
               />
@@ -367,14 +518,6 @@ export function MinerRobot({ outpost, terrain }: MinerRobotProps) {
               />
             </mesh>
           </group>
-          <mesh position={[0, 0.98, -0.17]}>
-            <cylinderGeometry args={[0.035, 0.045, 0.5, 7]} />
-            <meshStandardMaterial
-              color="#5e6267"
-              metalness={0.82}
-              roughness={0.25}
-            />
-          </mesh>
           <mesh position={[0, 1.27, -0.17]}>
             <octahedronGeometry args={[0.09, 0]} />
             <meshBasicMaterial color="#ff7031" />

@@ -165,8 +165,8 @@ function rawTerrainHeightM(
   zM: number,
 ): number {
   let heightM =
-    fractalNoise(xM, zM, seed + 313) * 0.16 +
-    fractalNoise(xM * 2.4, zM * 2.4, seed + 991) * 0.045
+    fractalNoise(xM, zM, seed + 313) * 0.3 +
+    fractalNoise(xM * 2.4, zM * 2.4, seed + 991) * 0.075
 
   for (const crater of craters) {
     const normalizedDistance =
@@ -207,6 +207,9 @@ export function createSurfaceTerrainProfile(
     0
   const random = createRandom(seed)
   const craters: TerrainCrater[] = [
+    { xM: 0, zM: -1, radiusM: 47, depthM: 1.45 },
+    { xM: -29, zM: 15, radiusM: 13, depthM: 1.25 },
+    { xM: 30, zM: 11, radiusM: 11, depthM: 0.95 },
     { xM: -72, zM: -44, radiusM: 29, depthM: 2.9 },
     { xM: 64, zM: -72, radiusM: 22, depthM: 2.1 },
     { xM: -94, zM: 48, radiusM: 38, depthM: 3.4 },
@@ -230,6 +233,22 @@ export function createSurfaceTerrainProfile(
   }
 
   const ridges: TerrainRidge[] = [
+    {
+      xM: -30,
+      zM: -48,
+      radiusXM: 34,
+      radiusZM: 6,
+      rotationRad: 0.23,
+      heightM: 1.05,
+    },
+    {
+      xM: 34,
+      zM: -55,
+      radiusXM: 31,
+      radiusZM: 7,
+      rotationRad: -0.31,
+      heightM: 0.92,
+    },
     {
       xM: -88,
       zM: -108,

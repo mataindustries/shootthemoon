@@ -58,11 +58,18 @@ function App() {
   )
   const saveEnabledRef = useRef(true)
   const simulationPausedRef = useRef(false)
+  const transitionsPausedRef = useRef(false)
   const [sceneReady, setSceneReady] = useState(false)
   const quality = useMemo(() => detectQualitySettings(), [])
   const [dpr, setDpr] = useState(() =>
     calculateDpr(window.innerWidth, window.innerHeight, quality.maxDpr),
   )
+  const continuousRendering =
+    state.phase === 'approach' ||
+    state.phase === 'returning' ||
+    (outpost !== null &&
+      (isRobotTransient(outpost.robot.state) ||
+        outpost.extractor?.status === 'constructing'))
 
   useEffect(() => {
     const updateDpr = () =>
@@ -89,10 +96,24 @@ function App() {
       simulationPausedRef.current = detail.paused
       setSimulationTimePaused(detail.paused, detail.visualOffsetMs ?? 0)
     }
+    const setTransitionsPaused = (event: Event) => {
+      transitionsPausedRef.current = (
+        event as CustomEvent<{ readonly paused: boolean }>
+      ).detail.paused
+    }
 
     window.addEventListener('first-outpost:set-simulation-paused', setPaused)
-    return () =>
+    window.addEventListener(
+      'first-outpost:set-transitions-paused',
+      setTransitionsPaused,
+    )
+    return () => {
       window.removeEventListener('first-outpost:set-simulation-paused', setPaused)
+      window.removeEventListener(
+        'first-outpost:set-transitions-paused',
+        setTransitionsPaused,
+      )
+    }
   }, [])
 
   useEffect(() => {
@@ -123,7 +144,7 @@ function App() {
       ? 80
       : 400
     const timer = window.setInterval(() => {
-      if (!simulationPausedRef.current) {
+      if (!simulationPausedRef.current && !transitionsPausedRef.current) {
         dispatchOutpost({ type: 'tick', nowMs: Date.now() })
       }
     }, intervalMs)
@@ -225,6 +246,10 @@ function App() {
       data-lunar-ore={outpost?.lunarOre ?? 0}
       data-selected-deposit={selectedDepositId ?? 'none'}
       data-extractor-status={outpost?.extractor?.status ?? 'none'}
+      data-extractor-activation-at={
+        outpost?.extractor?.activationTimestampMs ?? 'none'
+      }
+      data-render-mode={continuousRendering ? 'continuous' : 'demand'}
     >
       <Canvas
         className="scene-canvas"

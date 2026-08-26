@@ -110,6 +110,20 @@ function headingFromDirection(direction: LocalSurfacePosition): number {
   return Math.atan2(direction.xM, direction.zM)
 }
 
+function miningApproachPosition(
+  blueprint: (typeof DEPOSIT_BLUEPRINTS)[number],
+): LocalSurfacePosition {
+  const deltaX = blueprint.position.xM - blueprint.routeControl.xM
+  const deltaZ = blueprint.position.zM - blueprint.routeControl.zM
+  const length = Math.max(0.001, Math.hypot(deltaX, deltaZ))
+  const standOffM = 2.75
+
+  return {
+    xM: blueprint.position.xM - (deltaX / length) * standOffM,
+    zM: blueprint.position.zM - (deltaZ / length) * standOffM,
+  }
+}
+
 function miningHeading(depositId: string): number {
   const blueprint = findDepositBlueprint(depositId)
 
@@ -117,10 +131,12 @@ function miningHeading(depositId: string): number {
     return Math.PI
   }
 
+  const approachPosition = miningApproachPosition(blueprint)
+
   const tangent = quadraticTangent(
     ROBOT_IDLE_POSITION,
     blueprint.routeControl,
-    blueprint.position,
+    approachPosition,
     1,
   )
   return headingFromDirection(tangent)
@@ -599,7 +615,7 @@ export function getRobotKinematics(
 
   if (robot.state === 'mining') {
     return {
-      position: blueprint.position,
+      position: miningApproachPosition(blueprint),
       headingRad: miningHeading(blueprint.id),
       stateProgress: progress,
       clearanceM: 0.48,
@@ -609,16 +625,17 @@ export function getRobotKinematics(
 
   const routeProgress =
     robot.state === 'returning' ? 1 - smoothstep(progress) : smoothstep(progress)
+  const approachPosition = miningApproachPosition(blueprint)
   const position = quadraticPoint(
     ROBOT_IDLE_POSITION,
     blueprint.routeControl,
-    blueprint.position,
+    approachPosition,
     routeProgress,
   )
   const routeTangent = quadraticTangent(
     ROBOT_IDLE_POSITION,
     blueprint.routeControl,
-    blueprint.position,
+    approachPosition,
     routeProgress,
   )
   const tangent =

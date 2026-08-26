@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
 const SCREENSHOT_DIRECTORY = 'artifacts/screenshots'
+const SURFACE_AFTER_SCREENSHOT_DIRECTORY =
+  SCREENSHOT_DIRECTORY + '/surface-presence-after'
 
 interface BrowserErrors {
   readonly console: string[]
@@ -157,6 +159,53 @@ async function readRenderMetrics(page: Page): Promise<RenderMetrics> {
   }))
 }
 
+async function readFrameCount(page: Page): Promise<number> {
+  return Number(
+    await page
+      .locator('.scene-canvas canvas')
+      .getAttribute('data-frame-count'),
+  )
+}
+
+async function measureBrowserAnimationFrames(
+  page: Page,
+  durationMs: number,
+): Promise<number> {
+  return page.evaluate(
+    (duration) =>
+      new Promise<number>((resolve) => {
+        const startedAt = performance.now()
+        let frames = 0
+        const sample = (now: number) => {
+          frames += 1
+
+          if (now - startedAt >= duration) {
+            resolve(frames)
+            return
+          }
+
+          window.requestAnimationFrame(sample)
+        }
+
+        window.requestAnimationFrame(sample)
+      }),
+    durationMs,
+  )
+}
+
+async function expectProjectedRobotVisible(page: Page): Promise<void> {
+  const canvas = page.locator('.scene-canvas canvas')
+
+  await expect
+    .poll(async () => {
+      const x = Number(await canvas.getAttribute('data-robot-x'))
+      const y = Number(await canvas.getAttribute('data-robot-y'))
+      return x >= 8 && x <= page.viewportSize()!.width - 8 &&
+        y >= 100 && y <= page.viewportSize()!.height - 100
+    })
+    .toBe(true)
+}
+
 async function selectCanvasCenter(page: Page): Promise<void> {
   const center = await canvasCenter(page)
   await page.touchscreen.tap(center.x, center.y)
@@ -196,6 +245,78 @@ async function setSimulationPaused(
   }
 }
 
+async function setSimulationPausedAt(
+  page: Page,
+  absoluteNowMs: number,
+): Promise<void> {
+  await page.evaluate((fixedNowMs) => {
+    window.dispatchEvent(
+      new CustomEvent('first-outpost:set-simulation-paused', {
+        detail: {
+          paused: true,
+          visualOffsetMs: fixedNowMs - Date.now(),
+        },
+      }),
+    )
+    window.dispatchEvent(
+      new CustomEvent('moon-core:set-cinematic-progress', {
+        detail: { progress: null },
+      }),
+    )
+  }, absoluteNowMs)
+  await page.waitForTimeout(220)
+}
+
+async function setTransitionsPaused(
+  page: Page,
+  paused: boolean,
+): Promise<void> {
+  await page.evaluate((value) => {
+    window.dispatchEvent(
+      new CustomEvent('first-outpost:set-transitions-paused', {
+        detail: { paused: value },
+      }),
+    )
+  }, paused)
+}
+
+async function pauseTransitionsWhenRobotState(
+  page: Page,
+  robotState: string,
+): Promise<void> {
+  await page.evaluate((targetState) => {
+    const main = document.querySelector('main')
+
+    if (main === null) {
+      throw new Error('Shoot the Moon root was unavailable for transition pause.')
+    }
+
+    const pause = () => {
+      window.dispatchEvent(
+        new CustomEvent('first-outpost:set-transitions-paused', {
+          detail: { paused: true },
+        }),
+      )
+    }
+
+    if ((main as HTMLElement).dataset.robotState === targetState) {
+      pause()
+      return
+    }
+
+    const observer = new MutationObserver(() => {
+      if ((main as HTMLElement).dataset.robotState === targetState) {
+        observer.disconnect()
+        pause()
+      }
+    })
+    observer.observe(main, {
+      attributeFilter: ['data-robot-state'],
+      attributes: true,
+    })
+  }, robotState)
+}
+
 async function tapProjectedPoint(
   page: Page,
   xAttribute: string,
@@ -214,7 +335,7 @@ async function tapProjectedPoint(
 test('complete mobile First Outpost loop, persistence, screenshots, and budgets', async ({
   page,
 }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
   const errors = watchBrowserErrors(page)
   await openReadyScene(page)
   await expect(page.locator('main')).toHaveAttribute('data-quality', 'medium')
@@ -282,6 +403,16 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
   await setCinematicProgress(page, 1)
   await expect(main).toHaveAttribute('data-phase', 'landed', { timeout: 6_000 })
   await expect(main).toHaveAttribute('data-robot-state', 'stored')
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'surface-player', {
+    timeout: 6_000,
+  })
+  await page.waitForTimeout(500)
+  await page.screenshot({
+    path: SCREENSHOT_DIRECTORY + '/04-landed-site-mobile.png',
+  })
+  await page.screenshot({
+    path: SURFACE_AFTER_SCREENSHOT_DIRECTORY + '/01-default-landed.png',
+  })
 
   const storedMetrics = await readRenderMetrics(page)
   console.log('FIRST_OUTPOST_STORED_SURFACE_METRICS ' + JSON.stringify(storedMetrics))
@@ -289,16 +420,67 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
   expect(storedMetrics.triangles).toBeLessThanOrEqual(200_000)
   expect(storedMetrics.textures).toBeLessThanOrEqual(12)
 
+  const deployBounds = await page
+    .getByRole('button', { name: 'DEPLOY MINER' })
+    .boundingBox()
+  const orbitReturnBounds = await page
+    .getByRole('button', { name: 'RETURN TO ORBIT' })
+    .boundingBox()
+  expect(deployBounds?.height ?? 0).toBeGreaterThanOrEqual(48)
+  expect(orbitReturnBounds?.height ?? 0).toBeGreaterThanOrEqual(44)
+  expect(orbitReturnBounds?.y ?? 900).toBeLessThan(824)
+
+  const storedIdleFrame = await readFrameCount(page)
+  await page.waitForTimeout(800)
+  const storedIdleFrames = (await readFrameCount(page)) - storedIdleFrame
+  console.log(
+    'FIRST_OUTPOST_STORED_IDLE ' + JSON.stringify({ frames: storedIdleFrames, durationMs: 800 }),
+  )
+  expect(storedIdleFrames).toBeLessThanOrEqual(2)
+
+  await page.setViewportSize({ width: 390, height: 780 })
+  const compactReturnBounds = await page
+    .getByRole('button', { name: 'RETURN TO ORBIT' })
+    .boundingBox()
+  expect(
+    (compactReturnBounds?.y ?? 900) + (compactReturnBounds?.height ?? 0),
+  ).toBeLessThanOrEqual(760)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.waitForTimeout(250)
+
+  await setSimulationPaused(page, true)
   await page.getByRole('button', { name: 'DEPLOY MINER' }).click()
   await expect(main).toHaveAttribute('data-robot-state', 'deploying')
+  await setSimulationPaused(page, true, 850)
+  await expect(canvas).toHaveAttribute(
+    'data-camera-mode',
+    'surface-focus-deployment',
+  )
+  await page.waitForTimeout(650)
+  await expectProjectedRobotVisible(page)
+  await page.screenshot({
+    path: SURFACE_AFTER_SCREENSHOT_DIRECTORY + '/02-robot-deployment.png',
+  })
+  await setSimulationPaused(page, false)
   await expect(main).toHaveAttribute('data-robot-state', 'idle', {
     timeout: 5_000,
   })
+  await page.waitForTimeout(850)
   await setSimulationPaused(page, true)
   await page.screenshot({
     path: SCREENSHOT_DIRECTORY + '/06-capsule-opened-robot-deployed.png',
   })
   await setSimulationPaused(page, false)
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'surface-player')
+
+  const scannerIdleFrame = await readFrameCount(page)
+  await page.waitForTimeout(1_000)
+  const scannerIdleFrames = (await readFrameCount(page)) - scannerIdleFrame
+  console.log(
+    'FIRST_OUTPOST_SCANNER_IDLE ' +
+      JSON.stringify({ frames: scannerIdleFrames, durationMs: 1_000 }),
+  )
+  expect(scannerIdleFrames).toBeLessThanOrEqual(10)
 
   await tapProjectedPoint(
     page,
@@ -308,16 +490,40 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
   await expect(main).toHaveAttribute('data-selected-deposit', 'deposit-gamma')
   await expect(page.locator('.deposit-readout')).toContainText('LUNAR ORE')
 
+  await pauseTransitionsWhenRobotState(page, 'mining')
   await page.getByRole('button', { name: 'MINE DEPOSIT' }).click()
   await expect(main).toHaveAttribute('data-robot-state', 'traveling')
   await expect(main).toHaveAttribute('data-robot-state', 'mining', {
     timeout: 6_000,
   })
+  await expect(main).toHaveAttribute('data-render-mode', 'continuous')
+  const miningFrame = await readFrameCount(page)
+  const availableAnimationFrames = await measureBrowserAnimationFrames(page, 600)
+  const renderedMiningFrames = (await readFrameCount(page)) - miningFrame
+  console.log(
+    'FIRST_OUTPOST_SUSTAINED_ANIMATION ' +
+      JSON.stringify({ availableAnimationFrames, renderedMiningFrames }),
+  )
+  expect(availableAnimationFrames).toBeGreaterThanOrEqual(2)
+  expect(renderedMiningFrames).toBeGreaterThan(3)
+  expect(renderedMiningFrames).toBeGreaterThanOrEqual(
+    Math.max(3, availableAnimationFrames - 2),
+  )
   await setSimulationPaused(page, true, 850)
+  await expect(canvas).toHaveAttribute(
+    'data-camera-mode',
+    'surface-focus-mining',
+  )
+  await page.waitForTimeout(650)
+  await expectProjectedRobotVisible(page)
   await page.screenshot({
     path: SCREENSHOT_DIRECTORY + '/07-robot-mining.png',
   })
+  await page.screenshot({
+    path: SURFACE_AFTER_SCREENSHOT_DIRECTORY + '/03-mining-close-view.png',
+  })
   await setSimulationPaused(page, false)
+  await setTransitionsPaused(page, false)
   await expect(main).toHaveAttribute('data-robot-state', 'idle', {
     timeout: 8_000,
   })
@@ -329,8 +535,17 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
     timeout: 9_000,
   })
   await setSimulationPaused(page, true, 720)
+  await expect(canvas).toHaveAttribute(
+    'data-camera-mode',
+    'surface-focus-return',
+  )
+  await page.waitForTimeout(400)
+  await expectProjectedRobotVisible(page)
   await page.screenshot({
     path: SCREENSHOT_DIRECTORY + '/08-robot-returning-cargo.png',
+  })
+  await page.screenshot({
+    path: SURFACE_AFTER_SCREENSHOT_DIRECTORY + '/04-cargo-return.png',
   })
   await setSimulationPaused(page, false)
   await expect(main).toHaveAttribute('data-robot-state', 'idle', {
@@ -345,7 +560,12 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
   await page.getByRole('button', { name: /CONSTRUCT EXTRACTOR/ }).click()
   await expect(main).toHaveAttribute('data-extractor-status', 'constructing')
   await expect(page.locator('.phase-label')).toHaveText('EXTRACTOR ASSEMBLY')
-  await setSimulationPaused(page, true, 850)
+  await setSimulationPaused(page, true, 1_700)
+  await expect(canvas).toHaveAttribute(
+    'data-camera-mode',
+    'surface-focus-construction',
+  )
+  await page.waitForTimeout(600)
   await page.screenshot({
     path: SCREENSHOT_DIRECTORY + '/09-extractor-construction.png',
   })
@@ -353,25 +573,79 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
   await expect(main).toHaveAttribute('data-outpost-stage', 'extractor-active', {
     timeout: 5_000,
   })
-  await page.waitForTimeout(500)
+  const activationTimestampMs = Number(
+    await main.getAttribute('data-extractor-activation-at'),
+  )
+  expect(Number.isFinite(activationTimestampMs)).toBe(true)
+  await setSimulationPausedAt(page, activationTimestampMs + 500)
+  await expect(canvas).toHaveAttribute(
+    'data-camera-mode',
+    'surface-focus-activation',
+  )
+  await page.waitForTimeout(650)
   await page.screenshot({
     path: SCREENSHOT_DIRECTORY + '/10-extractor-active.png',
   })
+  await page.screenshot({
+    path: SURFACE_AFTER_SCREENSHOT_DIRECTORY + '/05-active-extractor.png',
+  })
 
+  const focusedExtractorMetrics = await readRenderMetrics(page)
+  console.log(
+    'FIRST_OUTPOST_FOCUSED_EXTRACTOR_METRICS ' +
+      JSON.stringify(focusedExtractorMetrics),
+  )
+
+  await setSimulationPaused(page, false)
+  await page.waitForTimeout(3_000)
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'surface-player', {
+    timeout: 6_000,
+  })
+  await expect(main).toHaveAttribute('data-render-mode', 'demand')
   const activeMetrics = await readRenderMetrics(page)
   console.log('FIRST_OUTPOST_ACTIVE_SURFACE_METRICS ' + JSON.stringify(activeMetrics))
-  expect(activeMetrics.drawCalls).toBeLessThanOrEqual(80)
-  expect(activeMetrics.triangles).toBeLessThanOrEqual(200_000)
+  expect(activeMetrics.drawCalls).toBeLessThanOrEqual(60)
+  expect(activeMetrics.triangles).toBeLessThanOrEqual(60_000)
+  expect(activeMetrics.geometries).toBeLessThanOrEqual(45)
+  expect(activeMetrics.textures).toBeLessThanOrEqual(6)
+  expect(activeMetrics.programs).toBeLessThanOrEqual(24)
   expect(activeMetrics.bufferWidth * activeMetrics.bufferHeight).toBeLessThanOrEqual(
     1_010_000,
   )
+  const activeIdleFrame = await readFrameCount(page)
+  await page.waitForTimeout(1_400)
+  const activeIdleFrames = (await readFrameCount(page)) - activeIdleFrame
+  console.log(
+    'FIRST_OUTPOST_ACTIVE_IDLE ' +
+      JSON.stringify({ frames: activeIdleFrames, durationMs: 1_400 }),
+  )
+  expect(activeIdleFrames).toBeLessThanOrEqual(16)
+
+  await page.setViewportSize({ width: 844, height: 390 })
+  await page.waitForTimeout(350)
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+  await page.screenshot({
+    path: SURFACE_AFTER_SCREENSHOT_DIRECTORY + '/06-landscape-active.png',
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.waitForTimeout(300)
 
   await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
   await setCinematicProgress(page, 1)
   await expect(main).toHaveAttribute('data-phase', 'orbit', { timeout: 5_000 })
+  await expect
+    .poll(async () => Number(await canvas.getAttribute('data-camera-distance')))
+    .toBeGreaterThan(4.4)
   await page.waitForTimeout(500)
   await page.screenshot({
     path: SCREENSHOT_DIRECTORY + '/11-orbital-outpost-signature.png',
+  })
+  await page.screenshot({
+    path: SURFACE_AFTER_SCREENSHOT_DIRECTORY + '/07-orbital-signature.png',
   })
 
   await tapProjectedPoint(
@@ -403,6 +677,36 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
       () => localStorage.getItem('shoot-the-moon:first-outpost:v1') !== null,
     ),
   ).toBe(true)
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'surface-player')
+  const restoredCenter = await canvasCenter(page)
+  const surfaceAzimuthBefore = Number(
+    await canvas.getAttribute('data-camera-azimuth'),
+  )
+  await dragTouch(
+    page,
+    { x: restoredCenter.x - 52, y: restoredCenter.y - 15 },
+    { x: restoredCenter.x + 58, y: restoredCenter.y + 24 },
+    11,
+  )
+  await expect
+    .poll(async () => Number(await canvas.getAttribute('data-camera-azimuth')))
+    .not.toBeCloseTo(surfaceAzimuthBefore, 2)
+  const surfaceDistanceBefore = Number(
+    await canvas.getAttribute('data-camera-distance'),
+  )
+  await pinchTouch(page, false)
+  await expect
+    .poll(async () => Number(await canvas.getAttribute('data-camera-distance')))
+    .not.toBeCloseTo(surfaceDistanceBefore, 3)
+  await expect(main).toHaveAttribute('data-selected-deposit', 'none')
+  const mobileWebglState = await canvas.evaluate((element) => {
+    const context = element.getContext('webgl2')
+    return {
+      contextLost: context?.isContextLost() ?? null,
+      error: context?.getError() ?? null,
+    }
+  })
+  expect(mobileWebglState).toEqual({ contextLost: false, error: 0 })
   expect(errors).toEqual({ console: [], page: [] })
 
   page.once('dialog', (dialog) => dialog.accept())
@@ -493,6 +797,9 @@ test('clear and aborted descent preserve repeat landing-site selection', async (
   const firstLatitude = Number(
     await page.locator('.site-panel').getAttribute('data-latitude-rad'),
   )
+  const firstLongitude = Number(
+    await page.locator('.site-panel').getAttribute('data-longitude-rad'),
+  )
   await page.getByRole('button', { name: 'CLAIM LANDING SITE' }).click()
   await page.getByRole('button', { name: 'ABORT DESCENT' }).click()
   await setCinematicProgress(page, 1)
@@ -507,7 +814,16 @@ test('clear and aborted descent preserve repeat landing-site selection', async (
   const secondLatitude = Number(
     await page.locator('.site-panel').getAttribute('data-latitude-rad'),
   )
-  expect(secondLatitude).not.toBeCloseTo(firstLatitude, 2)
+  const secondLongitude = Number(
+    await page.locator('.site-panel').getAttribute('data-longitude-rad'),
+  )
+  const coordinateDot =
+    Math.sin(firstLatitude) * Math.sin(secondLatitude) +
+    Math.cos(firstLatitude) *
+      Math.cos(secondLatitude) *
+      Math.cos(secondLongitude - firstLongitude)
+  const angularSeparation = Math.acos(Math.max(-1, Math.min(1, coordinateDot)))
+  expect(angularSeparation).toBeGreaterThan(0.001)
   expect(errors).toEqual({ console: [], page: [] })
 })
 

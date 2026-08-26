@@ -1,6 +1,6 @@
 # Moon Core Android performance budget
 
-Status: enforced First Outpost budget with automated production measurements,
+Status: Surface Presence + Performance Headroom pass measured in production,
 2026-08-26. Physical Pixel 6a frame-time, memory, and thermal acceptance remains
 open.
 
@@ -39,30 +39,38 @@ than attempt a partial 2D implementation when WebGL 2 is unavailable.
 These are automated production-build counters, not physical-device frame-time
 evidence. They were captured in Chromium 151 at a 390 × 844 CSS-pixel viewport,
 DPR 1.0, a 390 × 844 drawing buffer, and the deterministic medium tier. The
-working tree is intentionally uncommitted on top of the clean Moon Core
-revision `551daff`; the final JavaScript hash is recorded with the verification
-report.
+working tree is intentionally uncommitted on top of the clean First Outpost
+revision `fcaf758`; the final JavaScript hash is recorded below.
 
-| Representative frame | Draw calls | Triangles | Points | Geometries | Texture objects | Programs |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Initial orbit | 3 | 31,520 | 640 | 3 | 3 | 3 |
-| Landed capsule, miner stored | 51 | 55,276 | 694 | 33 | 6 | 16 |
-| Active First Outpost | 78 | 57,592 | 694 | 58 | 6 | 20 |
+| Representative frame | Calls before | Calls after | Triangles before | Triangles after | Geometries before | Geometries after | Textures before/after | Programs before/after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Initial orbit | 3 | 3 | 31,520 | 31,520 | 3 | 3 | 3 / 3 | 3 / 3 |
+| Landed capsule, miner stored | 51 | 26 | 55,276 | 55,372 | 33 | 18 | 6 / 6 | 16 / 17 |
+| Settled active First Outpost | 78 | 50 | 57,592 | 58,160 | 58 | 40 | 6 / 6 | 20 / 20 |
 
-The stored-miner scene returns to the demand-loop idle state. Once deposits are
-revealed, scanner and active-extractor machinery request low-frequency frames at
-roughly 11 Hz; robot deployment/travel/mining/return requests continuous frames
-only for the bounded action. The automated suite recorded zero console errors,
-a WebGL 2 context with no GL error, and a drawing-buffer area of 329,160 pixels.
+Points remain unchanged at 640 in orbit and 694 on the surface. The active
+extractor focus frame is 32 calls, 56,504 triangles, 40 geometries, 6 textures,
+and 20 programs, but the settled player view is used for the fair baseline
+comparison. The active scene is 28 calls below the previous result and 10 calls
+below the new 60-call target while adding 568 triangles.
+
+The stored-miner scene returns fully to the demand-loop idle state. The final
+suite measured 0 frames over 800 ms while stored, 5 scanner frames over 1,000 ms,
+and 5 active-extractor frames over 1,400 ms. A shared demand-animation request
+loop exists only while the robot is transient or the extractor is constructing;
+the sustained mining assertion rendered 8 scene frames while throttled headless
+Chromium exposed 3 measurable browser animation callbacks. The automated suite
+recorded zero console/page errors, a WebGL 2 context with no GL error or context
+loss, and a drawing-buffer area of 329,160 pixels.
 
 Production transfer/build observations:
 
-- JavaScript: 1,163,937 bytes minified; Vite reports 318.75 kB gzip and
-  `gzip -9` produces 313,888 bytes (306.53 KiB); SHA-256
-  `a0653bb8d968b2cee5fd505f8ea325cee922d98a8d1396bd5611fe2e27691ab0`;
-- CSS: 9,015 bytes minified; Vite reports 2.71 kB gzip and `gzip -9`
-  produces 2,740 bytes;
-- HTML: 500 bytes; Vite reports 0.31 kB gzip and `gzip -9` produces 330 bytes;
+- JavaScript: 1,171,860 bytes minified; Vite reports 321.27 kB gzip and
+  `gzip -9` produces 316,336 bytes (308.92 KiB); SHA-256
+  `a948d5ead6c9dcd10a66fce49c036977533ede4beca4a06721467b10507ec638`;
+- CSS: 9,035 bytes minified; Vite reports 2.72 kB gzip and `gzip -9`
+  produces 2,749 bytes;
+- HTML: 500 bytes; Vite reports 0.31 kB gzip and `gzip -9` produces 328 bytes;
 - checked-in lunar JPEGs: 569,494 bytes total;
 - conservative decoded lunar texture estimate with mipmaps: about 13.34 MiB;
 - procedural surface detail texture: 128 × 128 R8, about 21 KiB with mipmaps;
@@ -71,11 +79,12 @@ Production transfer/build observations:
 
 The app-owned texture estimate remains roughly 18–22 MiB during the shadowed
 close view, below the 48 MiB target. Code-authored outpost objects add no bitmap
-textures. Medium-tier instancing presents 52 rocks/ridge stones, 9 mineral
-crystals, 6 scanner elements, 8 robot locomotion elements, and 4 extractor
-feet—79 instances across shared batches. Geometry is far below the 20 MiB
-target based on the measured 57,592-triangle frame, but neither GPU allocation
-nor JavaScript heap was directly measured in headless Chromium.
+textures. Medium-tier instancing presents 52 rocks/ridge stones, 20 capsule
+structural/light parts, 9 mineral crystals, 6 scanner elements, 14 robot
+structure/locomotion parts, and 10 extractor support/pump parts—111 instances
+across shared batches. Geometry is far below the 20 MiB target based on the
+measured 58,160-triangle frame, but neither GPU allocation nor JavaScript heap
+was directly measured in headless Chromium.
 
 Current compromises and mobile risks:
 
@@ -88,10 +97,11 @@ Current compromises and mobile risks:
 - the local terrain is a deterministic bounded visual overlay with a shared
   approximate grounding sampler, not a canonical global height query or a
   traversable terrain-tile system;
-- the active scene is close to the 80-call hard ceiling and needs consolidation
-  before another prop or building is added;
-- scanner/extractor motion deliberately sustains roughly 11 presented frames
-  per second while landed; its physical-device thermal cost remains unmeasured;
+- the active scene now clears the 60-call target at 50 calls, but future hero
+  structures should preserve that 10-call target headroom;
+- scanner/extractor motion requests at most the low-frequency pulse cadence
+  while landed; its physical-device frame pacing and thermal cost remain
+  unmeasured;
 - headless SwiftShader-style execution proves counters and behavior, not Pixel
   6a FPS, thermals, driver allocation, or touch latency;
 - the single JavaScript chunk passes transfer budget but has limited headroom
@@ -285,8 +295,8 @@ mobile connection:
 | Bytes required for rotatable orbital Moon | 3 MiB | 5 MiB |
 | All first-playable assets transferred | 8 MiB | 12 MiB |
 
-The First Outpost production bundle is 306.53 KiB with `gzip -9` (318.75 kB by
-Vite's gzip report) on Vite 8.2.2. It still passes the 325 KiB target but has
+The Surface Presence production bundle is 308.92 KiB with `gzip -9` (321.27 kB
+by Vite's gzip report) on Vite 8.2.2. It still passes the 325 KiB target but has
 little headroom and triggers Vite's 500 kB raw-chunk warning. Track the warning
 rather than hiding it; introduce measured code splitting before the next
 substantial feature.

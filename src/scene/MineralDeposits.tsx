@@ -188,7 +188,7 @@ export function MineralDeposits({
       if (!isSimulationTimePaused()) {
         invalidate()
       }
-    }, 90)
+    }, 180)
     return () => window.clearInterval(timer)
   }, [crystalsVisible, invalidate])
 
@@ -228,7 +228,7 @@ export function MineralDeposits({
         deposit.position.zM,
       )
       const selected = deposit.id === selectedDepositId
-      const scale = (selected ? 2.5 : 2.05) * LOCAL_METRES_TO_RENDER_UNITS * pulse
+      const scale = (selected ? 2.78 : 2.05) * LOCAL_METRES_TO_RENDER_UNITS * pulse
       dummy.position.set(sample.x, sample.y + 0.00002, sample.z)
       dummy.rotation.set(Math.PI / 2, 0, deposit.orientationRad)
       dummy.scale.setScalar(scale)
@@ -237,7 +237,7 @@ export function MineralDeposits({
       indicatorColor.set(selected ? '#ffb26e' : '#b96a3c')
       indicators.setColorAt(index, indicatorColor)
 
-      const beamScale = 1.08 * LOCAL_METRES_TO_RENDER_UNITS
+      const beamScale = (selected ? 1.24 : 1.02) * LOCAL_METRES_TO_RENDER_UNITS
       dummy.position.set(
         sample.x,
         sample.y + 0.95 * LOCAL_METRES_TO_RENDER_UNITS,

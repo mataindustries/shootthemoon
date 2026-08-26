@@ -1,13 +1,17 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import {
+  BufferAttribute,
+  BufferGeometry,
   BoxGeometry,
   Group,
   InstancedMesh,
   Mesh,
   MeshStandardMaterial,
   Object3D,
+  PointsMaterial,
+  TorusGeometry,
 } from 'three'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useFrame } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
@@ -16,10 +20,7 @@ import {
   type SurfaceTerrainProfile,
 } from '../render/surfaceTerrain.ts'
 import { EXTRACTOR_CONSTRUCTION_DURATION_MS } from '../simulation/outpostSimulation.ts'
-import {
-  isSimulationTimePaused,
-  simulationNowMs,
-} from '../simulation/simulationTime.ts'
+import { simulationNowMs } from '../simulation/simulationTime.ts'
 
 interface ExtractorProps {
   readonly outpost: OutpostSnapshot
@@ -34,28 +35,74 @@ export function Extractor({ outpost, terrain }: ExtractorProps) {
   const machineryRef = useRef<Group>(null)
   const drumRef = useRef<Mesh>(null)
   const pumpRef = useRef<Group>(null)
+  const pumpPartsRef = useRef<InstancedMesh>(null)
   const legRef = useRef<InstancedMesh>(null)
-  const operationMaterialRef = useRef<MeshStandardMaterial>(null)
-  const invalidate = useThree((state) => state.invalidate)
+  const constructionDustRef = useRef<Group>(null)
   const transform = useMemo(
     () => landingSiteToRenderTransform(outpost.site),
     [outpost.site],
   )
-  const legGeometry = useMemo(() => new BoxGeometry(0.32, 0.22, 0.62), [])
+  const legGeometry = useMemo(() => new BoxGeometry(1, 1, 1), [])
+  const operationRingGeometry = useMemo(
+    () => new TorusGeometry(1, 0.13, 7, 22),
+    [],
+  )
   const legMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: '#30353a',
+        color: '#4c555f',
+        emissive: '#161d25',
+        emissiveIntensity: 0.28,
         metalness: 0.7,
-        roughness: 0.4,
+        roughness: 0.46,
+      }),
+    [],
+  )
+  const operationMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: '#812d15',
+        emissive: '#ff5d24',
+        emissiveIntensity: 1.65,
+        metalness: 0.5,
+        roughness: 0.3,
+      }),
+    [],
+  )
+  const constructionDustGeometry = useMemo(() => {
+    const geometry = new BufferGeometry()
+    const positions = new Float32Array(30 * 3)
+
+    for (let index = 0; index < 30; index += 1) {
+      const offset = index * 3
+      const angle = index * 2.399
+      const radius = 1.05 + (index % 7) * 0.14
+      positions[offset] = Math.cos(angle) * radius
+      positions[offset + 1] = 0.04 + (index % 5) * 0.045
+      positions[offset + 2] = Math.sin(angle) * radius
+    }
+
+    geometry.setAttribute('position', new BufferAttribute(positions, 3))
+    return geometry
+  }, [])
+  const constructionDustMaterial = useMemo(
+    () =>
+      new PointsMaterial({
+        color: '#d09a72',
+        depthWrite: false,
+        opacity: 0.34,
+        size: 0.00007,
+        sizeAttenuation: true,
+        transparent: true,
       }),
     [],
   )
 
   useLayoutEffect(() => {
     const legs = legRef.current
+    const pumpParts = pumpPartsRef.current
 
-    if (legs === null) {
+    if (legs === null || pumpParts === null) {
       return
     }
 
@@ -65,32 +112,49 @@ export function Extractor({ outpost, terrain }: ExtractorProps) {
       const angle = index * (Math.PI / 2) + Math.PI / 4
       dummy.position.set(Math.sin(angle) * 1.08, 0.03, Math.cos(angle) * 1.08)
       dummy.rotation.y = angle
+      dummy.scale.set(0.36, 0.2, 0.68)
       dummy.updateMatrix()
       legs.setMatrixAt(index, dummy.matrix)
+
+      dummy.position.set(Math.sin(angle) * 0.72, 0.58, Math.cos(angle) * 0.72)
+      dummy.rotation.set(0, angle, 0)
+      dummy.scale.set(0.16, 0.92, 0.18)
+      dummy.updateMatrix()
+      legs.setMatrixAt(index + 4, dummy.matrix)
     }
 
     legs.instanceMatrix.needsUpdate = true
+
+    dummy.position.set(0.72, 0.46, 0)
+    dummy.rotation.set(0, 0, 0)
+    dummy.scale.set(0.18, 1.25, 0.2)
+    dummy.updateMatrix()
+    pumpParts.setMatrixAt(0, dummy.matrix)
+
+    dummy.position.set(0, 1.08, 0)
+    dummy.scale.set(1.72, 0.18, 0.24)
+    dummy.updateMatrix()
+    pumpParts.setMatrixAt(1, dummy.matrix)
+    pumpParts.instanceMatrix.needsUpdate = true
   }, [])
-
-  useEffect(() => {
-    if (extractor?.status !== 'active') {
-      return
-    }
-
-    const timer = window.setInterval(() => {
-      if (!isSimulationTimePaused()) {
-        invalidate()
-      }
-    }, 90)
-    return () => window.clearInterval(timer)
-  }, [extractor?.status, invalidate])
 
   useEffect(
     () => () => {
       legGeometry.dispose()
       legMaterial.dispose()
+      operationRingGeometry.dispose()
+      operationMaterial.dispose()
+      constructionDustGeometry.dispose()
+      constructionDustMaterial.dispose()
     },
-    [legGeometry, legMaterial],
+    [
+      constructionDustGeometry,
+      constructionDustMaterial,
+      legGeometry,
+      legMaterial,
+      operationMaterial,
+      operationRingGeometry,
+    ],
   )
 
   useFrame((state) => {
@@ -131,19 +195,20 @@ export function Extractor({ outpost, terrain }: ExtractorProps) {
     towerRef.current.scale.set(1, towerProgress, 1)
     machineryRef.current.scale.setScalar(machineryProgress)
 
+    if (constructionDustRef.current !== null) {
+      constructionDustRef.current.rotation.y = constructionProgress * 1.8
+      constructionDustRef.current.scale.setScalar(
+        0.82 + Math.sin(constructionProgress * Math.PI) * 0.24,
+      )
+    }
+
     if (extractor.status === 'active') {
       const elapsed = state.clock.elapsedTime
       drumRef.current.rotation.x = elapsed * 2.8
       pumpRef.current.rotation.z = -0.28 + Math.sin(elapsed * 3.4) * 0.36
 
-      if (operationMaterialRef.current !== null) {
-        operationMaterialRef.current.emissiveIntensity =
-          1.65 + Math.sin(elapsed * 4.2) * 0.38
-      }
-    } else {
-      if (!isSimulationTimePaused()) {
-        state.invalidate()
-      }
+      operationMaterial.emissiveIntensity =
+        1.65 + Math.sin(elapsed * 4.2) * 0.38
     }
   })
 
@@ -175,19 +240,30 @@ export function Extractor({ outpost, terrain }: ExtractorProps) {
             transparent
           />
         </mesh>
+        <group
+          ref={constructionDustRef}
+          visible={extractor.status === 'constructing'}
+        >
+          <points
+            geometry={constructionDustGeometry}
+            material={constructionDustMaterial}
+          />
+        </group>
         <group ref={baseRef}>
           <instancedMesh
             ref={legRef}
-            args={[legGeometry, legMaterial, 4]}
+            args={[legGeometry, legMaterial, 8]}
             castShadow
             receiveShadow
           />
           <mesh castShadow position-y={0.24} receiveShadow>
             <cylinderGeometry args={[1.05, 1.2, 0.46, 12]} />
             <meshStandardMaterial
-              color="#252a30"
-              metalness={0.76}
-              roughness={0.34}
+              color="#46505a"
+              emissive="#141b22"
+              emissiveIntensity={0.32}
+              metalness={0.7}
+              roughness={0.42}
             />
           </mesh>
         </group>
@@ -195,22 +271,27 @@ export function Extractor({ outpost, terrain }: ExtractorProps) {
           <mesh position-y={1.15} receiveShadow>
             <cylinderGeometry args={[0.32, 0.48, 1.85, 10]} />
             <meshStandardMaterial
-              color="#42484e"
-              metalness={0.72}
-              roughness={0.32}
+              color="#65717d"
+              emissive="#18212a"
+              emissiveIntensity={0.32}
+              metalness={0.66}
+              roughness={0.38}
             />
           </mesh>
-          <mesh position-y={0.7} rotation-x={Math.PI / 2}>
-            <torusGeometry args={[0.54, 0.075, 7, 22]} />
-            <meshStandardMaterial
-              ref={operationMaterialRef}
-              color="#812d15"
-              emissive="#ff5d24"
-              emissiveIntensity={1.65}
-              metalness={0.5}
-              roughness={0.3}
-            />
-          </mesh>
+          <mesh
+            geometry={operationRingGeometry}
+            material={operationMaterial}
+            position-y={0.7}
+            rotation-x={Math.PI / 2}
+            scale={0.54}
+          />
+          <mesh
+            geometry={operationRingGeometry}
+            material={operationMaterial}
+            position-y={1.42}
+            rotation-x={Math.PI / 2}
+            scale={0.44}
+          />
         </group>
         <group ref={machineryRef}>
           <mesh
@@ -220,20 +301,24 @@ export function Extractor({ outpost, terrain }: ExtractorProps) {
           >
             <cylinderGeometry args={[0.48, 0.48, 1.02, 12]} />
             <meshStandardMaterial
-              color="#31363c"
-              metalness={0.82}
-              roughness={0.25}
+              color="#59646f"
+              emissive="#35414d"
+              emissiveIntensity={0.58}
+              metalness={0.74}
+              roughness={0.31}
+            />
+            <mesh
+              geometry={legGeometry}
+              material={operationMaterial}
+              position-z={0.47}
+              scale={[0.14, 1.04, 0.07]}
             />
           </mesh>
-          <group ref={pumpRef} position={[0.74, 1.38, 0]}>
-            <mesh position-y={0.5}>
-              <boxGeometry args={[0.16, 1.05, 0.18]} />
-              <meshStandardMaterial
-                color="#6a2b18"
-                metalness={0.64}
-                roughness={0.33}
-              />
-            </mesh>
+          <group ref={pumpRef} position={[0, 1.38, 0]}>
+            <instancedMesh
+              ref={pumpPartsRef}
+              args={[legGeometry, operationMaterial, 2]}
+            />
           </group>
           <mesh castShadow position-y={-0.22} rotation-x={Math.PI}>
             <coneGeometry args={[0.22, 1.08, 8, 2]} />

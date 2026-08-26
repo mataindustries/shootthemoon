@@ -104,7 +104,7 @@ canvas {
 .datum-line,
 .orbit-instruction {
   color: rgb(207 219 232 / 60%);
-  font-size: 0.62rem;
+  font-size: 0.66rem;
   font-weight: 650;
   letter-spacing: 0.19em;
   line-height: 1.4;
@@ -112,7 +112,7 @@ canvas {
 
 .brand-lockup strong {
   color: #f1f4f6;
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-weight: 760;
   letter-spacing: 0.16em;
 }
@@ -132,13 +132,13 @@ canvas {
 
 .reset-button {
   position: relative;
-  min-height: 1.5rem;
-  padding: 0 0.15rem;
+  min-height: 2.35rem;
+  padding: 0 0.25rem;
   border-bottom: 1px solid rgb(193 204 218 / 18%);
   color: rgb(207 219 232 / 34%);
   background: transparent;
   cursor: pointer;
-  font-size: 0.48rem;
+  font-size: 0.52rem;
   font-weight: 680;
   letter-spacing: 0.14em;
   pointer-events: auto;
@@ -202,7 +202,7 @@ canvas {
   min-width: 7.2rem;
   align-items: baseline;
   gap: 0.55rem;
-  padding: 0.58rem 0.68rem;
+  padding: 0.62rem 0.72rem;
   border-left: 2px solid #df6b31;
 }
 
@@ -210,7 +210,7 @@ canvas {
 .robot-status,
 .deposit-readout span {
   color: rgb(204 216 228 / 50%);
-  font-size: 0.52rem;
+  font-size: 0.59rem;
   font-weight: 690;
   letter-spacing: 0.14em;
   line-height: 1.35;
@@ -218,7 +218,7 @@ canvas {
 
 .ore-counter strong {
   color: #f3c29e;
-  font-size: 1.18rem;
+  font-size: 1.32rem;
   font-variant-numeric: tabular-nums;
   font-weight: 520;
 }
@@ -229,7 +229,8 @@ canvas {
   align-items: center;
   justify-content: flex-end;
   gap: 0.48rem;
-  padding: 0.55rem 0.65rem;
+  min-height: 2.9rem;
+  padding: 0.58rem 0.68rem;
   color: rgb(225 232 239 / 68%);
   text-align: right;
 }
@@ -244,7 +245,7 @@ canvas {
   justify-content: center;
   gap: 0.55rem;
   color: rgb(231 219 211 / 72%);
-  font-size: 0.56rem;
+  font-size: 0.62rem;
   font-weight: 720;
   letter-spacing: 0.18em;
   pointer-events: none;
@@ -280,7 +281,7 @@ canvas {
 
 .deposit-readout > div {
   display: grid;
-  min-height: 3.25rem;
+  min-height: 3.55rem;
   align-content: center;
   gap: 0.12rem;
   padding: 0.5rem 0.62rem;
@@ -293,7 +294,7 @@ canvas {
 
 .deposit-readout strong {
   color: #eff1f2;
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   font-variant-numeric: tabular-nums;
   font-weight: 650;
   letter-spacing: 0.05em;
@@ -302,7 +303,7 @@ canvas {
 
 .primary-action {
   display: flex;
-  min-height: 3rem;
+  min-height: 3.25rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -315,7 +316,7 @@ canvas {
     inset 0 1px 0 rgb(255 255 255 / 10%),
     0 0 26px rgb(223 74 23 / 14%);
   cursor: pointer;
-  font-size: 0.67rem;
+  font-size: 0.75rem;
   font-weight: 760;
   letter-spacing: 0.14em;
   pointer-events: auto;
@@ -324,7 +325,7 @@ canvas {
 
 .primary-action b {
   color: rgb(255 211 181 / 68%);
-  font-size: 0.52rem;
+  font-size: 0.56rem;
   font-weight: 690;
   letter-spacing: 0.1em;
 }
@@ -344,12 +345,12 @@ canvas {
 }
 
 .orbit-return {
-  min-height: 2.35rem;
+  min-height: 2.75rem;
   border: 1px solid rgb(193 206 220 / 16%);
   color: rgb(222 230 238 / 62%);
   background: rgb(7 11 16 / 64%);
   cursor: pointer;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.16em;
   pointer-events: auto;
@@ -553,7 +554,7 @@ button {
 @media (max-width: 420px) {
   .phase-label {
     max-width: 8.5rem;
-    font-size: 0.52rem;
+    font-size: 0.56rem;
   }
 
   .orbit-instruction {
@@ -587,7 +588,7 @@ button {
 
   .robot-status {
     padding-inline: 0.5rem;
-    font-size: 0.47rem;
+    font-size: 0.54rem;
   }
 
   .deposit-readout > div {
@@ -595,7 +596,7 @@ button {
   }
 
   .deposit-readout strong {
-    font-size: 0.64rem;
+    font-size: 0.7rem;
   }
 }
 

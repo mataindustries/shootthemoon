@@ -209,6 +209,19 @@ motion. Camera travel requests continuous frames only while active. Static orbit
 and surface views return to R3F demand rendering. Reduced-motion support may
 shorten or replace travel animation without changing the destination.
 
+Bounded surface actions may temporarily derive a contextual focus pose from the
+same local tangent terrain and robot/extractor snapshot. CameraRig saves the
+player's surface pose, tracks deployment, travel, mining, cargo return, and
+construction without changing domain state, then restores that pose with
+elapsed-time damping before re-enabling controls. Focus state and camera pose
+remain transient and are never serialized.
+
+SceneRoot owns one shared demand-animation invalidation hook. It runs only for
+transient robot states or extractor construction and cancels its animation frame
+when that condition ends. Scanner and active-extractor motion are sampled by a
+separate low-frequency invalidation timer, so an idle landed scene does not
+retain a 60 fps request loop.
+
 ## Scene structure
 
 One Canvas owns one renderer, one scene, one event system, and one active
@@ -477,9 +490,10 @@ adapters together.
    models enter scope.
 9. Reserve command/snapshot ports for future multiplayer but implement only a
    local simulation during Moon Core.
-10. Prefer demand rendering while static and a bounded continuous loop only
-    during interaction or travel. Deployed scanner/extractor motion uses a
-    low-frequency invalidation cadence rather than a permanent 60 fps loop.
+10. Prefer demand rendering while static. A shared requestAnimationFrame
+    invalidation loop exists only for transient robot motion and extractor
+    construction; deployed scanner/extractor motion uses a low-frequency
+    invalidation cadence rather than a permanent 60 fps loop.
 11. Keep the First Outpost economy to one prototype resource, three deposits,
     one miner, and one extractor.
 12. Persist canonical and local domain values only; normalize every transient
@@ -494,9 +508,9 @@ adapters together.
 | Touch gesture variation | Automated CDP touch covers drag, pinch, tap, cooldown, limb, poles, and seam cases | Verify real Android pointer cancellation, browser bars, edge gestures, and palm behavior |
 | Physical Android performance | Drawing-buffer, draw-call, triangle, texture, and shader counters pass in headless Chromium | Run the full Pixel 6a frame-time, memory, thermal, and ten-minute soak protocol |
 | Surface detail fidelity | A deterministic curved procedural overlay and shared approximate height sampler support the bounded outpost routes | Wider traversal requires tiled, canonical terrain data and rebasing; neither is implemented |
-| JavaScript bundle headroom | The First Outpost production JavaScript is about 319 kB gzip against the 325 KiB target | Introduce deliberate scene/code splitting before another substantial feature |
-| Active-surface draw calls | Shared/instanced geometry and selective shadows keep the active extractor scene just below the 80-call hard ceiling | Any additional animated prop requires consolidation or an explicit budget review |
-| Sustained landed animation | Scanner and extractor motion invalidate at roughly 11 Hz; robot movement temporarily requests continuous frames | Confirm frame pacing and thermal behavior on the physical reference Android device |
+| JavaScript bundle headroom | The Surface Presence production JavaScript is 321.27 kB gzip against the 325 KiB target | Introduce deliberate scene/code splitting before another substantial feature |
+| Active-surface draw calls | Shared/instanced geometry and selective shadows reduce the settled active extractor scene from 78 to 50 calls | Preserve the remaining 10-call target headroom before adding another hero structure |
+| Sustained landed animation | Scanner/extractor idle is low-frequency; a shared demand-animation loop is active only for transient robot/construction states | Confirm frame pacing and thermal behavior on the physical reference Android device |
 | Runtime asset pipeline | NASA textures are fully recorded; the capsule is code-authored | Build the manifest/GLB/KTX2 repository only when an imported model is approved |
 | Context restoration | The WebGL 2 fallback exists, but loss/restoration is not exercised | Add a controlled context-loss browser test and verify resource reconstruction |
 | Future multiplayer semantics | Domain data remains plain canonical snapshots and no network code exists | Define authority, protocol, tick, and reconciliation only in a future phase |

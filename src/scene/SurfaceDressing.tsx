@@ -4,7 +4,6 @@ import {
   BufferGeometry,
   Color,
   DodecahedronGeometry,
-  DynamicDrawUsage,
   IcosahedronGeometry,
   InstancedMesh,
   Matrix4,
@@ -126,12 +125,12 @@ function createRockPlacements(
 
   for (let attempt = 0; attempt < count * 14 && placements.length < count; attempt += 1) {
     const angle = random() * Math.PI * 2
-    const distanceM = 7 + Math.pow(random(), 0.72) * 150
+    const distanceM = 7 + Math.pow(random(), 1.38) * 132
     const xM = Math.cos(angle) * distanceM
     const zM = Math.sin(angle) * distanceM
     const scaleM =
-      0.34 +
-      Math.pow(random(), 2.2) * (distanceM < 48 ? 1.25 : 2.35)
+      0.3 +
+      Math.pow(random(), 2.05) * (distanceM < 52 ? 1.02 : 2.1)
 
     if (!isClearPlacement(xM, zM, scaleM)) {
       continue
@@ -152,7 +151,10 @@ function createRockPlacements(
   return placements
 }
 
-function createDustGeometry(site: LandingSite): BufferGeometry {
+function createDustGeometry(
+  site: LandingSite,
+  terrain: SurfaceTerrainProfile,
+): BufferGeometry {
   const random = createRandom(siteTerrainSeed(site, 0xd0575))
   const positions = new Float32Array(54 * 3)
 
@@ -160,14 +162,14 @@ function createDustGeometry(site: LandingSite): BufferGeometry {
     const offset = index * 3
     const angle = random() * Math.PI * 2
     const distanceM = 5 + random() * 74
+    const xM = Math.cos(angle) * distanceM
+    const zM = Math.sin(angle) * distanceM
+    const ground = localSurfaceToRender(terrain, xM, zM)
 
-    positions[offset] =
-      Math.cos(angle) * distanceM * LOCAL_METRES_TO_RENDER_UNITS
+    positions[offset] = ground.x
     positions[offset + 1] =
-      LOCAL_SURFACE_RENDER_OFFSET +
-      (0.16 + random() * 2.1) * LOCAL_METRES_TO_RENDER_UNITS
-    positions[offset + 2] =
-      Math.sin(angle) * distanceM * LOCAL_METRES_TO_RENDER_UNITS
+      ground.y + (0.04 + random() * 0.48) * LOCAL_METRES_TO_RENDER_UNITS
+    positions[offset + 2] = ground.z
   }
 
   const geometry = new BufferGeometry()
@@ -215,7 +217,10 @@ export function SurfaceDressing({
       }),
     [],
   )
-  const dustGeometry = useMemo(() => createDustGeometry(site), [site])
+  const dustGeometry = useMemo(
+    () => createDustGeometry(site, terrain),
+    [site, terrain],
+  )
   const dustMaterial = useMemo(
     () =>
       new PointsMaterial({
@@ -256,7 +261,7 @@ export function SurfaceDressing({
           placement.rotationZ,
         )
         dummy.scale.set(
-          scale * (stretched ? 2.3 : 1.15),
+          scale * (stretched ? 1.82 : 1.12),
           scale * (stretched ? 0.52 : 0.72),
           scale * (stretched ? 0.72 : 1),
         )
@@ -267,7 +272,6 @@ export function SurfaceDressing({
           .lerp(new Color('#9ba0a4'), placement.tone * 0.34)
         mesh.setColorAt(index, color)
       })
-      mesh.instanceMatrix.setUsage(DynamicDrawUsage)
       mesh.instanceMatrix.needsUpdate = true
 
       if (mesh.instanceColor !== null) {

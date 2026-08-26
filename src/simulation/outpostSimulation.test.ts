@@ -103,6 +103,17 @@ describe('first outpost robot state machine', () => {
     expect(Number.isFinite(midpoint.headingRad)).toBe(true)
     expect(midpoint.position).not.toEqual(ROBOT_IDLE_POSITION)
 
+    const mining = advanceOutpost(outpost, START_MS + duration)
+    const miningPosition = getRobotKinematics(mining, START_MS + duration).position
+    const targetDeposit = findDeposit(mining, DEPOSIT_ID)
+    expect(targetDeposit).not.toBeNull()
+    expect(
+      Math.hypot(
+        miningPosition.xM - targetDeposit!.position.xM,
+        miningPosition.zM - targetDeposit!.position.zM,
+      ),
+    ).toBeCloseTo(2.75, 4)
+
     const completed = advanceOutpost(
       outpost,
       START_MS + duration * 2 + MINING_DURATION_MS + UNLOADING_DURATION_MS,
