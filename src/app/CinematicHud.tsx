@@ -1,12 +1,25 @@
+import { findDeposit, type OutpostSnapshot } from '../domain/outpost.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
+import {
+  EXTRACTOR_COST,
+  canConstructExtractor,
+  canMineDeposit,
+} from '../simulation/outpostSimulation.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
 
 interface CinematicHudProps {
   readonly phase: ExperiencePhase
   readonly site: LandingSite | null
+  readonly outpost: OutpostSnapshot | null
+  readonly selectedDepositId: string | null
+  readonly targetingOutpost: boolean
   readonly onClaim: () => void
   readonly onClear: () => void
   readonly onReturn: () => void
+  readonly onDeploy: () => void
+  readonly onMine: () => void
+  readonly onConstruct: () => void
+  readonly onResetPrototype: () => void
 }
 
 function formatCoordinate(valueRad: number, positive: string, negative: string) {
@@ -23,27 +36,94 @@ function formatAltitude(heightM: number): string {
   return String(Object.is(rounded, -0) ? 0 : rounded)
 }
 
-function phaseLabel(phase: ExperiencePhase): string {
+function phaseLabel(phase: ExperiencePhase, outpost: OutpostSnapshot | null): string {
+  if (phase === 'landed' && outpost !== null) {
+    if (outpost.extractor?.status === 'constructing') {
+      return 'EXTRACTOR ASSEMBLY'
+    }
+
+    return outpost.stage === 'extractor-active'
+      ? 'EXTRACTION ONLINE'
+      : 'FIRST OUTPOST'
+  }
+
   switch (phase) {
     case 'orbit':
-      return 'ORBITAL RECONNAISSANCE'
+      return outpost === null ? 'ORBITAL RECONNAISSANCE' : 'OUTPOST IN ORBITAL VIEW'
     case 'selected':
-      return 'LANDING VECTOR ACQUIRED'
+      return outpost === null ? 'LANDING VECTOR ACQUIRED' : 'OUTPOST SIGNAL LOCKED'
     case 'approach':
-      return 'INVASION CAPSULE INBOUND'
+      return outpost === null ? 'INVASION CAPSULE INBOUND' : 'RETURNING TO OUTPOST'
     case 'landed':
-      return 'LANDING SITE CLAIMED'
+      return 'FIRST OUTPOST'
     case 'returning':
       return 'RETURNING TO ORBIT'
   }
 }
 
+function robotStatus(outpost: OutpostSnapshot): string {
+  switch (outpost.robot.state) {
+    case 'stored':
+      return 'MINER STORED'
+    case 'deploying':
+      return 'DEPLOYING MINER'
+    case 'idle':
+      return outpost.extractor?.status === 'active'
+        ? 'MINER IDLE · EXTRACTOR RUNNING'
+        : 'MINER READY'
+    case 'traveling':
+      return 'MINER EN ROUTE'
+    case 'mining':
+      return 'DRILLING LUNAR ORE'
+    case 'returning':
+      return `RETURNING · ${outpost.robot.carriedOre} ORE`
+    case 'unloading':
+      return `UNLOADING · ${outpost.robot.carriedOre} ORE`
+  }
+}
+
+function ContextPrompt({
+  outpost,
+  selectedDepositId,
+}: {
+  readonly outpost: OutpostSnapshot
+  readonly selectedDepositId: string | null
+}) {
+  let message: string | null = null
+
+  if (outpost.robot.state === 'stored') {
+    message = 'OPEN THE CAPSULE'
+  } else if (
+    outpost.robot.state === 'idle' &&
+    outpost.stage === 'miner-deployed' &&
+    outpost.extractor === null &&
+    selectedDepositId === null &&
+    outpost.lunarOre < EXTRACTOR_COST
+  ) {
+    message = 'TAP AN ORE SIGNAL'
+  }
+
+  return message === null ? null : (
+    <div className="context-prompt" role="status">
+      <span aria-hidden="true" />
+      {message}
+    </div>
+  )
+}
+
 export function CinematicHud({
   phase,
   site,
+  outpost,
+  selectedDepositId,
+  targetingOutpost,
   onClaim,
   onClear,
   onReturn,
+  onDeploy,
+  onMine,
+  onConstruct,
+  onResetPrototype,
 }: CinematicHudProps) {
   const latitude =
     site === null
@@ -53,35 +133,139 @@ export function CinematicHud({
     site === null
       ? null
       : formatCoordinate(site.location.longitudeRad, 'E', 'W')
+  const selectedDeposit =
+    outpost === null ? null : findDeposit(outpost, selectedDepositId)
+  const canConstruct =
+    outpost !== null && selectedDeposit !== null
+      ? canConstructExtractor(outpost, selectedDeposit.id)
+      : false
+  const canMine =
+    outpost !== null && selectedDeposit !== null
+      ? canMineDeposit(outpost, selectedDeposit.id)
+      : false
 
   return (
     <div className="hud" aria-live="polite">
       <header className="hud-header">
         <div className="brand-lockup">
           <span className="brand-kicker">SHOOT THE MOON</span>
-          <strong>MOON CORE</strong>
+          <strong>FIRST OUTPOST</strong>
         </div>
-        <span className="phase-label">{phaseLabel(phase)}</span>
+        <div className="hud-meta">
+          <span className="phase-label">{phaseLabel(phase, outpost)}</span>
+          <button
+            className="reset-button"
+            type="button"
+            onClick={onResetPrototype}
+          >
+            RESET PROTOTYPE
+          </button>
+        </div>
       </header>
 
-      {site === null ? (
+      {phase === 'landed' && outpost !== null ? (
+        <>
+          <section className="surface-status" aria-label="Outpost status">
+            <div className="ore-counter">
+              <span>LUNAR ORE</span>
+              <strong>{outpost.lunarOre}</strong>
+            </div>
+            <div className="robot-status" data-robot-status={outpost.robot.state}>
+              <span className="signal-dot" aria-hidden="true" />
+              <span>{robotStatus(outpost)}</span>
+            </div>
+          </section>
+
+          <ContextPrompt
+            outpost={outpost}
+            selectedDepositId={selectedDepositId}
+          />
+
+          <section className="command-deck" aria-label="Outpost commands">
+            {selectedDeposit !== null ? (
+              <div
+                className="deposit-readout"
+                data-deposit-id={selectedDeposit.id}
+              >
+                <div>
+                  <span>SELECTED</span>
+                  <strong>{selectedDeposit.resource}</strong>
+                </div>
+                <div>
+                  <span>DISTANCE</span>
+                  <strong>
+                    {Math.round(
+                      Math.hypot(
+                        selectedDeposit.position.xM,
+                        selectedDeposit.position.zM,
+                      ),
+                    )}{' '}
+                    M
+                  </strong>
+                </div>
+                <div>
+                  <span>YIELD</span>
+                  <strong>{selectedDeposit.remainingYield}</strong>
+                </div>
+              </div>
+            ) : null}
+
+            {outpost.robot.state === 'stored' ? (
+              <button className="primary-action" type="button" onClick={onDeploy}>
+                <span>DEPLOY MINER</span>
+                <b aria-hidden="true">01</b>
+              </button>
+            ) : null}
+
+            {canConstruct ? (
+              <button
+                className="primary-action primary-action--construct"
+                type="button"
+                onClick={onConstruct}
+              >
+                <span>CONSTRUCT EXTRACTOR</span>
+                <b>{EXTRACTOR_COST} ORE</b>
+              </button>
+            ) : canMine ? (
+              <button className="primary-action" type="button" onClick={onMine}>
+                <span>MINE DEPOSIT</span>
+                <b aria-hidden="true">COMMAND</b>
+              </button>
+            ) : null}
+
+            <button className="orbit-return" type="button" onClick={onReturn}>
+              RETURN TO ORBIT
+            </button>
+          </section>
+        </>
+      ) : site === null ? (
         <div className="orbit-instruction">
-          <span>DRAG TO ORBIT</span>
-          <i aria-hidden="true" />
-          <span>PINCH TO ZOOM</span>
-          <i aria-hidden="true" />
-          <span>TAP TO MARK</span>
+          {outpost === null ? (
+            <>
+              <span>DRAG TO ORBIT</span>
+              <i aria-hidden="true" />
+              <span>PINCH TO ZOOM</span>
+              <i aria-hidden="true" />
+              <span>TAP TO MARK</span>
+            </>
+          ) : (
+            <>
+              <span className="signal-dot" aria-hidden="true" />
+              <span>TAP AMBER SIGNAL TO REVISIT</span>
+              <b>{outpost.lunarOre} ORE</b>
+            </>
+          )}
         </div>
       ) : (
         <section
           className={'site-panel site-panel--' + phase}
           data-latitude-rad={site.location.latitudeRad}
           data-longitude-rad={site.location.longitudeRad}
-          aria-label="Selected lunar landing site"
+          aria-label={targetingOutpost ? 'Saved lunar outpost' : 'Selected lunar landing site'}
         >
           <div className="site-panel__eyebrow">
             <span className="signal-dot" aria-hidden="true" />
-            {phase === 'landed' ? 'VILLAIN FOOTHOLD' : 'CANDIDATE SITE'}
+            {targetingOutpost ? 'ESTABLISHED OUTPOST' : 'CANDIDATE SITE'}
           </div>
           <div className="coordinate-grid">
             <div>
@@ -102,24 +286,20 @@ export function CinematicHud({
           {phase === 'selected' ? (
             <div className="site-actions">
               <button className="claim-button" type="button" onClick={onClaim}>
-                <span>CLAIM LANDING SITE</span>
+                <span>
+                  {targetingOutpost ? 'REVISIT OUTPOST' : 'CLAIM LANDING SITE'}
+                </span>
                 <span aria-hidden="true">SITE 01</span>
               </button>
               <button className="text-button" type="button" onClick={onClear}>
-                CLEAR SITE
+                {targetingOutpost ? 'CANCEL' : 'CLEAR SITE'}
               </button>
             </div>
           ) : null}
 
           {phase === 'approach' ? (
             <button className="text-button" type="button" onClick={onReturn}>
-              ABORT DESCENT
-            </button>
-          ) : null}
-
-          {phase === 'landed' ? (
-            <button className="return-button" type="button" onClick={onReturn}>
-              RETURN TO ORBIT
+              {outpost === null ? 'ABORT DESCENT' : 'RETURN TO ORBIT'}
             </button>
           ) : null}
         </section>

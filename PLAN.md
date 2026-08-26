@@ -1,10 +1,12 @@
-# Moon Core implementation plan
+# Shoot the Moon implementation plan
 
-Status: first-playable implementation checkpoint, 2026-08-25
+Status: First Outpost vertical slice implemented, 2026-08-26
 
-Moon Core is a narrow technical prototype. This plan deliberately stops at a
-verified first-playable slice: orbit, inspect, select, claim, land, and return.
-The architecture and budgets remain gates for every extension.
+Moon Core remains the technical foundation. The current product slice extends
+it through one complete First Outpost loop: orbit, select, land, deploy one
+miner, mine Lunar Ore, construct one extractor, return to orbit, and revisit a
+persistent claimed site. The architecture and budgets remain gates for every
+extension.
 
 ## Product boundary
 
@@ -19,16 +21,20 @@ The implemented checkpoint contains:
 - one continuous orbital-to-surface camera journey and return;
 - one code-authored landing capsule, local curved terrain overlay, and bounded
   impact effect;
+- one code-authored miner with deterministic deployment, travel, mining,
+  return, cargo, and unload states;
+- exactly three stable Lunar Ore deposits and one constructible extractor;
+- a versioned local domain save, safe transient-state restoration, reset, and
+  orbit-to-outpost revisit flow;
+- a surface-attached orbital signature that evolves with the outpost;
 - reproducible unit, build, production-preview, and browser-interaction gates.
 
-The robot from the earlier eventual-first-playable outline is explicitly
-deferred by the current implementation scope.
-
-Explicitly excluded from the first playable are dashboards, resource economy,
-combat, accounts, multiplayer, matchmaking, persistence services, elaborate
-HUD, other celestial bodies, solar-system travel, DOM or canvas sprites, emoji
-assets, fake perspective, and any 2D gameplay implementation. New scope requires
-an explicit plan change.
+Explicitly excluded are additional buildings, currencies, workers, power
+networks, upgrade trees, crafting, combat, accounts, multiplayer, matchmaking,
+network persistence, elaborate dashboards, other celestial bodies,
+solar-system travel, DOM or canvas gameplay sprites, emoji assets, fake
+perspective, and any 2D gameplay implementation. New scope requires an explicit
+plan change.
 
 ## Researched stack baseline
 
@@ -220,14 +226,16 @@ Acceptance:
 - only one capsule and one robot exist;
 - the complete scene remains within every hard performance ceiling.
 
-Status: the capsule-only slice is complete using code-authored true-3D geometry
-and therefore needs no external model loader. The robot and general GLB asset
-repository are deferred and are not part of this checkpoint.
+Historical status at M5: the capsule-only slice used code-authored true-3D
+geometry and therefore needed no external model loader. M7 supersedes the robot
+deferral with one code-authored miner; a general GLB asset repository remains
+deferred.
 
 ### M6 — first-playable hardening
 
 M6.1 captures deterministic visual baselines for orbit, selected location,
-impact, and landed capsule. A robot baseline is deferred with the robot.
+impact, and landed capsule. M7 extends those baselines through the robot and
+outpost loop.
 
 M6.2 completes the physical-Android performance and thermal soak protocol.
 
@@ -248,6 +256,40 @@ This milestone ends Moon Core. A later product phase needs a new plan.
 Status: automated portrait and desktop coverage is implemented. Physical Pixel
 6a performance, thermals, actual Android touch, orientation, context recovery,
 and a long soak remain open and cannot be replaced by headless Chromium.
+
+### M7 — First Outpost
+
+M7.1 extends the tangent site with deterministic terrain relief, instanced
+rocks, distant ridges, three stable deposit placements, and shared CPU height
+sampling for visible entity grounding.
+
+M7.2 adds the capsule hatch, one miner, explicit robot state machine, Lunar Ore
+reward loop, and a short two-return construction threshold.
+
+M7.3 adds one staged extractor with controlled open-scene production timestamps,
+a compact touch-first HUD, a versioned local save, safe restore, reset, orbital
+signature, and revisit path.
+
+Acceptance:
+
+- the explicit robot sequence is `stored → deploying → idle → traveling →
+  mining → returning → unloading → idle`;
+- exactly three touch-selectable Lunar Ore deposits exist and movement follows
+  deterministic curved local routes plus the shared terrain-height sampler;
+- two cargo returns unlock exactly one extractor at a valid selected deposit;
+- local persistence contains canonical landing data and plain domain snapshots,
+  normalizes every transient robot state, and never stores Three.js objects;
+- return to orbit preserves the outpost, exposes its surface-attached signal,
+  and allows a revisit without creating another base;
+- the automated 390 × 844 production run captures deployment, mining, cargo
+  return, construction/active extraction, orbital signature, and refresh
+  restoration with no console or WebGL errors;
+- orbital and active-surface frames remain within the established hard mobile
+  render ceilings.
+
+Status: implemented and automated. Physical Android touch, frame pacing,
+memory, and thermal acceptance remain required before claiming device-level
+performance completion.
 
 ## Verification commands
 
@@ -303,6 +345,12 @@ PERFORMANCE_BUDGET.md.
   recorded in ASSETS.md.
 - A deterministic procedural tangent patch supplies close-range visual relief
   while canonical location remains independent of that render representation.
+- Outpost objects use stable local tangent coordinates in metres. The terrain
+  remains a bounded presentation and approximate grounding query, not an
+  unrestricted traversal engine or terrain-accurate global datum.
+- Extractor production advances only while the surface simulation is open;
+  restore and revisit reset its production baseline, so offline economy is not
+  implemented accidentally.
 - Headless Chromium validates browser behavior and framing, but a physical
   Android device is still required before claiming the Pixel 6a performance
   gate or real-touch/thermal acceptance.

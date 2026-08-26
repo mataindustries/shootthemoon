@@ -1,7 +1,8 @@
 # Moon Core Android performance budget
 
-Status: enforced first-playable budget with automated measurements, 2026-08-25.
-Physical Pixel 6a frame-time, memory, and thermal acceptance remains open.
+Status: enforced First Outpost budget with automated production measurements,
+2026-08-26. Physical Pixel 6a frame-time, memory, and thermal acceptance remains
+open.
 
 ## Target and measurement conditions
 
@@ -38,34 +39,42 @@ than attempt a partial 2D implementation when WebGL 2 is unavailable.
 These are automated production-build counters, not physical-device frame-time
 evidence. They were captured in Chromium 151 at a 390 × 844 CSS-pixel viewport,
 DPR 1.0, a 390 × 844 drawing buffer, and the deterministic medium tier. The
-working tree is intentionally uncommitted; the tested base revision is
-`121c73e`, and the built JavaScript SHA-256 is
-`f08b6866f757ff09e1ce8ffa431e01f62b7aebc93317de1e0d10dc3ce8dd5dd9`.
+working tree is intentionally uncommitted on top of the clean Moon Core
+revision `551daff`; the final JavaScript hash is recorded with the verification
+report.
 
 | Representative frame | Draw calls | Triangles | Points | Geometries | Texture objects | Programs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Initial orbit | 3 | 31,520 | 640 | 3 | 3 | 3 |
-| Landed capsule | 44 | 52,128 | 784 | 28 | 6 | 15 |
+| Landed capsule, miner stored | 51 | 55,276 | 694 | 33 | 6 | 16 |
+| Active First Outpost | 78 | 57,592 | 694 | 58 | 6 | 20 |
 
-The landed demand loop was observed for an additional 450 ms after settling
-with no new frame. The automated suite also recorded zero console errors, a
-WebGL 2 context with no GL error, and a drawing-buffer area of 329,160 pixels.
+The stored-miner scene returns to the demand-loop idle state. Once deposits are
+revealed, scanner and active-extractor machinery request low-frequency frames at
+roughly 11 Hz; robot deployment/travel/mining/return requests continuous frames
+only for the bounded action. The automated suite recorded zero console errors,
+a WebGL 2 context with no GL error, and a drawing-buffer area of 329,160 pixels.
 
 Production transfer/build observations:
 
-- JavaScript: 1,124,583 bytes minified; Vite reports 308.55 kB gzip and
-  `gzip -9` produces 303,869 bytes (296.75 KiB);
-- CSS: 5.16 kB minified, 1.86 kB gzip;
-- HTML: 0.50 kB, 0.32 kB gzip;
+- JavaScript: 1,163,937 bytes minified; Vite reports 318.75 kB gzip and
+  `gzip -9` produces 313,888 bytes (306.53 KiB); SHA-256
+  `a0653bb8d968b2cee5fd505f8ea325cee922d98a8d1396bd5611fe2e27691ab0`;
+- CSS: 9,015 bytes minified; Vite reports 2.71 kB gzip and `gzip -9`
+  produces 2,740 bytes;
+- HTML: 500 bytes; Vite reports 0.31 kB gzip and `gzip -9` produces 330 bytes;
 - checked-in lunar JPEGs: 569,494 bytes total;
 - conservative decoded lunar texture estimate with mipmaps: about 13.34 MiB;
 - procedural surface detail texture: 128 × 128 R8, about 21 KiB with mipmaps;
 - one medium/high close-view shadow target: approximately 4 MiB color plus
   driver-dependent depth storage at 1,024 × 1,024.
 
-The app-owned texture estimate is therefore roughly 18–22 MiB during the
-shadowed close view, below the 48 MiB target. Geometry is far below the 20 MiB
-target based on the measured 52,128-triangle frame, but neither GPU allocation
+The app-owned texture estimate remains roughly 18–22 MiB during the shadowed
+close view, below the 48 MiB target. Code-authored outpost objects add no bitmap
+textures. Medium-tier instancing presents 52 rocks/ridge stones, 9 mineral
+crystals, 6 scanner elements, 8 robot locomotion elements, and 4 extractor
+feet—79 instances across shared batches. Geometry is far below the 20 MiB
+target based on the measured 57,592-triangle frame, but neither GPU allocation
 nor JavaScript heap was directly measured in headless Chromium.
 
 Current compromises and mobile risks:
@@ -76,8 +85,13 @@ Current compromises and mobile risks:
   disabled on the low tier;
 - quality is selected once from memory/core hints and the pixel cap; sustained
   frame-time hysteresis is not implemented yet;
-- the local terrain is a deterministic visual overlay, not a canonical height
-  query or a traversable terrain-tile system;
+- the local terrain is a deterministic bounded visual overlay with a shared
+  approximate grounding sampler, not a canonical global height query or a
+  traversable terrain-tile system;
+- the active scene is close to the 80-call hard ceiling and needs consolidation
+  before another prop or building is added;
+- scanner/extractor motion deliberately sustains roughly 11 presented frames
+  per second while landed; its physical-device thermal cost remains unmeasured;
 - headless SwiftShader-style execution proves counters and behavior, not Pixel
   6a FPS, thermals, driver allocation, or touch latency;
 - the single JavaScript chunk passes transfer budget but has limited headroom
@@ -87,7 +101,8 @@ Current compromises and mobile risks:
 
 | Scenario | Target | Hard acceptance ceiling/floor |
 | --- | --- | --- |
-| Static orbit or landed view | Demand loop is idle | No continuous requestAnimationFrame activity after settling |
+| Static orbit or stored-miner landed view | Demand loop is idle | No continuous requestAnimationFrame activity after settling |
+| Deployed scanner/extractor idle | Low-frequency absolute-time animation | No unbounded 60 fps loop while no robot action is active |
 | One-finger Moon rotation | 60 fps; p95 frame ≤ 20 ms | Median ≥ 55 fps and p99 frame ≤ 33.3 ms after warm-up |
 | Pinch/orbit zoom | 60 fps; p95 frame ≤ 20 ms | Median ≥ 50 fps and no frame over 100 ms |
 | Orbital-to-surface travel | 60 fps where possible | Median ≥ 30 fps, p95 ≤ 33.3 ms, and no two consecutive frames over 50 ms |
@@ -145,8 +160,9 @@ Additional geometry limits:
 - LOD replacement must be selected before rendering; hidden duplicate LODs may
   not continue drawing.
 - Frustum culling remains enabled unless a measured exception is documented.
-- Repeated props, if later needed, use instancing; this checkpoint has only one
-  capsule. The robot line item is retained for a deferred milestone.
+- Repeated rocks, scanner elements, mineral crystals, robot locomotion parts,
+  and extractor feet use instancing; unique hero machinery remains separate for
+  readable animation and culling.
 - Mesh subdivision is driven by projected error. A high-resolution Moon mesh is
   not retained merely because its texture is detailed.
 
@@ -269,11 +285,11 @@ mobile connection:
 | Bytes required for rotatable orbital Moon | 3 MiB | 5 MiB |
 | All first-playable assets transferred | 8 MiB | 12 MiB |
 
-The current first-playable production bundle's exact `gzip -9` result is
-296.75 KiB with Vite 8.2.2. It passes the 325 KiB target with roughly 28.25 KiB
-of headroom and still triggers Vite's 500 kB raw-chunk warning. Track the
-warning rather than hiding it; introduce measured code splitting before the
-next substantial feature.
+The First Outpost production bundle is 306.53 KiB with `gzip -9` (318.75 kB by
+Vite's gzip report) on Vite 8.2.2. It still passes the 325 KiB target but has
+little headroom and triggers Vite's 500 kB raw-chunk warning. Track the warning
+rather than hiding it; introduce measured code splitting before the next
+substantial feature.
 
 The background canvas should present within 1 second on a warm load. On a cold
 Fast-4G profile, the orbital Moon target is interactive within 5 seconds and
@@ -340,8 +356,10 @@ Once the corresponding milestone exists, capture these fixed scenes:
 2. orbital limb selection at a known canonical coordinate;
 3. exactly 50% through descent;
 4. landed view with one capsule;
-5. landed view with one capsule and one robot, only after the deferred robot
-   enters scope.
+5. landed view with the capsule opened and one deployed robot;
+6. mining and cargo-return states;
+7. extractor construction/active state;
+8. orbital outpost signal and restored outpost after refresh.
 
 Use fixed viewport, DPR, camera state, clock, sun direction, quality tier, asset
 versions, and color settings. Maintain portrait and landscape baselines.

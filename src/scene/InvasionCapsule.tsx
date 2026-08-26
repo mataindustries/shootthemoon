@@ -12,6 +12,9 @@ import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { useCinematicProgress } from '../camera/CinematicClock.tsx'
 import { LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
+import type { OutpostSnapshot } from '../domain/outpost.ts'
+import { DEPLOYMENT_DURATION_MS } from '../simulation/outpostSimulation.ts'
+import { simulationNowMs } from '../simulation/simulationTime.ts'
 
 const CAPSULE_SCALE = 0.00029
 const LANDED_HEIGHT =
@@ -20,6 +23,7 @@ const LANDED_HEIGHT =
 interface InvasionCapsuleProps {
   readonly site: LandingSite
   readonly phase: ExperiencePhase
+  readonly outpost: OutpostSnapshot | null
 }
 
 function smoothstep(value: number): number {
@@ -27,13 +31,47 @@ function smoothstep(value: number): number {
   return clamped * clamped * (3 - 2 * clamped)
 }
 
-function CapsuleModel() {
+function CapsuleModel({ outpost }: { readonly outpost: OutpostSnapshot | null }) {
   const villainMaterialRef = useRef<MeshStandardMaterial>(null)
+  const hatchRef = useRef<Group>(null)
+  const rampLightRef = useRef<MeshStandardMaterial>(null)
 
   useFrame((state) => {
     if (villainMaterialRef.current !== null) {
       villainMaterialRef.current.emissiveIntensity =
         2.1 + Math.sin(state.clock.elapsedTime * 5.2) * 0.45
+    }
+
+    const hatch = hatchRef.current
+    const rampLight = rampLightRef.current
+
+    if (hatch === null) {
+      return
+    }
+
+    let progress = 0
+
+    if (outpost !== null) {
+      if (outpost.robot.state === 'deploying') {
+        progress = Math.max(
+          0,
+          Math.min(
+            1,
+            (simulationNowMs() - outpost.robot.stateStartedAtMs) /
+              DEPLOYMENT_DURATION_MS,
+          ),
+        )
+        state.invalidate()
+      } else if (outpost.robot.state !== 'stored') {
+        progress = 1
+      }
+    }
+
+    const eased = progress * progress * (3 - 2 * progress)
+    hatch.rotation.x = -eased * 1.34
+
+    if (rampLight !== null) {
+      rampLight.emissiveIntensity = 0.6 + eased * 2.2
     }
   })
 
@@ -85,6 +123,37 @@ function CapsuleModel() {
           roughness={0.32}
         />
       </mesh>
+      <mesh position={[0, 0.02, 0.535]}>
+        <boxGeometry args={[0.62, 0.82, 0.055]} />
+        <meshStandardMaterial
+          color="#080b0e"
+          emissive="#5b1f0c"
+          emissiveIntensity={1.35}
+          metalness={0.32}
+          roughness={0.7}
+        />
+      </mesh>
+      <group ref={hatchRef} position={[0, -0.39, 0.6]}>
+        <mesh castShadow position-y={0.39} receiveShadow>
+          <boxGeometry args={[0.72, 0.78, 0.07]} />
+          <meshStandardMaterial
+            color="#252a30"
+            metalness={0.7}
+            roughness={0.34}
+          />
+        </mesh>
+        <mesh position={[0, 0.39, 0.041]}>
+          <boxGeometry args={[0.48, 0.055, 0.018]} />
+          <meshStandardMaterial
+            ref={rampLightRef}
+            color="#7b2b14"
+            emissive="#ff6426"
+            emissiveIntensity={0.6}
+            metalness={0.35}
+            roughness={0.34}
+          />
+        </mesh>
+      </group>
       {[0, Math.PI / 2, Math.PI, (Math.PI * 3) / 2].map((rotation) => (
         <group key={rotation} rotation-y={rotation}>
           <mesh castShadow position={[0.58, -0.5, 0]} rotation-z={-0.24}>
@@ -139,6 +208,7 @@ function CapsuleModel() {
 export function InvasionCapsule({
   site,
   phase,
+  outpost,
 }: InvasionCapsuleProps) {
   const capsuleRef = useRef<Group>(null)
   const progressRef = useCinematicProgress()
@@ -152,7 +222,9 @@ export function InvasionCapsule({
     }
 
     const progress =
-      phase === 'landed' || phase === 'returning' ? 1 : progressRef.current
+      outpost !== null || phase === 'landed' || phase === 'returning'
+        ? 1
+        : progressRef.current
     const descent = smoothstep(Math.max(0, Math.min(1, (progress - 0.06) / 0.8)))
     const remaining = 1 - descent
     const impactAge = Math.max(0, Math.min(1, (progress - 0.86) / 0.14))
@@ -174,7 +246,7 @@ export function InvasionCapsule({
   return (
     <group position={transform.position} quaternion={transform.orientation}>
       <group ref={capsuleRef}>
-        <CapsuleModel />
+        <CapsuleModel outpost={outpost} />
       </group>
     </group>
   )

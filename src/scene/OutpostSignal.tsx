@@ -1,0 +1,145 @@
+import { useEffect, useMemo, useRef } from 'react'
+import {
+  AdditiveBlending,
+  Group,
+  MeshBasicMaterial,
+  SphereGeometry,
+  Vector3,
+} from 'three'
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import type { OutpostSnapshot } from '../domain/outpost.ts'
+import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
+
+const TAP_DISTANCE_PX = 10
+
+interface OutpostSignalProps {
+  readonly outpost: OutpostSnapshot
+  readonly focused: boolean
+  readonly onFocus: () => void
+}
+
+export function OutpostSignal({
+  outpost,
+  focused,
+  onFocus,
+}: OutpostSignalProps) {
+  const groupRef = useRef<Group>(null)
+  const projectedPointRef = useRef(new Vector3())
+  const invalidate = useThree((state) => state.invalidate)
+  const transform = useMemo(
+    () => landingSiteToRenderTransform(outpost.site),
+    [outpost.site],
+  )
+  const position = useMemo(
+    () => transform.position.clone().multiplyScalar(1.00038),
+    [transform.position],
+  )
+  const hitGeometry = useMemo(() => new SphereGeometry(7.5, 8, 6), [])
+  const hitMaterial = useMemo(
+    () => new MeshBasicMaterial({ visible: false }),
+    [],
+  )
+  const active = outpost.stage === 'extractor-active'
+  const isE2e = useMemo(
+    () => new URLSearchParams(window.location.search).has('e2e'),
+    [],
+  )
+
+  useEffect(() => {
+    const timer = window.setInterval(invalidate, 120)
+    return () => window.clearInterval(timer)
+  }, [invalidate])
+
+  useEffect(
+    () => () => {
+      hitGeometry.dispose()
+      hitMaterial.dispose()
+    },
+    [hitGeometry, hitMaterial],
+  )
+
+  useFrame((state) => {
+    const group = groupRef.current
+
+    if (group === null) {
+      return
+    }
+
+    const distance = state.camera.position.distanceTo(position)
+    const pulse = 1 + Math.sin(state.clock.elapsedTime * 3.1) * 0.06
+    const scale = Math.max(
+      0.013,
+      Math.min(0.027, distance * (active ? 0.0065 : 0.0054)),
+    )
+    group.scale.setScalar(scale * pulse * (focused ? 1.14 : 1))
+    group.rotation.y = state.clock.elapsedTime * (active ? 0.32 : 0.18)
+
+    if (isE2e) {
+      const canvas = state.gl.domElement
+      projectedPointRef.current.copy(position).project(state.camera)
+      canvas.dataset.outpostSignalX = String(
+        ((projectedPointRef.current.x + 1) / 2) * canvas.clientWidth,
+      )
+      canvas.dataset.outpostSignalY = String(
+        ((1 - projectedPointRef.current.y) / 2) * canvas.clientHeight,
+      )
+    }
+  })
+
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation()
+
+    if (event.delta <= TAP_DISTANCE_PX) {
+      onFocus()
+    }
+  }
+
+  return (
+    <group position={position} quaternion={transform.orientation}>
+      <group ref={groupRef} name="orbital-outpost-signal" onClick={handleClick}>
+        <mesh rotation-x={Math.PI / 2}>
+          <torusGeometry args={[0.72, active ? 0.085 : 0.055, 7, 28]} />
+          <meshBasicMaterial
+            blending={AdditiveBlending}
+            color={active ? '#ff9c50' : '#cf7140'}
+            depthWrite={false}
+            opacity={active ? 0.86 : 0.62}
+            transparent
+          />
+        </mesh>
+        <mesh position-y={0.62}>
+          <cylinderGeometry args={[0.045, 0.16, 1.22, 8]} />
+          <meshBasicMaterial
+            blending={AdditiveBlending}
+            color={active ? '#ff6b27' : '#b6532d'}
+            depthWrite={false}
+            opacity={active ? 0.82 : 0.48}
+            transparent
+          />
+        </mesh>
+        {[-0.42, 0, 0.42].map((x, index) => (
+          <mesh key={x} position={[x, 0.13 + index * 0.1, 0]}>
+            <octahedronGeometry args={[active ? 0.14 : 0.1, 0]} />
+            <meshBasicMaterial
+              color={index === 1 ? '#ffd09a' : '#e76a31'}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+        {active ? (
+          <mesh position-y={0.04} rotation-x={Math.PI / 2}>
+            <ringGeometry args={[0.24, 0.38, 24]} />
+            <meshBasicMaterial
+              blending={AdditiveBlending}
+              color="#ffcf8b"
+              depthWrite={false}
+              opacity={0.68}
+              transparent
+            />
+          </mesh>
+        ) : null}
+        <mesh geometry={hitGeometry} material={hitMaterial} />
+      </group>
+    </group>
+  )
+}

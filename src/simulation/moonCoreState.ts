@@ -14,11 +14,13 @@ export interface MoonCoreState {
 
 export type MoonCoreAction =
   | { readonly type: 'select'; readonly landingSite: LandingSite }
+  | { readonly type: 'revisit'; readonly landingSite: LandingSite }
   | { readonly type: 'clearSite' }
   | { readonly type: 'claim' }
   | { readonly type: 'landingComplete' }
   | { readonly type: 'returnToOrbit' }
   | { readonly type: 'returnComplete' }
+  | { readonly type: 'resetPrototype' }
 
 export const INITIAL_MOON_CORE_STATE: MoonCoreState = Object.freeze({
   phase: 'orbit',
@@ -32,6 +34,16 @@ export function moonCoreReducer(
   switch (action.type) {
     case 'select':
       if (state.phase !== 'orbit' && state.phase !== 'selected') {
+        return state
+      }
+
+      return {
+        phase: 'selected',
+        landingSite: action.landingSite,
+      }
+
+    case 'revisit':
+      if (state.phase !== 'orbit') {
         return state
       }
 
@@ -86,6 +98,9 @@ export function moonCoreReducer(
         return state
       }
 
+      return INITIAL_MOON_CORE_STATE
+
+    case 'resetPrototype':
       return INITIAL_MOON_CORE_STATE
   }
 }

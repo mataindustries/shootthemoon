@@ -9,6 +9,7 @@ export interface QualitySettings {
   readonly moonWidthSegments: number
   readonly moonHeightSegments: number
   readonly patchSegments: number
+  readonly surfaceRockCount: number
   readonly starCount: number
   readonly maxDpr: number
 }
@@ -24,6 +25,7 @@ export function detectQualitySettings(): QualitySettings {
       moonWidthSegments: 128,
       moonHeightSegments: 64,
       patchSegments: 96,
+      surfaceRockCount: 34,
       starCount: 480,
       maxDpr: 1,
     }
@@ -35,6 +37,7 @@ export function detectQualitySettings(): QualitySettings {
       moonWidthSegments: 160,
       moonHeightSegments: 80,
       patchSegments: 112,
+      surfaceRockCount: 52,
       starCount: 640,
       maxDpr: 1.25,
     }
@@ -45,6 +48,7 @@ export function detectQualitySettings(): QualitySettings {
     moonWidthSegments: 192,
     moonHeightSegments: 96,
     patchSegments: 128,
+    surfaceRockCount: 72,
     starCount: 800,
     maxDpr: 1.5,
   }

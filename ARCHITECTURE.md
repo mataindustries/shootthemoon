@@ -1,8 +1,9 @@
 # Moon Core architecture
 
-Status: implemented first-playable contract, 2026-08-25. Canonical coordinate
-and state boundaries are active; future asset-pipeline and multiplayer sections
-remain design boundaries rather than implemented systems.
+Status: implemented First Outpost contract, 2026-08-26. Canonical coordinate,
+simulation, persistence, render, input, and camera boundaries are active;
+future asset-pipeline and multiplayer sections remain design boundaries rather
+than implemented systems.
 
 ## Architectural goals
 
@@ -223,8 +224,13 @@ App
 │     ├─ Starfield
 │     ├─ Moon
 │     ├─ LandingMarker
+│     ├─ OutpostSignal
 │     ├─ SurfacePatch
+│     ├─ SurfaceDressing
 │     ├─ InvasionCapsule
+│     ├─ MineralDeposits
+│     ├─ MinerRobot
+│     ├─ Extractor
 │     ├─ ImpactEffects
 │     └─ SceneMetrics
 └─ CinematicHud
@@ -239,8 +245,10 @@ Rules:
 - Moon's input adapter classifies its pointer gestures and performs the
   ephemeral ray query; LandingMarker derives only from the saved site.
 - LightingRig owns the small fixed light budget.
-- The capsule consumes the projected landing-site transform. No robot exists in
-  this checkpoint.
+- The capsule, miner, deposits, and extractor consume the same projected site
+  transform and shared deterministic terrain-height profile.
+- Outpost entities retain stable local tangent coordinates in metres; scene
+  objects are derived views and never persistence records.
 - Debug counters may exist in development, but no elaborate HUD is part of the
   first playable.
 - No nested Canvas, 2D gameplay canvas, CSS3DRenderer, DOM sprite, or
@@ -270,8 +278,8 @@ Additional constraints:
 - High-frequency frame values live in refs or purpose-built stores and do not
   trigger a React tree render every animation frame.
 - React state is reserved for coarse transitions that affect composition.
-- No external state library is needed; a pure reducer owns the five coarse
-  experience phases.
+- No external state library is needed; one pure reducer owns the five coarse
+  experience phases and another pure reducer owns the bounded outpost snapshot.
 - Resource setup must be idempotent and cleanup complete under React
   StrictMode's development setup/cleanup cycle.
 
@@ -317,8 +325,8 @@ Loading is phase-based:
 
 - boot loads only code and the smallest orbital Moon representation;
 - intent to select may preload the approach/surface representation;
-- confirmed descent creates the current code-authored capsule and procedural
-  surface without a network request;
+- confirmed descent creates the current code-authored capsule, miner, deposits,
+  extractor, and procedural surface without a network request;
 - higher detail never blocks basic interaction when a valid lower LOD exists.
 
 React Suspense may coordinate scene readiness, but a rejected load must reach an
@@ -337,6 +345,43 @@ load/unload cycles, allowing for documented renderer-internal caches.
 The two persistent global textures intentionally remain cached for the life of
 the one-Moon scene. Phase-scoped geometry, procedural textures, shader
 materials, controls, and listeners provide explicit cleanup hooks.
+
+## First Outpost simulation and persistence
+
+The First Outpost domain snapshot is plain serializable data. It contains one
+canonical landing site, one outpost ID, one robot ID and explicit robot state,
+three deposit IDs and local positions, Lunar Ore, and at most one extractor.
+The renderer never stores an Object3D, material, geometry, raycast result, or
+camera pose in that snapshot.
+
+Robot transitions are deterministic and timestamp-based:
+
+~~~text
+stored → deploying → idle → traveling → mining → returning → unloading → idle
+~~~
+
+Travel uses a fixed quadratic route per deposit rather than physics or general
+pathfinding. The current pose and heading are sampled from the route and state
+timestamp. Rendering then applies the site's shared procedural height sampler
+to keep the wheels approximately grounded. Deposit yield changes at the mining
+boundary; Lunar Ore changes only at unloading, so cargo remains visually and
+semantically legible.
+
+The extractor is allowed only when the miner is idle, the selected stable
+deposit remains valid, no extractor exists, and the ore threshold is met. Its
+construction and production timestamps are deterministic. Production is ticked
+at a controlled interval only while the surface scene is open. Restore and
+revisit reset the production baseline, deliberately leaving offline progress
+for a future economy design.
+
+The browser persistence adapter owns one schema-versioned localStorage record.
+It serializes canonical latitude, longitude, altitude, and orientation plus the
+plain outpost snapshot. Serialization and restoration normalize cinematics and
+transient robot states to `stored` or `idle`; returning cargo is safely credited
+before an idle restore. A constructing extractor restores active. Saves happen
+on coarse state changes and controlled extractor production intervals, never
+per frame. Reset is a separate confirmed operation; return to orbit never
+deletes the record.
 
 ## Future multiplayer boundary
 
@@ -403,6 +448,7 @@ src/
   app/             React composition and error boundaries
   domain/          coordinates, datum, entities, commands, snapshots
   simulation/      local SimulationPort implementation
+  persistence/     versioned browser save adapter and safe normalization
   camera/          camera state machine and canonical journey
   render/          coordinate projection and quality adaptation
   scene/           R3F representations, light, effects, and input adapter
@@ -432,7 +478,12 @@ adapters together.
 9. Reserve command/snapshot ports for future multiplayer but implement only a
    local simulation during Moon Core.
 10. Prefer demand rendering while static and a bounded continuous loop only
-    during interaction or travel.
+    during interaction or travel. Deployed scanner/extractor motion uses a
+    low-frequency invalidation cadence rather than a permanent 60 fps loop.
+11. Keep the First Outpost economy to one prototype resource, three deposits,
+    one miner, and one extractor.
+12. Persist canonical and local domain values only; normalize every transient
+    state before it can become a restored session.
 
 ## Remaining risks after this implementation
 
@@ -442,8 +493,10 @@ adapters together.
 | Frame handoff and camera comfort | A deterministic curved journey, local tangent overlay, cancel path, return path, and reduced-motion duration exist | Validate comfort, seams, orientation changes, and frame pacing on a physical phone |
 | Touch gesture variation | Automated CDP touch covers drag, pinch, tap, cooldown, limb, poles, and seam cases | Verify real Android pointer cancellation, browser bars, edge gestures, and palm behavior |
 | Physical Android performance | Drawing-buffer, draw-call, triangle, texture, and shader counters pass in headless Chromium | Run the full Pixel 6a frame-time, memory, thermal, and ten-minute soak protocol |
-| Surface detail fidelity | A deterministic curved procedural overlay supports this fixed close shot | Wider traversal requires tiled, canonical terrain data and rebasing; neither is implemented |
-| JavaScript bundle headroom | The current production JavaScript is 296.75 KiB with `gzip -9` against the 325 KiB target | Introduce deliberate scene/code splitting before another substantial feature |
+| Surface detail fidelity | A deterministic curved procedural overlay and shared approximate height sampler support the bounded outpost routes | Wider traversal requires tiled, canonical terrain data and rebasing; neither is implemented |
+| JavaScript bundle headroom | The First Outpost production JavaScript is about 319 kB gzip against the 325 KiB target | Introduce deliberate scene/code splitting before another substantial feature |
+| Active-surface draw calls | Shared/instanced geometry and selective shadows keep the active extractor scene just below the 80-call hard ceiling | Any additional animated prop requires consolidation or an explicit budget review |
+| Sustained landed animation | Scanner and extractor motion invalidate at roughly 11 Hz; robot movement temporarily requests continuous frames | Confirm frame pacing and thermal behavior on the physical reference Android device |
 | Runtime asset pipeline | NASA textures are fully recorded; the capsule is code-authored | Build the manifest/GLB/KTX2 repository only when an imported model is approved |
 | Context restoration | The WebGL 2 fallback exists, but loss/restoration is not exercised | Add a controlled context-loss browser test and verify resource reconstruction |
 | Future multiplayer semantics | Domain data remains plain canonical snapshots and no network code exists | Define authority, protocol, tick, and reconciliation only in a future phase |

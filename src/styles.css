@@ -124,6 +124,34 @@ canvas {
   text-align: right;
 }
 
+.hud-meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.35rem;
+}
+
+.reset-button {
+  position: relative;
+  min-height: 1.5rem;
+  padding: 0 0.15rem;
+  border-bottom: 1px solid rgb(193 204 218 / 18%);
+  color: rgb(207 219 232 / 34%);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.48rem;
+  font-weight: 680;
+  letter-spacing: 0.14em;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.reset-button:hover,
+.reset-button:focus-visible {
+  border-bottom-color: rgb(255 139 79 / 60%);
+  color: #f5c2a6;
+  outline: none;
+}
+
 .orbit-instruction {
   position: relative;
   display: flex;
@@ -132,8 +160,7 @@ canvas {
   gap: 0.65rem;
   padding: 0.75rem 1rem;
   border: 1px solid rgb(168 185 207 / 16%);
-  background: rgb(4 8 14 / 52%);
-  backdrop-filter: blur(8px);
+  background: rgb(4 8 14 / 72%);
 }
 
 .orbit-instruction i {
@@ -142,6 +169,198 @@ canvas {
   border-radius: 50%;
   background: #dd7742;
   box-shadow: 0 0 8px #dd7742;
+}
+
+.orbit-instruction b {
+  color: #e89a69;
+  font-size: 0.58rem;
+  letter-spacing: 0.11em;
+}
+
+.surface-status {
+  position: absolute;
+  top: max(76px, calc(env(safe-area-inset-top) + 64px));
+  right: max(18px, env(safe-area-inset-right));
+  left: max(18px, env(safe-area-inset-left));
+  display: flex;
+  width: min(calc(100% - 36px), 25rem);
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.ore-counter,
+.robot-status {
+  border: 1px solid rgb(190 204 219 / 15%);
+  background: rgb(5 9 14 / 82%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+}
+
+.ore-counter {
+  display: flex;
+  min-width: 7.2rem;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.58rem 0.68rem;
+  border-left: 2px solid #df6b31;
+}
+
+.ore-counter span,
+.robot-status,
+.deposit-readout span {
+  color: rgb(204 216 228 / 50%);
+  font-size: 0.52rem;
+  font-weight: 690;
+  letter-spacing: 0.14em;
+  line-height: 1.35;
+}
+
+.ore-counter strong {
+  color: #f3c29e;
+  font-size: 1.18rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 520;
+}
+
+.robot-status {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.48rem;
+  padding: 0.55rem 0.65rem;
+  color: rgb(225 232 239 / 68%);
+  text-align: right;
+}
+
+.context-prompt {
+  position: absolute;
+  right: 0;
+  bottom: 10.8rem;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  color: rgb(231 219 211 / 72%);
+  font-size: 0.56rem;
+  font-weight: 720;
+  letter-spacing: 0.18em;
+  pointer-events: none;
+  text-shadow: 0 2px 8px #000;
+}
+
+.context-prompt span {
+  width: 5px;
+  height: 5px;
+  border: 1px solid #f08a52;
+  transform: rotate(45deg);
+  box-shadow: 0 0 9px rgb(255 107 44 / 60%);
+}
+
+.command-deck {
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  left: max(18px, env(safe-area-inset-left));
+  display: grid;
+  width: min(calc(100% - 36px), 25rem);
+  gap: 0.48rem;
+  pointer-events: none;
+}
+
+.deposit-readout {
+  display: grid;
+  grid-template-columns: 1.35fr 0.8fr 0.65fr;
+  border: 1px solid rgb(191 205 219 / 16%);
+  border-left: 2px solid #d56430;
+  background: rgb(6 10 15 / 88%);
+}
+
+.deposit-readout > div {
+  display: grid;
+  min-height: 3.25rem;
+  align-content: center;
+  gap: 0.12rem;
+  padding: 0.5rem 0.62rem;
+  border-right: 1px solid rgb(191 205 219 / 10%);
+}
+
+.deposit-readout > div:last-child {
+  border-right: 0;
+}
+
+.deposit-readout strong {
+  color: #eff1f2;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.primary-action {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0.9rem;
+  border: 1px solid rgb(255 150 91 / 54%);
+  color: #fff1e8;
+  background:
+    linear-gradient(100deg, rgb(139 47 17 / 94%), rgb(77 23 10 / 94%));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 0 26px rgb(223 74 23 / 14%);
+  cursor: pointer;
+  font-size: 0.67rem;
+  font-weight: 760;
+  letter-spacing: 0.14em;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.primary-action b {
+  color: rgb(255 211 181 / 68%);
+  font-size: 0.52rem;
+  font-weight: 690;
+  letter-spacing: 0.1em;
+}
+
+.primary-action--construct {
+  border-color: rgb(255 178 102 / 68%);
+  background:
+    linear-gradient(100deg, rgb(159 61 19 / 96%), rgb(91 30 10 / 96%));
+}
+
+.primary-action:hover,
+.primary-action:focus-visible {
+  border-color: #ffc299;
+  background:
+    linear-gradient(100deg, rgb(173 61 20 / 98%), rgb(98 28 10 / 98%));
+  outline: none;
+}
+
+.orbit-return {
+  min-height: 2.35rem;
+  border: 1px solid rgb(193 206 220 / 16%);
+  color: rgb(222 230 238 / 62%);
+  background: rgb(7 11 16 / 64%);
+  cursor: pointer;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.orbit-return:hover,
+.orbit-return:focus-visible {
+  border-color: rgb(255 154 94 / 45%);
+  color: #fff;
+  outline: none;
 }
 
 .site-panel {
@@ -156,7 +375,6 @@ canvas {
   box-shadow:
     0 18px 60px rgb(0 0 0 / 42%),
     inset 0 1px 0 rgb(255 255 255 / 4%);
-  backdrop-filter: blur(12px);
   pointer-events: none;
 }
 
@@ -324,6 +542,12 @@ button {
   .coordinate-grid strong {
     font-size: 1.65rem;
   }
+
+  .surface-status,
+  .command-deck {
+    right: auto;
+    left: 32px;
+  }
 }
 
 @media (max-width: 420px) {
@@ -351,6 +575,28 @@ button {
     grid-template-columns: 1fr;
     gap: 0.15rem;
   }
+
+  .surface-status {
+    gap: 0.35rem;
+  }
+
+  .ore-counter {
+    min-width: 6.6rem;
+    padding-inline: 0.55rem;
+  }
+
+  .robot-status {
+    padding-inline: 0.5rem;
+    font-size: 0.47rem;
+  }
+
+  .deposit-readout > div {
+    padding-inline: 0.48rem;
+  }
+
+  .deposit-readout strong {
+    font-size: 0.64rem;
+  }
 }
 
 @media (orientation: landscape) and (max-height: 560px) {
@@ -367,5 +613,25 @@ button {
     position: absolute;
     right: max(18px, env(safe-area-inset-right));
     bottom: max(18px, env(safe-area-inset-bottom));
+  }
+
+  .surface-status {
+    top: max(64px, calc(env(safe-area-inset-top) + 54px));
+    right: 18px;
+    left: auto;
+    width: 20rem;
+  }
+
+  .command-deck {
+    right: 18px;
+    bottom: 16px;
+    left: auto;
+    width: 22rem;
+  }
+
+  .context-prompt {
+    right: 24rem;
+    bottom: 2rem;
+    left: 12rem;
   }
 }

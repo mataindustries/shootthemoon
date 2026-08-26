@@ -1,10 +1,13 @@
-# Shoot the Moon — Moon Core
+# Shoot the Moon — First Outpost
 
-Moon Core is the true-3D technical prototype for Shoot the Moon. This repository
-contains the first playable implementation: a rotatable lunar globe, precise
-mean-sphere selection, a canonical coordinate readout, a surface-attached 3D
-marker, and a cinematic capsule landing and return-to-orbit flow. It remains a
-narrow prototype with no economy, combat, accounts, multiplayer, or dashboard.
+First Outpost is the next vertical slice built on Shoot the Moon's true-3D Moon
+Core. The playable loop covers lunar-site selection, capsule landing, deployment
+of one mining robot, three Lunar Ore deposits, deterministic mining and cargo
+return, construction of one extractor, and an orbital revisit signal. A
+versioned local save preserves the claimed canonical coordinate and outpost
+domain state across refreshes. The scope remains deliberately narrow: there is
+no networking, combat, account system, multiplayer, management dashboard, or
+economy beyond this one prototype resource loop.
 
 Start with [PLAN.md](./PLAN.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and
 [PERFORMANCE_BUDGET.md](./PERFORMANCE_BUDGET.md). External art provenance is in
@@ -26,6 +29,11 @@ Install Playwright's Chromium once before the browser suite if needed:
 To preview in Codespaces and expose Vite's port:
 
     npm run dev -- --host 0.0.0.0
+
+To review the exact production build used by the browser suite:
+
+    npm run build
+    npm run preview -- --host 0.0.0.0
 
 Node.js 20.19 or newer supported release lines are required; see package.json
 for the exact engine range.

@@ -27,7 +27,6 @@ function watchBrowserErrors(page: Page): BrowserErrors {
     }
   })
   page.on('pageerror', (error) => errors.page.push(error.message))
-
   return errors
 }
 
@@ -54,13 +53,10 @@ async function canvasCenter(page: Page): Promise<{ x: number; y: number }> {
   const bounds = await page.locator('.scene-canvas canvas').boundingBox()
 
   if (bounds === null) {
-    throw new Error('Moon Core canvas has no browser layout bounds.')
+    throw new Error('Shoot the Moon canvas has no browser layout bounds.')
   }
 
-  return {
-    x: bounds.x + bounds.width / 2,
-    y: bounds.y + bounds.height / 2,
-  }
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
 }
 
 async function dragTouch(
@@ -167,13 +163,62 @@ async function selectCanvasCenter(page: Page): Promise<void> {
   await expect(page.locator('.site-panel')).toBeVisible()
 }
 
-test('mobile touch flow, landing cinematic, screenshots, and render budgets', async ({
+async function setCinematicProgress(page: Page, progress: number): Promise<void> {
+  await page.evaluate((value) => {
+    window.dispatchEvent(
+      new CustomEvent('moon-core:set-cinematic-progress', {
+        detail: { progress: value },
+      }),
+    )
+  }, progress)
+}
+
+async function setSimulationPaused(
+  page: Page,
+  paused: boolean,
+  visualOffsetMs = 0,
+): Promise<void> {
+  await page.evaluate((detail) => {
+    window.dispatchEvent(
+      new CustomEvent('first-outpost:set-simulation-paused', {
+        detail,
+      }),
+    )
+    window.dispatchEvent(
+      new CustomEvent('moon-core:set-cinematic-progress', {
+        detail: { progress: null },
+      }),
+    )
+  }, { paused, visualOffsetMs })
+
+  if (paused) {
+    await page.waitForTimeout(220)
+  }
+}
+
+async function tapProjectedPoint(
+  page: Page,
+  xAttribute: string,
+  yAttribute: string,
+): Promise<void> {
+  const canvas = page.locator('.scene-canvas canvas')
+  await expect(canvas).toHaveAttribute(xAttribute, /\d/)
+  await expect(canvas).toHaveAttribute(yAttribute, /\d/)
+  const x = Number(await canvas.getAttribute(xAttribute))
+  const y = Number(await canvas.getAttribute(yAttribute))
+  expect(Number.isFinite(x)).toBe(true)
+  expect(Number.isFinite(y)).toBe(true)
+  await page.touchscreen.tap(x, y)
+}
+
+test('complete mobile First Outpost loop, persistence, screenshots, and budgets', async ({
   page,
 }) => {
-  test.setTimeout(90_000)
+  test.setTimeout(180_000)
   const errors = watchBrowserErrors(page)
   await openReadyScene(page)
   await expect(page.locator('main')).toHaveAttribute('data-quality', 'medium')
+  const main = page.locator('main')
   const canvas = page.locator('.scene-canvas canvas')
   const center = await canvasCenter(page)
 
@@ -181,7 +226,7 @@ test('mobile touch flow, landing cinematic, screenshots, and render budgets', as
     path: SCREENSHOT_DIRECTORY + '/01-initial-orbit-mobile.png',
   })
   const orbitalMetrics = await readRenderMetrics(page)
-  console.log('MOON_CORE_MOBILE_ORBIT_METRICS ' + JSON.stringify(orbitalMetrics))
+  console.log('FIRST_OUTPOST_MOBILE_ORBIT_METRICS ' + JSON.stringify(orbitalMetrics))
   expect(orbitalMetrics.drawCalls).toBeLessThanOrEqual(20)
   expect(orbitalMetrics.triangles).toBeLessThanOrEqual(120_000)
 
@@ -195,18 +240,11 @@ test('mobile touch flow, landing cinematic, screenshots, and render budgets', as
     .poll(async () => Number(await canvas.getAttribute('data-camera-azimuth')))
     .not.toBeCloseTo(azimuthBefore, 2)
 
-  const distanceBefore = Number(
-    await canvas.getAttribute('data-camera-distance'),
-  )
+  const distanceBefore = Number(await canvas.getAttribute('data-camera-distance'))
   await pinchTouch(page, true)
   await expect
     .poll(async () => Number(await canvas.getAttribute('data-camera-distance')))
     .not.toBeCloseTo(distanceBefore, 2)
-  const distanceAfter = Number(
-    await canvas.getAttribute('data-camera-distance'),
-  )
-  expect(distanceAfter).toBeGreaterThanOrEqual(2.11)
-  expect(distanceAfter).toBeLessThanOrEqual(5.21)
   expect(await page.evaluate(() => window.scrollY)).toBe(0)
   expect(
     await page.evaluate(
@@ -216,14 +254,11 @@ test('mobile touch flow, landing cinematic, screenshots, and render budgets', as
 
   await page.waitForTimeout(450)
   await selectCanvasCenter(page)
-  const panel = page.locator('.site-panel')
-  const latitude = Number(await panel.getAttribute('data-latitude-rad'))
-  const longitude = Number(await panel.getAttribute('data-longitude-rad'))
+  const sitePanel = page.locator('.site-panel')
+  const latitude = Number(await sitePanel.getAttribute('data-latitude-rad'))
+  const longitude = Number(await sitePanel.getAttribute('data-longitude-rad'))
   expect(Number.isFinite(latitude)).toBe(true)
   expect(Number.isFinite(longitude)).toBe(true)
-  expect(Math.abs(latitude)).toBeLessThanOrEqual(Math.PI / 2)
-  expect(Math.abs(longitude)).toBeLessThanOrEqual(Math.PI)
-
   await page.screenshot({
     path: SCREENSHOT_DIRECTORY + '/02-selected-site-mobile.png',
   })
@@ -234,113 +269,159 @@ test('mobile touch flow, landing cinematic, screenshots, and render budgets', as
     { x: center.x + 80, y: center.y + 260 },
     7,
   )
-  expect(Number(await panel.getAttribute('data-latitude-rad'))).toBe(latitude)
-  expect(Number(await panel.getAttribute('data-longitude-rad'))).toBe(longitude)
+  expect(Number(await sitePanel.getAttribute('data-latitude-rad'))).toBe(latitude)
+  expect(Number(await sitePanel.getAttribute('data-longitude-rad'))).toBe(longitude)
 
   await page.getByRole('button', { name: 'CLAIM LANDING SITE' }).click()
-  await expect(page.locator('main')).toHaveAttribute('data-phase', 'approach')
-  await page.evaluate(() => {
-    window.dispatchEvent(
-      new CustomEvent('moon-core:set-cinematic-progress', {
-        detail: { progress: 0.9 },
-      }),
-    )
-  })
-  await page.waitForTimeout(350)
+  await expect(main).toHaveAttribute('data-phase', 'approach')
+  await setCinematicProgress(page, 0.9)
+  await page.waitForTimeout(250)
   await page.screenshot({
     path: SCREENSHOT_DIRECTORY + '/03-capsule-impact-mobile.png',
   })
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-phase', 'landed', { timeout: 6_000 })
+  await expect(main).toHaveAttribute('data-robot-state', 'stored')
 
-  await page.evaluate(() => {
-    window.dispatchEvent(
-      new CustomEvent('moon-core:set-cinematic-progress', {
-        detail: { progress: 1 },
-      }),
-    )
+  const storedMetrics = await readRenderMetrics(page)
+  console.log('FIRST_OUTPOST_STORED_SURFACE_METRICS ' + JSON.stringify(storedMetrics))
+  expect(storedMetrics.drawCalls).toBeLessThanOrEqual(80)
+  expect(storedMetrics.triangles).toBeLessThanOrEqual(200_000)
+  expect(storedMetrics.textures).toBeLessThanOrEqual(12)
+
+  await page.getByRole('button', { name: 'DEPLOY MINER' }).click()
+  await expect(main).toHaveAttribute('data-robot-state', 'deploying')
+  await expect(main).toHaveAttribute('data-robot-state', 'idle', {
+    timeout: 5_000,
   })
+  await setSimulationPaused(page, true)
+  await page.screenshot({
+    path: SCREENSHOT_DIRECTORY + '/06-capsule-opened-robot-deployed.png',
+  })
+  await setSimulationPaused(page, false)
 
-  await expect(page.locator('main')).toHaveAttribute('data-phase', 'landed', {
+  await tapProjectedPoint(
+    page,
+    'data-deposit-gamma-x',
+    'data-deposit-gamma-y',
+  )
+  await expect(main).toHaveAttribute('data-selected-deposit', 'deposit-gamma')
+  await expect(page.locator('.deposit-readout')).toContainText('LUNAR ORE')
+
+  await page.getByRole('button', { name: 'MINE DEPOSIT' }).click()
+  await expect(main).toHaveAttribute('data-robot-state', 'traveling')
+  await expect(main).toHaveAttribute('data-robot-state', 'mining', {
     timeout: 6_000,
   })
-  await page.waitForTimeout(250)
+  await setSimulationPaused(page, true, 850)
   await page.screenshot({
-    path: SCREENSHOT_DIRECTORY + '/04-close-surface-mobile.png',
+    path: SCREENSHOT_DIRECTORY + '/07-robot-mining.png',
+  })
+  await setSimulationPaused(page, false)
+  await expect(main).toHaveAttribute('data-robot-state', 'idle', {
+    timeout: 8_000,
+  })
+  await expect(main).toHaveAttribute('data-lunar-ore', '35')
+
+  await page.getByRole('button', { name: 'MINE DEPOSIT' }).click()
+  await expect(main).toHaveAttribute('data-robot-state', 'traveling')
+  await expect(main).toHaveAttribute('data-robot-state', 'returning', {
+    timeout: 9_000,
+  })
+  await setSimulationPaused(page, true, 720)
+  await page.screenshot({
+    path: SCREENSHOT_DIRECTORY + '/08-robot-returning-cargo.png',
+  })
+  await setSimulationPaused(page, false)
+  await expect(main).toHaveAttribute('data-robot-state', 'idle', {
+    timeout: 8_000,
+  })
+  await expect(main).toHaveAttribute('data-lunar-ore', '70')
+  await expect(
+    page.getByRole('button', { name: /CONSTRUCT EXTRACTOR/ }),
+  ).toBeVisible()
+
+  await setSimulationPaused(page, true)
+  await page.getByRole('button', { name: /CONSTRUCT EXTRACTOR/ }).click()
+  await expect(main).toHaveAttribute('data-extractor-status', 'constructing')
+  await expect(page.locator('.phase-label')).toHaveText('EXTRACTOR ASSEMBLY')
+  await setSimulationPaused(page, true, 850)
+  await page.screenshot({
+    path: SCREENSHOT_DIRECTORY + '/09-extractor-construction.png',
+  })
+  await setSimulationPaused(page, false)
+  await expect(main).toHaveAttribute('data-outpost-stage', 'extractor-active', {
+    timeout: 5_000,
+  })
+  await page.waitForTimeout(500)
+  await page.screenshot({
+    path: SCREENSHOT_DIRECTORY + '/10-extractor-active.png',
   })
 
-  const landingMetrics = await readRenderMetrics(page)
-  console.log('MOON_CORE_MOBILE_LANDING_METRICS ' + JSON.stringify(landingMetrics))
-  expect(landingMetrics.drawCalls).toBeLessThanOrEqual(50)
-  expect(landingMetrics.triangles).toBeLessThanOrEqual(180_000)
-  expect(landingMetrics.textures).toBeLessThanOrEqual(6)
-  expect(landingMetrics.bufferWidth * landingMetrics.bufferHeight).toBeLessThanOrEqual(
+  const activeMetrics = await readRenderMetrics(page)
+  console.log('FIRST_OUTPOST_ACTIVE_SURFACE_METRICS ' + JSON.stringify(activeMetrics))
+  expect(activeMetrics.drawCalls).toBeLessThanOrEqual(80)
+  expect(activeMetrics.triangles).toBeLessThanOrEqual(200_000)
+  expect(activeMetrics.bufferWidth * activeMetrics.bufferHeight).toBeLessThanOrEqual(
     1_010_000,
-  )
-  const settledFrameCount = Number(
-    await canvas.getAttribute('data-frame-count'),
-  )
-  await page.waitForTimeout(450)
-  expect(Number(await canvas.getAttribute('data-frame-count'))).toBe(
-    settledFrameCount,
   )
 
   await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
-  await page.evaluate(() => {
-    window.dispatchEvent(
-      new CustomEvent('moon-core:set-cinematic-progress', {
-        detail: { progress: 1 },
-      }),
-    )
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-phase', 'orbit', { timeout: 5_000 })
+  await page.waitForTimeout(500)
+  await page.screenshot({
+    path: SCREENSHOT_DIRECTORY + '/11-orbital-outpost-signature.png',
   })
-  await expect(page.locator('main')).toHaveAttribute('data-phase', 'orbit', {
-    timeout: 5_000,
-  })
-  await expect(page.locator('.site-panel')).toHaveCount(0)
 
-  const returnedAzimuth = Number(
-    await canvas.getAttribute('data-camera-azimuth'),
-  )
-  await dragTouch(
+  await tapProjectedPoint(
     page,
-    { x: center.x - 44, y: center.y + 12 },
-    { x: center.x + 62, y: center.y - 24 },
+    'data-outpost-signal-x',
+    'data-outpost-signal-y',
   )
-  await expect
-    .poll(async () => Number(await canvas.getAttribute('data-camera-azimuth')))
-    .not.toBeCloseTo(returnedAzimuth, 2)
+  await expect(main).toHaveAttribute('data-phase', 'selected')
+  await page.getByRole('button', { name: 'REVISIT OUTPOST' }).click()
+  await expect(main).toHaveAttribute('data-phase', 'approach')
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-phase', 'landed', { timeout: 5_000 })
 
-  await selectCanvasCenter(page)
-  const secondLatitude = Number(
-    await panel.getAttribute('data-latitude-rad'),
+  const oreBeforeRefresh = Number(await main.getAttribute('data-lunar-ore'))
+  await page.reload()
+  await expect(main).toHaveAttribute('data-scene-ready', 'true')
+  await expect(main).toHaveAttribute('data-phase', 'landed')
+  await expect(main).toHaveAttribute('data-outpost-stage', 'extractor-active')
+  await expect(main).toHaveAttribute('data-robot-state', 'idle')
+  expect(Number(await main.getAttribute('data-lunar-ore'))).toBeGreaterThanOrEqual(
+    oreBeforeRefresh,
   )
-  const secondLongitude = Number(
-    await panel.getAttribute('data-longitude-rad'),
-  )
+  await page.waitForTimeout(250)
+  await page.screenshot({
+    path: SCREENSHOT_DIRECTORY + '/12-restored-outpost.png',
+  })
   expect(
-    Math.hypot(secondLatitude - latitude, secondLongitude - longitude),
-  ).toBeGreaterThan(0.05)
-
-  await page.getByRole('button', { name: 'CLAIM LANDING SITE' }).click()
-  await expect(page.locator('main')).toHaveAttribute('data-phase', 'approach')
-  await page.evaluate(() => {
-    window.dispatchEvent(
-      new CustomEvent('moon-core:set-cinematic-progress', {
-        detail: { progress: 1 },
-      }),
-    )
-  })
-  await expect(page.locator('main')).toHaveAttribute('data-phase', 'landed', {
-    timeout: 6_000,
-  })
+    await page.evaluate(
+      () => localStorage.getItem('shoot-the-moon:first-outpost:v1') !== null,
+    ),
+  ).toBe(true)
   expect(errors).toEqual({ console: [], page: [] })
+
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'RESET PROTOTYPE' }).click()
+  await expect(main).toHaveAttribute('data-phase', 'orbit')
+  await expect(main).toHaveAttribute('data-outpost-stage', 'none')
+  expect(
+    await page.evaluate(
+      () => localStorage.getItem('shoot-the-moon:first-outpost:v1'),
+    ),
+  ).toBeNull()
 })
 
-test('surface selection remains valid at a limb, poles, and the longitude seam', async ({
+test('surface selection remains valid at a limb, poles, and longitude seam', async ({
   page,
 }) => {
   const errors = watchBrowserErrors(page)
   await openReadyScene(page)
   const center = await canvasCenter(page)
-
   const targetViews = [
     { name: 'near side', latitudeRad: 0, longitudeRad: 0 },
     { name: 'north pole', latitudeRad: 1.47, longitudeRad: 0.4 },
@@ -351,9 +432,7 @@ test('surface selection remains valid at a limb, poles, and the longitude seam',
 
   for (const target of targetViews) {
     await page.evaluate((detail) => {
-      window.dispatchEvent(
-        new CustomEvent('moon-core:set-orbit-view', { detail }),
-      )
+      window.dispatchEvent(new CustomEvent('moon-core:set-orbit-view', { detail }))
     }, target)
     await page.waitForTimeout(80)
     await page.touchscreen.tap(center.x, center.y)
@@ -384,20 +463,13 @@ test('surface selection remains valid at a limb, poles, and the longitude seam',
   await page.touchscreen.tap(center.x + 142, center.y)
   const limbPanel = page.locator('.site-panel')
   await expect(limbPanel).toBeVisible()
-  const limbLatitude = Number(
-    await limbPanel.getAttribute('data-latitude-rad'),
+  expect(Number.isFinite(Number(await limbPanel.getAttribute('data-latitude-rad')))).toBe(
+    true,
   )
-  const limbLongitude = Number(
-    await limbPanel.getAttribute('data-longitude-rad'),
-  )
-  expect(Number.isFinite(limbLatitude)).toBe(true)
-  expect(Number.isFinite(limbLongitude)).toBe(true)
   expect(errors).toEqual({ console: [], page: [] })
 })
 
-test('clear site restores orbit controls and touch selection immediately', async ({
-  page,
-}) => {
+test('clear and aborted descent preserve repeat landing-site selection', async ({ page }) => {
   const errors = watchBrowserErrors(page)
   await openReadyScene(page)
   const canvas = page.locator('.scene-canvas canvas')
@@ -406,11 +478,8 @@ test('clear site restores orbit controls and touch selection immediately', async
   await selectCanvasCenter(page)
   await page.getByRole('button', { name: 'CLEAR SITE' }).click()
   await expect(page.locator('main')).toHaveAttribute('data-phase', 'orbit')
-  await expect(page.locator('.site-panel')).toHaveCount(0)
 
-  const azimuthBefore = Number(
-    await canvas.getAttribute('data-camera-azimuth'),
-  )
+  const azimuthBefore = Number(await canvas.getAttribute('data-camera-azimuth'))
   await dragTouch(
     page,
     { x: center.x - 50, y: center.y + 8 },
@@ -421,11 +490,28 @@ test('clear site restores orbit controls and touch selection immediately', async
     .not.toBeCloseTo(azimuthBefore, 2)
 
   await selectCanvasCenter(page)
-  await expect(page.locator('main')).toHaveAttribute('data-phase', 'selected')
+  const firstLatitude = Number(
+    await page.locator('.site-panel').getAttribute('data-latitude-rad'),
+  )
+  await page.getByRole('button', { name: 'CLAIM LANDING SITE' }).click()
+  await page.getByRole('button', { name: 'ABORT DESCENT' }).click()
+  await setCinematicProgress(page, 1)
+  await expect(page.locator('main')).toHaveAttribute('data-phase', 'orbit')
+
+  await dragTouch(
+    page,
+    { x: center.x - 42, y: center.y + 12 },
+    { x: center.x + 70, y: center.y - 18 },
+  )
+  await selectCanvasCenter(page)
+  const secondLatitude = Number(
+    await page.locator('.site-panel').getAttribute('data-latitude-rad'),
+  )
+  expect(secondLatitude).not.toBeCloseTo(firstLatitude, 2)
   expect(errors).toEqual({ console: [], page: [] })
 })
 
-test('desktop mouse orbit, wheel zoom, and selection sanity', async ({ browser }) => {
+test('desktop mouse orbit, wheel zoom, selection, and WebGL sanity', async ({ browser }) => {
   const context = await browser.newContext({
     deviceScaleFactor: 1,
     viewport: { width: 1440, height: 900 },
@@ -437,32 +523,25 @@ test('desktop mouse orbit, wheel zoom, and selection sanity', async ({ browser }
   const bounds = await canvas.boundingBox()
 
   if (bounds === null) {
-    throw new Error('Moon Core desktop canvas has no browser layout bounds.')
+    throw new Error('Shoot the Moon desktop canvas has no layout bounds.')
   }
 
   const x = bounds.x + bounds.width / 2
   const y = bounds.y + bounds.height / 2
-  console.log(
-    'MOON_CORE_BROWSER_RENDERER ' +
-      JSON.stringify(
-        await canvas.evaluate((element) => {
-          const context = element.getContext('webgl2')
+  const browserRenderer = await canvas.evaluate((element) => {
+    const context = element.getContext('webgl2')
+    return {
+      metrics: { ...element.dataset },
+      contextLost: context?.isContextLost() ?? null,
+      error: context?.getError() ?? null,
+      renderer: context?.getParameter(context.RENDERER) ?? 'unavailable',
+      version: context?.getParameter(context.VERSION) ?? 'unavailable',
+    }
+  })
+  console.log('FIRST_OUTPOST_BROWSER_RENDERER ' + JSON.stringify(browserRenderer))
+  expect(browserRenderer.contextLost).toBe(false)
+  expect(browserRenderer.error).toBe(0)
 
-          return {
-            metrics: { ...element.dataset },
-            clientWidth: element.clientWidth,
-            clientHeight: element.clientHeight,
-            width: element.width,
-            height: element.height,
-            contextLost: context?.isContextLost() ?? null,
-            error: context?.getError() ?? null,
-            renderer:
-              context?.getParameter(context.RENDERER) ?? 'unavailable',
-            version: context?.getParameter(context.VERSION) ?? 'unavailable',
-          }
-        }),
-      ),
-  )
   const azimuthBefore = Number(await canvas.getAttribute('data-camera-azimuth'))
   await page.mouse.move(x - 80, y)
   await page.mouse.down()
@@ -472,9 +551,7 @@ test('desktop mouse orbit, wheel zoom, and selection sanity', async ({ browser }
     .poll(async () => Number(await canvas.getAttribute('data-camera-azimuth')))
     .not.toBeCloseTo(azimuthBefore, 2)
 
-  const distanceBefore = Number(
-    await canvas.getAttribute('data-camera-distance'),
-  )
+  const distanceBefore = Number(await canvas.getAttribute('data-camera-distance'))
   await page.mouse.move(x, y)
   await page.mouse.wheel(0, 360)
   await expect

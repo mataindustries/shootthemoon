@@ -43,4 +43,28 @@ describe('moonCoreReducer repeatable landing loop', () => {
       INITIAL_MOON_CORE_STATE,
     )
   })
+
+  it('focuses a saved orbital outpost and revisits without changing its site', () => {
+    const focused = moonCoreReducer(INITIAL_MOON_CORE_STATE, {
+      type: 'revisit',
+      landingSite: FIRST_SITE,
+    })
+    const approach = moonCoreReducer(focused, { type: 'claim' })
+    const landed = moonCoreReducer(approach, { type: 'landingComplete' })
+
+    expect(focused).toEqual({ phase: 'selected', landingSite: FIRST_SITE })
+    expect(approach).toEqual({ phase: 'approach', landingSite: FIRST_SITE })
+    expect(landed).toEqual({ phase: 'landed', landingSite: FIRST_SITE })
+  })
+
+  it('resets any view phase without relying on the return cinematic', () => {
+    const selected = moonCoreReducer(INITIAL_MOON_CORE_STATE, {
+      type: 'select',
+      landingSite: FIRST_SITE,
+    })
+
+    expect(moonCoreReducer(selected, { type: 'resetPrototype' })).toEqual(
+      INITIAL_MOON_CORE_STATE,
+    )
+  })
 })

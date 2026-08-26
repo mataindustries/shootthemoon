@@ -41,6 +41,7 @@ interface TestOrbitEventDetail {
 interface CameraRigProps {
   readonly phase: ExperiencePhase
   readonly landingSite: LandingSite | null
+  readonly orbitalFocusSite: LandingSite | null
 }
 
 function smoothstep(value: number): number {
@@ -63,6 +64,39 @@ function getOrbitHome(camera: PerspectiveCamera): Vector3 {
       ? PORTRAIT_ORBIT_DISTANCE
       : DESKTOP_ORBIT_DISTANCE,
   )
+}
+
+function getOrbitViewForSite(
+  camera: PerspectiveCamera,
+  site: LandingSite,
+): Vector3 {
+  const transform = landingSiteToRenderTransform(site)
+  const distance = isNarrowPortrait(camera)
+    ? PORTRAIT_ORBIT_DISTANCE
+    : DESKTOP_ORBIT_DISTANCE
+
+  return transform.up
+    .clone()
+    .multiplyScalar(distance)
+    .addScaledVector(transform.east, distance * 0.075)
+    .addScaledVector(transform.south, distance * 0.038)
+    .setLength(distance)
+}
+
+function getSurfaceCameraPose(site: LandingSite) {
+  const transform = landingSiteToRenderTransform(site)
+  return {
+    position: transform.up
+      .clone()
+      .multiplyScalar(1.00245 + LOCAL_SURFACE_RENDER_OFFSET)
+      .addScaledVector(transform.east, 0.0007)
+      .addScaledVector(transform.south, 0.0062),
+    target: transform.up
+      .clone()
+      .multiplyScalar(1.000025 + LOCAL_SURFACE_RENDER_OFFSET)
+      .addScaledVector(transform.south, -0.00145),
+    up: transform.up.clone(),
+  }
 }
 
 function applyOrbitProjection(camera: PerspectiveCamera): void {
@@ -88,7 +122,11 @@ function updateCameraDataset(
   canvas.dataset.cameraZ = camera.position.z.toFixed(6)
 }
 
-export function CameraRig({ phase, landingSite }: CameraRigProps) {
+export function CameraRig({
+  phase,
+  landingSite,
+  orbitalFocusSite,
+}: CameraRigProps) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const gl = useThree((state) => state.gl)
   const invalidate = useThree((state) => state.invalidate)
@@ -101,7 +139,11 @@ export function CameraRig({ phase, landingSite }: CameraRigProps) {
   const closeProjectionAppliedRef = useRef(false)
 
   useEffect(() => {
-    camera.position.copy(getOrbitHome(camera))
+    camera.position.copy(
+      orbitalFocusSite === null
+        ? getOrbitHome(camera)
+        : getOrbitViewForSite(camera, orbitalFocusSite),
+    )
     applyOrbitProjection(camera)
     const controls = new OrbitControls(camera, gl.domElement)
     controls.enableDamping = true
@@ -156,12 +198,9 @@ export function CameraRig({ phase, landingSite }: CameraRigProps) {
 
     if (phase === 'approach' && landingSite !== null) {
       const transform = landingSiteToRenderTransform(landingSite)
+      const surfacePose = getSurfaceCameraPose(landingSite)
       const start = camera.position.clone()
-      const end = transform.up
-        .clone()
-        .multiplyScalar(1.0032 + LOCAL_SURFACE_RENDER_OFFSET)
-        .addScaledVector(transform.east, 0.0038)
-        .addScaledVector(transform.south, 0.008)
+      const end = surfacePose.position
       const controlOne = start
         .clone()
         .lerp(transform.up.clone().multiplyScalar(2.15), 0.46)
@@ -175,11 +214,9 @@ export function CameraRig({ phase, landingSite }: CameraRigProps) {
       journeyRef.current = {
         path: new CubicBezierCurve3(start, controlOne, controlTwo, end),
         startTarget: controls.target.clone(),
-        endTarget: transform.up
-          .clone()
-          .multiplyScalar(1.000025 + LOCAL_SURFACE_RENDER_OFFSET),
+        endTarget: surfacePose.target,
         startUp: camera.up.clone(),
-        endUp: transform.up.clone(),
+        endUp: surfacePose.up,
       }
       closeProjectionAppliedRef.current = false
       controls.enabled = false
@@ -191,7 +228,10 @@ export function CameraRig({ phase, landingSite }: CameraRigProps) {
     }
 
     if (phase === 'returning') {
-      const orbitHome = getOrbitHome(camera)
+      const orbitHome =
+        landingSite === null
+          ? getOrbitHome(camera)
+          : getOrbitViewForSite(camera, landingSite)
       const start = camera.position.clone()
       const outward = start.clone().normalize().multiplyScalar(1.28)
       const controlOne = start.clone().lerp(outward, 0.72)
@@ -220,8 +260,18 @@ export function CameraRig({ phase, landingSite }: CameraRigProps) {
 
     if (phase === 'landed') {
       controls.enabled = false
+
+      if (landingSite !== null) {
+        const surfacePose = getSurfaceCameraPose(landingSite)
+        camera.position.copy(surfacePose.position)
+        camera.up.copy(surfacePose.up)
+        camera.lookAt(surfacePose.target)
+        controls.target.copy(surfacePose.target)
+      }
+
       camera.near = 0.00001
       camera.far = 3
+      camera.fov = isNarrowPortrait(camera) ? 52 : 40
       camera.updateProjectionMatrix()
       updateCameraDataset(camera, controls)
       invalidate()
@@ -330,7 +380,7 @@ export function CameraRig({ phase, landingSite }: CameraRigProps) {
       closeProjectionAppliedRef.current = true
       camera.near = 0.00001
       camera.far = 3
-      camera.fov = isNarrowPortrait(camera) ? 48 : 38
+      camera.fov = isNarrowPortrait(camera) ? 52 : 40
       camera.updateProjectionMatrix()
     }
 

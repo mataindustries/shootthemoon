@@ -31,6 +31,7 @@ interface MoonProps {
   readonly widthSegments: number
   readonly heightSegments: number
   readonly phase: ExperiencePhase
+  readonly selectionEnabled: boolean
   readonly onSelect: (site: LandingSite) => void
   readonly onReady: () => void
 }
@@ -95,6 +96,7 @@ export function Moon({
   widthSegments,
   heightSegments,
   phase,
+  selectionEnabled,
   onSelect,
   onReady,
 }: MoonProps) {
@@ -162,6 +164,7 @@ export function Moon({
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     if (
       (phase !== 'orbit' && phase !== 'selected') ||
+      !selectionEnabled ||
       event.delta > TAP_DISTANCE_PX ||
       !canSelectWithTouchGate(touchSelectionGate, performance.now())
     ) {
