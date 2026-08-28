@@ -6,7 +6,7 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three'
-import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 
@@ -25,7 +25,6 @@ export function OutpostSignal({
 }: OutpostSignalProps) {
   const groupRef = useRef<Group>(null)
   const projectedPointRef = useRef(new Vector3())
-  const invalidate = useThree((state) => state.invalidate)
   const transform = useMemo(
     () => landingSiteToRenderTransform(outpost.site),
     [outpost.site],
@@ -44,11 +43,6 @@ export function OutpostSignal({
     () => new URLSearchParams(window.location.search).has('e2e'),
     [],
   )
-
-  useEffect(() => {
-    const timer = window.setInterval(invalidate, 120)
-    return () => window.clearInterval(timer)
-  }, [invalidate])
 
   useEffect(
     () => () => {
@@ -87,11 +81,15 @@ export function OutpostSignal({
   })
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
-    event.stopPropagation()
+    const facesCamera =
+      position.dot(event.camera.position) > position.lengthSq() - 0.0004
 
-    if (event.delta <= TAP_DISTANCE_PX) {
-      onFocus()
+    if (!facesCamera || event.delta > TAP_DISTANCE_PX) {
+      return
     }
+
+    event.stopPropagation()
+    onFocus()
   }
 
   return (

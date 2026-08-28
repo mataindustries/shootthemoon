@@ -14,17 +14,38 @@ import {
   MEAN_LUNAR_DATUM,
   createLandingSite,
   createLunarLocation,
+  normalizeLongitude,
   type LandingSite,
   type QuaternionData,
 } from '../domain/lunarCoordinates.ts'
+import {
+  RIVAL_IDENTITY_ID,
+  RIVAL_SIGNAL_ID,
+  deriveRivalSite,
+  type RivalRevealStatus,
+  type RivalSignalSnapshot,
+  type RivalStage,
+} from '../domain/rival.ts'
+import {
+  createMigratedRivalSignal,
+  normalizeRivalSignalForResume,
+} from '../simulation/rivalSimulation.ts'
 
-export const OUTPOST_SAVE_SCHEMA_VERSION = 1
+export const OUTPOST_SAVE_SCHEMA_VERSION = 2
 export const OUTPOST_STORAGE_KEY = 'shoot-the-moon:first-outpost:v1'
+
+const PRE_RIVAL_SAVE_SCHEMA_VERSION = 1
+const VALUE_EPSILON = 1e-9
 
 export interface StorageLike {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
   removeItem(key: string): void
+}
+
+export interface PrototypeSnapshot {
+  readonly outpost: OutpostSnapshot
+  readonly rival: RivalSignalSnapshot
 }
 
 interface CanonicalLandingSave {
@@ -35,11 +56,16 @@ interface CanonicalLandingSave {
   readonly orientationMcmf: QuaternionData
 }
 
-interface OutpostSaveEnvelope {
+interface RivalSaveData extends Omit<RivalSignalSnapshot, 'site'> {
+  readonly canonicalLanding: CanonicalLandingSave
+}
+
+interface PrototypeSaveEnvelopeV2 {
   readonly schemaVersion: typeof OUTPOST_SAVE_SCHEMA_VERSION
   readonly savedAtMs: number
   readonly canonicalLanding: CanonicalLandingSave
   readonly outpost: Omit<OutpostSnapshot, 'site'>
+  readonly rival: RivalSaveData
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -52,6 +78,10 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isNonNegativeNumber(value: unknown): value is number {
   return isFiniteNumber(value) && value >= 0
+}
+
+function isNullableTimestamp(value: unknown): value is number | null {
+  return value === null || isNonNegativeNumber(value)
 }
 
 function isRobotState(value: unknown): value is RobotState {
@@ -71,6 +101,24 @@ function isOutpostStage(value: unknown): value is OutpostStage {
     value === 'capsule-landed' ||
     value === 'miner-deployed' ||
     value === 'extractor-active'
+  )
+}
+
+function isRivalRevealStatus(value: unknown): value is RivalRevealStatus {
+  return (
+    value === 'DORMANT' ||
+    value === 'AWAITING_SAFE_MOMENT' ||
+    value === 'QUEUED' ||
+    value === 'CINEMATIC' ||
+    value === 'REVEALED'
+  )
+}
+
+function isRivalStage(value: unknown): value is RivalStage {
+  return (
+    value === 'LANDED' ||
+    value === 'ESTABLISHING' ||
+    value === 'FORTIFIED'
   )
 }
 
@@ -137,6 +185,16 @@ function parseLandingSite(value: unknown): LandingSite | null {
       : null
   } catch {
     return null
+  }
+}
+
+function toCanonicalLanding(site: LandingSite): CanonicalLandingSave {
+  return {
+    datumId: site.datumId,
+    latitudeRad: site.location.latitudeRad,
+    longitudeRad: site.location.longitudeRad,
+    altitudeM: site.location.heightM,
+    orientationMcmf: site.orientationMcmf,
   }
 }
 
@@ -226,7 +284,7 @@ function parseExtractor(value: unknown): Extractor | null | undefined {
   }
 }
 
-function normalizeForResume(
+function normalizeOutpostForResume(
   outpost: OutpostSnapshot,
   nowMs: number,
 ): OutpostSnapshot {
@@ -280,38 +338,301 @@ function normalizeForResume(
   }
 }
 
-function toEnvelope(
+function parseOutpost(
+  canonicalLanding: unknown,
+  value: unknown,
+  nowMs: number,
+): OutpostSnapshot | null {
+  const site = parseLandingSite(canonicalLanding)
+
+  if (
+    site === null ||
+    !isRecord(value) ||
+    value.id !== OUTPOST_ID ||
+    !isOutpostStage(value.stage) ||
+    !isNonNegativeNumber(value.establishedAtMs) ||
+    !isNonNegativeNumber(value.updatedAtMs) ||
+    !isNonNegativeNumber(value.lunarOre) ||
+    !isRecord(value.robot) ||
+    value.robot.id !== MINER_ID ||
+    !isRobotState(value.robot.state) ||
+    !isNonNegativeNumber(value.robot.stateStartedAtMs) ||
+    (value.robot.targetDepositId !== null &&
+      typeof value.robot.targetDepositId !== 'string') ||
+    !isNonNegativeNumber(value.robot.carriedOre) ||
+    !Array.isArray(value.deposits) ||
+    value.deposits.length !== DEPOSIT_BLUEPRINTS.length
+  ) {
+    return null
+  }
+
+  const deposits = value.deposits.map(parseDeposit)
+
+  if (
+    deposits.some((deposit) => deposit === null) ||
+    new Set(deposits.map((deposit) => deposit?.id)).size !==
+      DEPOSIT_BLUEPRINTS.length
+  ) {
+    return null
+  }
+
+  const extractor = parseExtractor(value.extractor)
+
+  if (extractor === undefined) {
+    return null
+  }
+
+  const parsed: OutpostSnapshot = {
+    id: OUTPOST_ID,
+    site,
+    stage: value.stage,
+    establishedAtMs: value.establishedAtMs,
+    updatedAtMs: value.updatedAtMs,
+    lunarOre: value.lunarOre,
+    robot: {
+      id: MINER_ID,
+      state: value.robot.state,
+      stateStartedAtMs: value.robot.stateStartedAtMs,
+      targetDepositId: value.robot.targetDepositId,
+      carriedOre: value.robot.carriedOre,
+    },
+    deposits: deposits as readonly MineralDeposit[],
+    extractor,
+  }
+
+  return normalizeOutpostForResume(parsed, nowMs)
+}
+
+function sameCanonicalRivalSite(
+  playerSite: LandingSite,
+  rivalSite: LandingSite,
+  surfaceHeadingRad: number,
+): boolean {
+  const expected = deriveRivalSite(playerSite)
+  const longitudeDifference = Math.abs(
+    normalizeLongitude(
+      expected.site.location.longitudeRad - rivalSite.location.longitudeRad,
+    ),
+  )
+  const headingDifference = Math.abs(
+    normalizeLongitude(expected.surfaceHeadingRad - surfaceHeadingRad),
+  )
+
+  return (
+    expected.site.datumId === rivalSite.datumId &&
+    Math.abs(
+      expected.site.location.latitudeRad - rivalSite.location.latitudeRad,
+    ) <= VALUE_EPSILON &&
+    longitudeDifference <= VALUE_EPSILON &&
+    Math.abs(expected.site.location.heightM - rivalSite.location.heightM) <=
+      VALUE_EPSILON &&
+    headingDifference <= VALUE_EPSILON
+  )
+}
+
+function completionMatchesTimestamp(
+  completed: boolean,
+  timestamp: number | null,
+): boolean {
+  return completed ? timestamp !== null : timestamp === null
+}
+
+function timestampsDoNotExceedUpdatedAt(
+  rival: RivalSignalSnapshot,
+): boolean {
+  const timestamps = [
+    rival.revealTriggeredAtMs,
+    rival.stageChangedAtMs,
+    rival.introTransmissionCompletedAtMs,
+    rival.cinematicCompletedAtMs,
+    rival.scanCompletedAtMs,
+    rival.scanResponseCompletedAtMs,
+  ]
+
+  return timestamps.every(
+    (timestamp) => timestamp === null || timestamp <= rival.updatedAtMs,
+  )
+}
+
+function rivalStateIsConsistent(rival: RivalSignalSnapshot): boolean {
+  const isDormant = rival.revealStatus === 'DORMANT'
+  const isRevealed = rival.revealStatus === 'REVEALED'
+  const cinematicFlagsMatch =
+    completionMatchesTimestamp(
+      rival.cinematicCompleted,
+      rival.cinematicCompletedAtMs,
+    ) &&
+    (rival.cinematicCompleted
+      ? rival.cinematicViewedOnce &&
+        rival.replayEligible &&
+        rival.skipEligible
+      : !rival.cinematicViewedOnce &&
+        !rival.replayEligible &&
+        !rival.skipEligible)
+  const scanFlagsMatch =
+    completionMatchesTimestamp(rival.scanCompleted, rival.scanCompletedAtMs) &&
+    completionMatchesTimestamp(
+      rival.scanResponseCompleted,
+      rival.scanResponseCompletedAtMs,
+    ) &&
+    (!rival.scanResponseCompleted || rival.scanCompleted)
+  const stageMatches =
+    (rival.stage === null && rival.stageChangedAtMs === null) ||
+    (rival.stage !== null && rival.stageChangedAtMs !== null)
+  const progressionMatches =
+    (rival.stage === null && !rival.cinematicCompleted) ||
+    (rival.stage === 'LANDED' &&
+      rival.cinematicCompleted &&
+      !rival.scanCompleted) ||
+    ((rival.stage === 'ESTABLISHING' || rival.stage === 'FORTIFIED') &&
+      rival.cinematicCompleted &&
+      rival.scanCompleted)
+
+  return (
+    rival.updatedAtMs >= rival.createdAtMs &&
+    timestampsDoNotExceedUpdatedAt(rival) &&
+    (isDormant
+      ? rival.revealTriggeredAtMs === null
+      : rival.revealTriggeredAtMs !== null) &&
+    (isRevealed === rival.cinematicCompleted) &&
+    completionMatchesTimestamp(
+      rival.introTransmissionCompleted,
+      rival.introTransmissionCompletedAtMs,
+    ) &&
+    cinematicFlagsMatch &&
+    scanFlagsMatch &&
+    stageMatches &&
+    progressionMatches
+  )
+}
+
+function parseRival(
+  value: unknown,
+  playerSite: LandingSite,
+): RivalSignalSnapshot | null {
+  if (
+    !isRecord(value) ||
+    value.id !== RIVAL_SIGNAL_ID ||
+    value.identityId !== RIVAL_IDENTITY_ID ||
+    !isFiniteNumber(value.surfaceHeadingRad) ||
+    normalizeLongitude(value.surfaceHeadingRad) !== value.surfaceHeadingRad ||
+    !isRivalRevealStatus(value.revealStatus) ||
+    !isNonNegativeNumber(value.createdAtMs) ||
+    !isNonNegativeNumber(value.updatedAtMs) ||
+    !isNullableTimestamp(value.revealTriggeredAtMs) ||
+    (value.stage !== null && !isRivalStage(value.stage)) ||
+    !isNullableTimestamp(value.stageChangedAtMs) ||
+    typeof value.introTransmissionCompleted !== 'boolean' ||
+    !isNullableTimestamp(value.introTransmissionCompletedAtMs) ||
+    typeof value.cinematicCompleted !== 'boolean' ||
+    !isNullableTimestamp(value.cinematicCompletedAtMs) ||
+    typeof value.cinematicViewedOnce !== 'boolean' ||
+    typeof value.replayEligible !== 'boolean' ||
+    typeof value.skipEligible !== 'boolean' ||
+    typeof value.scanCompleted !== 'boolean' ||
+    !isNullableTimestamp(value.scanCompletedAtMs) ||
+    typeof value.scanResponseCompleted !== 'boolean' ||
+    !isNullableTimestamp(value.scanResponseCompletedAtMs)
+  ) {
+    return null
+  }
+
+  const site = parseLandingSite(value.canonicalLanding)
+
+  if (
+    site === null ||
+    !sameCanonicalRivalSite(playerSite, site, value.surfaceHeadingRad)
+  ) {
+    return null
+  }
+
+  const parsed: RivalSignalSnapshot = {
+    id: RIVAL_SIGNAL_ID,
+    identityId: RIVAL_IDENTITY_ID,
+    site,
+    surfaceHeadingRad: value.surfaceHeadingRad,
+    revealStatus: value.revealStatus,
+    createdAtMs: value.createdAtMs,
+    updatedAtMs: value.updatedAtMs,
+    revealTriggeredAtMs: value.revealTriggeredAtMs,
+    stage: value.stage,
+    stageChangedAtMs: value.stageChangedAtMs,
+    introTransmissionCompleted: value.introTransmissionCompleted,
+    introTransmissionCompletedAtMs: value.introTransmissionCompletedAtMs,
+    cinematicCompleted: value.cinematicCompleted,
+    cinematicCompletedAtMs: value.cinematicCompletedAtMs,
+    cinematicViewedOnce: value.cinematicViewedOnce,
+    replayEligible: value.replayEligible,
+    skipEligible: value.skipEligible,
+    scanCompleted: value.scanCompleted,
+    scanCompletedAtMs: value.scanCompletedAtMs,
+    scanResponseCompleted: value.scanResponseCompleted,
+    scanResponseCompletedAtMs: value.scanResponseCompletedAtMs,
+  }
+
+  return rivalStateIsConsistent(parsed) ? parsed : null
+}
+
+function ensureEligibleRivalState(
   outpost: OutpostSnapshot,
+  rival: RivalSignalSnapshot,
+  nowMs: number,
+): RivalSignalSnapshot {
+  if (
+    outpost.extractor?.status === 'active' &&
+    rival.revealStatus === 'DORMANT'
+  ) {
+    return createMigratedRivalSignal(outpost, nowMs)
+  }
+
+  return normalizeRivalSignalForResume(rival, nowMs)
+}
+
+function normalizePrototypeForResume(
+  prototype: PrototypeSnapshot,
+  nowMs: number,
+): PrototypeSnapshot {
+  const outpost = normalizeOutpostForResume(prototype.outpost, nowMs)
+  const rival = ensureEligibleRivalState(outpost, prototype.rival, nowMs)
+
+  return { outpost, rival }
+}
+
+function toEnvelope(
+  prototype: PrototypeSnapshot,
   savedAtMs: number,
-): OutpostSaveEnvelope {
-  const safeOutpost = normalizeForResume(outpost, savedAtMs)
-  const { site: _site, ...outpostData } = safeOutpost
+): PrototypeSaveEnvelopeV2 {
+  const safe = normalizePrototypeForResume(prototype, savedAtMs)
+  const { site: _outpostSite, ...outpostData } = safe.outpost
+  const { site: _rivalSite, ...rivalData } = safe.rival
 
   return {
     schemaVersion: OUTPOST_SAVE_SCHEMA_VERSION,
     savedAtMs,
-    canonicalLanding: {
-      datumId: safeOutpost.site.datumId,
-      latitudeRad: safeOutpost.site.location.latitudeRad,
-      longitudeRad: safeOutpost.site.location.longitudeRad,
-      altitudeM: safeOutpost.site.location.heightM,
-      orientationMcmf: safeOutpost.site.orientationMcmf,
-    },
+    canonicalLanding: toCanonicalLanding(safe.outpost.site),
     outpost: outpostData,
+    rival: {
+      ...rivalData,
+      canonicalLanding: toCanonicalLanding(safe.rival.site),
+    },
   }
 }
 
-export function serializeOutpostSave(
-  outpost: OutpostSnapshot,
+export function serializePrototypeSave(
+  prototype: PrototypeSnapshot,
   savedAtMs = Date.now(),
 ): string {
-  return JSON.stringify(toEnvelope(outpost, savedAtMs))
+  if (!isNonNegativeNumber(savedAtMs)) {
+    throw new RangeError('savedAtMs must be finite and non-negative.')
+  }
+
+  return JSON.stringify(toEnvelope(prototype, savedAtMs))
 }
 
-export function deserializeOutpostSave(
+export function deserializePrototypeSave(
   serialized: string,
   nowMs = Date.now(),
-): OutpostSnapshot | null {
+): PrototypeSnapshot | null {
   let value: unknown
 
   try {
@@ -322,87 +643,109 @@ export function deserializeOutpostSave(
 
   if (
     !isRecord(value) ||
-    value.schemaVersion !== OUTPOST_SAVE_SCHEMA_VERSION ||
+    (value.schemaVersion !== PRE_RIVAL_SAVE_SCHEMA_VERSION &&
+      value.schemaVersion !== OUTPOST_SAVE_SCHEMA_VERSION) ||
     !isNonNegativeNumber(value.savedAtMs) ||
-    !isRecord(value.outpost)
+    !isNonNegativeNumber(nowMs)
   ) {
     return null
   }
 
-  const site = parseLandingSite(value.canonicalLanding)
-  const data = value.outpost
+  const outpost = parseOutpost(
+    value.canonicalLanding,
+    value.outpost,
+    nowMs,
+  )
+
+  if (outpost === null) {
+    return null
+  }
 
   if (
-    site === null ||
-    data.id !== OUTPOST_ID ||
-    !isOutpostStage(data.stage) ||
-    !isNonNegativeNumber(data.establishedAtMs) ||
-    !isNonNegativeNumber(data.updatedAtMs) ||
-    !isNonNegativeNumber(data.lunarOre) ||
-    !isRecord(data.robot) ||
-    data.robot.id !== MINER_ID ||
-    !isRobotState(data.robot.state) ||
-    !isNonNegativeNumber(data.robot.stateStartedAtMs) ||
-    (data.robot.targetDepositId !== null &&
-      typeof data.robot.targetDepositId !== 'string') ||
-    !isNonNegativeNumber(data.robot.carriedOre) ||
-    !Array.isArray(data.deposits) ||
-    data.deposits.length !== DEPOSIT_BLUEPRINTS.length
+    value.schemaVersion === PRE_RIVAL_SAVE_SCHEMA_VERSION ||
+    value.rival === undefined ||
+    value.rival === null
   ) {
+    return {
+      outpost,
+      rival: createMigratedRivalSignal(outpost, nowMs),
+    }
+  }
+
+  const parsedRival = parseRival(value.rival, outpost.site)
+
+  if (parsedRival === null) {
     return null
   }
 
-  const deposits = data.deposits.map(parseDeposit)
-
-  if (
-    deposits.some((deposit) => deposit === null) ||
-    new Set(deposits.map((deposit) => deposit?.id)).size !==
-      DEPOSIT_BLUEPRINTS.length
-  ) {
-    return null
+  return {
+    outpost,
+    rival: ensureEligibleRivalState(outpost, parsedRival, nowMs),
   }
-
-  const extractor = parseExtractor(data.extractor)
-
-  if (extractor === undefined) {
-    return null
-  }
-
-  const parsed: OutpostSnapshot = {
-    id: OUTPOST_ID,
-    site,
-    stage: data.stage,
-    establishedAtMs: data.establishedAtMs,
-    updatedAtMs: data.updatedAtMs,
-    lunarOre: data.lunarOre,
-    robot: {
-      id: MINER_ID,
-      state: data.robot.state,
-      stateStartedAtMs: data.robot.stateStartedAtMs,
-      targetDepositId: data.robot.targetDepositId,
-      carriedOre: data.robot.carriedOre,
-    },
-    deposits: deposits as readonly MineralDeposit[],
-    extractor,
-  }
-
-  return normalizeForResume(parsed, nowMs)
 }
 
-export function loadOutpostSave(
+export function loadPrototypeSave(
   storage: StorageLike,
   nowMs = Date.now(),
-): OutpostSnapshot | null {
+): PrototypeSnapshot | null {
   try {
     const serialized = storage.getItem(OUTPOST_STORAGE_KEY)
     return serialized === null
       ? null
-      : deserializeOutpostSave(serialized, nowMs)
+      : deserializePrototypeSave(serialized, nowMs)
   } catch {
     return null
   }
 }
 
+export function writePrototypeSave(
+  storage: StorageLike,
+  prototype: PrototypeSnapshot,
+  nowMs = Date.now(),
+): boolean {
+  try {
+    storage.setItem(
+      OUTPOST_STORAGE_KEY,
+      serializePrototypeSave(prototype, nowMs),
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Compatibility adapter for code that only consumes the player outpost. */
+export function serializeOutpostSave(
+  outpost: OutpostSnapshot,
+  savedAtMs = Date.now(),
+): string {
+  const safeOutpost = normalizeOutpostForResume(outpost, savedAtMs)
+  return serializePrototypeSave(
+    {
+      outpost,
+      rival: createMigratedRivalSignal(safeOutpost, savedAtMs),
+    },
+    savedAtMs,
+  )
+}
+
+/** Compatibility adapter for code that only consumes the player outpost. */
+export function deserializeOutpostSave(
+  serialized: string,
+  nowMs = Date.now(),
+): OutpostSnapshot | null {
+  return deserializePrototypeSave(serialized, nowMs)?.outpost ?? null
+}
+
+/** Compatibility adapter for code that only consumes the player outpost. */
+export function loadOutpostSave(
+  storage: StorageLike,
+  nowMs = Date.now(),
+): OutpostSnapshot | null {
+  return loadPrototypeSave(storage, nowMs)?.outpost ?? null
+}
+
+/** Compatibility adapter for code that only writes the player outpost. */
 export function writeOutpostSave(
   storage: StorageLike,
   outpost: OutpostSnapshot,

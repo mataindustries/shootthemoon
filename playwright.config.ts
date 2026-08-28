@@ -24,7 +24,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'npm run preview -- --host 127.0.0.1',
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env.CI,
     stderr: 'pipe',
     stdout: 'pipe',
     timeout: 30_000,

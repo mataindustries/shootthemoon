@@ -23,3 +23,24 @@ export function useDemandAnimation(active: boolean): void {
     return () => window.cancelAnimationFrame(animationFrame)
   }, [active, invalidate])
 }
+
+export function useLowFrequencyDemandAnimation(
+  active: boolean,
+  intervalMs = 180,
+): void {
+  const invalidate = useThree((state) => state.invalidate)
+
+  useEffect(() => {
+    if (!active) {
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      if (!isSimulationTimePaused()) {
+        invalidate()
+      }
+    }, intervalMs)
+
+    return () => window.clearInterval(timer)
+  }, [active, intervalMs, invalidate])
+}

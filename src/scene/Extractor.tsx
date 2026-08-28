@@ -25,9 +25,14 @@ import { simulationNowMs } from '../simulation/simulationTime.ts'
 interface ExtractorProps {
   readonly outpost: OutpostSnapshot
   readonly terrain: SurfaceTerrainProfile
+  readonly signalInterrupted?: boolean
 }
 
-export function Extractor({ outpost, terrain }: ExtractorProps) {
+export function Extractor({
+  outpost,
+  terrain,
+  signalInterrupted = false,
+}: ExtractorProps) {
   const extractor = outpost.extractor
   const rootRef = useRef<Group>(null)
   const baseRef = useRef<Group>(null)
@@ -207,8 +212,13 @@ export function Extractor({ outpost, terrain }: ExtractorProps) {
       drumRef.current.rotation.x = elapsed * 2.8
       pumpRef.current.rotation.z = -0.28 + Math.sin(elapsed * 3.4) * 0.36
 
-      operationMaterial.emissiveIntensity =
-        1.65 + Math.sin(elapsed * 4.2) * 0.38
+      const interruptionGate =
+        Math.sin(elapsed * 27) > 0.2 || Math.sin(elapsed * 11.4) < -0.72
+      operationMaterial.emissiveIntensity = signalInterrupted
+        ? interruptionGate
+          ? 0.08
+          : 1.15
+        : 1.65 + Math.sin(elapsed * 4.2) * 0.38
     }
   })
 

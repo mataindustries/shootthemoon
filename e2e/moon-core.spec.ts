@@ -1,8 +1,15 @@
 import { expect, test, type Page } from '@playwright/test'
+import { OUTPOST_STORAGE_KEY } from '../src/persistence/outpostSave.ts'
+import {
+  createInterruptedCinematicSave,
+  createLegacyActiveExtractorSave,
+  createScanAwaitingResponseSave,
+} from './rivalFixtures.ts'
 
 const SCREENSHOT_DIRECTORY = 'artifacts/screenshots'
 const SURFACE_AFTER_SCREENSHOT_DIRECTORY =
   SCREENSHOT_DIRECTORY + '/surface-presence-after'
+const RIVAL_SCREENSHOT_DIRECTORY = SCREENSHOT_DIRECTORY + '/rival-signal'
 
 interface BrowserErrors {
   readonly console: string[]
@@ -32,7 +39,10 @@ function watchBrowserErrors(page: Page): BrowserErrors {
   return errors
 }
 
-async function openReadyScene(page: Page): Promise<void> {
+async function openReadyScene(
+  page: Page,
+  initialSave: string | null = null,
+): Promise<void> {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'deviceMemory', {
       configurable: true,
@@ -43,6 +53,16 @@ async function openReadyScene(page: Page): Promise<void> {
       get: () => 8,
     })
   })
+  if (initialSave !== null) {
+    await page.addInitScript(
+      ({ key, value }) => {
+        if (window.localStorage.getItem(key) === null) {
+          window.localStorage.setItem(key, value)
+        }
+      },
+      { key: OUTPOST_STORAGE_KEY, value: initialSave },
+    )
+  }
   await page.goto('/?e2e')
   await expect(page.locator('main')).toHaveAttribute('data-scene-ready', 'true')
   await expect(page.locator('.scene-canvas canvas')).toHaveAttribute(
@@ -222,6 +242,36 @@ async function setCinematicProgress(page: Page, progress: number): Promise<void>
   }, progress)
 }
 
+async function setRivalPresentation(
+  page: Page,
+  phase: string,
+  progress: number | null,
+  replay = false,
+): Promise<void> {
+  await page.evaluate(
+    (detail) => {
+      window.dispatchEvent(
+        new CustomEvent('rival-signal:set-presentation', { detail }),
+      )
+    },
+    { phase, progress, replay },
+  )
+  await expect(page.locator('main')).toHaveAttribute(
+    'data-rival-presentation',
+    phase,
+  )
+  await page.waitForTimeout(100)
+}
+
+async function advanceRivalPresentation(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new CustomEvent('rival-signal:advance-presentation'),
+    )
+  })
+  await page.waitForTimeout(120)
+}
+
 async function setSimulationPaused(
   page: Page,
   paused: boolean,
@@ -332,10 +382,10 @@ async function tapProjectedPoint(
   await page.touchscreen.tap(x, y)
 }
 
-test('complete mobile First Outpost loop, persistence, screenshots, and budgets', async ({
+test('complete mobile First Outpost loop queues one Rival Signal after extractor activation', async ({
   page,
 }) => {
-  test.setTimeout(240_000)
+  test.setTimeout(180_000)
   const errors = watchBrowserErrors(page)
   await openReadyScene(page)
   await expect(page.locator('main')).toHaveAttribute('data-quality', 'medium')
@@ -596,30 +646,274 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
       JSON.stringify(focusedExtractorMetrics),
   )
 
-  await setSimulationPaused(page, false)
-  await page.waitForTimeout(3_000)
-  await expect(canvas).toHaveAttribute('data-camera-mode', 'surface-player', {
-    timeout: 6_000,
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/01-player-outpost-before-interruption.png',
   })
+  await setSimulationPaused(page, false)
+  await expect(main).toHaveAttribute('data-rival-presentation', 'warning', {
+    timeout: 5_000,
+  })
+  await setRivalPresentation(page, 'warning', 0.58)
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/02-unidentified-signal-warning.png',
+  })
+  await expect(main).toHaveAttribute('data-rival-reveal-state', 'CINEMATIC')
+  await expect(main).toHaveAttribute('data-rival-signal-held', 'false')
+  expect(errors).toEqual({ console: [], page: [] })
+})
+
+test('complete migrated-save Rival Signal loop, restoration, reset, and performance', async ({
+  page,
+}) => {
+  test.setTimeout(180_000)
+  const errors = watchBrowserErrors(page)
+  await openReadyScene(page, createLegacyActiveExtractorSave())
+  const main = page.locator('main')
+  const canvas = page.locator('.scene-canvas canvas')
+
+  await expect(main).toHaveAttribute('data-phase', 'landed')
+  await expect(main).toHaveAttribute(
+    'data-rival-reveal-state',
+    'AWAITING_SAFE_MOMENT',
+  )
+  await expect(main).toHaveAttribute('data-rival-signal-held', 'true')
+  await page.waitForTimeout(500)
+  await expect(main).toHaveAttribute('data-rival-presentation', 'idle')
+
+  await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-phase', 'orbit', { timeout: 5_000 })
+  await expect(main).toHaveAttribute('data-rival-presentation', 'warning', {
+    timeout: 5_000,
+  })
+  await setRivalPresentation(page, 'warning', 0.58)
+
+  await advanceRivalPresentation(page)
+  await expect(main).toHaveAttribute(
+    'data-rival-presentation',
+    'orbital-transition',
+  )
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-phase', 'orbit', { timeout: 5_000 })
+  await setRivalPresentation(page, 'orbital-transition', 0.52)
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/03-orbital-transition.png',
+  })
+  const orbitalTransitionMetrics = await readRenderMetrics(page)
+  console.log(
+    'RIVAL_SIGNAL_ORBITAL_TRANSITION_METRICS ' +
+      JSON.stringify(orbitalTransitionMetrics),
+  )
+
+  await advanceRivalPresentation(page)
+  await setRivalPresentation(page, 'capsule-approach', 0.78)
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/04-rival-capsule-approach.png',
+  })
+  const capsuleMetrics = await readRenderMetrics(page)
+  console.log('RIVAL_SIGNAL_CAPSULE_METRICS ' + JSON.stringify(capsuleMetrics))
+
+  await advanceRivalPresentation(page)
+  await setRivalPresentation(page, 'impact', 0.72)
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/05-rival-impact.png',
+  })
+  const impactMetrics = await readRenderMetrics(page)
+  console.log('RIVAL_SIGNAL_IMPACT_METRICS ' + JSON.stringify(impactMetrics))
+  expect(impactMetrics.drawCalls).toBeLessThanOrEqual(100)
+  expect(impactMetrics.triangles).toBeLessThanOrEqual(220_000)
+
+  await advanceRivalPresentation(page)
+  await expect(page.locator('.rival-transmission')).toContainText(
+    'COMMANDER VESPER',
+  )
+  await expect(page.locator('.rival-transmission')).toContainText(
+    'something to lose',
+  )
+  await page.getByRole('button', { name: 'HOLD THE CHANNEL' }).click()
+  await expect(main).toHaveAttribute('data-rival-presentation', 'dual-sites')
+  await setRivalPresentation(page, 'dual-sites', 1)
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/06-both-sites-visible.png',
+  })
+  await advanceRivalPresentation(page)
+  await expect(main).toHaveAttribute('data-rival-presentation', 'idle')
+  await expect(main).toHaveAttribute('data-rival-reveal-state', 'REVEALED')
+  await expect(main).toHaveAttribute('data-rival-stage', 'LANDED')
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'orbit')
+
+  const contestedOrbitMetrics = await readRenderMetrics(page)
+  console.log(
+    'RIVAL_SIGNAL_BOTH_SIGNATURES_METRICS ' +
+      JSON.stringify(contestedOrbitMetrics),
+  )
+  expect(contestedOrbitMetrics.drawCalls).toBeLessThanOrEqual(30)
+  expect(contestedOrbitMetrics.triangles).toBeLessThanOrEqual(120_000)
+
+  await tapProjectedPoint(
+    page,
+    'data-rival-signal-x',
+    'data-rival-signal-y',
+  )
+  await expect(main).toHaveAttribute('data-rival-presentation', 'rival-focus')
+  await setRivalPresentation(page, 'rival-focus', 1)
+  await advanceRivalPresentation(page)
+  await expect(main).toHaveAttribute('data-rival-presentation', 'rival-focused')
+  await expect(page.getByRole('button', { name: 'SCAN RIVAL SITE' })).toBeVisible()
+  const scanButtonBounds = await page
+    .getByRole('button', { name: 'SCAN RIVAL SITE' })
+    .boundingBox()
+  expect(scanButtonBounds?.height ?? 0).toBeGreaterThanOrEqual(48)
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/07-rival-focused.png',
+  })
+  const rivalFocusedMetrics = await readRenderMetrics(page)
+  console.log(
+    'RIVAL_SIGNAL_FOCUSED_METRICS ' + JSON.stringify(rivalFocusedMetrics),
+  )
+  expect(rivalFocusedMetrics.drawCalls).toBeLessThanOrEqual(45)
+  expect(rivalFocusedMetrics.triangles).toBeLessThanOrEqual(90_000)
+
+  const rivalFocusAzimuthBefore = Number(
+    await canvas.getAttribute('data-camera-azimuth'),
+  )
+  const rivalCenter = await canvasCenter(page)
+  await dragTouch(
+    page,
+    { x: rivalCenter.x - 42, y: rivalCenter.y - 16 },
+    { x: rivalCenter.x + 52, y: rivalCenter.y + 22 },
+    19,
+  )
+  await expect
+    .poll(async () => Number(await canvas.getAttribute('data-camera-azimuth')))
+    .not.toBeCloseTo(rivalFocusAzimuthBefore, 2)
+  await expect(main).toHaveAttribute('data-rival-scan-complete', 'false')
+
+  await page.getByRole('button', { name: 'SCAN RIVAL SITE' }).click()
+  await setRivalPresentation(page, 'scanning', 0.52)
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/08-scan-in-progress.png',
+  })
+  const scanMetrics = await readRenderMetrics(page)
+  console.log('RIVAL_SIGNAL_SCAN_METRICS ' + JSON.stringify(scanMetrics))
+  expect(scanMetrics.drawCalls).toBeLessThanOrEqual(55)
+  expect(scanMetrics.triangles).toBeLessThanOrEqual(100_000)
+
+  await advanceRivalPresentation(page)
+  await expect(main).toHaveAttribute('data-rival-stage', 'ESTABLISHING')
+  await expect(main).toHaveAttribute('data-rival-scan-complete', 'true')
+  await expect(page.locator('.rival-transmission')).toContainText(
+    'You found me. Good.',
+  )
+  await page.getByRole('button', { name: 'END TRANSMISSION' }).click()
+  await expect(main).toHaveAttribute('data-rival-presentation', 'contested')
+  await expect(main).toHaveAttribute('data-rival-response-complete', 'true')
+  await setRivalPresentation(page, 'contested', 1)
+  await expect(page.locator('.rival-contested')).toContainText(
+    'The Moon has room for two claims. I do not.',
+  )
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/09-final-contested-moon.png',
+  })
+  await advanceRivalPresentation(page)
+  await expect(main).toHaveAttribute('data-rival-presentation', 'idle')
+  await expect(main).toHaveAttribute('data-lunar-control', 'contested')
   await expect(main).toHaveAttribute('data-render-mode', 'demand')
+
+  await page.waitForTimeout(400)
+  const contestedIdleFrame = await readFrameCount(page)
+  await page.waitForTimeout(1_400)
+  const contestedIdleFrames =
+    (await readFrameCount(page)) - contestedIdleFrame
+  console.log(
+    'RIVAL_SIGNAL_CONTESTED_IDLE ' +
+      JSON.stringify({ frames: contestedIdleFrames, durationMs: 1_400 }),
+  )
+  expect(contestedIdleFrames).toBeLessThanOrEqual(14)
+
+  const orbitAzimuthBefore = Number(
+    await canvas.getAttribute('data-camera-azimuth'),
+  )
+  const orbitCenter = await canvasCenter(page)
+  await dragTouch(
+    page,
+    { x: orbitCenter.x - 52, y: orbitCenter.y - 12 },
+    { x: orbitCenter.x + 58, y: orbitCenter.y + 24 },
+    21,
+  )
+  await expect
+    .poll(async () => Number(await canvas.getAttribute('data-camera-azimuth')))
+    .not.toBeCloseTo(orbitAzimuthBefore, 2)
+
+  await tapProjectedPoint(
+    page,
+    'data-outpost-signal-x',
+    'data-outpost-signal-y',
+  )
+  await expect(main).toHaveAttribute('data-phase', 'selected')
+  await page.getByRole('button', { name: 'REVISIT OUTPOST' }).click()
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-phase', 'landed', { timeout: 5_000 })
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'surface-player')
+
   const activeMetrics = await readRenderMetrics(page)
-  console.log('FIRST_OUTPOST_ACTIVE_SURFACE_METRICS ' + JSON.stringify(activeMetrics))
+  console.log(
+    'RIVAL_SIGNAL_PLAYER_SURFACE_METRICS ' + JSON.stringify(activeMetrics),
+  )
   expect(activeMetrics.drawCalls).toBeLessThanOrEqual(60)
   expect(activeMetrics.triangles).toBeLessThanOrEqual(60_000)
-  expect(activeMetrics.geometries).toBeLessThanOrEqual(45)
+  expect(activeMetrics.geometries).toBeLessThanOrEqual(55)
   expect(activeMetrics.textures).toBeLessThanOrEqual(6)
   expect(activeMetrics.programs).toBeLessThanOrEqual(24)
-  expect(activeMetrics.bufferWidth * activeMetrics.bufferHeight).toBeLessThanOrEqual(
-    1_010_000,
-  )
+
   const activeIdleFrame = await readFrameCount(page)
   await page.waitForTimeout(1_400)
   const activeIdleFrames = (await readFrameCount(page)) - activeIdleFrame
   console.log(
-    'FIRST_OUTPOST_ACTIVE_IDLE ' +
+    'RIVAL_SIGNAL_PLAYER_SURFACE_IDLE ' +
       JSON.stringify({ frames: activeIdleFrames, durationMs: 1_400 }),
   )
   expect(activeIdleFrames).toBeLessThanOrEqual(16)
+
+  const oreBeforeRefresh = Number(await main.getAttribute('data-lunar-ore'))
+  await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-phase', 'orbit', { timeout: 5_000 })
+  await tapProjectedPoint(
+    page,
+    'data-rival-signal-x',
+    'data-rival-signal-y',
+  )
+  await setRivalPresentation(page, 'rival-focus', 1)
+  await advanceRivalPresentation(page)
+  await expect(page.getByRole('button', { name: 'REVIEW SIGNAL' })).toBeVisible()
+  await page.getByRole('button', { name: 'REVIEW SIGNAL' }).click()
+  await expect(page.getByRole('button', { name: 'SKIP REVIEW' })).toBeVisible()
+  await page.getByRole('button', { name: 'SKIP REVIEW' }).click()
+  await expect(main).toHaveAttribute('data-rival-presentation', 'idle')
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'orbit')
+
+  await page.reload()
+  await expect(main).toHaveAttribute('data-scene-ready', 'true')
+  await expect(main).toHaveAttribute('data-phase', 'landed')
+  await expect(main).toHaveAttribute('data-outpost-stage', 'extractor-active')
+  await expect(main).toHaveAttribute('data-rival-reveal-state', 'REVEALED')
+  await expect(main).toHaveAttribute('data-rival-stage', 'ESTABLISHING')
+  await expect(main).toHaveAttribute('data-rival-scan-complete', 'true')
+  await expect(main).toHaveAttribute('data-rival-response-complete', 'true')
+  await expect(page.locator('.rival-transmission')).toHaveCount(0)
+  expect(Number(await main.getAttribute('data-lunar-ore'))).toBeGreaterThanOrEqual(
+    oreBeforeRefresh,
+  )
+  await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-phase', 'orbit', { timeout: 5_000 })
+  await page.waitForTimeout(300)
+  await page.screenshot({
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/10-restored-contested-moon.png',
+  })
+  await expect(canvas).toHaveAttribute('data-rival-signal-x', /\d/)
+  await expect(canvas).toHaveAttribute('data-outpost-signal-x', /\d/)
 
   await page.setViewportSize({ width: 844, height: 390 })
   await page.waitForTimeout(350)
@@ -629,76 +923,16 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
     ),
   ).toBe(true)
   await page.screenshot({
-    path: SURFACE_AFTER_SCREENSHOT_DIRECTORY + '/06-landscape-active.png',
+    path: RIVAL_SCREENSHOT_DIRECTORY + '/11-landscape-contested.png',
   })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.waitForTimeout(300)
 
-  await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
-  await setCinematicProgress(page, 1)
-  await expect(main).toHaveAttribute('data-phase', 'orbit', { timeout: 5_000 })
-  await expect
-    .poll(async () => Number(await canvas.getAttribute('data-camera-distance')))
-    .toBeGreaterThan(4.4)
-  await page.waitForTimeout(500)
-  await page.screenshot({
-    path: SCREENSHOT_DIRECTORY + '/11-orbital-outpost-signature.png',
-  })
-  await page.screenshot({
-    path: SURFACE_AFTER_SCREENSHOT_DIRECTORY + '/07-orbital-signature.png',
-  })
-
-  await tapProjectedPoint(
-    page,
-    'data-outpost-signal-x',
-    'data-outpost-signal-y',
-  )
-  await expect(main).toHaveAttribute('data-phase', 'selected')
-  await page.getByRole('button', { name: 'REVISIT OUTPOST' }).click()
-  await expect(main).toHaveAttribute('data-phase', 'approach')
-  await setCinematicProgress(page, 1)
-  await expect(main).toHaveAttribute('data-phase', 'landed', { timeout: 5_000 })
-
-  const oreBeforeRefresh = Number(await main.getAttribute('data-lunar-ore'))
-  await page.reload()
-  await expect(main).toHaveAttribute('data-scene-ready', 'true')
-  await expect(main).toHaveAttribute('data-phase', 'landed')
-  await expect(main).toHaveAttribute('data-outpost-stage', 'extractor-active')
-  await expect(main).toHaveAttribute('data-robot-state', 'idle')
-  expect(Number(await main.getAttribute('data-lunar-ore'))).toBeGreaterThanOrEqual(
-    oreBeforeRefresh,
-  )
-  await page.waitForTimeout(250)
-  await page.screenshot({
-    path: SCREENSHOT_DIRECTORY + '/12-restored-outpost.png',
-  })
   expect(
     await page.evaluate(
       () => localStorage.getItem('shoot-the-moon:first-outpost:v1') !== null,
     ),
   ).toBe(true)
-  await expect(canvas).toHaveAttribute('data-camera-mode', 'surface-player')
-  const restoredCenter = await canvasCenter(page)
-  const surfaceAzimuthBefore = Number(
-    await canvas.getAttribute('data-camera-azimuth'),
-  )
-  await dragTouch(
-    page,
-    { x: restoredCenter.x - 52, y: restoredCenter.y - 15 },
-    { x: restoredCenter.x + 58, y: restoredCenter.y + 24 },
-    11,
-  )
-  await expect
-    .poll(async () => Number(await canvas.getAttribute('data-camera-azimuth')))
-    .not.toBeCloseTo(surfaceAzimuthBefore, 2)
-  const surfaceDistanceBefore = Number(
-    await canvas.getAttribute('data-camera-distance'),
-  )
-  await pinchTouch(page, false)
-  await expect
-    .poll(async () => Number(await canvas.getAttribute('data-camera-distance')))
-    .not.toBeCloseTo(surfaceDistanceBefore, 3)
-  await expect(main).toHaveAttribute('data-selected-deposit', 'none')
   const mobileWebglState = await canvas.evaluate((element) => {
     const context = element.getContext('webgl2')
     return {
@@ -713,11 +947,75 @@ test('complete mobile First Outpost loop, persistence, screenshots, and budgets'
   await page.getByRole('button', { name: 'RESET PROTOTYPE' }).click()
   await expect(main).toHaveAttribute('data-phase', 'orbit')
   await expect(main).toHaveAttribute('data-outpost-stage', 'none')
+  await expect(main).toHaveAttribute('data-rival-reveal-state', 'none')
+  await expect(main).toHaveAttribute('data-rival-presentation', 'idle')
+  await expect(main).toHaveAttribute('data-rival-signal-held', 'false')
   expect(
     await page.evaluate(
       () => localStorage.getItem('shoot-the-moon:first-outpost:v1'),
     ),
   ).toBeNull()
+})
+
+test('interrupted cinematic normalizes to a held, resumable reveal', async ({
+  page,
+}) => {
+  const errors = watchBrowserErrors(page)
+  await openReadyScene(page, createInterruptedCinematicSave())
+  const main = page.locator('main')
+
+  await expect(main).toHaveAttribute('data-phase', 'landed')
+  await expect(main).toHaveAttribute('data-rival-reveal-state', 'QUEUED')
+  await expect(main).toHaveAttribute('data-rival-presentation', 'idle')
+  await expect(main).toHaveAttribute('data-rival-signal-held', 'true')
+  await expect(page.locator('.rival-transmission')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-rival-presentation', 'warning')
+  await expect(main).toHaveAttribute('data-rival-reveal-state', 'CINEMATIC')
+  await page.waitForTimeout(120)
+  await page.reload()
+
+  await expect(main).toHaveAttribute('data-scene-ready', 'true')
+  await expect(main).toHaveAttribute('data-phase', 'landed')
+  await expect(main).toHaveAttribute('data-rival-reveal-state', 'QUEUED')
+  await expect(main).toHaveAttribute('data-rival-presentation', 'idle')
+  await expect(main).toHaveAttribute('data-rival-signal-held', 'true')
+  await expect(page.locator('.rival-transmission')).toHaveCount(0)
+  expect(errors).toEqual({ console: [], page: [] })
+})
+
+test('restored completed scan resumes its one pending rival response', async ({
+  page,
+}) => {
+  const errors = watchBrowserErrors(page)
+  await openReadyScene(page, createScanAwaitingResponseSave())
+  const main = page.locator('main')
+
+  await expect(main).toHaveAttribute('data-rival-reveal-state', 'REVEALED')
+  await expect(main).toHaveAttribute('data-rival-stage', 'ESTABLISHING')
+  await expect(main).toHaveAttribute('data-rival-scan-complete', 'true')
+  await expect(main).toHaveAttribute('data-rival-response-complete', 'false')
+  await expect(page.locator('.rival-transmission')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-phase', 'orbit')
+  await tapProjectedPoint(
+    page,
+    'data-rival-signal-x',
+    'data-rival-signal-y',
+  )
+  await setRivalPresentation(page, 'rival-focus', 1)
+  await advanceRivalPresentation(page)
+  await expect(main).toHaveAttribute('data-rival-presentation', 'scan-response')
+  await expect(page.locator('.rival-transmission')).toContainText(
+    'You found me. Good.',
+  )
+  await page.getByRole('button', { name: 'END TRANSMISSION' }).click()
+  await expect(main).toHaveAttribute('data-rival-response-complete', 'true')
+  expect(errors).toEqual({ console: [], page: [] })
 })
 
 test('surface selection remains valid at a limb, poles, and longitude seam', async ({

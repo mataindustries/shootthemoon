@@ -28,6 +28,11 @@ import {
   type SurfaceTerrainProfile,
 } from '../render/surfaceTerrain.ts'
 import { useCinematicProgress } from './CinematicClock.tsx'
+import {
+  getRivalPresentationProgress,
+  rivalPresentationLocksCamera,
+  type RivalPresentationState,
+} from '../app/rivalPresentation.ts'
 
 const ORBIT_DIRECTION = new Vector3(3.2, 0.32, 0.92).normalize()
 const DESKTOP_ORBIT_DISTANCE = 3.345
@@ -55,6 +60,9 @@ interface CameraRigProps {
   readonly orbitalFocusSite: LandingSite | null
   readonly outpost: OutpostSnapshot | null
   readonly terrain: SurfaceTerrainProfile | null
+  readonly rivalSite: LandingSite | null
+  readonly dualOrbitPreferred: boolean
+  readonly rivalPresentation: RivalPresentationState
 }
 
 type SurfaceFocusKind =
@@ -80,6 +88,11 @@ interface SavedSurfaceView {
 interface OrbitControlsCoordinateFrame {
   readonly _quat: Quaternion
   readonly _quatInverse: Quaternion
+}
+
+interface ConfiguredRivalPresentation {
+  readonly phase: RivalPresentationState['phase']
+  readonly replay: boolean
 }
 
 function smoothstep(value: number): number {
@@ -121,6 +134,25 @@ function getOrbitViewForSite(
     .setLength(distance)
 }
 
+function getDualOrbitView(
+  camera: PerspectiveCamera,
+  playerSite: LandingSite,
+  rivalSite: LandingSite,
+): Vector3 {
+  const player = landingSiteToRenderTransform(playerSite)
+  const rival = landingSiteToRenderTransform(rivalSite)
+  const distance = isNarrowPortrait(camera)
+    ? PORTRAIT_ORBIT_DISTANCE
+    : DESKTOP_ORBIT_DISTANCE
+  const midpoint = player.up.clone().add(rival.up).normalize()
+  const oppositionAxis = rival.up.clone().cross(player.up).normalize()
+
+  return midpoint
+    .multiplyScalar(distance)
+    .addScaledVector(oppositionAxis, distance * 0.075)
+    .setLength(distance)
+}
+
 function localPointToWorld(
   site: LandingSite,
   x: number,
@@ -154,6 +186,16 @@ function getSurfaceCameraPose(
       targetGround + 1.05 * LOCAL_METRES_TO_RENDER_UNITS,
       targetZM * LOCAL_METRES_TO_RENDER_UNITS,
     ),
+    up: transform.up.clone(),
+  }
+}
+
+function getRivalSurfaceCameraPose(site: LandingSite): SurfaceCameraPose {
+  const transform = landingSiteToRenderTransform(site)
+
+  return {
+    position: localPointToWorld(site, 0.0065, 0.0095, 0.0195),
+    target: localPointToWorld(site, 0, 0.00065, 0),
     up: transform.up.clone(),
   }
 }
@@ -290,6 +332,9 @@ export function CameraRig({
   orbitalFocusSite,
   outpost,
   terrain,
+  rivalSite,
+  dualOrbitPreferred,
+  rivalPresentation,
 }: CameraRigProps) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const gl = useThree((state) => state.gl)
@@ -298,6 +343,9 @@ export function CameraRig({
   const progressRef = useCinematicProgress()
   const controlsRef = useRef<OrbitControls | null>(null)
   const journeyRef = useRef<Journey | null>(null)
+  const rivalJourneyRef = useRef<Journey | null>(null)
+  const configuredRivalPresentationRef =
+    useRef<ConfiguredRivalPresentation | null>(null)
   const temporaryPositionRef = useRef(new Vector3())
   const temporaryTargetRef = useRef(new Vector3())
   const temporaryUpRef = useRef(new Vector3())
@@ -366,6 +414,168 @@ export function CameraRig({
       return
     }
 
+    const rivalPhase = rivalPresentation.phase
+
+    if (rivalPhase !== 'idle') {
+      if (
+        configuredRivalPresentationRef.current?.phase === rivalPhase &&
+        configuredRivalPresentationRef.current.replay ===
+          rivalPresentation.replay
+      ) {
+        controls.enabled = rivalPhase === 'rival-focused'
+        updateCameraDataset(camera, controls)
+        invalidate()
+        return
+      }
+
+      configuredRivalPresentationRef.current = {
+        phase: rivalPhase,
+        replay: rivalPresentation.replay,
+      }
+      journeyRef.current = null
+      rivalJourneyRef.current = null
+      controls.enabled = false
+      gl.domElement.dataset.cameraInteracting = 'false'
+      gl.domElement.dataset.cameraMode = `rival-${rivalPhase}`
+
+      if (rivalPhase === 'warning') {
+        invalidate()
+        return
+      }
+
+      if (rivalSite === null || orbitalFocusSite === null) {
+        invalidate()
+        return
+      }
+
+      const rivalTransform = landingSiteToRenderTransform(rivalSite)
+      const playerTransform = landingSiteToRenderTransform(orbitalFocusSite)
+      const rivalSurfacePose = getRivalSurfaceCameraPose(rivalSite)
+
+      if (rivalPhase === 'rival-focused') {
+        camera.position.copy(rivalSurfacePose.position)
+        setControlsUpDirection(camera, controls, rivalSurfacePose.up)
+        controls.target.copy(rivalSurfacePose.target)
+        controls.enabled = true
+        controls.enablePan = false
+        controls.minDistance = 0.018
+        controls.maxDistance = 0.065
+        controls.minPolarAngle = 0.32
+        controls.maxPolarAngle = 1.48
+        controls.rotateSpeed = 0.38
+        controls.zoomSpeed = 0.56
+        camera.near = 0.00001
+        camera.far = 4
+        camera.fov = isNarrowPortrait(camera) ? 50 : 40
+        camera.updateProjectionMatrix()
+        controls.update()
+        updateCameraDataset(camera, controls)
+        invalidate()
+        return
+      }
+
+      if (
+        rivalPhase === 'intro-transmission' ||
+        rivalPhase === 'scanning' ||
+        rivalPhase === 'scan-response'
+      ) {
+        camera.near = 0.00001
+        camera.far = 4
+        camera.fov = isNarrowPortrait(camera) ? 50 : 40
+        camera.updateProjectionMatrix()
+        updateCameraDataset(camera, controls)
+        invalidate()
+        return
+      }
+
+      const start = camera.position.clone()
+      let endPosition: Vector3
+      let endTarget: Vector3
+      let endUp: Vector3
+      let controlOne: Vector3
+      let controlTwo: Vector3
+
+      if (rivalPhase === 'orbital-transition') {
+        endPosition = getOrbitViewForSite(camera, orbitalFocusSite)
+        endTarget = ORBIT_TARGET.clone()
+        endUp = WORLD_UP.clone()
+        controlOne = playerTransform.up
+          .clone()
+          .multiplyScalar(1.34)
+          .addScaledVector(playerTransform.east, 0.045)
+        controlTwo = endPosition.clone().multiplyScalar(0.68)
+      } else if (rivalPhase === 'capsule-approach') {
+        endPosition = getOrbitViewForSite(camera, rivalSite).setLength(
+          isNarrowPortrait(camera) ? 2.72 : 2.36,
+        )
+        endTarget = ORBIT_TARGET.clone()
+        endUp = WORLD_UP.clone()
+        controlOne = start.clone().multiplyScalar(0.94)
+        controlTwo = rivalTransform.up
+          .clone()
+          .multiplyScalar(isNarrowPortrait(camera) ? 2.9 : 2.5)
+          .addScaledVector(rivalTransform.east, 0.18)
+      } else if (rivalPhase === 'impact') {
+        endPosition = rivalSurfacePose.position
+        endTarget = rivalSurfacePose.target
+        endUp = rivalSurfacePose.up
+        controlOne = rivalTransform.up
+          .clone()
+          .multiplyScalar(1.7)
+          .addScaledVector(rivalTransform.east, 0.08)
+        controlTwo = rivalTransform.position
+          .clone()
+          .addScaledVector(rivalTransform.up, 0.095)
+          .addScaledVector(rivalTransform.east, 0.025)
+          .addScaledVector(rivalTransform.south, 0.045)
+      } else if (rivalPhase === 'rival-focus') {
+        endPosition = rivalSurfacePose.position
+        endTarget = rivalSurfacePose.target
+        endUp = rivalSurfacePose.up
+        controlOne = start.clone().multiplyScalar(0.86)
+        controlTwo = rivalTransform.position
+          .clone()
+          .addScaledVector(rivalTransform.up, 0.11)
+          .addScaledVector(rivalTransform.east, 0.035)
+          .addScaledVector(rivalTransform.south, 0.055)
+      } else {
+        endPosition = getDualOrbitView(
+          camera,
+          orbitalFocusSite,
+          rivalSite,
+        )
+        endTarget = ORBIT_TARGET.clone()
+        endUp = WORLD_UP.clone()
+        controlOne = rivalTransform.up
+          .clone()
+          .multiplyScalar(1.38)
+          .addScaledVector(rivalTransform.east, 0.08)
+        controlTwo = endPosition.clone().multiplyScalar(0.7)
+      }
+
+      rivalJourneyRef.current = {
+        path: new CubicBezierCurve3(start, controlOne, controlTwo, endPosition),
+        startTarget: controls.target.clone(),
+        endTarget,
+        startUp: camera.up.clone(),
+        endUp,
+      }
+      camera.near =
+        rivalPhase === 'impact' || rivalPhase === 'rival-focus'
+          ? 0.001
+          : 0.01
+      camera.far = 80
+      camera.fov = isNarrowPortrait(camera) ? 56 : 42
+      camera.updateProjectionMatrix()
+      invalidate()
+      return
+    }
+
+    const exitedRivalPresentation =
+      configuredRivalPresentationRef.current !== null
+    configuredRivalPresentationRef.current = null
+    rivalJourneyRef.current = null
+
     if (phase === 'approach' && landingSite !== null) {
       const transform = landingSiteToRenderTransform(landingSite)
       const surfacePose = getSurfaceCameraPose(landingSite, terrain)
@@ -399,9 +609,13 @@ export function CameraRig({
 
     if (phase === 'returning') {
       const orbitHome =
-        landingSite === null
-          ? getOrbitHome(camera)
-          : getOrbitViewForSite(camera, landingSite)
+        dualOrbitPreferred &&
+        orbitalFocusSite !== null &&
+        rivalSite !== null
+          ? getDualOrbitView(camera, orbitalFocusSite, rivalSite)
+          : landingSite === null
+            ? getOrbitHome(camera)
+            : getOrbitViewForSite(camera, landingSite)
       const start = camera.position.clone()
       const outward = start.clone().normalize().multiplyScalar(1.28)
       const controlOne = start.clone().lerp(outward, 0.72)
@@ -459,13 +673,23 @@ export function CameraRig({
 
     const restoreOrbitPose =
       phase === 'orbit' &&
-      (journeyRef.current !== null || camera.position.length() < 2)
+      (exitedRivalPresentation ||
+        journeyRef.current !== null ||
+        camera.position.length() < 2)
 
     if (restoreOrbitPose) {
       camera.position.copy(
-        landingSite === null
-          ? getOrbitHome(camera)
-          : getOrbitViewForSite(camera, landingSite),
+        exitedRivalPresentation &&
+          orbitalFocusSite !== null &&
+          rivalSite !== null
+          ? getDualOrbitView(camera, orbitalFocusSite, rivalSite)
+          : dualOrbitPreferred &&
+              orbitalFocusSite !== null &&
+              rivalSite !== null
+            ? getDualOrbitView(camera, orbitalFocusSite, rivalSite)
+          : landingSite === null
+            ? getOrbitHome(camera)
+            : getOrbitViewForSite(camera, landingSite),
       )
     }
 
@@ -491,12 +715,33 @@ export function CameraRig({
     controls.update()
     updateCameraDataset(camera, controls)
     invalidate()
-  }, [camera, gl, invalidate, landingSite, phase, terrain])
+  }, [
+    camera,
+    dualOrbitPreferred,
+    gl,
+    invalidate,
+    landingSite,
+    orbitalFocusSite,
+    phase,
+    rivalPresentation,
+    rivalSite,
+    terrain,
+  ])
 
   useEffect(() => {
     const controls = controlsRef.current
 
     if (controls === null) {
+      return
+    }
+
+    if (
+      rivalPresentationLocksCamera(rivalPresentation.phase) ||
+      rivalPresentation.phase === 'rival-focused' ||
+      rivalPresentation.phase === 'warning'
+    ) {
+      updateCameraDataset(camera, controls)
+      invalidate()
       return
     }
 
@@ -517,7 +762,14 @@ export function CameraRig({
 
     updateCameraDataset(camera, controls)
     invalidate()
-  }, [camera, invalidate, phase, viewportSize.height, viewportSize.width])
+  }, [
+    camera,
+    invalidate,
+    phase,
+    rivalPresentation.phase,
+    viewportSize.height,
+    viewportSize.width,
+  ])
 
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has('e2e')) {
@@ -561,6 +813,75 @@ export function CameraRig({
     const controls = controlsRef.current
 
     if (controls === null) {
+      return
+    }
+
+    if (rivalPresentation.phase !== 'idle') {
+      if (rivalPresentation.phase === 'rival-focused') {
+        controls.enabled = true
+        controls.update(Math.min(delta, 0.05))
+        return
+      }
+
+      controls.enabled = false
+      const rivalJourney = rivalJourneyRef.current
+
+      if (rivalJourney === null) {
+        return
+      }
+
+      const progress = getRivalPresentationProgress(rivalPresentation)
+      const closesOnSurface =
+        rivalPresentation.phase === 'impact' ||
+        rivalPresentation.phase === 'rival-focus'
+      const positionProgress = smootherstep(
+        closesOnSurface ? Math.min(1, progress * 1.15) : progress,
+      )
+      const targetProgress = smoothstep(
+        closesOnSurface ? Math.min(1, progress * 1.35) : progress,
+      )
+
+      rivalJourney.path.getPoint(
+        positionProgress,
+        temporaryPositionRef.current,
+      )
+      temporaryTargetRef.current
+        .copy(rivalJourney.startTarget)
+        .lerp(rivalJourney.endTarget, targetProgress)
+      temporaryUpRef.current
+        .copy(rivalJourney.startUp)
+        .lerp(rivalJourney.endUp, targetProgress)
+        .normalize()
+
+      camera.position.copy(temporaryPositionRef.current)
+      camera.up.copy(temporaryUpRef.current)
+      camera.lookAt(temporaryTargetRef.current)
+      controls.target.copy(temporaryTargetRef.current)
+
+      if (
+        (rivalPresentation.phase === 'impact' ||
+          rivalPresentation.phase === 'rival-focus') &&
+        progress > 0.58
+      ) {
+        camera.fov = MathUtils.lerp(
+          isNarrowPortrait(camera) ? 56 : 42,
+          isNarrowPortrait(camera) ? 50 : 40,
+          smoothstep((progress - 0.58) / 0.42),
+        )
+        camera.near = MathUtils.lerp(
+          0.001,
+          0.00001,
+          smoothstep((progress - 0.58) / 0.42),
+        )
+        camera.far = MathUtils.lerp(80, 4, smoothstep((progress - 0.58) / 0.42))
+        camera.updateProjectionMatrix()
+      }
+
+      updateCameraDataset(camera, controls)
+
+      if (progress < 1) {
+        state.invalidate()
+      }
       return
     }
 

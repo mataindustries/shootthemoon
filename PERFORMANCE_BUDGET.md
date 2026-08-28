@@ -1,8 +1,7 @@
 # Moon Core Android performance budget
 
-Status: Surface Presence + Performance Headroom pass measured in production,
-2026-08-26. Physical Pixel 6a frame-time, memory, and thermal acceptance remains
-open.
+Status: Rival Signal measured in production, 2026-08-28. Physical Pixel 6a
+frame-time, memory, touch, and thermal acceptance remains open.
 
 ## Target and measurement conditions
 
@@ -37,10 +36,22 @@ than attempt a partial 2D implementation when WebGL 2 is unavailable.
 ## Current checkpoint measurements
 
 These are automated production-build counters, not physical-device frame-time
-evidence. They were captured in Chromium 151 at a 390 × 844 CSS-pixel viewport,
-DPR 1.0, a 390 × 844 drawing buffer, and the deterministic medium tier. The
-working tree is intentionally uncommitted on top of the clean First Outpost
-revision `fcaf758`; the final JavaScript hash is recorded below.
+evidence. They were captured at a 390 × 844 CSS-pixel viewport, DPR 1.0, a
+390 × 844 drawing buffer, and the deterministic medium tier. The working tree
+is intentionally uncommitted on top of clean First Outpost revision `a45d995`.
+
+| Rival Signal frame | Draw calls | Triangles | Points | Geometries | Textures | Programs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Normal orbit | 3 | 31,520 | 640 | 3 | 3 | 3 |
+| Orbital transition | 9 | 32,016 | 640 | 11 | 5 | 13 |
+| Capsule approach (cinematic peak calls) | 23 | 32,360 | 640 | 22 | 5 | 20 |
+| Impact | 19 | 32,000 | 724 | 25 | 5 | 23 |
+| Both faction signatures | 21 | 32,300 | 640 | 25 | 5 | 24 |
+| Rival focused | 14 | 31,816 | 640 | 19 | 5 | 24 |
+| Rival scan | 18 | 32,040 | 640 | 23 | 5 | 24 |
+| Player surface after integration | 50 | 58,160 | 694 | 35 | 6 | 24 |
+
+The First Outpost optimization baseline is retained below for comparison.
 
 | Representative frame | Calls before | Calls after | Triangles before | Triangles after | Geometries before | Geometries after | Textures before/after | Programs before/after |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -55,21 +66,23 @@ comparison. The active scene is 28 calls below the previous result and 10 calls
 below the new 60-call target while adding 568 triangles.
 
 The stored-miner scene returns fully to the demand-loop idle state. The final
-suite measured 0 frames over 800 ms while stored, 5 scanner frames over 1,000 ms,
-and 5 active-extractor frames over 1,400 ms. A shared demand-animation request
-loop exists only while the robot is transient or the extractor is constructing;
-the sustained mining assertion rendered 8 scene frames while throttled headless
-Chromium exposed 3 measurable browser animation callbacks. The automated suite
-recorded zero console/page errors, a WebGL 2 context with no GL error or context
-loss, and a drawing-buffer area of 329,160 pixels.
+suite measured 0 frames over 800 ms while stored, 7 scanner frames over 1,000 ms,
+8 player-surface frames over 1,400 ms, and 14 contested-orbit frames over
+1,400 ms. The last value is the single shared low-frequency heartbeat used to
+sample both orbital beacons; completed cinematic, impact, and scan effects are
+unmounted and `data-render-mode` returns to `demand`. A continuous shared
+request loop exists only while robot, construction, or forced presentation
+motion is transient. The automated suite recorded zero console/page errors, a
+WebGL 2 context with no GL error or context loss, and a drawing-buffer area of
+329,160 pixels.
 
 Production transfer/build observations:
 
-- JavaScript: 1,171,860 bytes minified; Vite reports 321.27 kB gzip and
-  `gzip -9` produces 316,336 bytes (308.92 KiB); SHA-256
-  `a948d5ead6c9dcd10a66fce49c036977533ede4beca4a06721467b10507ec638`;
-- CSS: 9,035 bytes minified; Vite reports 2.72 kB gzip and `gzip -9`
-  produces 2,749 bytes;
+- JavaScript: 1,216,044 bytes minified; Vite reports 332.68 kB gzip and
+  `gzip -9` produces 327,671 bytes (319.99 KiB); SHA-256
+  `b361d942f53b7107d505d88e501b6c2391ba0e29e7b50cd43882c2943a595618`;
+- CSS: 15,605 bytes minified; Vite reports 4.06 kB gzip and `gzip -9`
+  produces 4,079 bytes;
 - HTML: 500 bytes; Vite reports 0.31 kB gzip and `gzip -9` produces 328 bytes;
 - checked-in lunar JPEGs: 569,494 bytes total;
 - conservative decoded lunar texture estimate with mipmaps: about 13.34 MiB;

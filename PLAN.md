@@ -1,6 +1,6 @@
 # Shoot the Moon implementation plan
 
-Status: First Outpost vertical slice implemented, 2026-08-26
+Status: Rival Signal vertical slice implemented, 2026-08-28
 
 Moon Core remains the technical foundation. The current product slice extends
 it through one complete First Outpost loop: orbit, select, land, deploy one
@@ -298,6 +298,41 @@ Status: implemented and automated. The settled active scene measures 50 draw
 calls against the previous 78, with 58,160 triangles and a 321.27 kB gzip
 JavaScript bundle. Physical Android touch, frame pacing, memory, and thermal
 acceptance remain required before claiming device-level performance completion.
+
+### M8 — Rival Signal
+
+M8.1 derives one deterministic rival site from the player's canonical landing
+site and persists Commander Vesper, reveal state, timestamps, exactly three
+representable foothold stages, authored transmission completion, scan state,
+and replay/skip eligibility in schema 2.
+
+M8.2 interrupts the first active extractor with a bounded 3D reveal: warning,
+orbital lift, hostile insertion, impact, Vesper transmission, and a dual-site
+Moon composition. Restored active-extractor saves wait for an explicit orbit
+return; transient cinematics normalize to a safe queued state.
+
+M8.3 adds one reduced-detail Null Meridian foothold, forgiving surface-attached
+orbital selection, a focused scan sweep, one deterministic `LANDED` to
+`ESTABLISHING` transition, a response transmission, and the locked First Strike
+teaser. `FORTIFIED` remains testable but does not occur in the reveal.
+
+Acceptance:
+
+- exactly two factions and one deterministic AI rival exist; there is no
+  networking, combat, territory control, additional building, or hidden
+  multiplayer infrastructure;
+- both signatures and footholds derive from canonical domain coordinates and
+  restore across refresh without serializing Three.js values;
+- reveal, scan, response, replay/skip, migration, interruption normalization,
+  reset, mobile touch, landscape, desktop, console, WebGL, and demand-idle
+  browser gates pass in the production preview;
+- cinematic and strategic frames remain within the established hard mobile
+  budgets without lowering Moon quality.
+
+Status: implemented and automated. The cinematic peaks at 23 draw calls and
+32,360 triangles; both signatures use 21 calls and 32,300 triangles; the player
+surface remains at 50 calls and 58,160 triangles. Physical Android acceptance
+remains required.
 
 ## Verification commands
 

@@ -1,13 +1,13 @@
-# Shoot the Moon — First Outpost
+# Shoot the Moon — Rival Signal
 
-First Outpost is the next vertical slice built on Shoot the Moon's true-3D Moon
-Core. The playable loop covers lunar-site selection, capsule landing, deployment
-of one mining robot, three Lunar Ore deposits, deterministic mining and cargo
-return, construction of one extractor, and an orbital revisit signal. A
-versioned local save preserves the claimed canonical coordinate and outpost
-domain state across refreshes. The scope remains deliberately narrow: there is
-no networking, combat, account system, multiplayer, management dashboard, or
-economy beyond this one prototype resource loop.
+Rival Signal extends Shoot the Moon's true-3D First Outpost loop into a strict
+1v1 contest. Activating the first extractor reveals Commander Vesper of Null
+Meridian at a deterministic distant lunar site, then lets the player focus and
+scan her lightweight strategic foothold. Both canonical sites, the authored
+transmissions, rival stage, and one-time reveal state persist locally across
+refreshes. The scope remains deliberately narrow: there is no networking,
+combat, account system, multiplayer infrastructure, territory system, or
+economy beyond the existing prototype resource loop.
 
 Start with [PLAN.md](./PLAN.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and
 [PERFORMANCE_BUDGET.md](./PERFORMANCE_BUDGET.md). External art provenance is in

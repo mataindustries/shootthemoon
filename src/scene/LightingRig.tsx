@@ -15,43 +15,49 @@ const SUN_OFFSET = new Vector3(4.6, 2.6, 3.4)
 interface LightingRigProps {
   readonly phase: ExperiencePhase
   readonly landingSite: LandingSite | null
+  readonly strategicFocusSite?: LandingSite | null
   readonly enableSurfaceShadows: boolean
 }
 
 export function LightingRig({
   phase,
   landingSite,
+  strategicFocusSite = null,
   enableSurfaceShadows,
 }: LightingRigProps) {
   const lightRef = useRef<DirectionalLight>(null)
   const targetRef = useRef<Object3D>(null)
   const castsSurfaceShadow =
     enableSurfaceShadows &&
-    (phase === 'approach' || phase === 'landed' || phase === 'returning')
+    (strategicFocusSite !== null ||
+      phase === 'approach' ||
+      phase === 'landed' ||
+      phase === 'returning')
+  const activeSite = strategicFocusSite ?? landingSite
   const targetPosition = useMemo(() => {
-    if (landingSite === null) {
+    if (activeSite === null) {
       return new Vector3()
     }
 
-    const transform = landingSiteToRenderTransform(landingSite)
+    const transform = landingSiteToRenderTransform(activeSite)
     return castsSurfaceShadow
       ? transform.position
           .clone()
           .addScaledVector(transform.up, LOCAL_SURFACE_RENDER_OFFSET)
       : transform.position
-  }, [castsSurfaceShadow, landingSite])
+  }, [activeSite, castsSurfaceShadow])
   const lightPosition = useMemo(() => {
-    if (!castsSurfaceShadow || landingSite === null) {
+    if (!castsSurfaceShadow || activeSite === null) {
       return targetPosition.clone().add(SUN_OFFSET)
     }
 
-    const transform = landingSiteToRenderTransform(landingSite)
+    const transform = landingSiteToRenderTransform(activeSite)
     return targetPosition
       .clone()
       .addScaledVector(transform.east, 4.8)
       .addScaledVector(transform.up, 1.38)
       .addScaledVector(transform.south, 2.1)
-  }, [castsSurfaceShadow, landingSite, targetPosition])
+  }, [activeSite, castsSurfaceShadow, targetPosition])
 
   useEffect(() => {
     const light = lightRef.current

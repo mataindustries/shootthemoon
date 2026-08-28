@@ -1,10 +1,14 @@
 import { Suspense, useMemo } from 'react'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
+import type { RivalSignalSnapshot } from '../domain/rival.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
 import { isRobotTransient } from '../simulation/outpostSimulation.ts'
 import type { QualitySettings } from '../render/quality.ts'
-import { useDemandAnimation } from '../render/useDemandAnimation.ts'
+import {
+  useDemandAnimation,
+  useLowFrequencyDemandAnimation,
+} from '../render/useDemandAnimation.ts'
 import { CinematicClockProvider } from '../camera/CinematicClock.tsx'
 import { CameraRig } from '../camera/CameraRig.tsx'
 import { SceneMetrics } from '../instrumentation/SceneMetrics.tsx'
@@ -21,6 +25,15 @@ import { MineralDeposits } from './MineralDeposits.tsx'
 import { MinerRobot } from './MinerRobot.tsx'
 import { Extractor } from './Extractor.tsx'
 import { OutpostSignal } from './OutpostSignal.tsx'
+import {
+  rivalPresentationNeedsContinuousFrames,
+  rivalPresentationShowsFoothold,
+  type RivalPresentationState,
+} from '../app/rivalPresentation.ts'
+import { RivalSignal } from './RivalSignal.tsx'
+import { RivalFoothold } from './RivalFoothold.tsx'
+import { RivalRevealEffects } from './RivalRevealEffects.tsx'
+import { RivalScanSweep } from './RivalScanSweep.tsx'
 
 const CLEAR_COLOR = '#020308'
 
@@ -28,6 +41,8 @@ interface SceneRootProps {
   readonly phase: ExperiencePhase
   readonly landingSite: LandingSite | null
   readonly outpost: OutpostSnapshot | null
+  readonly rival: RivalSignalSnapshot | null
+  readonly rivalPresentation: RivalPresentationState
   readonly selectedDepositId: string | null
   readonly quality: QualitySettings
   readonly onSelect: (site: LandingSite) => void
@@ -36,6 +51,7 @@ interface SceneRootProps {
   readonly onReady: () => void
   readonly onSelectDeposit: (depositId: string) => void
   readonly onFocusOutpost: () => void
+  readonly onFocusRival: () => void
 }
 
 function MoonFallback() {
@@ -51,6 +67,8 @@ export function SceneRoot({
   phase,
   landingSite,
   outpost,
+  rival,
+  rivalPresentation,
   selectedDepositId,
   quality,
   onSelect,
@@ -59,6 +77,7 @@ export function SceneRoot({
   onReady,
   onSelectDeposit,
   onFocusOutpost,
+  onFocusRival,
 }: SceneRootProps) {
   const showLandingScene =
     landingSite !== null &&
@@ -73,7 +92,52 @@ export function SceneRoot({
     outpost !== null &&
     (isRobotTransient(outpost.robot.state) ||
       outpost.extractor?.status === 'constructing')
-  useDemandAnimation(outpostAnimationActive)
+  const rivalAnimationActive = rivalPresentationNeedsContinuousFrames(
+    rivalPresentation.phase,
+  )
+  const rivalFocused =
+    rivalPresentation.phase === 'capsule-approach' ||
+    rivalPresentation.phase === 'impact' ||
+    rivalPresentation.phase === 'intro-transmission' ||
+    rivalPresentation.phase === 'rival-focus' ||
+    rivalPresentation.phase === 'rival-focused' ||
+    rivalPresentation.phase === 'scanning' ||
+    rivalPresentation.phase === 'scan-response'
+  const rivalCloseFocus =
+    rivalPresentation.phase === 'impact' ||
+    rivalPresentation.phase === 'intro-transmission' ||
+    rivalPresentation.phase === 'rival-focus' ||
+    rivalPresentation.phase === 'rival-focused' ||
+    rivalPresentation.phase === 'scanning' ||
+    rivalPresentation.phase === 'scan-response'
+  const rivalFootholdVisible =
+    rival !== null &&
+    (phase === 'orbit' ||
+      phase === 'selected' ||
+      phase === 'returning' ||
+      rivalFocused) &&
+    (rival.stage !== null ||
+      rivalPresentationShowsFoothold(rivalPresentation.phase))
+  const rivalSignalVisible =
+    rival !== null &&
+    !rivalCloseFocus &&
+    (phase === 'orbit' || phase === 'selected') &&
+    (rival.stage !== null ||
+      rivalPresentation.phase === 'dual-sites')
+  const revealEffectsVisible =
+    rival !== null &&
+    outpost !== null &&
+    (rivalPresentation.phase === 'warning' ||
+      rivalPresentation.phase === 'orbital-transition' ||
+      rivalPresentation.phase === 'capsule-approach' ||
+      rivalPresentation.phase === 'impact' ||
+      rivalPresentation.phase === 'intro-transmission')
+  const orbitalSignalHeartbeat =
+    outpost !== null &&
+    (phase === 'orbit' || phase === 'selected') &&
+    !rivalAnimationActive
+  useDemandAnimation(outpostAnimationActive || rivalAnimationActive)
+  useLowFrequencyDemandAnimation(orbitalSignalHeartbeat)
 
   return (
     <CinematicClockProvider
@@ -88,10 +152,14 @@ export function SceneRoot({
         orbitalFocusSite={outpost?.site ?? null}
         outpost={outpost}
         terrain={terrain}
+        rivalSite={rival?.site ?? null}
+        dualOrbitPreferred={rival?.stage !== null}
+        rivalPresentation={rivalPresentation}
       />
       <LightingRig
         phase={phase}
         landingSite={landingSite}
+        strategicFocusSite={rivalFocused ? rival?.site ?? null : null}
         enableSurfaceShadows={quality.tier !== 'low'}
       />
       <Starfield count={quality.starCount} />
@@ -116,6 +184,41 @@ export function SceneRoot({
           outpost={outpost}
           focused={phase === 'selected'}
           onFocus={onFocusOutpost}
+        />
+      ) : null}
+
+      {rivalSignalVisible && rival !== null ? (
+        <RivalSignal
+          rival={rival}
+          presentation={rivalPresentation}
+          focused={rivalFocused}
+          interactive={
+            phase === 'orbit' && rivalPresentation.phase === 'idle'
+          }
+          onFocus={onFocusRival}
+        />
+      ) : null}
+
+      {rivalFootholdVisible && rival !== null ? (
+        <RivalFoothold
+          rival={rival}
+          presentation={rivalPresentation}
+          focused={rivalFocused}
+        />
+      ) : null}
+
+      {revealEffectsVisible && rival !== null && outpost !== null ? (
+        <RivalRevealEffects
+          playerSite={outpost.site}
+          rival={rival}
+          presentation={rivalPresentation}
+        />
+      ) : null}
+
+      {rival !== null && rivalPresentation.phase === 'scanning' ? (
+        <RivalScanSweep
+          rival={rival}
+          presentation={rivalPresentation}
         />
       ) : null}
 
@@ -150,7 +253,11 @@ export function SceneRoot({
                 onSelect={onSelectDeposit}
               />
               <MinerRobot outpost={outpost} terrain={terrain} />
-              <Extractor outpost={outpost} terrain={terrain} />
+              <Extractor
+                outpost={outpost}
+                terrain={terrain}
+                signalInterrupted={rivalPresentation.phase === 'warning'}
+              />
             </>
           ) : null}
         </>

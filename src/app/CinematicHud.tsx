@@ -13,6 +13,9 @@ interface CinematicHudProps {
   readonly outpost: OutpostSnapshot | null
   readonly selectedDepositId: string | null
   readonly targetingOutpost: boolean
+  readonly rivalRevealed: boolean
+  readonly rivalSignalHeld: boolean
+  readonly lunarControlContested: boolean
   readonly onClaim: () => void
   readonly onClear: () => void
   readonly onReturn: () => void
@@ -36,7 +39,11 @@ function formatAltitude(heightM: number): string {
   return String(Object.is(rounded, -0) ? 0 : rounded)
 }
 
-function phaseLabel(phase: ExperiencePhase, outpost: OutpostSnapshot | null): string {
+function phaseLabel(
+  phase: ExperiencePhase,
+  outpost: OutpostSnapshot | null,
+  rivalRevealed: boolean,
+): string {
   if (phase === 'landed' && outpost !== null) {
     if (outpost.extractor?.status === 'constructing') {
       return 'EXTRACTOR ASSEMBLY'
@@ -49,7 +56,11 @@ function phaseLabel(phase: ExperiencePhase, outpost: OutpostSnapshot | null): st
 
   switch (phase) {
     case 'orbit':
-      return outpost === null ? 'ORBITAL RECONNAISSANCE' : 'OUTPOST IN ORBITAL VIEW'
+      return outpost === null
+        ? 'ORBITAL RECONNAISSANCE'
+        : rivalRevealed
+          ? 'TWO FACTIONS · ONE MOON'
+          : 'OUTPOST IN ORBITAL VIEW'
     case 'selected':
       return outpost === null ? 'LANDING VECTOR ACQUIRED' : 'OUTPOST SIGNAL LOCKED'
     case 'approach':
@@ -85,13 +96,17 @@ function robotStatus(outpost: OutpostSnapshot): string {
 function ContextPrompt({
   outpost,
   selectedDepositId,
+  rivalSignalHeld,
 }: {
   readonly outpost: OutpostSnapshot
   readonly selectedDepositId: string | null
+  readonly rivalSignalHeld: boolean
 }) {
   let message: string | null = null
 
-  if (outpost.robot.state === 'stored') {
+  if (rivalSignalHeld) {
+    message = 'SIGNAL HELD · RETURN TO ORBIT'
+  } else if (outpost.robot.state === 'stored') {
     message = 'OPEN THE CAPSULE'
   } else if (
     outpost.robot.state === 'idle' &&
@@ -117,6 +132,9 @@ export function CinematicHud({
   outpost,
   selectedDepositId,
   targetingOutpost,
+  rivalRevealed,
+  rivalSignalHeld,
+  lunarControlContested,
   onClaim,
   onClear,
   onReturn,
@@ -149,10 +167,12 @@ export function CinematicHud({
       <header className="hud-header">
         <div className="brand-lockup">
           <span className="brand-kicker">SHOOT THE MOON</span>
-          <strong>FIRST OUTPOST</strong>
+          <strong>{rivalRevealed ? 'RIVAL SIGNAL' : 'FIRST OUTPOST'}</strong>
         </div>
         <div className="hud-meta">
-          <span className="phase-label">{phaseLabel(phase, outpost)}</span>
+          <span className="phase-label">
+            {phaseLabel(phase, outpost, rivalRevealed)}
+          </span>
           <button
             className="reset-button"
             type="button"
@@ -179,6 +199,7 @@ export function CinematicHud({
           <ContextPrompt
             outpost={outpost}
             selectedDepositId={selectedDepositId}
+            rivalSignalHeld={rivalSignalHeld}
           />
 
           <section className="command-deck" aria-label="Outpost commands">
@@ -251,8 +272,16 @@ export function CinematicHud({
           ) : (
             <>
               <span className="signal-dot" aria-hidden="true" />
-              <span>TAP AMBER SIGNAL TO REVISIT</span>
+              <span>{rivalRevealed ? 'AMBER · YOUR OUTPOST' : 'TAP AMBER SIGNAL TO REVISIT'}</span>
+              {rivalRevealed ? (
+                <>
+                  <i aria-hidden="true" />
+                  <span className="rival-signal-dot" aria-hidden="true" />
+                  <span>CYAN · VESPER</span>
+                </>
+              ) : null}
               <b>{outpost.lunarOre} ORE</b>
+              {lunarControlContested ? <em>CONTESTED</em> : null}
             </>
           )}
         </div>

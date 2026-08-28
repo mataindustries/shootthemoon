@@ -1,9 +1,9 @@
 # Moon Core architecture
 
-Status: implemented First Outpost contract, 2026-08-26. Canonical coordinate,
-simulation, persistence, render, input, and camera boundaries are active;
-future asset-pipeline and multiplayer sections remain design boundaries rather
-than implemented systems.
+Status: implemented Rival Signal contract, 2026-08-28. Canonical coordinate,
+simulation, persistence, render, input, and camera boundaries are active for
+both factions; future asset-pipeline, combat, and multiplayer sections remain
+design boundaries rather than implemented systems.
 
 ## Architectural goals
 
@@ -245,8 +245,13 @@ App
 │     ├─ MinerRobot
 │     ├─ Extractor
 │     ├─ ImpactEffects
+│     ├─ RivalSignal
+│     ├─ RivalFoothold
+│     ├─ RivalRevealEffects
+│     ├─ RivalScanSweep
 │     └─ SceneMetrics
-└─ CinematicHud
+├─ CinematicHud
+└─ RivalHud
 ~~~
 
 Rules:
@@ -291,8 +296,9 @@ Additional constraints:
 - High-frequency frame values live in refs or purpose-built stores and do not
   trigger a React tree render every animation frame.
 - React state is reserved for coarse transitions that affect composition.
-- No external state library is needed; one pure reducer owns the five coarse
-  experience phases and another pure reducer owns the bounded outpost snapshot.
+- No external state library is needed; pure reducers separately own the five
+  coarse experience phases, the bounded outpost snapshot, and the deterministic
+  rival snapshot. Rival presentation timing and camera travel remain transient.
 - Resource setup must be idempotent and cleanup complete under React
   StrictMode's development setup/cleanup cycle.
 
@@ -359,7 +365,7 @@ The two persistent global textures intentionally remain cached for the life of
 the one-Moon scene. Phase-scoped geometry, procedural textures, shader
 materials, controls, and listeners provide explicit cleanup hooks.
 
-## First Outpost simulation and persistence
+## First Outpost and Rival Signal simulation and persistence
 
 The First Outpost domain snapshot is plain serializable data. It contains one
 canonical landing site, one outpost ID, one robot ID and explicit robot state,
@@ -388,13 +394,27 @@ revisit reset the production baseline, deliberately leaving offline progress
 for a future economy design.
 
 The browser persistence adapter owns one schema-versioned localStorage record.
-It serializes canonical latitude, longitude, altitude, and orientation plus the
-plain outpost snapshot. Serialization and restoration normalize cinematics and
-transient robot states to `stored` or `idle`; returning cargo is safely credited
-before an idle restore. A constructing extractor restores active. Saves happen
-on coarse state changes and controlled extractor production intervals, never
-per frame. Reset is a separate confirmed operation; return to orbit never
-deletes the record.
+Schema 2 atomically serializes the outpost plus Vesper's canonical latitude,
+longitude, altitude, orientation, heading, reveal status, explicit stage and
+timestamps, transmission completion, scan completion, and replay/skip
+eligibility. Schema 1 records migrate without changing the player outpost; an
+active-extractor migration waits for an explicit return to orbit. A persisted
+`CINEMATIC` normalizes to a held `QUEUED` reveal, so no camera journey, impact,
+or transmission resumes halfway through.
+
+Serialization and restoration also normalize transient robot states to
+`stored` or `idle`; returning cargo is safely credited before an idle restore.
+A constructing extractor restores active. Saves happen on coarse state changes
+and controlled extractor production intervals, never per frame. Reset is a
+separate confirmed operation and clears both factions; return to orbit never
+deletes either faction.
+
+Rival placement is pure canonical domain math: fixed candidate bearings derive
+one site exactly 132 degrees from the player, reject awkward polar and seam
+framing, and persist only plain values. Rendering reprojects both signatures,
+the foothold, impact, and scan sweep from those sites. Exactly three stages are
+valid (`LANDED`, `ESTABLISHING`, `FORTIFIED`); the first reveal lands, the first
+scan establishes, and fortification is an explicit test/future transition.
 
 ## Future multiplayer boundary
 
@@ -498,6 +518,9 @@ adapters together.
     one miner, and one extractor.
 12. Persist canonical and local domain values only; normalize every transient
     state before it can become a restored session.
+13. Keep Rival Signal strictly deterministic and 1v1: one locally authored
+    identity, one derived site, one lightweight foothold, and no networking or
+    combat authority hidden inside presentation code.
 
 ## Remaining risks after this implementation
 
@@ -508,7 +531,7 @@ adapters together.
 | Touch gesture variation | Automated CDP touch covers drag, pinch, tap, cooldown, limb, poles, and seam cases | Verify real Android pointer cancellation, browser bars, edge gestures, and palm behavior |
 | Physical Android performance | Drawing-buffer, draw-call, triangle, texture, and shader counters pass in headless Chromium | Run the full Pixel 6a frame-time, memory, thermal, and ten-minute soak protocol |
 | Surface detail fidelity | A deterministic curved procedural overlay and shared approximate height sampler support the bounded outpost routes | Wider traversal requires tiled, canonical terrain data and rebasing; neither is implemented |
-| JavaScript bundle headroom | The Surface Presence production JavaScript is 321.27 kB gzip against the 325 KiB target | Introduce deliberate scene/code splitting before another substantial feature |
+| JavaScript bundle headroom | Rival Signal is 327,671 bytes with `gzip -9` against the 325 KiB target | Introduce deliberate scene/code splitting before another substantial feature |
 | Active-surface draw calls | Shared/instanced geometry and selective shadows reduce the settled active extractor scene from 78 to 50 calls | Preserve the remaining 10-call target headroom before adding another hero structure |
 | Sustained landed animation | Scanner/extractor idle is low-frequency; a shared demand-animation loop is active only for transient robot/construction states | Confirm frame pacing and thermal behavior on the physical reference Android device |
 | Runtime asset pipeline | NASA textures are fully recorded; the capsule is code-authored | Build the manifest/GLB/KTX2 repository only when an imported model is approved |
