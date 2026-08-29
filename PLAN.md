@@ -309,7 +309,9 @@ and replay/skip eligibility in schema 2.
 M8.2 interrupts the first active extractor with a bounded 3D reveal: warning,
 orbital lift, hostile insertion, impact, Vesper transmission, and a dual-site
 Moon composition. Restored active-extractor saves wait for an explicit orbit
-return; transient cinematics normalize to a safe queued state.
+return; transient cinematics normalize to a safe queued state. The authored
+first-reveal phases total 26.3 seconds (28.5 seconds including the extractor
+lead-in), and every orbital leg uses the sampled radial-clearance contract.
 
 M8.3 adds one reduced-detail Null Meridian foothold, forgiving surface-attached
 orbital selection, a focused scan sweep, one deterministic `LANDED` to
@@ -329,8 +331,8 @@ Acceptance:
 - cinematic and strategic frames remain within the established hard mobile
   budgets without lowering Moon quality.
 
-Status: implemented and automated. The cinematic peaks at 23 draw calls and
-32,360 triangles; both signatures use 21 calls and 32,300 triangles; the player
+Status: implemented and automated. The cinematic peaks at 19 draw calls and
+32,000 triangles; both signatures use 21 calls and 32,300 triangles; the player
 surface remains at 50 calls and 58,160 triangles. Physical Android acceptance
 remains required.
 

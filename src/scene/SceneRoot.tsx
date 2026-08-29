@@ -132,6 +132,20 @@ export function SceneRoot({
       rivalPresentation.phase === 'capsule-approach' ||
       rivalPresentation.phase === 'impact' ||
       rivalPresentation.phase === 'intro-transmission')
+  const cinematicReadability =
+    rivalPresentation.phase === 'orbital-transition' ||
+    rivalPresentation.phase === 'capsule-approach' ||
+    rivalPresentation.phase === 'impact' ||
+    rivalPresentation.phase === 'intro-transmission' ||
+    rivalPresentation.phase === 'dual-sites' ||
+    rivalPresentation.phase === 'rival-focus' ||
+    rivalPresentation.phase === 'scanning' ||
+    rivalPresentation.phase === 'scan-response' ||
+    rivalPresentation.phase === 'contested'
+  const followCameraForReadability =
+    rivalPresentation.phase === 'orbital-transition' ||
+    rivalPresentation.phase === 'dual-sites' ||
+    rivalPresentation.phase === 'contested'
   const orbitalSignalHeartbeat =
     outpost !== null &&
     (phase === 'orbit' || phase === 'selected') &&
@@ -160,6 +174,8 @@ export function SceneRoot({
         phase={phase}
         landingSite={landingSite}
         strategicFocusSite={rivalFocused ? rival?.site ?? null : null}
+        cinematicReadability={cinematicReadability}
+        followCameraForReadability={followCameraForReadability}
         enableSurfaceShadows={quality.tier !== 'low'}
       />
       <Starfield count={quality.starCount} />

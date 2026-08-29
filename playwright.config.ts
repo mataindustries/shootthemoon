@@ -17,6 +17,7 @@ export default defineConfig({
     isMobile: true,
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
+    video: process.env.RIVAL_RECORDING === '1' ? 'on' : 'off',
     userAgent:
       'Mozilla/5.0 (Linux; Android 14; Pixel 6a) AppleWebKit/537.36 ' +
       '(KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36',

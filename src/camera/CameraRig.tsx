@@ -4,6 +4,7 @@ import {
   CubicBezierCurve3,
   MathUtils,
   Quaternion,
+  Spherical,
   TOUCH,
   Vector3,
   type PerspectiveCamera,
@@ -18,7 +19,10 @@ import type { OutpostSnapshot, RobotState } from '../domain/outpost.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
 import { getRobotKinematics } from '../simulation/outpostSimulation.ts'
 import { simulationNowMs } from '../simulation/simulationTime.ts'
-import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
+import {
+  MOON_RENDER_RADIUS,
+  landingSiteToRenderTransform,
+} from '../render/renderCoordinates.ts'
 import {
   LOCAL_METRES_TO_RENDER_UNITS,
   LOCAL_SURFACE_RENDER_OFFSET,
@@ -33,6 +37,16 @@ import {
   rivalPresentationLocksCamera,
   type RivalPresentationState,
 } from '../app/rivalPresentation.ts'
+import {
+  createRivalFocusCameraPath,
+  createRivalReturnToOrbitCameraPath,
+  createRivalRevealCameraPlan,
+  type RivalRevealCameraPlan,
+} from './rivalCameraPlan.ts'
+import type {
+  CameraPose,
+  SafeOrbitalCameraPath,
+} from './orbitalCameraPath.ts'
 
 const ORBIT_DIRECTION = new Vector3(3.2, 0.32, 0.92).normalize()
 const DESKTOP_ORBIT_DISTANCE = 3.345
@@ -88,11 +102,26 @@ interface SavedSurfaceView {
 interface OrbitControlsCoordinateFrame {
   readonly _quat: Quaternion
   readonly _quatInverse: Quaternion
+  readonly _sphericalDelta: Spherical
+  readonly _panOffset: Vector3
+  _scale: number
+  _performCursorZoom: boolean
+  state: number
+  _pointers: number[]
+  _pointerPositions: Record<number, unknown>
+  _controlActive: boolean
 }
 
 interface ConfiguredRivalPresentation {
   readonly phase: RivalPresentationState['phase']
   readonly replay: boolean
+  readonly viewportKey: string
+}
+
+interface SavedRivalJourneyStart {
+  readonly phase: RivalPresentationState['phase']
+  readonly startedAtMs: number
+  readonly pose: CameraPose
 }
 
 function smoothstep(value: number): number {
@@ -139,18 +168,11 @@ function getDualOrbitView(
   playerSite: LandingSite,
   rivalSite: LandingSite,
 ): Vector3 {
-  const player = landingSiteToRenderTransform(playerSite)
-  const rival = landingSiteToRenderTransform(rivalSite)
-  const distance = isNarrowPortrait(camera)
-    ? PORTRAIT_ORBIT_DISTANCE
-    : DESKTOP_ORBIT_DISTANCE
-  const midpoint = player.up.clone().add(rival.up).normalize()
-  const oppositionAxis = rival.up.clone().cross(player.up).normalize()
-
-  return midpoint
-    .multiplyScalar(distance)
-    .addScaledVector(oppositionAxis, distance * 0.075)
-    .setLength(distance)
+  return createRivalRevealCameraPlan(
+    playerSite,
+    rivalSite,
+    camera.aspect,
+  ).dualSitePose.position.clone()
 }
 
 function localPointToWorld(
@@ -186,16 +208,6 @@ function getSurfaceCameraPose(
       targetGround + 1.05 * LOCAL_METRES_TO_RENDER_UNITS,
       targetZM * LOCAL_METRES_TO_RENDER_UNITS,
     ),
-    up: transform.up.clone(),
-  }
-}
-
-function getRivalSurfaceCameraPose(site: LandingSite): SurfaceCameraPose {
-  const transform = landingSiteToRenderTransform(site)
-
-  return {
-    position: localPointToWorld(site, 0.0065, 0.0095, 0.0195),
-    target: localPointToWorld(site, 0, 0.00065, 0),
     up: transform.up.clone(),
   }
 }
@@ -308,6 +320,82 @@ function setControlsUpDirection(
   coordinateFrame._quatInverse.copy(coordinateFrame._quat).invert()
 }
 
+function clearOrbitControlsTransientState(controls: OrbitControls): void {
+  const transient = controls as unknown as OrbitControlsCoordinateFrame
+
+  transient._sphericalDelta.set(0, 0, 0)
+  transient._panOffset.set(0, 0, 0)
+  transient._scale = 1
+  transient._performCursorZoom = false
+  transient.state = -1
+  transient._pointers.length = 0
+  transient._pointerPositions = {}
+  transient._controlActive = false
+}
+
+function synchronizeOrbitControls(
+  camera: PerspectiveCamera,
+  controls: OrbitControls,
+  pose: CameraPose,
+): void {
+  camera.position.copy(pose.position)
+  setControlsUpDirection(camera, controls, pose.up)
+  controls.target.copy(pose.target)
+  camera.lookAt(pose.target)
+  clearOrbitControlsTransientState(controls)
+
+  const dampingEnabled = controls.enableDamping
+  controls.enableDamping = false
+  controls.update(0)
+  controls.enableDamping = dampingEnabled
+  controls.saveState()
+}
+
+function currentCameraPose(
+  camera: PerspectiveCamera,
+  controls: OrbitControls,
+): CameraPose {
+  return {
+    position: camera.position.clone(),
+    target: controls.target.clone(),
+    up: camera.up.clone(),
+  }
+}
+
+function applyRivalProjection(
+  camera: PerspectiveCamera,
+  plan: RivalRevealCameraPlan,
+  phase: RivalPresentationState['phase'],
+): void {
+  const close =
+    phase === 'impact' ||
+    phase === 'intro-transmission' ||
+    phase === 'rival-focus' ||
+    phase === 'rival-focused' ||
+    phase === 'scanning' ||
+    phase === 'scan-response'
+  const approach = phase === 'capsule-approach'
+
+  camera.near = close ? 0.00001 : approach ? 0.001 : 0.01
+  camera.far = close ? 4 : approach ? 20 : 80
+  camera.fov = close
+    ? plan.framing.surfaceFov
+    : approach
+      ? plan.framing.approachFov
+      : plan.framing.orbitalFov
+  camera.updateProjectionMatrix()
+}
+
+function configureRivalSurfaceControls(controls: OrbitControls): void {
+  controls.enablePan = false
+  controls.minDistance = 0.018
+  controls.maxDistance = 0.065
+  controls.minPolarAngle = 0.32
+  controls.maxPolarAngle = 1.48
+  controls.rotateSpeed = 0.38
+  controls.zoomSpeed = 0.56
+}
+
 function updateCameraDataset(
   camera: PerspectiveCamera,
   controls: OrbitControls,
@@ -319,11 +407,18 @@ function updateCameraDataset(
   }
 
   canvas.dataset.cameraDistance = controls.getDistance().toFixed(6)
+  canvas.dataset.cameraRadius = camera.position.length().toFixed(6)
+  canvas.dataset.cameraClearance = (
+    camera.position.length() - MOON_RENDER_RADIUS
+  ).toFixed(6)
   canvas.dataset.cameraAzimuth = controls.getAzimuthalAngle().toFixed(6)
   canvas.dataset.cameraPolar = controls.getPolarAngle().toFixed(6)
   canvas.dataset.cameraX = camera.position.x.toFixed(6)
   canvas.dataset.cameraY = camera.position.y.toFixed(6)
   canvas.dataset.cameraZ = camera.position.z.toFixed(6)
+  canvas.dataset.cameraTargetX = controls.target.x.toFixed(6)
+  canvas.dataset.cameraTargetY = controls.target.y.toFixed(6)
+  canvas.dataset.cameraTargetZ = controls.target.z.toFixed(6)
 }
 
 export function CameraRig({
@@ -343,9 +438,12 @@ export function CameraRig({
   const progressRef = useCinematicProgress()
   const controlsRef = useRef<OrbitControls | null>(null)
   const journeyRef = useRef<Journey | null>(null)
-  const rivalJourneyRef = useRef<Journey | null>(null)
+  const rivalJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
   const configuredRivalPresentationRef =
     useRef<ConfiguredRivalPresentation | null>(null)
+  const savedRivalJourneyStartRef = useRef<SavedRivalJourneyStart | null>(
+    null,
+  )
   const temporaryPositionRef = useRef(new Vector3())
   const temporaryTargetRef = useRef(new Vector3())
   const temporaryUpRef = useRef(new Vector3())
@@ -415,12 +513,14 @@ export function CameraRig({
     }
 
     const rivalPhase = rivalPresentation.phase
+    const viewportKey = `${viewportSize.width}x${viewportSize.height}`
 
     if (rivalPhase !== 'idle') {
       if (
         configuredRivalPresentationRef.current?.phase === rivalPhase &&
         configuredRivalPresentationRef.current.replay ===
-          rivalPresentation.replay
+          rivalPresentation.replay &&
+        configuredRivalPresentationRef.current.viewportKey === viewportKey
       ) {
         controls.enabled = rivalPhase === 'rival-focused'
         updateCameraDataset(camera, controls)
@@ -431,14 +531,18 @@ export function CameraRig({
       configuredRivalPresentationRef.current = {
         phase: rivalPhase,
         replay: rivalPresentation.replay,
+        viewportKey,
       }
       journeyRef.current = null
       rivalJourneyRef.current = null
       controls.enabled = false
+      clearOrbitControlsTransientState(controls)
       gl.domElement.dataset.cameraInteracting = 'false'
       gl.domElement.dataset.cameraMode = `rival-${rivalPhase}`
+      delete gl.domElement.dataset.cameraPathMinimumRadius
 
       if (rivalPhase === 'warning') {
+        updateCameraDataset(camera, controls)
         invalidate()
         return
       }
@@ -448,125 +552,92 @@ export function CameraRig({
         return
       }
 
-      const rivalTransform = landingSiteToRenderTransform(rivalSite)
-      const playerTransform = landingSiteToRenderTransform(orbitalFocusSite)
-      const rivalSurfacePose = getRivalSurfaceCameraPose(rivalSite)
+      const plan = createRivalRevealCameraPlan(
+        orbitalFocusSite,
+        rivalSite,
+        camera.aspect,
+      )
 
       if (rivalPhase === 'rival-focused') {
-        camera.position.copy(rivalSurfacePose.position)
-        setControlsUpDirection(camera, controls, rivalSurfacePose.up)
-        controls.target.copy(rivalSurfacePose.target)
+        configureRivalSurfaceControls(controls)
+        synchronizeOrbitControls(camera, controls, plan.rivalSurfacePose)
         controls.enabled = true
-        controls.enablePan = false
-        controls.minDistance = 0.018
-        controls.maxDistance = 0.065
-        controls.minPolarAngle = 0.32
-        controls.maxPolarAngle = 1.48
-        controls.rotateSpeed = 0.38
-        controls.zoomSpeed = 0.56
-        camera.near = 0.00001
-        camera.far = 4
-        camera.fov = isNarrowPortrait(camera) ? 50 : 40
-        camera.updateProjectionMatrix()
-        controls.update()
+        applyRivalProjection(camera, plan, rivalPhase)
         updateCameraDataset(camera, controls)
         invalidate()
         return
       }
 
       if (
-        rivalPhase === 'intro-transmission' ||
-        rivalPhase === 'scanning' ||
-        rivalPhase === 'scan-response'
+        rivalPhase === 'intro-transmission'
       ) {
-        camera.near = 0.00001
-        camera.far = 4
-        camera.fov = isNarrowPortrait(camera) ? 50 : 40
-        camera.updateProjectionMatrix()
+        configureRivalSurfaceControls(controls)
+        synchronizeOrbitControls(camera, controls, plan.rivalSurfacePose)
+        controls.enabled = false
+        applyRivalProjection(camera, plan, rivalPhase)
         updateCameraDataset(camera, controls)
         invalidate()
         return
       }
 
-      const start = camera.position.clone()
-      let endPosition: Vector3
-      let endTarget: Vector3
-      let endUp: Vector3
-      let controlOne: Vector3
-      let controlTwo: Vector3
-
-      if (rivalPhase === 'orbital-transition') {
-        endPosition = getOrbitViewForSite(camera, orbitalFocusSite)
-        endTarget = ORBIT_TARGET.clone()
-        endUp = WORLD_UP.clone()
-        controlOne = playerTransform.up
-          .clone()
-          .multiplyScalar(1.34)
-          .addScaledVector(playerTransform.east, 0.045)
-        controlTwo = endPosition.clone().multiplyScalar(0.68)
-      } else if (rivalPhase === 'capsule-approach') {
-        endPosition = getOrbitViewForSite(camera, rivalSite).setLength(
-          isNarrowPortrait(camera) ? 2.72 : 2.36,
-        )
-        endTarget = ORBIT_TARGET.clone()
-        endUp = WORLD_UP.clone()
-        controlOne = start.clone().multiplyScalar(0.94)
-        controlTwo = rivalTransform.up
-          .clone()
-          .multiplyScalar(isNarrowPortrait(camera) ? 2.9 : 2.5)
-          .addScaledVector(rivalTransform.east, 0.18)
-      } else if (rivalPhase === 'impact') {
-        endPosition = rivalSurfacePose.position
-        endTarget = rivalSurfacePose.target
-        endUp = rivalSurfacePose.up
-        controlOne = rivalTransform.up
-          .clone()
-          .multiplyScalar(1.7)
-          .addScaledVector(rivalTransform.east, 0.08)
-        controlTwo = rivalTransform.position
-          .clone()
-          .addScaledVector(rivalTransform.up, 0.095)
-          .addScaledVector(rivalTransform.east, 0.025)
-          .addScaledVector(rivalTransform.south, 0.045)
-      } else if (rivalPhase === 'rival-focus') {
-        endPosition = rivalSurfacePose.position
-        endTarget = rivalSurfacePose.target
-        endUp = rivalSurfacePose.up
-        controlOne = start.clone().multiplyScalar(0.86)
-        controlTwo = rivalTransform.position
-          .clone()
-          .addScaledVector(rivalTransform.up, 0.11)
-          .addScaledVector(rivalTransform.east, 0.035)
-          .addScaledVector(rivalTransform.south, 0.055)
-      } else {
-        endPosition = getDualOrbitView(
-          camera,
-          orbitalFocusSite,
-          rivalSite,
-        )
-        endTarget = ORBIT_TARGET.clone()
-        endUp = WORLD_UP.clone()
-        controlOne = rivalTransform.up
-          .clone()
-          .multiplyScalar(1.38)
-          .addScaledVector(rivalTransform.east, 0.08)
-        controlTwo = endPosition.clone().multiplyScalar(0.7)
+      if (rivalPhase === 'scanning' || rivalPhase === 'scan-response') {
+        applyRivalProjection(camera, plan, rivalPhase)
+        updateCameraDataset(camera, controls)
+        invalidate()
+        return
       }
 
-      rivalJourneyRef.current = {
-        path: new CubicBezierCurve3(start, controlOne, controlTwo, endPosition),
-        startTarget: controls.target.clone(),
-        endTarget,
-        startUp: camera.up.clone(),
-        endUp,
+      const getSavedJourneyStart = (): CameraPose => {
+        const saved = savedRivalJourneyStartRef.current
+
+        if (
+          saved?.phase === rivalPhase &&
+          saved.startedAtMs === rivalPresentation.startedAtMs
+        ) {
+          return saved.pose
+        }
+
+        const pose = currentCameraPose(camera, controls)
+        savedRivalJourneyStartRef.current = {
+          phase: rivalPhase,
+          startedAtMs: rivalPresentation.startedAtMs,
+          pose,
+        }
+        return pose
       }
-      camera.near =
-        rivalPhase === 'impact' || rivalPhase === 'rival-focus'
-          ? 0.001
-          : 0.01
-      camera.far = 80
-      camera.fov = isNarrowPortrait(camera) ? 56 : 42
-      camera.updateProjectionMatrix()
+
+      const rivalJourney =
+        rivalPhase === 'orbital-transition'
+          ? plan.orbitalTransition
+          : rivalPhase === 'capsule-approach'
+            ? plan.capsuleApproach
+            : rivalPhase === 'impact'
+              ? plan.impact
+              : rivalPhase === 'rival-focus'
+                ? createRivalFocusCameraPath(getSavedJourneyStart(), plan)
+                : rivalPhase === 'contested' ||
+                    (rivalPhase === 'dual-sites' && dualOrbitPreferred)
+                  ? createRivalReturnToOrbitCameraPath(
+                      getSavedJourneyStart(),
+                      plan,
+                    )
+                  : plan.dualSites
+      rivalJourneyRef.current = rivalJourney
+      gl.domElement.dataset.cameraPathMinimumRadius =
+        rivalJourney.minimumRadius.toFixed(6)
+      applyRivalProjection(camera, plan, rivalPhase)
+      const initialProgress = getRivalPresentationProgress(rivalPresentation)
+      rivalJourney.sample(
+        initialProgress,
+        temporaryPositionRef.current,
+        temporaryTargetRef.current,
+        temporaryUpRef.current,
+      )
+      camera.position.copy(temporaryPositionRef.current)
+      camera.up.copy(temporaryUpRef.current)
+      controls.target.copy(temporaryTargetRef.current)
+      camera.lookAt(temporaryTargetRef.current)
+      updateCameraDataset(camera, controls)
       invalidate()
       return
     }
@@ -574,7 +645,9 @@ export function CameraRig({
     const exitedRivalPresentation =
       configuredRivalPresentationRef.current !== null
     configuredRivalPresentationRef.current = null
+    savedRivalJourneyStartRef.current = null
     rivalJourneyRef.current = null
+    delete gl.domElement.dataset.cameraPathMinimumRadius
 
     if (phase === 'approach' && landingSite !== null) {
       const transform = landingSiteToRenderTransform(landingSite)
@@ -657,14 +730,10 @@ export function CameraRig({
 
       if (landingSite !== null) {
         const surfacePose = getSurfaceCameraPose(landingSite, terrain)
-        camera.position.copy(surfacePose.position)
-        setControlsUpDirection(camera, controls, surfacePose.up)
-        camera.lookAt(surfacePose.target)
-        controls.target.copy(surfacePose.target)
+        synchronizeOrbitControls(camera, controls, surfacePose)
       }
 
       applySurfaceProjection(camera)
-      controls.update()
       gl.domElement.dataset.cameraMode = 'surface-player'
       updateCameraDataset(camera, controls)
       invalidate()
@@ -677,20 +746,17 @@ export function CameraRig({
         journeyRef.current !== null ||
         camera.position.length() < 2)
 
+    let orbitPosition = camera.position.clone()
+
     if (restoreOrbitPose) {
-      camera.position.copy(
-        exitedRivalPresentation &&
-          orbitalFocusSite !== null &&
-          rivalSite !== null
+      orbitPosition =
+        (exitedRivalPresentation || dualOrbitPreferred) &&
+        orbitalFocusSite !== null &&
+        rivalSite !== null
           ? getDualOrbitView(camera, orbitalFocusSite, rivalSite)
-          : dualOrbitPreferred &&
-              orbitalFocusSite !== null &&
-              rivalSite !== null
-            ? getDualOrbitView(camera, orbitalFocusSite, rivalSite)
           : landingSite === null
             ? getOrbitHome(camera)
-            : getOrbitViewForSite(camera, landingSite),
-      )
+            : getOrbitViewForSite(camera, landingSite)
     }
 
     journeyRef.current = null
@@ -707,12 +773,14 @@ export function CameraRig({
     controls.zoomSpeed = 0.72
     gl.domElement.dataset.cameraInteracting = 'false'
     gl.domElement.dataset.cameraMode = 'orbit'
-    controls.target.copy(ORBIT_TARGET)
-    setControlsUpDirection(camera, controls, WORLD_UP)
+    synchronizeOrbitControls(camera, controls, {
+      position: orbitPosition,
+      target: ORBIT_TARGET,
+      up: WORLD_UP,
+    })
     camera.near = 0.01
     camera.far = 80
     applyOrbitProjection(camera)
-    controls.update()
     updateCameraDataset(camera, controls)
     invalidate()
   }, [
@@ -726,6 +794,8 @@ export function CameraRig({
     rivalPresentation,
     rivalSite,
     terrain,
+    viewportSize.height,
+    viewportSize.width,
   ])
 
   useEffect(() => {
@@ -820,6 +890,7 @@ export function CameraRig({
       if (rivalPresentation.phase === 'rival-focused') {
         controls.enabled = true
         controls.update(Math.min(delta, 0.05))
+        updateCameraDataset(camera, controls)
         return
       }
 
@@ -831,51 +902,17 @@ export function CameraRig({
       }
 
       const progress = getRivalPresentationProgress(rivalPresentation)
-      const closesOnSurface =
-        rivalPresentation.phase === 'impact' ||
-        rivalPresentation.phase === 'rival-focus'
-      const positionProgress = smootherstep(
-        closesOnSurface ? Math.min(1, progress * 1.15) : progress,
-      )
-      const targetProgress = smoothstep(
-        closesOnSurface ? Math.min(1, progress * 1.35) : progress,
-      )
-
-      rivalJourney.path.getPoint(
-        positionProgress,
+      rivalJourney.sample(
+        progress,
         temporaryPositionRef.current,
+        temporaryTargetRef.current,
+        temporaryUpRef.current,
       )
-      temporaryTargetRef.current
-        .copy(rivalJourney.startTarget)
-        .lerp(rivalJourney.endTarget, targetProgress)
-      temporaryUpRef.current
-        .copy(rivalJourney.startUp)
-        .lerp(rivalJourney.endUp, targetProgress)
-        .normalize()
 
       camera.position.copy(temporaryPositionRef.current)
       camera.up.copy(temporaryUpRef.current)
       camera.lookAt(temporaryTargetRef.current)
       controls.target.copy(temporaryTargetRef.current)
-
-      if (
-        (rivalPresentation.phase === 'impact' ||
-          rivalPresentation.phase === 'rival-focus') &&
-        progress > 0.58
-      ) {
-        camera.fov = MathUtils.lerp(
-          isNarrowPortrait(camera) ? 56 : 42,
-          isNarrowPortrait(camera) ? 50 : 40,
-          smoothstep((progress - 0.58) / 0.42),
-        )
-        camera.near = MathUtils.lerp(
-          0.001,
-          0.00001,
-          smoothstep((progress - 0.58) / 0.42),
-        )
-        camera.far = MathUtils.lerp(80, 4, smoothstep((progress - 0.58) / 0.42))
-        camera.updateProjectionMatrix()
-      }
 
       updateCameraDataset(camera, controls)
 

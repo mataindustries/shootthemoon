@@ -22,12 +22,12 @@ export interface RivalPresentationState {
 export const RIVAL_PRESENTATION_DURATIONS_MS: Readonly<
   Partial<Record<RivalPresentationPhase, number>>
 > = Object.freeze({
-  warning: 3_000,
-  'orbital-transition': 8_000,
-  'capsule-approach': 6_000,
-  impact: 3_000,
-  'intro-transmission': 9_000,
-  'dual-sites': 4_000,
+  warning: 2_600,
+  'orbital-transition': 5_800,
+  'capsule-approach': 4_800,
+  impact: 2_600,
+  'intro-transmission': 7_000,
+  'dual-sites': 3_500,
   'rival-focus': 2_600,
   scanning: 4_000,
   'scan-response': 8_000,

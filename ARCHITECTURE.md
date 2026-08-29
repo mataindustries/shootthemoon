@@ -204,6 +204,22 @@ location, phase, elapsed phase time, and transition policy. It avoids
 latitude/longitude Euler interpolation, which is singular at poles and
 discontinuous at the antimeridian. Tests inject a deterministic clock.
 
+Rival orbital cinematics use a shared radial safety contract rather than
+Cartesian Bézier chords. Camera direction follows deterministic unit-sphere
+arcs (with an illuminated tangent for ambiguous antipodes), while radius,
+target, and up are sampled independently. Each path declares an absolute
+minimum Moon-centred radius; close-to-wide paths climb before rotating and
+wide-to-close paths align before descending. The first reveal begins from an
+explicit player-wide pose, so a surface camera, user zoom, damping residue,
+viewport resize, or replay pose cannot become its implicit control point.
+
+Every cinematic destination is an explicit position, target, up direction,
+projection, and controls profile. Before control is returned, CameraRig clears
+OrbitControls' pending spherical, pan, dolly, pointer, and damping state, then
+updates and saves the new pose. Portrait/landscape changes rebuild the same
+canonical phase path at its current absolute-time progress. Browser visibility
+loss pauses that clock instead of consuming unseen presentation time.
+
 During direct manipulation, the render loop is invalidated for responsive
 motion. Camera travel requests continuous frames only while active. Static orbit
 and surface views return to R3F demand rendering. Reduced-motion support may

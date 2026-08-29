@@ -5,17 +5,21 @@ import {
   Vector3,
   type OrthographicCamera,
 } from 'three'
+import { useFrame } from '@react-three/fiber'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
 
 const SUN_OFFSET = new Vector3(4.6, 2.6, 3.4)
+const CINEMATIC_KEY_DIRECTION = SUN_OFFSET.clone().normalize()
 
 interface LightingRigProps {
   readonly phase: ExperiencePhase
   readonly landingSite: LandingSite | null
   readonly strategicFocusSite?: LandingSite | null
+  readonly cinematicReadability?: boolean
+  readonly followCameraForReadability?: boolean
   readonly enableSurfaceShadows: boolean
 }
 
@@ -23,10 +27,13 @@ export function LightingRig({
   phase,
   landingSite,
   strategicFocusSite = null,
+  cinematicReadability = false,
+  followCameraForReadability = false,
   enableSurfaceShadows,
 }: LightingRigProps) {
   const lightRef = useRef<DirectionalLight>(null)
   const targetRef = useRef<Object3D>(null)
+  const temporaryKeyDirectionRef = useRef(new Vector3())
   const castsSurfaceShadow =
     enableSurfaceShadows &&
     (strategicFocusSite !== null ||
@@ -52,12 +59,21 @@ export function LightingRig({
     }
 
     const transform = landingSiteToRenderTransform(activeSite)
+    const strategicKey = strategicFocusSite !== null
+
     return targetPosition
       .clone()
-      .addScaledVector(transform.east, 4.8)
-      .addScaledVector(transform.up, 1.38)
-      .addScaledVector(transform.south, 2.1)
-  }, [activeSite, castsSurfaceShadow, targetPosition])
+      .addScaledVector(transform.east, strategicKey ? 3.4 : 4.8)
+      .addScaledVector(transform.up, strategicKey ? 4.2 : 1.38)
+      .addScaledVector(transform.south, strategicKey ? 1.4 : 2.1)
+  }, [activeSite, castsSurfaceShadow, strategicFocusSite, targetPosition])
+  const ambientIntensity = cinematicReadability
+    ? castsSurfaceShadow
+      ? 0.32
+      : 0.22
+    : castsSurfaceShadow
+      ? 0.19
+      : 0.055
 
   useEffect(() => {
     const light = lightRef.current
@@ -86,11 +102,36 @@ export function LightingRig({
     light.shadow.needsUpdate = true
   }, [castsSurfaceShadow, lightPosition, targetPosition])
 
+  useFrame((state) => {
+    const light = lightRef.current
+    const target = targetRef.current
+
+    if (!followCameraForReadability || light === null || target === null) {
+      return
+    }
+
+    const keyDirection = temporaryKeyDirectionRef.current
+      .copy(state.camera.position)
+
+    if (keyDirection.lengthSq() <= 1e-12) {
+      keyDirection.copy(CINEMATIC_KEY_DIRECTION)
+    } else {
+      keyDirection
+        .normalize()
+        .multiplyScalar(0.86)
+        .addScaledVector(CINEMATIC_KEY_DIRECTION, 0.14)
+        .normalize()
+    }
+
+    light.position.copy(targetPosition).addScaledVector(keyDirection, 6)
+    light.target = target
+  })
+
   return (
     <>
       <ambientLight
         color="#68788d"
-        intensity={castsSurfaceShadow ? 0.19 : 0.055}
+        intensity={ambientIntensity}
       />
       <directionalLight
         ref={lightRef}

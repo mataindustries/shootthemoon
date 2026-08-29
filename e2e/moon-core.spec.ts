@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { mkdir } from 'node:fs/promises'
 import { OUTPOST_STORAGE_KEY } from '../src/persistence/outpostSave.ts'
 import {
   createInterruptedCinematicSave,
@@ -10,6 +11,9 @@ const SCREENSHOT_DIRECTORY = 'artifacts/screenshots'
 const SURFACE_AFTER_SCREENSHOT_DIRECTORY =
   SCREENSHOT_DIRECTORY + '/surface-presence-after'
 const RIVAL_SCREENSHOT_DIRECTORY = SCREENSHOT_DIRECTORY + '/rival-signal'
+const RIVAL_CAMERA_SCREENSHOT_DIRECTORY =
+  RIVAL_SCREENSHOT_DIRECTORY + '/camera-reliability'
+const RIVAL_RECORDING_DIRECTORY = 'artifacts/recordings/rival-signal'
 
 interface BrowserErrors {
   readonly console: string[]
@@ -261,6 +265,52 @@ async function setRivalPresentation(
     phase,
   )
   await page.waitForTimeout(100)
+}
+
+async function setOrbitView(
+  page: Page,
+  detail: {
+    readonly latitudeRad: number
+    readonly longitudeRad: number
+    readonly distance?: number
+  },
+): Promise<void> {
+  await page.evaluate((view) => {
+    window.dispatchEvent(
+      new CustomEvent('moon-core:set-orbit-view', { detail: view }),
+    )
+  }, detail)
+  await page.waitForTimeout(100)
+}
+
+async function readCameraContract(page: Page) {
+  const canvas = page.locator('.scene-canvas canvas')
+
+  return canvas.evaluate((element) => ({
+    mode: element.dataset.cameraMode ?? null,
+    radius: Number(element.dataset.cameraRadius),
+    minimumRadius: Number(element.dataset.cameraPathMinimumRadius),
+    position: [
+      Number(element.dataset.cameraX),
+      Number(element.dataset.cameraY),
+      Number(element.dataset.cameraZ),
+    ],
+    target: [
+      Number(element.dataset.cameraTargetX),
+      Number(element.dataset.cameraTargetY),
+      Number(element.dataset.cameraTargetZ),
+    ],
+  }))
+}
+
+async function expectSafeCameraContract(page: Page): Promise<void> {
+  const sample = await readCameraContract(page)
+
+  expect(Number.isFinite(sample.radius)).toBe(true)
+  expect(Number.isFinite(sample.minimumRadius)).toBe(true)
+  expect(sample.radius + 0.000002).toBeGreaterThanOrEqual(sample.minimumRadius)
+  expect(sample.position.every(Number.isFinite)).toBe(true)
+  expect(sample.target.every(Number.isFinite)).toBe(true)
 }
 
 async function advanceRivalPresentation(page: Page): Promise<void> {
@@ -662,6 +712,301 @@ test('complete mobile First Outpost loop queues one Rival Signal after extractor
   expect(errors).toEqual({ console: [], page: [] })
 })
 
+test('Rival Signal camera is invariant across controlled starting orientations', async ({
+  page,
+}) => {
+  test.setTimeout(180_000)
+  const errors = watchBrowserErrors(page)
+  const starts = [
+    { latitudeRad: 0.1, longitudeRad: 0.2, distance: 2.12 },
+    { latitudeRad: 1.36, longitudeRad: Math.PI - 0.02, distance: 4.7 },
+    { latitudeRad: -1.31, longitudeRad: -Math.PI + 0.03, distance: 5.8 },
+  ] as const
+  let referenceMidpoint: Awaited<ReturnType<typeof readCameraContract>> | null =
+    null
+
+  await openReadyScene(page, createLegacyActiveExtractorSave())
+
+  for (const [index, start] of starts.entries()) {
+    if (index > 0) {
+      await page.evaluate(
+        ({ key, value }) => window.localStorage.setItem(key, value),
+        {
+          key: OUTPOST_STORAGE_KEY,
+          value: createLegacyActiveExtractorSave(),
+        },
+      )
+      await page.reload()
+      await expect(page.locator('main')).toHaveAttribute(
+        'data-scene-ready',
+        'true',
+      )
+    }
+
+    const main = page.locator('main')
+    await expect(main).toHaveAttribute(
+      'data-rival-reveal-state',
+      'AWAITING_SAFE_MOMENT',
+    )
+    await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
+    await setCinematicProgress(page, 1)
+    await expect(main).toHaveAttribute('data-phase', 'orbit')
+    await expect(main).toHaveAttribute('data-rival-presentation', 'warning')
+    await setRivalPresentation(page, 'warning', 0.5)
+    await setOrbitView(page, start)
+    const controlledStart = await readCameraContract(page)
+    expect(controlledStart.radius).toBeCloseTo(start.distance, 4)
+
+    await advanceRivalPresentation(page)
+    await setRivalPresentation(page, 'orbital-transition', 0)
+    await expectSafeCameraContract(page)
+    const normalizedStart = await readCameraContract(page)
+    expect(normalizedStart.radius).toBeCloseTo(4.7, 4)
+
+    for (const progress of [0.5, 1]) {
+      await setRivalPresentation(
+        page,
+        'orbital-transition',
+        progress,
+      )
+      await expectSafeCameraContract(page)
+    }
+
+    await setRivalPresentation(page, 'orbital-transition', 0.5)
+    const midpoint = await readCameraContract(page)
+
+    if (referenceMidpoint === null) {
+      referenceMidpoint = midpoint
+    } else {
+      expect(midpoint.position).toEqual(referenceMidpoint.position)
+      expect(midpoint.target).toEqual(referenceMidpoint.target)
+      expect(midpoint.radius).toBe(referenceMidpoint.radius)
+    }
+
+    if (index === 0) {
+      for (const phase of ['capsule-approach', 'impact', 'dual-sites'] as const) {
+        await setRivalPresentation(page, phase, 0.5)
+        await expectSafeCameraContract(page)
+      }
+
+      await setRivalPresentation(page, 'capsule-approach', 0.55)
+      await page.setViewportSize({ width: 844, height: 390 })
+      await page.waitForTimeout(180)
+      await expectSafeCameraContract(page)
+      expect((await readCameraContract(page)).mode).toBe(
+        'rival-capsule-approach',
+      )
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.waitForTimeout(180)
+      await expectSafeCameraContract(page)
+    }
+  }
+
+  expect(errors).toEqual({ console: [], page: [] })
+})
+
+test('Rival Signal cinematic clock pauses across visibility loss', async ({
+  page,
+}) => {
+  test.setTimeout(60_000)
+  const errors = watchBrowserErrors(page)
+  await openReadyScene(page, createLegacyActiveExtractorSave())
+  const main = page.locator('main')
+
+  await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-rival-presentation', 'warning')
+  await advanceRivalPresentation(page)
+  await expect(main).toHaveAttribute(
+    'data-rival-presentation',
+    'orbital-transition',
+  )
+  await page.waitForTimeout(900)
+  await page.evaluate(() => {
+    const state = window as typeof window & {
+      __testVisibilityState?: DocumentVisibilityState
+    }
+    state.__testVisibilityState = 'hidden'
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => state.__testVisibilityState,
+    })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(main).toHaveAttribute('data-rival-clock-running', 'false')
+  await new Promise((resolve) => setTimeout(resolve, 6_500))
+  await page.evaluate(() => {
+    const state = window as typeof window & {
+      __testVisibilityState?: DocumentVisibilityState
+    }
+    state.__testVisibilityState = 'visible'
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await page.waitForTimeout(500)
+  await expect(main).toHaveAttribute(
+    'data-rival-presentation',
+    'orbital-transition',
+  )
+  await expect(main).toHaveAttribute('data-rival-clock-running', 'true')
+  await expectSafeCameraContract(page)
+  await page.evaluate(() => {
+    delete (window as typeof window & { __testVisibilityState?: string })
+      .__testVisibilityState
+    delete (document as Document & { visibilityState?: string })
+      .visibilityState
+  })
+  expect(errors).toEqual({ console: [], page: [] })
+})
+
+test('complete paced Rival Signal reveal restores controllable orbit', async ({
+  page,
+}) => {
+  test.setTimeout(75_000)
+  const errors = watchBrowserErrors(page)
+  await openReadyScene(page, createLegacyActiveExtractorSave())
+  const main = page.locator('main')
+  const canvas = page.locator('.scene-canvas canvas')
+
+  await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
+  await setCinematicProgress(page, 1)
+  await expect(main).toHaveAttribute('data-rival-presentation', 'warning')
+  await page.evaluate(() => {
+    const root = document.querySelector('main') as HTMLElement | null
+
+    if (root === null) {
+      throw new Error('Rival phase timeline root was unavailable.')
+    }
+
+    const state = window as typeof window & {
+      __rivalCameraTimeline?: {
+        phases: Array<{ phase: string; atMs: number }>
+        minimumMargin: number
+      }
+    }
+    state.__rivalCameraTimeline = {
+      phases: [
+        {
+          phase: root.dataset.rivalPresentation ?? 'unknown',
+          atMs: performance.now(),
+        },
+      ],
+      minimumMargin: Number.POSITIVE_INFINITY,
+    }
+    const observer = new MutationObserver(() => {
+      const timeline = state.__rivalCameraTimeline
+
+      if (timeline === undefined) {
+        return
+      }
+
+      timeline.phases.push({
+        phase: root.dataset.rivalPresentation ?? 'unknown',
+        atMs: performance.now(),
+      })
+
+      if (root.dataset.rivalPresentation === 'idle') {
+        observer.disconnect()
+      }
+    })
+    observer.observe(root, {
+      attributeFilter: ['data-rival-presentation'],
+      attributes: true,
+    })
+
+    const sampleCamera = () => {
+      const timeline = state.__rivalCameraTimeline
+      const canvas = document.querySelector(
+        '.scene-canvas canvas',
+      ) as HTMLCanvasElement | null
+
+      if (timeline === undefined || canvas === null) {
+        return
+      }
+
+      const radius = Number(canvas.dataset.cameraRadius)
+      const minimumRadius = Number(canvas.dataset.cameraPathMinimumRadius)
+
+      if (Number.isFinite(radius) && Number.isFinite(minimumRadius)) {
+        timeline.minimumMargin = Math.min(
+          timeline.minimumMargin,
+          radius - minimumRadius,
+        )
+      }
+
+      if (root.dataset.rivalPresentation !== 'idle') {
+        window.requestAnimationFrame(sampleCamera)
+      }
+    }
+    window.requestAnimationFrame(sampleCamera)
+  })
+  await expect(main).toHaveAttribute('data-rival-presentation', 'idle', {
+    timeout: 40_000,
+  })
+  const timeline = await page.evaluate(() => {
+    const state = window as typeof window & {
+      __rivalCameraTimeline?: {
+        phases: Array<{ phase: string; atMs: number }>
+        minimumMargin: number
+      }
+    }
+
+    return state.__rivalCameraTimeline ?? null
+  })
+  expect(timeline).not.toBeNull()
+  const phases = timeline?.phases.map((entry) => entry.phase) ?? []
+  expect(phases).toEqual([
+    'warning',
+    'orbital-transition',
+    'capsule-approach',
+    'impact',
+    'intro-transmission',
+    'dual-sites',
+    'idle',
+  ])
+  const revealDurationMs =
+    (timeline?.phases.at(-1)?.atMs ?? 0) -
+    (timeline?.phases[0]?.atMs ?? 0)
+  expect(revealDurationMs).toBeGreaterThanOrEqual(25_000)
+  expect(revealDurationMs).toBeLessThanOrEqual(40_000)
+  expect(timeline?.minimumMargin ?? -1).toBeGreaterThanOrEqual(-0.000002)
+  console.log(
+    'RIVAL_SIGNAL_PACED_REVEAL ' +
+      JSON.stringify({
+        durationMs: revealDurationMs,
+        minimumRadiusMargin: timeline?.minimumMargin ?? null,
+        phases,
+      }),
+  )
+  await expect(main).toHaveAttribute('data-rival-reveal-state', 'REVEALED')
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'orbit')
+  await page.screenshot({
+    path: RIVAL_CAMERA_SCREENSHOT_DIRECTORY + '/07-final-controllable-orbit.png',
+  })
+
+  const azimuthBefore = Number(await canvas.getAttribute('data-camera-azimuth'))
+  const center = await canvasCenter(page)
+  await dragTouch(
+    page,
+    { x: center.x - 52, y: center.y - 12 },
+    { x: center.x + 58, y: center.y + 24 },
+    31,
+  )
+  await expect
+    .poll(async () => Number(await canvas.getAttribute('data-camera-azimuth')))
+    .not.toBeCloseTo(azimuthBefore, 2)
+  expect(errors).toEqual({ console: [], page: [] })
+
+  const video = page.video()
+
+  if (video !== null && process.env.RIVAL_RECORDING === '1') {
+    await mkdir(RIVAL_RECORDING_DIRECTORY, { recursive: true })
+    await page.close()
+    await video.saveAs(
+      RIVAL_RECORDING_DIRECTORY + '/corrected-rival-signal-reveal.webm',
+    )
+  }
+})
+
 test('complete migrated-save Rival Signal loop, restoration, reset, and performance', async ({
   page,
 }) => {
@@ -693,11 +1038,17 @@ test('complete migrated-save Rival Signal loop, restoration, reset, and performa
     'data-rival-presentation',
     'orbital-transition',
   )
+  await page.screenshot({
+    path: RIVAL_CAMERA_SCREENSHOT_DIRECTORY + '/01-transition-start.png',
+  })
   await setCinematicProgress(page, 1)
   await expect(main).toHaveAttribute('data-phase', 'orbit', { timeout: 5_000 })
   await setRivalPresentation(page, 'orbital-transition', 0.52)
   await page.screenshot({
     path: RIVAL_SCREENSHOT_DIRECTORY + '/03-orbital-transition.png',
+  })
+  await page.screenshot({
+    path: RIVAL_CAMERA_SCREENSHOT_DIRECTORY + '/02-orbital-midpoint.png',
   })
   const orbitalTransitionMetrics = await readRenderMetrics(page)
   console.log(
@@ -710,6 +1061,9 @@ test('complete migrated-save Rival Signal loop, restoration, reset, and performa
   await page.screenshot({
     path: RIVAL_SCREENSHOT_DIRECTORY + '/04-rival-capsule-approach.png',
   })
+  await page.screenshot({
+    path: RIVAL_CAMERA_SCREENSHOT_DIRECTORY + '/03-capsule-approach.png',
+  })
   const capsuleMetrics = await readRenderMetrics(page)
   console.log('RIVAL_SIGNAL_CAPSULE_METRICS ' + JSON.stringify(capsuleMetrics))
 
@@ -717,6 +1071,9 @@ test('complete migrated-save Rival Signal loop, restoration, reset, and performa
   await setRivalPresentation(page, 'impact', 0.72)
   await page.screenshot({
     path: RIVAL_SCREENSHOT_DIRECTORY + '/05-rival-impact.png',
+  })
+  await page.screenshot({
+    path: RIVAL_CAMERA_SCREENSHOT_DIRECTORY + '/04-impact.png',
   })
   const impactMetrics = await readRenderMetrics(page)
   console.log('RIVAL_SIGNAL_IMPACT_METRICS ' + JSON.stringify(impactMetrics))
@@ -730,17 +1087,26 @@ test('complete migrated-save Rival Signal loop, restoration, reset, and performa
   await expect(page.locator('.rival-transmission')).toContainText(
     'something to lose',
   )
+  await page.screenshot({
+    path: RIVAL_CAMERA_SCREENSHOT_DIRECTORY + '/05-vesper-introduction.png',
+  })
   await page.getByRole('button', { name: 'HOLD THE CHANNEL' }).click()
   await expect(main).toHaveAttribute('data-rival-presentation', 'dual-sites')
   await setRivalPresentation(page, 'dual-sites', 1)
   await page.screenshot({
     path: RIVAL_SCREENSHOT_DIRECTORY + '/06-both-sites-visible.png',
   })
+  await page.screenshot({
+    path: RIVAL_CAMERA_SCREENSHOT_DIRECTORY + '/06-dual-site-reveal.png',
+  })
   await advanceRivalPresentation(page)
   await expect(main).toHaveAttribute('data-rival-presentation', 'idle')
   await expect(main).toHaveAttribute('data-rival-reveal-state', 'REVEALED')
   await expect(main).toHaveAttribute('data-rival-stage', 'LANDED')
   await expect(canvas).toHaveAttribute('data-camera-mode', 'orbit')
+  await page.screenshot({
+    path: RIVAL_CAMERA_SCREENSHOT_DIRECTORY + '/07-final-controllable-orbit.png',
+  })
 
   const contestedOrbitMetrics = await readRenderMetrics(page)
   console.log(

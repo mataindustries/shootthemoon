@@ -446,10 +446,14 @@ function App() {
     }
 
     const elapsedMs = performance.now() - rivalPresentation.startedAtMs
-    const timer = window.setTimeout(
-      advanceRivalPresentation,
-      Math.max(0, durationMs - elapsedMs),
-    )
+    const timer = window.setTimeout(() => {
+      // The visibility state changes synchronously, while React may defer this
+      // effect's cleanup under load. Never let an already-queued phase timer
+      // consume a cinematic while the page is hidden.
+      if (document.visibilityState !== 'hidden') {
+        advanceRivalPresentation()
+      }
+    }, Math.max(0, durationMs - elapsedMs))
     return () => window.clearTimeout(timer)
   }, [advanceRivalPresentation, rivalClockRunning, rivalPresentation])
 

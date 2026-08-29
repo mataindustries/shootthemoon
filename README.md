@@ -9,6 +9,11 @@ refreshes. The scope remains deliberately narrow: there is no networking,
 combat, account system, multiplayer infrastructure, territory system, or
 economy beyond the existing prototype resource loop.
 
+The reveal camera uses deterministic spherical orbital arcs with sampled lunar
+clearance, explicit portrait/landscape framing, and a normalized OrbitControls
+handoff. Its paced first-view sequence is 26.3 seconds, excluding the short
+extractor interruption lead-in.
+
 Start with [PLAN.md](./PLAN.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and
 [PERFORMANCE_BUDGET.md](./PERFORMANCE_BUDGET.md). External art provenance is in
 [ASSETS.md](./ASSETS.md).

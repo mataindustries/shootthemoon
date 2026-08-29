@@ -131,6 +131,7 @@ export function RivalRevealEffects({
   const warningRef = useRef<Group>(null)
   const warningShardRef = useRef<InstancedMesh>(null)
   const craftRef = useRef<Group>(null)
+  const craftBodyRef = useRef<Mesh>(null)
   const craftCrownRef = useRef<InstancedMesh>(null)
   const impactRef = useRef<Group>(null)
   const shockRef = useRef<InstancedMesh>(null)
@@ -345,6 +346,7 @@ export function RivalRevealEffects({
     const progress = getRivalPresentationProgress(presentation, nowMs)
     const warning = warningRef.current
     const craft = craftRef.current
+    const craftBody = craftBodyRef.current
     const impact = impactRef.current
     const shock = shockRef.current
     const flash = flashRef.current
@@ -353,6 +355,7 @@ export function RivalRevealEffects({
     if (
       warning === null ||
       craft === null ||
+      craftBody === null ||
       impact === null ||
       shock === null ||
       flash === null ||
@@ -400,6 +403,7 @@ export function RivalRevealEffects({
           (1 - smoothstep((craftProgress - 0.82) / 0.18)) * 55
         : 1
     craft.scale.setScalar(CRAFT_SCALE * approachScale)
+    craftBody.castShadow = craftProgress > 0.96
     craftMaterial.opacity = craftFade
     craftEdgeMaterial.opacity = craftFade * 0.86
 
@@ -474,7 +478,7 @@ export function RivalRevealEffects({
       <group position={rivalTransform.position} quaternion={rivalTransform.orientation}>
         <group ref={craftRef} name="rival-insertion-craft" scale={CRAFT_SCALE}>
           <mesh
-            castShadow
+            ref={craftBodyRef}
             geometry={craftBodyGeometry}
             material={craftMaterial}
             rotation-z={Math.PI}
