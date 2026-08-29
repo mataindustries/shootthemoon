@@ -47,6 +47,15 @@ import type {
   CameraPose,
   SafeOrbitalCameraPath,
 } from './orbitalCameraPath.ts'
+import {
+  getFirstStrikePresentationProgress,
+  firstStrikeLocksCamera,
+  type FirstStrikePresentationState,
+} from '../app/firstStrikePresentation.ts'
+import {
+  createStrikeCameraPlan,
+  type StrikeCameraPlan,
+} from './strikeCameraPlan.ts'
 
 const ORBIT_DIRECTION = new Vector3(3.2, 0.32, 0.92).normalize()
 const DESKTOP_ORBIT_DISTANCE = 3.345
@@ -77,6 +86,7 @@ interface CameraRigProps {
   readonly rivalSite: LandingSite | null
   readonly dualOrbitPreferred: boolean
   readonly rivalPresentation: RivalPresentationState
+  readonly firstStrikePresentation: FirstStrikePresentationState
 }
 
 type SurfaceFocusKind =
@@ -115,6 +125,11 @@ interface OrbitControlsCoordinateFrame {
 interface ConfiguredRivalPresentation {
   readonly phase: RivalPresentationState['phase']
   readonly replay: boolean
+  readonly viewportKey: string
+}
+
+interface ConfiguredStrikePresentation {
+  readonly phase: FirstStrikePresentationState['phase']
   readonly viewportKey: string
 }
 
@@ -386,6 +401,37 @@ function applyRivalProjection(
   camera.updateProjectionMatrix()
 }
 
+function applyStrikeProjection(
+  camera: PerspectiveCamera,
+  phase: FirstStrikePresentationState['phase'],
+): void {
+  const close =
+    phase === 'arming' ||
+    phase === 'launch' ||
+    phase === 'impact-flash' ||
+    phase === 'ejecta' ||
+    phase === 'crater-reveal'
+  const orbital =
+    phase === 'orbital-flight' ||
+    phase === 'vesper-transmission' ||
+    phase === 'target-approach'
+
+  camera.near = close ? 0.0004 : 0.01
+  camera.far = close ? 12 : 80
+  camera.fov = close
+    ? isNarrowPortrait(camera)
+      ? 52
+      : 41
+    : orbital
+      ? isNarrowPortrait(camera)
+        ? 56
+        : 40
+      : isNarrowPortrait(camera)
+        ? 58
+        : 42
+  camera.updateProjectionMatrix()
+}
+
 function configureRivalSurfaceControls(controls: OrbitControls): void {
   controls.enablePan = false
   controls.minDistance = 0.018
@@ -430,6 +476,7 @@ export function CameraRig({
   rivalSite,
   dualOrbitPreferred,
   rivalPresentation,
+  firstStrikePresentation,
 }: CameraRigProps) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const gl = useThree((state) => state.gl)
@@ -441,6 +488,10 @@ export function CameraRig({
   const rivalJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
   const configuredRivalPresentationRef =
     useRef<ConfiguredRivalPresentation | null>(null)
+  const configuredStrikePresentationRef =
+    useRef<ConfiguredStrikePresentation | null>(null)
+  const strikeJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
+  const strikePlanRef = useRef<StrikeCameraPlan | null>(null)
   const savedRivalJourneyStartRef = useRef<SavedRivalJourneyStart | null>(
     null,
   )
@@ -512,8 +563,104 @@ export function CameraRig({
       return
     }
 
-    const rivalPhase = rivalPresentation.phase
     const viewportKey = `${viewportSize.width}x${viewportSize.height}`
+    const strikePhase = firstStrikePresentation.phase
+
+    if (strikePhase !== 'idle') {
+      if (
+        configuredStrikePresentationRef.current?.phase === strikePhase &&
+        configuredStrikePresentationRef.current.viewportKey === viewportKey
+      ) {
+        controls.enabled = false
+        updateCameraDataset(camera, controls)
+        invalidate()
+        return
+      }
+
+      configuredStrikePresentationRef.current = {
+        phase: strikePhase,
+        viewportKey,
+      }
+      configuredRivalPresentationRef.current = null
+      journeyRef.current = null
+      rivalJourneyRef.current = null
+      strikeJourneyRef.current = null
+      strikePlanRef.current = null
+      controls.enabled = false
+      clearOrbitControlsTransientState(controls)
+      gl.domElement.dataset.cameraInteracting = 'false'
+      gl.domElement.dataset.cameraMode = `strike-${strikePhase}`
+      delete gl.domElement.dataset.cameraPathMinimumRadius
+
+      if (rivalSite === null || orbitalFocusSite === null) {
+        invalidate()
+        return
+      }
+
+      const plan = createStrikeCameraPlan(
+        orbitalFocusSite,
+        rivalSite,
+        camera.aspect,
+      )
+      strikePlanRef.current = plan
+      let staticPose: CameraPose | null = null
+      let journey: SafeOrbitalCameraPath | null = null
+
+      if (strikePhase === 'arming') {
+        staticPose = plan.armingPose
+      } else if (strikePhase === 'launch') {
+        staticPose = plan.launchPose
+      } else if (strikePhase === 'orbital-flight') {
+        journey = plan.flightCamera
+      } else if (strikePhase === 'vesper-transmission') {
+        journey = plan.transmissionCamera
+      } else if (strikePhase === 'target-approach') {
+        journey = plan.targetApproachCamera
+      } else if (strikePhase === 'orbital-pullback') {
+        journey = plan.orbitalPullbackCamera
+      } else if (strikePhase === 'ending') {
+        staticPose = plan.finalOrbitPose
+      } else {
+        staticPose = plan.impactPose
+      }
+
+      applyStrikeProjection(camera, strikePhase)
+      strikeJourneyRef.current = journey
+
+      if (journey !== null) {
+        gl.domElement.dataset.cameraPathMinimumRadius =
+          journey.minimumRadius.toFixed(6)
+        journey.sample(
+          getFirstStrikePresentationProgress(firstStrikePresentation),
+          temporaryPositionRef.current,
+          temporaryTargetRef.current,
+          temporaryUpRef.current,
+        )
+        staticPose = {
+          position: temporaryPositionRef.current,
+          target: temporaryTargetRef.current,
+          up: temporaryUpRef.current,
+        }
+      }
+
+      if (staticPose !== null) {
+        camera.position.copy(staticPose.position)
+        camera.up.copy(staticPose.up)
+        controls.target.copy(staticPose.target)
+        camera.lookAt(staticPose.target)
+      }
+
+      updateCameraDataset(camera, controls)
+      invalidate()
+      return
+    }
+
+    const exitedStrikePresentation =
+      configuredStrikePresentationRef.current !== null
+    configuredStrikePresentationRef.current = null
+    strikeJourneyRef.current = null
+    strikePlanRef.current = null
+    const rivalPhase = rivalPresentation.phase
 
     if (rivalPhase !== 'idle') {
       if (
@@ -743,6 +890,7 @@ export function CameraRig({
     const restoreOrbitPose =
       phase === 'orbit' &&
       (exitedRivalPresentation ||
+        exitedStrikePresentation ||
         journeyRef.current !== null ||
         camera.position.length() < 2)
 
@@ -750,7 +898,7 @@ export function CameraRig({
 
     if (restoreOrbitPose) {
       orbitPosition =
-        (exitedRivalPresentation || dualOrbitPreferred) &&
+        (exitedRivalPresentation || exitedStrikePresentation || dualOrbitPreferred) &&
         orbitalFocusSite !== null &&
         rivalSite !== null
           ? getDualOrbitView(camera, orbitalFocusSite, rivalSite)
@@ -786,6 +934,7 @@ export function CameraRig({
   }, [
     camera,
     dualOrbitPreferred,
+    firstStrikePresentation,
     gl,
     invalidate,
     landingSite,
@@ -806,6 +955,7 @@ export function CameraRig({
     }
 
     if (
+      firstStrikeLocksCamera(firstStrikePresentation.phase) ||
       rivalPresentationLocksCamera(rivalPresentation.phase) ||
       rivalPresentation.phase === 'rival-focused' ||
       rivalPresentation.phase === 'warning'
@@ -836,6 +986,7 @@ export function CameraRig({
     camera,
     invalidate,
     phase,
+    firstStrikePresentation.phase,
     rivalPresentation.phase,
     viewportSize.height,
     viewportSize.width,
@@ -883,6 +1034,55 @@ export function CameraRig({
     const controls = controlsRef.current
 
     if (controls === null) {
+      return
+    }
+
+    if (firstStrikePresentation.phase !== 'idle') {
+      controls.enabled = false
+      const strikeJourney = strikeJourneyRef.current
+
+      if (strikeJourney === null) {
+        updateCameraDataset(camera, controls)
+        return
+      }
+
+      const progress = getFirstStrikePresentationProgress(
+        firstStrikePresentation,
+      )
+      strikeJourney.sample(
+        progress,
+        temporaryPositionRef.current,
+        temporaryTargetRef.current,
+        temporaryUpRef.current,
+      )
+      const strikePlan = strikePlanRef.current
+
+      if (strikePlan !== null) {
+        const routeProgress =
+          firstStrikePresentation.phase === 'orbital-flight'
+            ? 0.08 + progress * 0.48
+            : firstStrikePresentation.phase === 'vesper-transmission'
+              ? 0.56 + progress * 0.2
+              : firstStrikePresentation.phase === 'target-approach'
+                ? 0.76 + progress * 0.24
+                : null
+
+        if (routeProgress !== null) {
+          strikePlan.route.getRenderPoint(
+            routeProgress,
+            temporaryTargetRef.current,
+          )
+        }
+      }
+      camera.position.copy(temporaryPositionRef.current)
+      camera.up.copy(temporaryUpRef.current)
+      camera.lookAt(temporaryTargetRef.current)
+      controls.target.copy(temporaryTargetRef.current)
+      updateCameraDataset(camera, controls)
+
+      if (progress < 1) {
+        state.invalidate()
+      }
       return
     }
 

@@ -1,6 +1,6 @@
 # Moon Core Android performance budget
 
-Status: Rival Signal measured in production, 2026-08-28. Physical Pixel 6a
+Status: First Strike measured in production, 2026-08-29. Physical Pixel 6a
 frame-time, memory, touch, and thermal acceptance remains open.
 
 ## Target and measurement conditions
@@ -38,7 +38,8 @@ than attempt a partial 2D implementation when WebGL 2 is unavailable.
 These are automated production-build counters, not physical-device frame-time
 evidence. They were captured at a 390 × 844 CSS-pixel viewport, DPR 1.0, a
 390 × 844 drawing buffer, and the deterministic medium tier. The working tree
-is intentionally uncommitted on top of Rival Signal revision `2eb3a97`.
+is intentionally uncommitted on top of the Rival Signal camera-reliability
+checkpoint `5002fac`.
 
 | Rival Signal frame | Draw calls | Triangles | Points | Geometries | Textures | Programs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -50,6 +51,24 @@ is intentionally uncommitted on top of Rival Signal revision `2eb3a97`.
 | Rival focused | 14 | 31,816 | 640 | 19 | 5 | 24 |
 | Rival scan | 18 | 32,040 | 640 | 23 | 5 | 24 |
 | Player surface after integration | 50 | 58,160 | 694 | 35 | 6 | 24 |
+
+First Strike reuses that warmed scene budget. Temporary launch and impact
+resources are disposed as their beats end.
+
+| First Strike frame | Draw calls | Triangles | Points | Geometries | Textures | Programs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Protocol unlocked | 22 | 32,352 | 640 | 25 | 5 | 22 |
+| Launch system armed (peak calls) | 33 | 32,592 | 640 | 30 | 5 | 23 |
+| Orbital flight | 8 | 31,624 | 640 | 34 | 5 | 23 |
+| Impact flash | 23 | 32,552 | 712 | 35 | 5 | 23 |
+| Ejecta/crater reveal (peak geometry) | 23 | 32,766 | 712 | 30 | 5 | 24 |
+| Completed scar in orbit | 23 | 32,638 | 640 | 25 | 5 | 23 |
+| Restored completed scar | 23 | 32,638 | 640 | 20 | 3 | 8 |
+
+The cinematic peak is 33 draw calls, 32,766 triangles, 712 points, 35 live
+geometries, 5 textures, and exactly 24 programs. The restored completed scene
+returned to demand idle (at most one frame over 900 ms). The settled player
+surface remains 50 draw calls after integration.
 
 The First Outpost optimization baseline is retained below for comparison.
 
@@ -66,8 +85,8 @@ comparison. The active scene is 28 calls below the previous result and 10 calls
 below the new 60-call target while adding 568 triangles.
 
 The stored-miner scene returns fully to the demand-loop idle state. The final
-suite measured 0 frames over 800 ms while stored, 7 scanner frames over 1,000 ms,
-7 player-surface frames over 1,400 ms, and 8 contested-orbit frames over
+suite measured 0 frames over 800 ms while stored, 6 scanner frames over 1,000 ms,
+6 player-surface frames over 1,400 ms, and 8 contested-orbit frames over
 1,400 ms. The last value is the single shared low-frequency heartbeat used to
 sample both orbital beacons; completed cinematic, impact, and scan effects are
 unmounted and `data-render-mode` returns to `demand`. A continuous shared
@@ -78,21 +97,29 @@ WebGL 2 context with no GL error or context loss, and a drawing-buffer area of
 
 Production transfer/build observations:
 
-- JavaScript: 1,222,559 bytes minified; Vite reports 334.91 kB gzip and
-  `gzip -9` produces 329,834 bytes (322.10 KiB); SHA-256
-  `e3f6ba036331c175f1be429dff2a2a7acdb19619a24b0e15a8beb02c91432e6f`;
-- CSS: 15,605 bytes minified; Vite reports 4.06 kB gzip and `gzip -9`
-  produces 4,079 bytes;
-- HTML: 500 bytes; Vite reports 0.31 kB gzip and `gzip -9` produces 326 bytes;
+- JavaScript: 1,256,647 bytes minified; Vite reports 343.00 kB gzip and
+  `gzip -9` produces 337,792 bytes (329.88 KiB); SHA-256
+  `de07f108b1726c0964f420bc03490172f6abce298f22af4396da51e0e09205d0`;
+- CSS: 22,928 bytes minified; Vite reports 5.33 kB gzip and `gzip -9`
+  produces 5,336 bytes; SHA-256
+  `4e13df7a5e55b987684f66fe0c15fb73652a755f70dff1dde33a8e79cc6b154c`;
+- HTML: 500 bytes; Vite reports 0.31 kB gzip and `gzip -9` produces 330 bytes;
 - checked-in lunar JPEGs: 569,494 bytes total;
 - conservative decoded lunar texture estimate with mipmaps: about 13.34 MiB;
 - procedural surface detail texture: 128 × 128 R8, about 21 KiB with mipmaps;
 - one medium/high close-view shadow target: approximately 4 MiB color plus
   driver-dependent depth storage at 1,024 × 1,024.
 
+Against the Rival Signal checkpoint this milestone adds 34,088 raw JavaScript
+bytes (7,958 bytes at `gzip -9`) and 7,323 raw CSS bytes (1,257 bytes at
+`gzip -9`). It introduces no external model or bitmap dependency. The JavaScript
+artifact is 4.88 KiB above the original 325 KiB target but retains about 70 KiB
+of headroom below the 400 KiB hard ceiling; the Vite raw-chunk warning is a
+release-pass concern, not a measured runtime or deployment blocker.
+
 The app-owned texture estimate remains roughly 18–22 MiB during the shadowed
-close view, below the 48 MiB target. Code-authored outpost objects add no bitmap
-textures. Medium-tier instancing presents 52 rocks/ridge stones, 20 capsule
+close view, below the 48 MiB target. Code-authored outpost and strike objects add
+no bitmap textures. Medium-tier instancing presents 52 rocks/ridge stones, 20 capsule
 structural/light parts, 9 mineral crystals, 6 scanner elements, 14 robot
 structure/locomotion parts, and 10 extractor support/pump parts—111 instances
 across shared batches. Geometry is far below the 20 MiB target based on the
@@ -117,8 +144,8 @@ Current compromises and mobile risks:
   unmeasured;
 - headless SwiftShader-style execution proves counters and behavior, not Pixel
   6a FPS, thermals, driver allocation, or touch latency;
-- the single JavaScript chunk passes transfer budget but has limited headroom
-  and retains Vite's raw-size warning.
+- the single JavaScript chunk passes the 400 KiB hard transfer ceiling but now
+  exceeds the original 325 KiB target and retains Vite's raw-size warning.
 
 ## Frame and interaction budget
 

@@ -1174,6 +1174,10 @@ test('complete migrated-save Rival Signal loop, restoration, reset, and performa
   await page.getByRole('button', { name: 'END TRANSMISSION' }).click()
   await expect(main).toHaveAttribute('data-rival-presentation', 'contested')
   await expect(main).toHaveAttribute('data-rival-response-complete', 'true')
+  await expect(main).toHaveAttribute('data-first-strike-status', 'READY')
+  await expect(
+    page.getByRole('button', { name: /ARM LUNAR WARHEAD/ }),
+  ).toBeVisible()
   await setRivalPresentation(page, 'contested', 1)
   await expect(page.locator('.rival-contested')).toContainText(
     'The Moon has room for two claims. I do not.',
@@ -1381,6 +1385,10 @@ test('restored completed scan resumes its one pending rival response', async ({
   )
   await page.getByRole('button', { name: 'END TRANSMISSION' }).click()
   await expect(main).toHaveAttribute('data-rival-response-complete', 'true')
+  await expect(main).toHaveAttribute('data-first-strike-status', 'READY')
+  await expect(
+    page.getByRole('button', { name: /ARM LUNAR WARHEAD/ }),
+  ).toBeVisible()
   expect(errors).toEqual({ console: [], page: [] })
 })
 

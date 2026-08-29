@@ -34,6 +34,17 @@ import { RivalSignal } from './RivalSignal.tsx'
 import { RivalFoothold } from './RivalFoothold.tsx'
 import { RivalRevealEffects } from './RivalRevealEffects.tsx'
 import { RivalScanSweep } from './RivalScanSweep.tsx'
+import type { FirstStrikeSnapshot } from '../domain/firstStrike.ts'
+import {
+  firstStrikeNeedsContinuousFrames,
+  firstStrikeShowsImpactEffects,
+  firstStrikeShowsWarhead,
+  type FirstStrikePresentationState,
+} from '../app/firstStrikePresentation.ts'
+import { LunarWarheadSystem } from './LunarWarheadSystem.tsx'
+import { StrikeWarhead } from './StrikeWarhead.tsx'
+import { LunarImpactEffects } from './LunarImpactEffects.tsx'
+import { PermanentLunarScar } from './PermanentLunarScar.tsx'
 
 const CLEAR_COLOR = '#020308'
 
@@ -43,6 +54,8 @@ interface SceneRootProps {
   readonly outpost: OutpostSnapshot | null
   readonly rival: RivalSignalSnapshot | null
   readonly rivalPresentation: RivalPresentationState
+  readonly firstStrike: FirstStrikeSnapshot | null
+  readonly firstStrikePresentation: FirstStrikePresentationState
   readonly selectedDepositId: string | null
   readonly quality: QualitySettings
   readonly onSelect: (site: LandingSite) => void
@@ -69,6 +82,8 @@ export function SceneRoot({
   outpost,
   rival,
   rivalPresentation,
+  firstStrike,
+  firstStrikePresentation,
   selectedDepositId,
   quality,
   onSelect,
@@ -95,6 +110,18 @@ export function SceneRoot({
   const rivalAnimationActive = rivalPresentationNeedsContinuousFrames(
     rivalPresentation.phase,
   )
+  const strikeAnimationActive = firstStrikeNeedsContinuousFrames(
+    firstStrikePresentation.phase,
+  )
+  const strikeCinematic = firstStrikePresentation.phase !== 'idle'
+  const completedScarOrbit =
+    firstStrike?.status === 'COMPLETE' &&
+    firstStrike.scar !== null &&
+    firstStrikePresentation.phase === 'idle' &&
+    (phase === 'orbit' || phase === 'selected')
+  const strikeAtPlayer =
+    firstStrikePresentation.phase === 'arming' ||
+    firstStrikePresentation.phase === 'launch'
   const rivalFocused =
     rivalPresentation.phase === 'capsule-approach' ||
     rivalPresentation.phase === 'impact' ||
@@ -120,6 +147,7 @@ export function SceneRoot({
       rivalPresentationShowsFoothold(rivalPresentation.phase))
   const rivalSignalVisible =
     rival !== null &&
+    !firstStrike?.rivalFootholdDamaged &&
     !rivalCloseFocus &&
     (phase === 'orbit' || phase === 'selected') &&
     (rival.stage !== null ||
@@ -133,6 +161,8 @@ export function SceneRoot({
       rivalPresentation.phase === 'impact' ||
       rivalPresentation.phase === 'intro-transmission')
   const cinematicReadability =
+    strikeCinematic ||
+    completedScarOrbit ||
     rivalPresentation.phase === 'orbital-transition' ||
     rivalPresentation.phase === 'capsule-approach' ||
     rivalPresentation.phase === 'impact' ||
@@ -143,14 +173,22 @@ export function SceneRoot({
     rivalPresentation.phase === 'scan-response' ||
     rivalPresentation.phase === 'contested'
   const followCameraForReadability =
+    completedScarOrbit ||
+    firstStrikePresentation.phase === 'orbital-flight' ||
+    firstStrikePresentation.phase === 'vesper-transmission' ||
+    firstStrikePresentation.phase === 'orbital-pullback' ||
     rivalPresentation.phase === 'orbital-transition' ||
     rivalPresentation.phase === 'dual-sites' ||
     rivalPresentation.phase === 'contested'
   const orbitalSignalHeartbeat =
     outpost !== null &&
     (phase === 'orbit' || phase === 'selected') &&
-    !rivalAnimationActive
-  useDemandAnimation(outpostAnimationActive || rivalAnimationActive)
+    !rivalAnimationActive &&
+    !strikeAnimationActive &&
+    !firstStrike?.rivalFootholdDamaged
+  useDemandAnimation(
+    outpostAnimationActive || rivalAnimationActive || strikeAnimationActive,
+  )
   useLowFrequencyDemandAnimation(orbitalSignalHeartbeat)
 
   return (
@@ -163,20 +201,35 @@ export function SceneRoot({
       <CameraRig
         phase={phase}
         landingSite={landingSite}
-        orbitalFocusSite={outpost?.site ?? null}
+        orbitalFocusSite={
+          firstStrike?.status === 'COMPLETE' && firstStrike.scar !== null
+            ? firstStrike.scar.site
+            : outpost?.site ?? null
+        }
         outpost={outpost}
         terrain={terrain}
         rivalSite={rival?.site ?? null}
         dualOrbitPreferred={rival?.stage !== null}
         rivalPresentation={rivalPresentation}
+        firstStrikePresentation={firstStrikePresentation}
       />
       <LightingRig
         phase={phase}
         landingSite={landingSite}
-        strategicFocusSite={rivalFocused ? rival?.site ?? null : null}
+        strategicFocusSite={
+          strikeCinematic
+            ? strikeAtPlayer
+              ? outpost?.site ?? null
+              : rival?.site ?? null
+            : rivalFocused
+              ? rival?.site ?? null
+              : completedScarOrbit
+                ? firstStrike?.scar?.site ?? null
+                : null
+        }
         cinematicReadability={cinematicReadability}
         followCameraForReadability={followCameraForReadability}
-        enableSurfaceShadows={quality.tier !== 'low'}
+        enableSurfaceShadows={quality.tier !== 'low' && !completedScarOrbit}
       />
       <Starfield count={quality.starCount} />
 
@@ -220,6 +273,53 @@ export function SceneRoot({
           rival={rival}
           presentation={rivalPresentation}
           focused={rivalFocused}
+          damaged={firstStrike?.rivalFootholdDamaged ?? false}
+        />
+      ) : null}
+
+      {firstStrike?.scar !== null &&
+      firstStrike?.scar !== undefined &&
+      (phase === 'orbit' ||
+        phase === 'selected' ||
+        firstStrikePresentation.phase !== 'idle') ? (
+        <PermanentLunarScar
+          scar={firstStrike.scar}
+          focused={
+            firstStrikePresentation.phase === 'impact-flash' ||
+            firstStrikePresentation.phase === 'ejecta' ||
+            firstStrikePresentation.phase === 'crater-reveal'
+          }
+        />
+      ) : null}
+
+      {firstStrike !== null &&
+      outpost !== null &&
+      firstStrike.available &&
+      firstStrike.status !== 'READY' &&
+      !firstStrike.impactCompleted &&
+      (phase === 'orbit' || firstStrikePresentation.phase !== 'idle') ? (
+        <LunarWarheadSystem
+          playerSite={outpost.site}
+          strike={firstStrike}
+          presentation={firstStrikePresentation}
+        />
+      ) : null}
+
+      {outpost !== null &&
+      rival !== null &&
+      firstStrikeShowsWarhead(firstStrikePresentation.phase) ? (
+        <StrikeWarhead
+          playerSite={outpost.site}
+          rivalSite={rival.site}
+          presentation={firstStrikePresentation}
+        />
+      ) : null}
+
+      {rival !== null &&
+      firstStrikeShowsImpactEffects(firstStrikePresentation.phase) ? (
+        <LunarImpactEffects
+          rivalSite={rival.site}
+          presentation={firstStrikePresentation}
         />
       ) : null}
 

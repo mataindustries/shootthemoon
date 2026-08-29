@@ -1,18 +1,17 @@
-# Shoot the Moon — Rival Signal
+# Shoot the Moon — First Strike
 
-Rival Signal extends Shoot the Moon's true-3D First Outpost loop into a strict
-1v1 contest. Activating the first extractor reveals Commander Vesper of Null
-Meridian at a deterministic distant lunar site, then lets the player focus and
-scan her lightweight strategic foothold. Both canonical sites, the authored
-transmissions, rival stage, and one-time reveal state persist locally across
-refreshes. The scope remains deliberately narrow: there is no networking,
-combat, account system, multiplayer infrastructure, territory system, or
-economy beyond the existing prototype resource loop.
+First Strike completes Shoot the Moon's public prototype loop. Claim a site,
+land the capsule, deploy the miner, build the extractor, discover and scan
+Commander Vesper's Null Meridian foothold, then deliberately arm and launch one
+lunar warhead. The 26.1-second strike cinematic crosses a deterministic safe
+orbital arc, destroys the rival installation with a surface-bound lunar impact,
+and leaves a permanent canonical crater that survives refresh.
 
-The reveal camera uses deterministic spherical orbital arcs with sampled lunar
-clearance, explicit portrait/landscape framing, and a normalized OrbitControls
-handoff. Its paced first-view sequence is 26.3 seconds, excluding the short
-extractor interruption lead-in.
+The scope remains deliberately narrow: this is one authored single-player
+prototype ending, with no networking, accounts, multiplayer infrastructure,
+additional weapons, territory system, or larger economy. Camera and missile
+paths remain separate, both are sampled for radial lunar clearance, and static
+completed scenes return to demand rendering.
 
 Start with [PLAN.md](./PLAN.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and
 [PERFORMANCE_BUDGET.md](./PERFORMANCE_BUDGET.md). External art provenance is in

@@ -33,6 +33,7 @@ export interface RivalIdentityContent {
   readonly beaconRhythm: RivalBeaconRhythm
   readonly introTransmission: string
   readonly scanResponse: string
+  readonly finalStrikeTransmission: string
   readonly territorialThreat: string
   readonly strategicLabels: RivalStrategicLabels
 }
@@ -73,6 +74,8 @@ export const VESPER_RIVAL_IDENTITY: RivalIdentityContent = Object.freeze({
     'Your extractor broke the silence. At last. Commander Vesper, Null Meridian. Keep building. I prefer a rival with something to lose.',
   scanResponse:
     'You found me. Good. Memorize the site; you will not see it unfinished again.',
+  finalStrikeTransmission:
+    'You found one foothold. Null Meridian survives—and I remember who fired.',
   territorialThreat: 'The Moon has room for two claims. I do not.',
   strategicLabels: VESPER_STRATEGIC_LABELS,
 })

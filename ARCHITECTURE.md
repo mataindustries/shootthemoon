@@ -1,9 +1,10 @@
 # Moon Core architecture
 
-Status: implemented Rival Signal contract, 2026-08-28. Canonical coordinate,
-simulation, persistence, render, input, and camera boundaries are active for
-both factions; future asset-pipeline, combat, and multiplayer sections remain
-design boundaries rather than implemented systems.
+Status: implemented First Strike public-MVP contract, 2026-08-29. Canonical
+coordinate, simulation, persistence, render, input, and camera boundaries are
+active for both factions and the one-shot prototype ending; future
+asset-pipeline and multiplayer sections remain design boundaries rather than
+implemented systems.
 
 ## Architectural goals
 
@@ -220,6 +221,14 @@ updates and saves the new pose. Portrait/landscape changes rebuild the same
 canonical phase path at its current absolute-time progress. Browser visibility
 loss pauses that clock instead of consuming unseen presentation time.
 
+First Strike derives a missile route directly from the persisted player and
+rival MCMF unit directions. The route uses deterministic spherical interpolation,
+an explicit preferred tangent for exact antipodes, and a separate radial profile
+whose sampled minimum clearance is 24,000 m. Strike camera cuts use the same
+absolute-radius safety contract but never derive their positions from the
+missile transform. Seam, polar, near-antipodal, and exact-antipodal routes are
+sampled at 2,048 intervals in both portrait and landscape test plans.
+
 During direct manipulation, the render loop is invalidated for responsive
 motion. Camera travel requests continuous frames only while active. Static orbit
 and surface views return to R3F demand rendering. Reduced-motion support may
@@ -265,9 +274,14 @@ App
 │     ├─ RivalFoothold
 │     ├─ RivalRevealEffects
 │     ├─ RivalScanSweep
+│     ├─ LunarWarheadSystem
+│     ├─ StrikeWarhead
+│     ├─ LunarImpactEffects
+│     ├─ PermanentLunarScar
 │     └─ SceneMetrics
 ├─ CinematicHud
-└─ RivalHud
+├─ RivalHud
+└─ FirstStrikeHud
 ~~~
 
 Rules:
@@ -312,9 +326,10 @@ Additional constraints:
 - High-frequency frame values live in refs or purpose-built stores and do not
   trigger a React tree render every animation frame.
 - React state is reserved for coarse transitions that affect composition.
-- No external state library is needed; pure reducers separately own the five
-  coarse experience phases, the bounded outpost snapshot, and the deterministic
-  rival snapshot. Rival presentation timing and camera travel remain transient.
+- No external state library is needed; pure reducers separately own the coarse
+  experience phases, bounded outpost snapshot, deterministic rival snapshot,
+  and First Strike facts. Rival/strike presentation timing, confirmation UI,
+  and camera travel remain transient.
 - Resource setup must be idempotent and cleanup complete under React
   StrictMode's development setup/cleanup cycle.
 
@@ -381,7 +396,7 @@ The two persistent global textures intentionally remain cached for the life of
 the one-Moon scene. Phase-scoped geometry, procedural textures, shader
 materials, controls, and listeners provide explicit cleanup hooks.
 
-## First Outpost and Rival Signal simulation and persistence
+## First Outpost, Rival Signal, and First Strike simulation and persistence
 
 The First Outpost domain snapshot is plain serializable data. It contains one
 canonical landing site, one outpost ID, one robot ID and explicit robot state,
@@ -410,13 +425,20 @@ revisit reset the production baseline, deliberately leaving offline progress
 for a future economy design.
 
 The browser persistence adapter owns one schema-versioned localStorage record.
-Schema 2 atomically serializes the outpost plus Vesper's canonical latitude,
-longitude, altitude, orientation, heading, reveal status, explicit stage and
-timestamps, transmission completion, scan completion, and replay/skip
-eligibility. Schema 1 records migrate without changing the player outpost; an
-active-extractor migration waits for an explicit return to orbit. A persisted
-`CINEMATIC` normalizes to a held `QUEUED` reveal, so no camera journey, impact,
-or transmission resumes halfway through.
+Schema 3 atomically serializes the outpost, Vesper's canonical foothold and
+Rival Signal facts, plus First Strike availability/arming facts, launch and
+impact completion, final transmission completion, damaged-foothold state,
+ending completion, and the permanent scar's exact canonical coordinate. Schema
+1 records migrate without changing the player outpost; schema 2 records derive
+an immediately ready strike only when the extractor, scan, and Vesper response
+already satisfy the unlock contract. A persisted Rival `CINEMATIC` normalizes
+to a held `QUEUED` reveal.
+
+Strike presentation is never persisted. An interrupted `LAUNCHING` or
+unconfirmed `IMPACTED` record returns to the deliberate armed state without
+auto-firing; any record with a confirmed impact restores atomically as complete
+with the scar, damaged foothold, ending, and launch facts repaired. Refresh
+therefore cannot resume halfway through a camera cut or replay the strike.
 
 Serialization and restoration also normalize transient robot states to
 `stored` or `idle`; returning cargo is safely credited before an idle restore.
@@ -537,6 +559,9 @@ adapters together.
 13. Keep Rival Signal strictly deterministic and 1v1: one locally authored
     identity, one derived site, one lightweight foothold, and no networking or
     combat authority hidden inside presentation code.
+14. Keep First Strike to one deliberate local action and one authored ending;
+    persist only completion facts and the canonical scar, never cinematic time,
+    camera pose, particles, or missile transforms.
 
 ## Remaining risks after this implementation
 
@@ -547,7 +572,7 @@ adapters together.
 | Touch gesture variation | Automated CDP touch covers drag, pinch, tap, cooldown, limb, poles, and seam cases | Verify real Android pointer cancellation, browser bars, edge gestures, and palm behavior |
 | Physical Android performance | Drawing-buffer, draw-call, triangle, texture, and shader counters pass in headless Chromium | Run the full Pixel 6a frame-time, memory, thermal, and ten-minute soak protocol |
 | Surface detail fidelity | A deterministic curved procedural overlay and shared approximate height sampler support the bounded outpost routes | Wider traversal requires tiled, canonical terrain data and rebasing; neither is implemented |
-| JavaScript bundle headroom | Rival Signal is 327,671 bytes with `gzip -9` against the 325 KiB target | Introduce deliberate scene/code splitting before another substantial feature |
+| JavaScript bundle headroom | First Strike remains below the 400 KiB hard gzip ceiling but exceeds the original 325 KiB target | Introduce deliberate scene/code splitting before another substantial feature |
 | Active-surface draw calls | Shared/instanced geometry and selective shadows reduce the settled active extractor scene from 78 to 50 calls | Preserve the remaining 10-call target headroom before adding another hero structure |
 | Sustained landed animation | Scanner/extractor idle is low-frequency; a shared demand-animation loop is active only for transient robot/construction states | Confirm frame pacing and thermal behavior on the physical reference Android device |
 | Runtime asset pipeline | NASA textures are fully recorded; the capsule is code-authored | Build the manifest/GLB/KTX2 repository only when an imported model is approved |

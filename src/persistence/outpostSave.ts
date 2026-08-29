@@ -30,11 +30,22 @@ import {
   createMigratedRivalSignal,
   normalizeRivalSignalForResume,
 } from '../simulation/rivalSimulation.ts'
+import {
+  FIRST_STRIKE_ID,
+  LUNAR_SCAR_ID,
+  type FirstStrikeSnapshot,
+  type FirstStrikeStatus,
+} from '../domain/firstStrike.ts'
+import {
+  createMigratedFirstStrike,
+  normalizeFirstStrikeForResume,
+} from '../simulation/firstStrikeSimulation.ts'
 
-export const OUTPOST_SAVE_SCHEMA_VERSION = 2
+export const OUTPOST_SAVE_SCHEMA_VERSION = 3
 export const OUTPOST_STORAGE_KEY = 'shoot-the-moon:first-outpost:v1'
 
 const PRE_RIVAL_SAVE_SCHEMA_VERSION = 1
+const PRE_STRIKE_SAVE_SCHEMA_VERSION = 2
 const VALUE_EPSILON = 1e-9
 
 export interface StorageLike {
@@ -46,6 +57,7 @@ export interface StorageLike {
 export interface PrototypeSnapshot {
   readonly outpost: OutpostSnapshot
   readonly rival: RivalSignalSnapshot
+  readonly firstStrike: FirstStrikeSnapshot
 }
 
 interface CanonicalLandingSave {
@@ -60,12 +72,21 @@ interface RivalSaveData extends Omit<RivalSignalSnapshot, 'site'> {
   readonly canonicalLanding: CanonicalLandingSave
 }
 
-interface PrototypeSaveEnvelopeV2 {
+interface FirstStrikeSaveData extends Omit<FirstStrikeSnapshot, 'scar'> {
+  readonly scar: {
+    readonly id: typeof LUNAR_SCAR_ID
+    readonly canonicalLanding: CanonicalLandingSave
+    readonly createdAtMs: number
+  } | null
+}
+
+interface PrototypeSaveEnvelopeV3 {
   readonly schemaVersion: typeof OUTPOST_SAVE_SCHEMA_VERSION
   readonly savedAtMs: number
   readonly canonicalLanding: CanonicalLandingSave
   readonly outpost: Omit<OutpostSnapshot, 'site'>
   readonly rival: RivalSaveData
+  readonly firstStrike: FirstStrikeSaveData
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -119,6 +140,17 @@ function isRivalStage(value: unknown): value is RivalStage {
     value === 'LANDED' ||
     value === 'ESTABLISHING' ||
     value === 'FORTIFIED'
+  )
+}
+
+function isFirstStrikeStatus(value: unknown): value is FirstStrikeStatus {
+  return (
+    value === 'LOCKED' ||
+    value === 'READY' ||
+    value === 'ARMED' ||
+    value === 'LAUNCHING' ||
+    value === 'IMPACTED' ||
+    value === 'COMPLETE'
   )
 }
 
@@ -573,6 +605,163 @@ function parseRival(
   return rivalStateIsConsistent(parsed) ? parsed : null
 }
 
+function sameCanonicalSite(first: LandingSite, second: LandingSite): boolean {
+  return (
+    first.datumId === second.datumId &&
+    Math.abs(first.location.latitudeRad - second.location.latitudeRad) <=
+      VALUE_EPSILON &&
+    Math.abs(
+      normalizeLongitude(
+        first.location.longitudeRad - second.location.longitudeRad,
+      ),
+    ) <= VALUE_EPSILON &&
+    Math.abs(first.location.heightM - second.location.heightM) <= VALUE_EPSILON
+  )
+}
+
+function firstStrikeStateIsConsistent(
+  strike: FirstStrikeSnapshot,
+): boolean {
+  const available = strike.status !== 'LOCKED'
+  const armed =
+    strike.status === 'ARMED' ||
+    strike.status === 'LAUNCHING' ||
+    strike.status === 'IMPACTED' ||
+    strike.status === 'COMPLETE'
+  const launchConfirmed =
+    strike.status === 'LAUNCHING' ||
+    strike.status === 'IMPACTED' ||
+    strike.status === 'COMPLETE'
+  const impacted =
+    strike.status === 'IMPACTED' || strike.status === 'COMPLETE'
+  const timestamps = [
+    strike.availableAtMs,
+    strike.armedAtMs,
+    strike.launchConfirmedAtMs,
+    strike.launchCompletedAtMs,
+    strike.finalVesperTransmissionCompletedAtMs,
+    strike.impactCompletedAtMs,
+    strike.endingCompletedAtMs,
+    strike.scar?.createdAtMs ?? null,
+  ]
+
+  return (
+    strike.updatedAtMs >= strike.createdAtMs &&
+    timestamps.every(
+      (timestamp) => timestamp === null || timestamp <= strike.updatedAtMs,
+    ) &&
+    strike.available === available &&
+    completionMatchesTimestamp(available, strike.availableAtMs) &&
+    completionMatchesTimestamp(armed, strike.armedAtMs) &&
+    completionMatchesTimestamp(
+      launchConfirmed,
+      strike.launchConfirmedAtMs,
+    ) &&
+    completionMatchesTimestamp(
+      strike.launchCompleted,
+      strike.launchCompletedAtMs,
+    ) &&
+    completionMatchesTimestamp(
+      strike.finalVesperTransmissionCompleted,
+      strike.finalVesperTransmissionCompletedAtMs,
+    ) &&
+    completionMatchesTimestamp(
+      strike.impactCompleted,
+      strike.impactCompletedAtMs,
+    ) &&
+    strike.rivalFootholdDamaged === strike.impactCompleted &&
+    strike.permanentScarCreated === strike.impactCompleted &&
+    (strike.scar !== null) === strike.permanentScarCreated &&
+    strike.impactCompleted === impacted &&
+    completionMatchesTimestamp(
+      strike.endingCompleted,
+      strike.endingCompletedAtMs,
+    ) &&
+    strike.endingCompleted === (strike.status === 'COMPLETE') &&
+    (!strike.launchCompleted || launchConfirmed) &&
+    (!strike.finalVesperTransmissionCompleted || launchConfirmed)
+  )
+}
+
+function parseFirstStrike(
+  value: unknown,
+  rivalSite: LandingSite,
+): FirstStrikeSnapshot | null {
+  if (
+    !isRecord(value) ||
+    value.id !== FIRST_STRIKE_ID ||
+    !isFirstStrikeStatus(value.status) ||
+    !isNonNegativeNumber(value.createdAtMs) ||
+    !isNonNegativeNumber(value.updatedAtMs) ||
+    typeof value.available !== 'boolean' ||
+    !isNullableTimestamp(value.availableAtMs) ||
+    !isNullableTimestamp(value.armedAtMs) ||
+    !isNullableTimestamp(value.launchConfirmedAtMs) ||
+    typeof value.launchCompleted !== 'boolean' ||
+    !isNullableTimestamp(value.launchCompletedAtMs) ||
+    typeof value.finalVesperTransmissionCompleted !== 'boolean' ||
+    !isNullableTimestamp(value.finalVesperTransmissionCompletedAtMs) ||
+    typeof value.impactCompleted !== 'boolean' ||
+    !isNullableTimestamp(value.impactCompletedAtMs) ||
+    typeof value.rivalFootholdDamaged !== 'boolean' ||
+    typeof value.permanentScarCreated !== 'boolean' ||
+    typeof value.endingCompleted !== 'boolean' ||
+    !isNullableTimestamp(value.endingCompletedAtMs)
+  ) {
+    return null
+  }
+
+  let scar: FirstStrikeSnapshot['scar'] = null
+
+  if (value.scar !== null) {
+    if (
+      !isRecord(value.scar) ||
+      value.scar.id !== LUNAR_SCAR_ID ||
+      !isNonNegativeNumber(value.scar.createdAtMs)
+    ) {
+      return null
+    }
+
+    const scarSite = parseLandingSite(value.scar.canonicalLanding)
+
+    if (scarSite === null || !sameCanonicalSite(scarSite, rivalSite)) {
+      return null
+    }
+
+    scar = {
+      id: LUNAR_SCAR_ID,
+      site: scarSite,
+      createdAtMs: value.scar.createdAtMs,
+    }
+  }
+
+  const parsed: FirstStrikeSnapshot = {
+    id: FIRST_STRIKE_ID,
+    status: value.status,
+    createdAtMs: value.createdAtMs,
+    updatedAtMs: value.updatedAtMs,
+    available: value.available,
+    availableAtMs: value.availableAtMs,
+    armedAtMs: value.armedAtMs,
+    launchConfirmedAtMs: value.launchConfirmedAtMs,
+    launchCompleted: value.launchCompleted,
+    launchCompletedAtMs: value.launchCompletedAtMs,
+    finalVesperTransmissionCompleted:
+      value.finalVesperTransmissionCompleted,
+    finalVesperTransmissionCompletedAtMs:
+      value.finalVesperTransmissionCompletedAtMs,
+    impactCompleted: value.impactCompleted,
+    impactCompletedAtMs: value.impactCompletedAtMs,
+    rivalFootholdDamaged: value.rivalFootholdDamaged,
+    permanentScarCreated: value.permanentScarCreated,
+    scar,
+    endingCompleted: value.endingCompleted,
+    endingCompletedAtMs: value.endingCompletedAtMs,
+  }
+
+  return firstStrikeStateIsConsistent(parsed) ? parsed : null
+}
+
 function ensureEligibleRivalState(
   outpost: OutpostSnapshot,
   rival: RivalSignalSnapshot,
@@ -594,17 +783,30 @@ function normalizePrototypeForResume(
 ): PrototypeSnapshot {
   const outpost = normalizeOutpostForResume(prototype.outpost, nowMs)
   const rival = ensureEligibleRivalState(outpost, prototype.rival, nowMs)
+  const firstStrike = normalizeFirstStrikeForResume(
+    prototype.firstStrike,
+    rival.site,
+    nowMs,
+  )
 
-  return { outpost, rival }
+  return { outpost, rival, firstStrike }
 }
 
 function toEnvelope(
   prototype: PrototypeSnapshot,
   savedAtMs: number,
-): PrototypeSaveEnvelopeV2 {
+): PrototypeSaveEnvelopeV3 {
   const safe = normalizePrototypeForResume(prototype, savedAtMs)
   const { site: _outpostSite, ...outpostData } = safe.outpost
   const { site: _rivalSite, ...rivalData } = safe.rival
+  const scar =
+    safe.firstStrike.scar === null
+      ? null
+      : {
+          id: safe.firstStrike.scar.id,
+          canonicalLanding: toCanonicalLanding(safe.firstStrike.scar.site),
+          createdAtMs: safe.firstStrike.scar.createdAtMs,
+        }
 
   return {
     schemaVersion: OUTPOST_SAVE_SCHEMA_VERSION,
@@ -614,6 +816,10 @@ function toEnvelope(
     rival: {
       ...rivalData,
       canonicalLanding: toCanonicalLanding(safe.rival.site),
+    },
+    firstStrike: {
+      ...safe.firstStrike,
+      scar,
     },
   }
 }
@@ -644,6 +850,7 @@ export function deserializePrototypeSave(
   if (
     !isRecord(value) ||
     (value.schemaVersion !== PRE_RIVAL_SAVE_SCHEMA_VERSION &&
+      value.schemaVersion !== PRE_STRIKE_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== OUTPOST_SAVE_SCHEMA_VERSION) ||
     !isNonNegativeNumber(value.savedAtMs) ||
     !isNonNegativeNumber(nowMs)
@@ -666,9 +873,11 @@ export function deserializePrototypeSave(
     value.rival === undefined ||
     value.rival === null
   ) {
+    const rival = createMigratedRivalSignal(outpost, nowMs)
     return {
       outpost,
-      rival: createMigratedRivalSignal(outpost, nowMs),
+      rival,
+      firstStrike: createMigratedFirstStrike(outpost, rival, nowMs),
     }
   }
 
@@ -678,9 +887,34 @@ export function deserializePrototypeSave(
     return null
   }
 
+  const rival = ensureEligibleRivalState(outpost, parsedRival, nowMs)
+
+  if (
+    value.schemaVersion === PRE_STRIKE_SAVE_SCHEMA_VERSION ||
+    value.firstStrike === undefined ||
+    value.firstStrike === null
+  ) {
+    return {
+      outpost,
+      rival,
+      firstStrike: createMigratedFirstStrike(outpost, rival, nowMs),
+    }
+  }
+
+  const parsedFirstStrike = parseFirstStrike(value.firstStrike, rival.site)
+
+  if (parsedFirstStrike === null) {
+    return null
+  }
+
   return {
     outpost,
-    rival: ensureEligibleRivalState(outpost, parsedRival, nowMs),
+    rival,
+    firstStrike: normalizeFirstStrikeForResume(
+      parsedFirstStrike,
+      rival.site,
+      nowMs,
+    ),
   }
 }
 
@@ -720,10 +954,16 @@ export function serializeOutpostSave(
   savedAtMs = Date.now(),
 ): string {
   const safeOutpost = normalizeOutpostForResume(outpost, savedAtMs)
+  const rival = createMigratedRivalSignal(safeOutpost, savedAtMs)
   return serializePrototypeSave(
     {
       outpost,
-      rival: createMigratedRivalSignal(safeOutpost, savedAtMs),
+      rival,
+      firstStrike: createMigratedFirstStrike(
+        safeOutpost,
+        rival,
+        savedAtMs,
+      ),
     },
     savedAtMs,
   )

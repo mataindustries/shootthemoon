@@ -16,6 +16,8 @@ interface CinematicHudProps {
   readonly rivalRevealed: boolean
   readonly rivalSignalHeld: boolean
   readonly lunarControlContested: boolean
+  readonly firstStrikeAvailable: boolean
+  readonly firstStrikeComplete: boolean
   readonly onClaim: () => void
   readonly onClear: () => void
   readonly onReturn: () => void
@@ -43,7 +45,17 @@ function phaseLabel(
   phase: ExperiencePhase,
   outpost: OutpostSnapshot | null,
   rivalRevealed: boolean,
+  firstStrikeAvailable: boolean,
+  firstStrikeComplete: boolean,
 ): string {
+  if (firstStrikeComplete) {
+    return 'SCARRED MOON · ORBITAL RECORD'
+  }
+
+  if (firstStrikeAvailable) {
+    return 'LUNAR WARHEAD AVAILABLE'
+  }
+
   if (phase === 'landed' && outpost !== null) {
     if (outpost.extractor?.status === 'constructing') {
       return 'EXTRACTOR ASSEMBLY'
@@ -135,6 +147,8 @@ export function CinematicHud({
   rivalRevealed,
   rivalSignalHeld,
   lunarControlContested,
+  firstStrikeAvailable,
+  firstStrikeComplete,
   onClaim,
   onClear,
   onReturn,
@@ -167,11 +181,25 @@ export function CinematicHud({
       <header className="hud-header">
         <div className="brand-lockup">
           <span className="brand-kicker">SHOOT THE MOON</span>
-          <strong>{rivalRevealed ? 'RIVAL SIGNAL' : 'FIRST OUTPOST'}</strong>
+          <strong>
+            {firstStrikeComplete
+              ? 'SCARRED MOON'
+              : firstStrikeAvailable
+                ? 'FIRST STRIKE'
+                : rivalRevealed
+                  ? 'RIVAL SIGNAL'
+                  : 'FIRST OUTPOST'}
+          </strong>
         </div>
         <div className="hud-meta">
           <span className="phase-label">
-            {phaseLabel(phase, outpost, rivalRevealed)}
+            {phaseLabel(
+              phase,
+              outpost,
+              rivalRevealed,
+              firstStrikeAvailable,
+              firstStrikeComplete,
+            )}
           </span>
           <button
             className="reset-button"

@@ -101,6 +101,7 @@ export interface RivalFootholdProps {
   readonly rival: RivalSignalSnapshot
   readonly presentation: RivalPresentationState
   readonly focused: boolean
+  readonly damaged?: boolean
 }
 
 function smoothstep(value: number): number {
@@ -146,6 +147,7 @@ export function RivalFoothold({
   rival,
   presentation,
   focused,
+  damaged = false,
 }: RivalFootholdProps) {
   const arrivalRef = useRef<Group>(null)
   const pylonRef = useRef<InstancedMesh>(null)
@@ -356,6 +358,55 @@ export function RivalFoothold({
 
   const hasMast = profile.mastHeightM > 0
   const fortified = rival.stage === 'FORTIFIED'
+
+  if (damaged) {
+    return (
+      <group position={attachment.position} quaternion={attachment.orientation}>
+        <group rotation-y={rival.surfaceHeadingRad} scale={visualScale}>
+          <mesh
+            geometry={capsuleGeometry}
+            material={structureMaterial}
+            position={[-4.2, -1.8, 1.6]}
+            rotation={[0.42, -0.18, 1.08]}
+            scale={[1, 0.66, 1]}
+          />
+          <mesh
+            geometry={foundationGeometry}
+            material={structureMaterial}
+            position={[4.4, -0.7, -2.1]}
+            rotation={[0.26, 0.52, -0.34]}
+            scale={[1.05, 0.36, 0.84]}
+          />
+          <mesh
+            geometry={pylonGeometry}
+            material={edgeMaterial}
+            position={[2.2, 0.15, 3.7]}
+            rotation={[0.08, -0.62, 1.28]}
+            scale={[0.72, 0.62, 0.72]}
+          />
+          <mesh
+            geometry={pylonGeometry}
+            material={structureMaterial}
+            position={[-1.4, -0.2, -4.4]}
+            rotation={[-0.16, 0.42, -1.36]}
+            scale={[0.58, 0.48, 0.58]}
+          />
+          <mesh
+            geometry={lightGeometry}
+            material={lightMaterial}
+            position={[-3.4, 0.48, 0.6]}
+            scale={0.72}
+          />
+          <mesh
+            geometry={lightGeometry}
+            material={lightMaterial}
+            position={[3.6, 0.3, -2.2]}
+            scale={0.46}
+          />
+        </group>
+      </group>
+    )
+  }
 
   return (
     <group position={attachment.position} quaternion={attachment.orientation}>

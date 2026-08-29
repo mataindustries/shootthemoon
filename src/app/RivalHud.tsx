@@ -11,6 +11,8 @@ interface RivalHudProps {
   readonly onScan: () => void
   readonly onReplay: () => void
   readonly onSkip: () => void
+  readonly firstStrikeAvailable: boolean
+  readonly rivalDamaged: boolean
 }
 
 const CINEMATIC_CAPTIONS: Readonly<Record<string, string>> = Object.freeze({
@@ -137,6 +139,8 @@ export function RivalHud({
   onScan,
   onReplay,
   onSkip,
+  firstStrikeAvailable,
+  rivalDamaged,
 }: RivalHudProps) {
   if (rival === null) {
     return null
@@ -146,6 +150,11 @@ export function RivalHud({
   const phase = presentation.phase
   const caption = CINEMATIC_CAPTIONS[phase]
   const maySkip = presentation.replay && rival.skipEligible
+  const strategicObjective = rivalDamaged
+    ? 'NULL MERIDIAN FOOTHOLD — DESTROYED'
+    : firstStrikeAvailable
+      ? 'FIRST STRIKE PROTOCOL AVAILABLE'
+      : identity.strategicLabels.lockedObjective
 
   return (
     <div className="rival-hud" aria-live="polite">
@@ -198,14 +207,17 @@ export function RivalHud({
         <section className="rival-contested" role="status">
           <span>{identity.strategicLabels.contestedStatus}</span>
           <strong>{identity.territorialThreat}</strong>
-          <b>{identity.strategicLabels.lockedObjective}</b>
+          <b>{strategicObjective}</b>
         </section>
       ) : null}
 
-      {phase === 'idle' && rival.scanResponseCompleted && showControlStatus ? (
+      {phase === 'idle' &&
+      rival.scanResponseCompleted &&
+      showControlStatus &&
+      !rivalDamaged ? (
         <div className="rival-control-status">
           <span>{identity.strategicLabels.contestedStatus}</span>
-          <b>{identity.strategicLabels.lockedObjective}</b>
+          <b>{strategicObjective}</b>
         </div>
       ) : null}
 

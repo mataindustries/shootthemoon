@@ -20,6 +20,10 @@ import {
   rivalSignalReducer,
 } from '../simulation/rivalSimulation.ts'
 import {
+  createMigratedFirstStrike,
+  firstStrikeReducer,
+} from '../simulation/firstStrikeSimulation.ts'
+import {
   OUTPOST_SAVE_SCHEMA_VERSION,
   OUTPOST_STORAGE_KEY,
   deserializePrototypeSave,
@@ -209,7 +213,11 @@ function revealedPrototype(): PrototypeSnapshot {
     nowMs: START_MS + 3_300,
   })!
 
-  return { outpost, rival }
+  return {
+    outpost,
+    rival,
+    firstStrike: createMigratedFirstStrike(outpost, rival, START_MS + 3_300),
+  }
 }
 
 describe('versioned first outpost save', () => {
@@ -400,7 +408,11 @@ describe('Rival Signal schema migration and atomic persistence', () => {
     })!
 
     const serialized = serializePrototypeSave(
-      { outpost: prototype.outpost, rival: pending },
+      {
+        outpost: prototype.outpost,
+        rival: pending,
+        firstStrike: prototype.firstStrike,
+      },
       START_MS + 3_300,
     )
     const raw = JSON.parse(serialized) as {
@@ -466,6 +478,178 @@ describe('Rival Signal schema migration and atomic persistence', () => {
 
     expect(
       deserializePrototypeSave(JSON.stringify(raw), START_MS + 5_100),
+    ).toBeNull()
+  })
+})
+
+describe('First Strike schema-v3 persistence', () => {
+  function strikeReadyPrototype(): PrototypeSnapshot {
+    let prototype = revealedPrototype()
+    const rivalAfterScan = rivalSignalReducer(prototype.rival, {
+      type: 'completeScan',
+      nowMs: START_MS + 4_000,
+    })!
+    const rival = rivalSignalReducer(rivalAfterScan, {
+      type: 'completeScanResponse',
+      nowMs: START_MS + 4_100,
+    })!
+
+    prototype = {
+      ...prototype,
+      rival,
+      firstStrike: createMigratedFirstStrike(
+        prototype.outpost,
+        rival,
+        START_MS + 4_200,
+      ),
+    }
+    return prototype
+  }
+
+  it('migrates a schema-v2 completed scan directly to an available strike', () => {
+    const prototype = strikeReadyPrototype()
+    const raw = JSON.parse(
+      serializePrototypeSave(prototype, START_MS + 5_000),
+    ) as Record<string, unknown>
+    raw.schemaVersion = 2
+    delete raw.firstStrike
+
+    const restored = deserializePrototypeSave(
+      JSON.stringify(raw),
+      START_MS + 5_100,
+    )
+
+    expect(restored?.firstStrike).toMatchObject({
+      status: 'READY',
+      available: true,
+      impactCompleted: false,
+      permanentScarCreated: false,
+    })
+  })
+
+  it('serializes and restores an interrupted launch as deliberately armed', () => {
+    const prototype = strikeReadyPrototype()
+    let strike = firstStrikeReducer(prototype.firstStrike, {
+      type: 'arm',
+      nowMs: START_MS + 4_300,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'fire',
+      nowMs: START_MS + 4_400,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'completeLaunch',
+      nowMs: START_MS + 4_500,
+    })!
+
+    const serialized = serializePrototypeSave(
+      { ...prototype, firstStrike: strike },
+      START_MS + 4_600,
+    )
+    const safeRaw = JSON.parse(serialized) as {
+      firstStrike: Record<string, unknown>
+    }
+    expect(safeRaw.firstStrike.status).toBe('ARMED')
+    expect(safeRaw.firstStrike.launchConfirmedAtMs).toBeNull()
+
+    // Simulate a raw transient written by an older/crashed browser tab.
+    safeRaw.firstStrike.status = 'LAUNCHING'
+    safeRaw.firstStrike.launchConfirmedAtMs = START_MS + 4_400
+    safeRaw.firstStrike.launchCompleted = true
+    safeRaw.firstStrike.launchCompletedAtMs = START_MS + 4_500
+
+    const restored = deserializePrototypeSave(
+      JSON.stringify(safeRaw),
+      START_MS + 4_700,
+    )
+    expect(restored?.firstStrike).toMatchObject({
+      status: 'ARMED',
+      launchConfirmedAtMs: null,
+      launchCompleted: false,
+      impactCompleted: false,
+    })
+  })
+
+  it('restores a confirmed impact as a completed exact-coordinate scar', () => {
+    const prototype = strikeReadyPrototype()
+    let strike = firstStrikeReducer(prototype.firstStrike, {
+      type: 'arm',
+      nowMs: START_MS + 4_300,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'fire',
+      nowMs: START_MS + 4_400,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'completeLaunch',
+      nowMs: START_MS + 4_500,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'completeImpact',
+      rivalSite: prototype.rival.site,
+      nowMs: START_MS + 4_600,
+    })!
+
+    const serialized = serializePrototypeSave(
+      { ...prototype, firstStrike: strike },
+      START_MS + 4_700,
+    )
+    const raw = JSON.parse(serialized) as {
+      schemaVersion: number
+      firstStrike: {
+        status: string
+        scar: { canonicalLanding: { latitudeRad: number; longitudeRad: number } }
+      }
+    }
+    const restored = deserializePrototypeSave(serialized, START_MS + 4_800)
+
+    expect(raw.schemaVersion).toBe(3)
+    expect(raw.firstStrike.status).toBe('COMPLETE')
+    expect(raw.firstStrike.scar.canonicalLanding).toMatchObject({
+      latitudeRad: prototype.rival.site.location.latitudeRad,
+      longitudeRad: prototype.rival.site.location.longitudeRad,
+    })
+    expect(restored?.firstStrike).toMatchObject({
+      status: 'COMPLETE',
+      impactCompleted: true,
+      rivalFootholdDamaged: true,
+      permanentScarCreated: true,
+      endingCompleted: true,
+    })
+    expect(restored?.firstStrike.scar?.site).toEqual(prototype.rival.site)
+  })
+
+  it('rejects a crater moved away from the persisted rival coordinate', () => {
+    const prototype = strikeReadyPrototype()
+    let strike = firstStrikeReducer(prototype.firstStrike, {
+      type: 'arm',
+      nowMs: START_MS + 4_300,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'fire',
+      nowMs: START_MS + 4_400,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'completeLaunch',
+      nowMs: START_MS + 4_500,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'completeImpact',
+      rivalSite: prototype.rival.site,
+      nowMs: START_MS + 4_600,
+    })!
+    const raw = JSON.parse(
+      serializePrototypeSave(
+        { ...prototype, firstStrike: strike },
+        START_MS + 4_700,
+      ),
+    ) as {
+      firstStrike: { scar: { canonicalLanding: { latitudeRad: number } } }
+    }
+    raw.firstStrike.scar.canonicalLanding.latitudeRad += 0.001
+
+    expect(
+      deserializePrototypeSave(JSON.stringify(raw), START_MS + 4_800),
     ).toBeNull()
   })
 })

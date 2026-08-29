@@ -40,6 +40,18 @@ import {
   type RivalPresentationPhase,
   type RivalPresentationState,
 } from './app/rivalPresentation.ts'
+import {
+  firstStrikeReducer,
+} from './simulation/firstStrikeSimulation.ts'
+import {
+  createFirstStrikePresentation,
+  firstStrikeNeedsContinuousFrames,
+  getFirstStrikePresentationDurationMs,
+  getNextAutomaticFirstStrikePhase,
+  type FirstStrikePresentationPhase,
+  type FirstStrikePresentationState,
+} from './app/firstStrikePresentation.ts'
+import { FirstStrikeHud } from './app/FirstStrikeHud.tsx'
 
 function WebGLFallback() {
   return (
@@ -64,10 +76,32 @@ const RIVAL_PRESENTATION_PHASES: readonly RivalPresentationPhase[] = [
   'contested',
 ]
 
+const FIRST_STRIKE_PRESENTATION_PHASES: readonly FirstStrikePresentationPhase[] = [
+  'idle',
+  'arming',
+  'launch',
+  'orbital-flight',
+  'vesper-transmission',
+  'target-approach',
+  'impact-flash',
+  'ejecta',
+  'crater-reveal',
+  'orbital-pullback',
+  'ending',
+]
+
 function isRivalPresentationPhase(
   value: unknown,
 ): value is RivalPresentationPhase {
   return RIVAL_PRESENTATION_PHASES.includes(value as RivalPresentationPhase)
+}
+
+function isFirstStrikePresentationPhase(
+  value: unknown,
+): value is FirstStrikePresentationPhase {
+  return FIRST_STRIKE_PRESENTATION_PHASES.includes(
+    value as FirstStrikePresentationPhase,
+  )
 }
 
 function App() {
@@ -75,11 +109,14 @@ function App() {
     loadPrototypeSave(window.localStorage),
   )
   const restoredOutpost = restoredPrototype?.outpost ?? null
+  const restoredFirstStrike = restoredPrototype?.firstStrike ?? null
   const [state, dispatch] = useReducer(
     moonCoreReducer,
     restoredOutpost === null
       ? INITIAL_MOON_CORE_STATE
-      : { phase: 'landed', landingSite: restoredOutpost.site },
+      : restoredFirstStrike?.status === 'COMPLETE'
+        ? INITIAL_MOON_CORE_STATE
+        : { phase: 'landed', landingSite: restoredOutpost.site },
   )
   const [outpost, dispatchOutpost] = useReducer(
     outpostReducer,
@@ -89,8 +126,17 @@ function App() {
     rivalSignalReducer,
     restoredPrototype?.rival ?? null,
   )
+  const [firstStrike, dispatchFirstStrike] = useReducer(
+    firstStrikeReducer,
+    restoredFirstStrike,
+  )
   const [rivalPresentation, setRivalPresentation] =
     useState<RivalPresentationState>(() => createRivalPresentation())
+  const [firstStrikePresentation, setFirstStrikePresentation] =
+    useState<FirstStrikePresentationState>(() =>
+      createFirstStrikePresentation(),
+    )
+  const [strikeConfirmationOpen, setStrikeConfirmationOpen] = useState(false)
   const [previewRivalStage, setPreviewRivalStage] =
     useState<RivalStage | null>(null)
   const [selectedDepositId, setSelectedDepositId] = useState<string | null>(
@@ -99,6 +145,8 @@ function App() {
   const saveEnabledRef = useRef(true)
   const restoredSessionRef = useRef(restoredPrototype !== null)
   const advanceRivalPresentationRef = useRef<() => void>(() => undefined)
+  const advanceFirstStrikePresentationRef = useRef<() => void>(() => undefined)
+  const firstStrikeManualControlRef = useRef(false)
   const simulationPausedRef = useRef(false)
   const transitionsPausedRef = useRef(false)
   const rivalHiddenAtRef = useRef<number | null>(null)
@@ -117,6 +165,7 @@ function App() {
       (isRobotTransient(outpost.robot.state) ||
         outpost.extractor?.status === 'constructing')) ||
     rivalPresentationNeedsContinuousFrames(rivalPresentation.phase)
+    || firstStrikeNeedsContinuousFrames(firstStrikePresentation.phase)
 
   useEffect(() => {
     const updateDpr = () =>
@@ -143,6 +192,16 @@ function App() {
         const hiddenDurationMs = performance.now() - hiddenAtMs
         setRivalPresentation((current) =>
           current.phase === 'idle' || current.progressOverride !== null
+            ? current
+            : {
+                ...current,
+                startedAtMs: current.startedAtMs + hiddenDurationMs,
+              },
+        )
+        setFirstStrikePresentation((current) =>
+          current.phase === 'idle' ||
+          current.phase === 'ending' ||
+          current.progressOverride !== null
             ? current
             : {
                 ...current,
@@ -217,6 +276,30 @@ function App() {
     const advanceRivalPresentationForTest = () => {
       advanceRivalPresentationRef.current()
     }
+    const setFirstStrikePresentationForTest = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          readonly phase: unknown
+          readonly progress?: number | null
+        }>
+      ).detail
+
+      if (!isFirstStrikePresentationPhase(detail.phase)) {
+        return
+      }
+
+      firstStrikeManualControlRef.current = true
+      setFirstStrikePresentation(
+        createFirstStrikePresentation(
+          detail.phase,
+          performance.now(),
+          typeof detail.progress === 'number' ? detail.progress : null,
+        ),
+      )
+    }
+    const advanceFirstStrikePresentationForTest = () => {
+      advanceFirstStrikePresentationRef.current()
+    }
 
     window.addEventListener('first-outpost:set-simulation-paused', setPaused)
     window.addEventListener(
@@ -234,6 +317,14 @@ function App() {
     window.addEventListener(
       'rival-signal:advance-presentation',
       advanceRivalPresentationForTest,
+    )
+    window.addEventListener(
+      'first-strike:set-presentation',
+      setFirstStrikePresentationForTest,
+    )
+    window.addEventListener(
+      'first-strike:advance-presentation',
+      advanceFirstStrikePresentationForTest,
     )
     return () => {
       window.removeEventListener('first-outpost:set-simulation-paused', setPaused)
@@ -253,14 +344,27 @@ function App() {
         'rival-signal:advance-presentation',
         advanceRivalPresentationForTest,
       )
+      window.removeEventListener(
+        'first-strike:set-presentation',
+        setFirstStrikePresentationForTest,
+      )
+      window.removeEventListener(
+        'first-strike:advance-presentation',
+        advanceFirstStrikePresentationForTest,
+      )
     }
   }, [])
 
   useEffect(() => {
-    if (outpost !== null && rival !== null && saveEnabledRef.current) {
-      writePrototypeSave(window.localStorage, { outpost, rival })
+    if (
+      outpost !== null &&
+      rival !== null &&
+      firstStrike !== null &&
+      saveEnabledRef.current
+    ) {
+      writePrototypeSave(window.localStorage, { outpost, rival, firstStrike })
     }
-  }, [outpost, rival])
+  }, [firstStrike, outpost, rival])
 
   useEffect(() => {
     if (phaseIsAwayFromSurface(state.phase)) {
@@ -331,6 +435,25 @@ function App() {
       dispatchRival({ type: 'safeMomentReached', nowMs: Date.now() })
     }
   }, [rival?.revealStatus, state.phase])
+
+  useEffect(() => {
+    if (
+      outpost === null ||
+      rival === null ||
+      firstStrike === null ||
+      firstStrike.status !== 'LOCKED' ||
+      !rival.scanResponseCompleted
+    ) {
+      return
+    }
+
+    dispatchFirstStrike({
+      type: 'unlock',
+      outpost,
+      rival,
+      nowMs: Date.now(),
+    })
+  }, [firstStrike, outpost, rival])
 
   useEffect(() => {
     if (
@@ -457,6 +580,74 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [advanceRivalPresentation, rivalClockRunning, rivalPresentation])
 
+  const advanceFirstStrikePresentation = useCallback(() => {
+    const currentPhase = firstStrikePresentation.phase
+    const nextPhase = getNextAutomaticFirstStrikePhase(currentPhase)
+
+    if (nextPhase === null) {
+      return
+    }
+
+    const nowMs = Date.now()
+
+    if (currentPhase === 'launch') {
+      dispatchFirstStrike({ type: 'completeLaunch', nowMs })
+    }
+
+    if (currentPhase === 'vesper-transmission') {
+      dispatchFirstStrike({ type: 'completeFinalTransmission', nowMs })
+    }
+
+    if (currentPhase === 'impact-flash' && rival !== null) {
+      dispatchFirstStrike({
+        type: 'completeImpact',
+        rivalSite: rival.site,
+        nowMs,
+      })
+    }
+
+    if (currentPhase === 'orbital-pullback') {
+      dispatchFirstStrike({ type: 'completeEnding', nowMs })
+    }
+
+    setFirstStrikePresentation(
+      createFirstStrikePresentation(nextPhase, performance.now()),
+    )
+  }, [firstStrikePresentation.phase, rival])
+
+  useEffect(() => {
+    advanceFirstStrikePresentationRef.current =
+      advanceFirstStrikePresentation
+  }, [advanceFirstStrikePresentation])
+
+  useEffect(() => {
+    const durationMs = getFirstStrikePresentationDurationMs(
+      firstStrikePresentation.phase,
+    )
+
+    if (
+      !rivalClockRunning ||
+      firstStrikeManualControlRef.current ||
+      durationMs === null ||
+      firstStrikePresentation.progressOverride !== null
+    ) {
+      return
+    }
+
+    const elapsedMs = performance.now() - firstStrikePresentation.startedAtMs
+    const timer = window.setTimeout(() => {
+      if (document.visibilityState !== 'hidden') {
+        advanceFirstStrikePresentation()
+      }
+    }, Math.max(0, durationMs - elapsedMs))
+
+    return () => window.clearTimeout(timer)
+  }, [
+    advanceFirstStrikePresentation,
+    firstStrikePresentation,
+    rivalClockRunning,
+  ])
+
   const handleSelect = useCallback((landingSite: LandingSite) => {
     if (outpost === null) {
       dispatch({ type: 'select', landingSite })
@@ -478,6 +669,7 @@ function App() {
         playerSite: state.landingSite,
         nowMs,
       })
+      dispatchFirstStrike({ type: 'establish', nowMs })
     } else if (outpost !== null) {
       dispatchOutpost({ type: 'resumeSurface', nowMs })
     }
@@ -512,6 +704,7 @@ function App() {
   const handleFocusRival = useCallback(() => {
     if (
       rival === null ||
+      firstStrike?.rivalFootholdDamaged ||
       rival.revealStatus !== 'REVEALED' ||
       rival.stage === null ||
       state.phase !== 'orbit' ||
@@ -522,7 +715,7 @@ function App() {
 
     setPreviewRivalStage(null)
     setRivalPresentation(createRivalPresentation('rival-focus'))
-  }, [rival, rivalPresentation.phase, state.phase])
+  }, [firstStrike?.rivalFootholdDamaged, rival, rivalPresentation.phase, state.phase])
 
   const handleScanRival = useCallback(() => {
     if (
@@ -583,9 +776,53 @@ function App() {
     }
   }, [selectedDepositId])
 
+  const handleArmFirstStrike = useCallback(() => {
+    if (firstStrike?.status !== 'READY') {
+      return
+    }
+
+    dispatchFirstStrike({ type: 'arm', nowMs: Date.now() })
+    setStrikeConfirmationOpen(true)
+  }, [firstStrike?.status])
+
+  const handleOpenStrikeConfirmation = useCallback(() => {
+    if (firstStrike?.status === 'ARMED') {
+      setStrikeConfirmationOpen(true)
+    }
+  }, [firstStrike?.status])
+
+  const handleCancelStrike = useCallback(() => {
+    setStrikeConfirmationOpen(false)
+    dispatchFirstStrike({ type: 'cancelLaunchConfirmation' })
+  }, [])
+
+  const handleFireFirstStrike = useCallback(() => {
+    if (
+      firstStrike?.status !== 'ARMED' ||
+      outpost === null ||
+      rival === null
+    ) {
+      return
+    }
+
+    setStrikeConfirmationOpen(false)
+    setSelectedDepositId(null)
+    setRivalPresentation(createRivalPresentation())
+    dispatchFirstStrike({ type: 'fire', nowMs: Date.now() })
+    setFirstStrikePresentation(createFirstStrikePresentation('arming'))
+
+    if (state.phase !== 'orbit') {
+      dispatch({ type: 'returnToOrbit' })
+    }
+  }, [firstStrike?.status, outpost, rival, state.phase])
+
+  const handleExploreScar = useCallback(() => {
+    setFirstStrikePresentation(createFirstStrikePresentation())
+  }, [])
+
   const handleResetPrototype = useCallback(() => {
     const confirmed = window.confirm(
-      'Reset the First Outpost prototype? This erases the local outpost save.',
+      'Reset the Shoot the Moon prototype? This erases the complete local run.',
     )
 
     if (!confirmed) {
@@ -594,12 +831,16 @@ function App() {
 
     saveEnabledRef.current = false
     restoredSessionRef.current = false
+    firstStrikeManualControlRef.current = false
     resetPrototypeSave(window.localStorage)
     setSelectedDepositId(null)
     setPreviewRivalStage(null)
     setRivalPresentation(createRivalPresentation())
+    setFirstStrikePresentation(createFirstStrikePresentation())
+    setStrikeConfirmationOpen(false)
     dispatchOutpost({ type: 'reset' })
     dispatchRival({ type: 'reset' })
+    dispatchFirstStrike({ type: 'reset' })
     dispatch({ type: 'resetPrototype' })
   }, [])
 
@@ -658,8 +899,29 @@ function App() {
       data-rival-response-complete={
         rival?.scanResponseCompleted ?? false
       }
+      data-first-strike-status={firstStrike?.status ?? 'none'}
+      data-first-strike-available={firstStrike?.available ?? false}
+      data-first-strike-presentation={firstStrikePresentation.phase}
+      data-launch-complete={firstStrike?.launchCompleted ?? false}
+      data-impact-complete={firstStrike?.impactCompleted ?? false}
+      data-rival-damaged={firstStrike?.rivalFootholdDamaged ?? false}
+      data-scar-created={firstStrike?.permanentScarCreated ?? false}
+      data-scar-latitude={
+        firstStrike?.scar?.site.location.latitudeRad ?? 'none'
+      }
+      data-scar-longitude={
+        firstStrike?.scar?.site.location.longitudeRad ?? 'none'
+      }
+      data-ending-complete={firstStrike?.endingCompleted ?? false}
+      data-final-vesper-complete={
+        firstStrike?.finalVesperTransmissionCompleted ?? false
+      }
       data-lunar-control={
-        rival?.scanResponseCompleted ? 'contested' : 'uncontested'
+        firstStrike?.rivalFootholdDamaged
+          ? 'scarred'
+          : rival?.scanResponseCompleted
+            ? 'contested'
+            : 'uncontested'
       }
       data-render-mode={continuousRendering ? 'continuous' : 'demand'}
     >
@@ -689,6 +951,8 @@ function App() {
           outpost={outpost}
           rival={renderedRival}
           rivalPresentation={rivalPresentation}
+          firstStrike={firstStrike}
+          firstStrikePresentation={firstStrikePresentation}
           selectedDepositId={selectedDepositId}
           quality={quality}
           onLandingComplete={handleLandingComplete}
@@ -709,6 +973,8 @@ function App() {
         rivalRevealed={rivalRevealed}
         rivalSignalHeld={rivalSignalHeld}
         lunarControlContested={rival?.scanResponseCompleted ?? false}
+        firstStrikeAvailable={firstStrike?.available ?? false}
+        firstStrikeComplete={firstStrike?.status === 'COMPLETE'}
         onClaim={() => dispatch({ type: 'claim' })}
         onClear={() => dispatch({ type: 'clearSite' })}
         onReturn={handleReturnToOrbit}
@@ -721,13 +987,33 @@ function App() {
         rival={rival}
         presentation={rivalPresentation}
         showControlStatus={
-          state.phase === 'orbit' || state.phase === 'selected'
+          (state.phase === 'orbit' || state.phase === 'selected') &&
+          firstStrikePresentation.phase === 'idle'
         }
         onAdvance={advanceRivalPresentation}
         onReturnToOrbit={handleReturnFromRival}
         onScan={handleScanRival}
         onReplay={handleReplayRival}
         onSkip={handleSkipRival}
+        firstStrikeAvailable={firstStrike?.available ?? false}
+        rivalDamaged={firstStrike?.rivalFootholdDamaged ?? false}
+      />
+      <FirstStrikeHud
+        strike={firstStrike}
+        rival={rival}
+        presentation={firstStrikePresentation}
+        confirmationOpen={strikeConfirmationOpen}
+        showReady={
+          state.phase === 'orbit' &&
+          (rivalPresentation.phase === 'idle' ||
+            rivalPresentation.phase === 'contested')
+        }
+        onArm={handleArmFirstStrike}
+        onOpenConfirmation={handleOpenStrikeConfirmation}
+        onCancel={handleCancelStrike}
+        onFire={handleFireFirstStrike}
+        onExploreScar={handleExploreScar}
+        onPlayAgain={handleResetPrototype}
       />
     </main>
   )
