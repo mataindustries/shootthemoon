@@ -59,6 +59,143 @@ canvas {
   cursor: grabbing;
 }
 
+.launch-gate {
+  position: absolute;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  overflow: hidden;
+  align-content: center;
+  justify-items: center;
+  gap: 0.78rem;
+  padding:
+    max(28px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right))
+    max(34px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
+  color: #f2e9e2;
+  background:
+    radial-gradient(circle at 50% 58%, rgb(100 40 20 / 16%), transparent 27%),
+    linear-gradient(180deg, rgb(1 2 5 / 97%), rgb(3 4 7 / 93%));
+  text-align: center;
+  touch-action: manipulation;
+}
+
+.launch-gate::before {
+  position: absolute;
+  right: -26vw;
+  bottom: -18vw;
+  left: -26vw;
+  height: min(40vw, 17rem);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  background:
+    radial-gradient(circle at 38% 28%, rgb(218 213 201 / 24%) 0 1px, transparent 2px),
+    radial-gradient(circle at 62% 41%, rgb(15 17 20 / 42%) 0 5px, transparent 7px),
+    linear-gradient(180deg, #5f6263 0%, #282c31 23%, #080a0d 68%);
+  box-shadow:
+    0 -1px 0 rgb(240 220 198 / 35%),
+    0 -24px 80px rgb(177 77 33 / 8%);
+  content: "";
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+.launch-gate > * {
+  position: relative;
+  z-index: 1;
+}
+
+.launch-gate__rule {
+  width: min(58vw, 13rem);
+  height: 1px;
+  margin-bottom: 0.3rem;
+  background: linear-gradient(90deg, transparent, #a44722, transparent);
+}
+
+.launch-gate__kicker {
+  color: rgb(213 174 150 / 58%);
+  font-size: 0.58rem;
+  font-weight: 720;
+  letter-spacing: 0.28em;
+}
+
+.launch-gate h1 {
+  display: grid;
+  margin: 0;
+  color: #ece7e1;
+  font-size: clamp(2.6rem, 14vw, 5.5rem);
+  font-weight: 830;
+  letter-spacing: -0.055em;
+  line-height: 0.78;
+  text-transform: uppercase;
+  text-shadow: 0 12px 36px #000;
+}
+
+.launch-gate h1 span:last-child {
+  color: #8d8d89;
+  font-size: 0.69em;
+  letter-spacing: 0.05em;
+}
+
+.launch-gate > strong {
+  padding-left: 0.22em;
+  color: #dc6730;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.42em;
+}
+
+.launch-gate p {
+  margin: 0.65rem 0 0.45rem;
+  color: rgb(226 219 211 / 65%);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.launch-gate button {
+  width: min(100%, 18rem);
+  min-height: 3.25rem;
+  cursor: pointer;
+  font-weight: 780;
+  letter-spacing: 0.17em;
+  touch-action: manipulation;
+}
+
+.launch-gate__begin {
+  border: 1px solid rgb(222 101 48 / 76%);
+  color: #fff0e7;
+  background: linear-gradient(108deg, #7e2410, #3e110a);
+  box-shadow: 0 14px 42px rgb(0 0 0 / 48%);
+  font-size: 0.69rem;
+}
+
+.launch-gate__begin:hover,
+.launch-gate__begin:focus-visible {
+  border-color: #ffb189;
+  background: linear-gradient(108deg, #a33112, #57170a);
+  outline: none;
+}
+
+.launch-gate__sound {
+  min-height: 2.75rem !important;
+  border: 1px solid rgb(190 196 199 / 13%);
+  color: rgb(210 214 215 / 54%);
+  background: rgb(5 7 10 / 52%);
+  font-size: 0.55rem;
+}
+
+.launch-gate__sound:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.launch-gate small {
+  color: rgb(191 197 200 / 32%);
+  font-size: 0.49rem;
+  font-weight: 680;
+  letter-spacing: 0.22em;
+}
+
 .hud {
   position: absolute;
   z-index: 10;
@@ -112,9 +249,10 @@ canvas {
 
 .brand-lockup strong {
   color: #f1f4f6;
-  font-size: 1rem;
+  font-size: 0.94rem;
   font-weight: 760;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.13em;
+  white-space: nowrap;
 }
 
 .phase-label {
@@ -130,10 +268,19 @@ canvas {
   gap: 0.35rem;
 }
 
-.reset-button {
+.hud-utilities {
+  display: flex;
+  align-items: stretch;
+  gap: 0.55rem;
+  pointer-events: auto;
+}
+
+.reset-button,
+.sound-toggle {
   position: relative;
-  min-height: 2.35rem;
+  min-height: 2.75rem;
   padding: 0 0.25rem;
+  border: 0;
   border-bottom: 1px solid rgb(193 204 218 / 18%);
   color: rgb(207 219 232 / 34%);
   background: transparent;
@@ -146,10 +293,17 @@ canvas {
 }
 
 .reset-button:hover,
-.reset-button:focus-visible {
+.reset-button:focus-visible,
+.sound-toggle:hover,
+.sound-toggle:focus-visible {
   border-bottom-color: rgb(255 139 79 / 60%);
   color: #f5c2a6;
   outline: none;
+}
+
+.sound-toggle:disabled {
+  cursor: default;
+  opacity: 0.42;
 }
 
 .orbit-instruction {
@@ -1279,7 +1433,7 @@ button {
   background: #fff8eb;
   mix-blend-mode: screen;
   pointer-events: none;
-  animation: strike-whiteout 1.3s ease-out both;
+  animation: strike-whiteout 0.72s ease-out both;
 }
 
 @keyframes strike-whiteout {
@@ -1288,11 +1442,11 @@ button {
   }
 
   13% {
-    opacity: 0.98;
+    opacity: 0.58;
   }
 
   36% {
-    opacity: 0.88;
+    opacity: 0.34;
   }
 
   100% {
@@ -1368,18 +1522,75 @@ button {
   touch-action: manipulation;
 }
 
-.strike-ending button:last-child {
+.strike-ending button:nth-child(n + 2) {
   border-color: rgb(204 214 223 / 15%);
   color: rgb(217 224 231 / 64%);
   background: rgb(7 10 14 / 72%);
+}
+
+.strike-ending button:last-child {
+  border-color: rgb(222 94 42 / 22%);
+  color: rgb(238 157 117 / 72%);
+}
+
+.scar-explore-controls {
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  left: max(18px, env(safe-area-inset-left));
+  display: flex;
+  width: min(calc(100% - 36px), 31rem);
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.72rem;
+  border: 1px solid rgb(223 101 48 / 24%);
+  border-left: 2px solid #ad4521;
+  background: rgb(8 7 8 / 86%);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 52%);
+  pointer-events: auto;
+}
+
+.scar-explore-controls > div {
+  display: grid;
+  align-content: center;
+  gap: 0.28rem;
+}
+
+.scar-explore-controls span {
+  color: #df7d4d;
+  font-size: 0.56rem;
+  font-weight: 780;
+  letter-spacing: 0.15em;
+}
+
+.scar-explore-controls b {
+  color: rgb(216 207 201 / 48%);
+  font-size: 0.48rem;
+  letter-spacing: 0.12em;
+}
+
+.scar-explore-controls button,
+.strike-complete-status button {
+  min-height: 2.75rem;
+  padding: 0.55rem 0.72rem;
+  border: 1px solid rgb(218 102 51 / 32%);
+  color: rgb(243 218 205 / 82%);
+  background: rgb(58 20 12 / 72%);
+  cursor: pointer;
+  font-size: 0.54rem;
+  font-weight: 760;
+  letter-spacing: 0.13em;
+  touch-action: manipulation;
 }
 
 .strike-complete-status {
   position: absolute;
   top: max(76px, calc(env(safe-area-inset-top) + 64px));
   left: 50%;
-  display: grid;
-  gap: 0.24rem;
+  display: flex;
+  align-items: stretch;
+  gap: 0.58rem;
   max-width: calc(100% - 36px);
   padding: 0.62rem 0.78rem;
   border: 1px solid rgb(241 109 54 / 22%);
@@ -1387,6 +1598,18 @@ button {
   background: rgb(15 8 8 / 78%);
   text-align: center;
   white-space: nowrap;
+  pointer-events: auto;
+}
+
+.strike-complete-status > div:first-child {
+  display: grid;
+  align-content: center;
+  gap: 0.24rem;
+}
+
+.strike-complete-status > div:last-child {
+  display: flex;
+  gap: 0.35rem;
 }
 
 .strike-complete-status span {
@@ -1400,6 +1623,12 @@ button {
   color: rgb(223 205 196 / 48%);
   font-size: 0.5rem;
   letter-spacing: 0.13em;
+}
+
+.strike-complete-status button {
+  min-height: 2.45rem;
+  padding-inline: 0.55rem;
+  font-size: 0.48rem;
 }
 
 .app-shell:not([data-first-strike-presentation="idle"]) .surface-status,
@@ -1435,11 +1664,55 @@ button {
   }
 
   .strike-complete-status {
+    display: grid;
     white-space: normal;
+  }
+
+  .strike-complete-status > div:last-child {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .scar-explore-controls {
+    display: grid;
   }
 }
 
 @media (orientation: landscape) and (max-height: 560px) {
+  .launch-gate {
+    gap: 0.36rem;
+    padding-block: max(16px, env(safe-area-inset-top));
+  }
+
+  .launch-gate::before {
+    bottom: -7rem;
+    height: 10rem;
+  }
+
+  .launch-gate__rule {
+    margin-bottom: 0;
+  }
+
+  .launch-gate h1 {
+    display: flex;
+    gap: 0.2em;
+    font-size: clamp(2.2rem, 8vw, 4rem);
+    line-height: 0.9;
+  }
+
+  .launch-gate h1 span:last-child {
+    font-size: 1em;
+  }
+
+  .launch-gate p {
+    margin: 0.22rem 0;
+    line-height: 1.35;
+  }
+
+  .launch-gate button {
+    min-height: 2.65rem;
+  }
+
   .strike-ready,
   .strike-vesper-transmission {
     right: 18px;
@@ -1481,17 +1754,23 @@ button {
   }
 
   .strike-ending > div {
-    grid-template-columns: 1.15fr 0.85fr;
+    grid-template-columns: 1fr 1fr 1fr;
     margin-top: 0.6rem;
   }
 
   .strike-ending button {
     min-height: 2.55rem;
   }
+
+  .scar-explore-controls {
+    right: 18px;
+    left: auto;
+    width: min(48%, 25rem);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .strike-whiteout {
-    animation-duration: 1.8s;
+    animation-duration: 0.42s;
   }
 }

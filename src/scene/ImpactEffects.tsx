@@ -14,13 +14,16 @@ import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { useCinematicProgress } from '../camera/CinematicClock.tsx'
-import { LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
+import { sampleRenderedSurface } from '../render/renderedSurface.ts'
+import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 
 const PARTICLE_COUNT = 144
 
 interface ImpactEffectsProps {
   readonly site: LandingSite
   readonly phase: ExperiencePhase
+  readonly terrain: SurfaceTerrainProfile
+  readonly segments: number
 }
 
 interface DustGeometry {
@@ -72,13 +75,22 @@ function createDustGeometry(site: LandingSite): DustGeometry {
   return { geometry, origins, velocities }
 }
 
-export function ImpactEffects({ site, phase }: ImpactEffectsProps) {
+export function ImpactEffects({
+  site,
+  phase,
+  terrain,
+  segments,
+}: ImpactEffectsProps) {
   const progressRef = useCinematicProgress()
   const dustMaterialRef = useRef<ShaderMaterial>(null)
   const ringMaterialRef = useRef<MeshBasicMaterial>(null)
   const ringRef = useRef<Mesh>(null)
   const transform = useMemo(() => landingSiteToRenderTransform(site), [site])
   const dust = useMemo(() => createDustGeometry(site), [site])
+  const surfaceHeight = useMemo(
+    () => sampleRenderedSurface(terrain, segments, 0, 0).y,
+    [segments, terrain],
+  )
 
   useEffect(() => () => dust.geometry.dispose(), [dust])
 
@@ -131,7 +143,7 @@ export function ImpactEffects({ site, phase }: ImpactEffectsProps) {
     <group position={transform.position} quaternion={transform.orientation}>
       <points
         geometry={dust.geometry}
-        position-y={LOCAL_SURFACE_RENDER_OFFSET}
+        position-y={surfaceHeight}
         renderOrder={5}
       >
         <shaderMaterial
@@ -165,7 +177,7 @@ export function ImpactEffects({ site, phase }: ImpactEffectsProps) {
       </points>
       <mesh
         ref={ringRef}
-        position-y={LOCAL_SURFACE_RENDER_OFFSET + 0.00008}
+        position-y={surfaceHeight + 0.00008}
         renderOrder={4}
         rotation-x={-Math.PI / 2}
       >
@@ -178,7 +190,7 @@ export function ImpactEffects({ site, phase }: ImpactEffectsProps) {
           depthWrite={false}
           opacity={0}
           side={DoubleSide}
-          toneMapped={false}
+          toneMapped
           transparent
         />
       </mesh>

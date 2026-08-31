@@ -6,29 +6,33 @@ import {
   DodecahedronGeometry,
   IcosahedronGeometry,
   InstancedMesh,
-  Matrix4,
   MeshStandardMaterial,
   Object3D,
   PointsMaterial,
+  Vector3,
 } from 'three'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import { DEPOSIT_BLUEPRINTS, ROBOT_IDLE_POSITION } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
+import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
+import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import {
-  LOCAL_METRES_TO_RENDER_UNITS,
-  LOCAL_SURFACE_RENDER_OFFSET,
-} from '../render/localSurface.ts'
-import {
-  localSurfaceToRender,
   siteTerrainSeed,
   type SurfaceTerrainProfile,
 } from '../render/surfaceTerrain.ts'
+import { VISUAL_PALETTE } from '../render/visualSystem.ts'
 
 interface SurfaceDressingProps {
   readonly site: LandingSite
   readonly terrain: SurfaceTerrainProfile
+  readonly segments: number
   readonly rockCount: number
 }
+
+const ROCK_EMBED_M = 0.012
+const SCORCH_RADIUS_X_M = 0.00125 / LOCAL_METRES_TO_RENDER_UNITS
+const SCORCH_RADIUS_Z_M = 0.00072 / LOCAL_METRES_TO_RENDER_UNITS
+const SCORCH_CLEARANCE_M = 0.006
 
 interface RockPlacement {
   readonly xM: number
@@ -154,6 +158,7 @@ function createRockPlacements(
 function createDustGeometry(
   site: LandingSite,
   terrain: SurfaceTerrainProfile,
+  segments: number,
 ): BufferGeometry {
   const random = createRandom(siteTerrainSeed(site, 0xd0575))
   const positions = new Float32Array(54 * 3)
@@ -164,7 +169,7 @@ function createDustGeometry(
     const distanceM = 5 + random() * 74
     const xM = Math.cos(angle) * distanceM
     const zM = Math.sin(angle) * distanceM
-    const ground = localSurfaceToRender(terrain, xM, zM)
+    const ground = sampleRenderedSurface(terrain, segments, xM, zM)
 
     positions[offset] = ground.x
     positions[offset + 1] =
@@ -177,9 +182,67 @@ function createDustGeometry(
   return geometry
 }
 
+function createScorchGeometry(
+  terrain: SurfaceTerrainProfile,
+  segments: number,
+): BufferGeometry {
+  const radialSegments = 4
+  const edgeSegments = 28
+  const positions = new Float32Array(
+    (radialSegments * edgeSegments + 1) * 3,
+  )
+  const indices: number[] = []
+  const clearance = SCORCH_CLEARANCE_M * LOCAL_METRES_TO_RENDER_UNITS
+  const center = sampleRenderedSurface(terrain, segments, 0, 0)
+  positions[0] = center.x
+  positions[1] = center.y + clearance
+  positions[2] = center.z
+
+  for (let ring = 1; ring <= radialSegments; ring += 1) {
+    const radius = ring / radialSegments
+
+    for (let index = 0; index < edgeSegments; index += 1) {
+      const angle = (index / edgeSegments) * Math.PI * 2
+      const xM = Math.cos(angle) * SCORCH_RADIUS_X_M * radius
+      const zM = Math.sin(angle) * SCORCH_RADIUS_Z_M * radius
+      const surface = sampleRenderedSurface(terrain, segments, xM, zM)
+      const vertexIndex = 1 + (ring - 1) * edgeSegments + index
+      const offset = vertexIndex * 3
+      positions[offset] = surface.x
+      positions[offset + 1] = surface.y + clearance
+      positions[offset + 2] = surface.z
+
+      const nextIndex = (index + 1) % edgeSegments
+
+      if (ring === 1) {
+        indices.push(0, 1 + nextIndex, vertexIndex)
+      } else {
+        const innerIndex = 1 + (ring - 2) * edgeSegments + index
+        const innerNext = 1 + (ring - 2) * edgeSegments + nextIndex
+        const outerNext = 1 + (ring - 1) * edgeSegments + nextIndex
+        indices.push(
+          innerIndex,
+          innerNext,
+          outerNext,
+          innerIndex,
+          outerNext,
+          vertexIndex,
+        )
+      }
+    }
+  }
+
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new BufferAttribute(positions, 3))
+  geometry.setIndex(indices)
+  geometry.computeVertexNormals()
+  return geometry
+}
+
 export function SurfaceDressing({
   site,
   terrain,
+  segments,
   rockCount,
 }: SurfaceDressingProps) {
   const rockRef = useRef<InstancedMesh>(null)
@@ -202,7 +265,7 @@ export function SurfaceDressing({
   const rockMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: '#6f767e',
+        color: '#4e5255',
         metalness: 0.03,
         roughness: 1,
       }),
@@ -211,15 +274,19 @@ export function SurfaceDressing({
   const ridgeMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: '#5f666e',
+        color: '#3d4246',
         metalness: 0.02,
         roughness: 1,
       }),
     [],
   )
   const dustGeometry = useMemo(
-    () => createDustGeometry(site, terrain),
-    [site, terrain],
+    () => createDustGeometry(site, terrain, segments),
+    [segments, site, terrain],
+  )
+  const scorchGeometry = useMemo(
+    () => createScorchGeometry(terrain, segments),
+    [segments, terrain],
   )
   const dustMaterial = useMemo(
     () =>
@@ -248,13 +315,14 @@ export function SurfaceDressing({
       }
 
       entries.forEach((placement, index) => {
-        const sample = localSurfaceToRender(terrain, placement.xM, placement.zM)
-        const scale = placement.scaleM * LOCAL_METRES_TO_RENDER_UNITS
-        dummy.position.set(
-          sample.x,
-          sample.y + scale * (stretched ? 0.48 : 0.62),
-          sample.z,
+        const sample = sampleRenderedSurface(
+          terrain,
+          segments,
+          placement.xM,
+          placement.zM,
         )
+        const scale = placement.scaleM * LOCAL_METRES_TO_RENDER_UNITS
+        dummy.position.set(0, 0, 0)
         dummy.rotation.set(
           placement.rotationX,
           placement.rotationY,
@@ -266,10 +334,38 @@ export function SurfaceDressing({
           scale * (stretched ? 0.72 : 1),
         )
         dummy.updateMatrix()
+        const geometry = stretched ? ridgeGeometry : rockGeometry
+        const positions = geometry.getAttribute('position')
+        const vertex = new Vector3()
+        let groundedY = Number.NEGATIVE_INFINITY
+
+        for (
+          let vertexIndex = 0;
+          vertexIndex < positions.count;
+          vertexIndex += 1
+        ) {
+          vertex
+            .fromBufferAttribute(positions, vertexIndex)
+            .applyMatrix4(dummy.matrix)
+          const vertexSurface = sampleRenderedSurface(
+            terrain,
+            segments,
+            placement.xM + vertex.x / LOCAL_METRES_TO_RENDER_UNITS,
+            placement.zM + vertex.z / LOCAL_METRES_TO_RENDER_UNITS,
+          )
+          groundedY = Math.max(groundedY, vertexSurface.y - vertex.y)
+        }
+
+        dummy.position.set(
+          sample.x,
+          groundedY - ROCK_EMBED_M * LOCAL_METRES_TO_RENDER_UNITS,
+          sample.z,
+        )
+        dummy.updateMatrix()
         mesh.setMatrixAt(index, dummy.matrix)
         color
-          .set(stretched ? '#4f565e' : '#6c737b')
-          .lerp(new Color('#9ba0a4'), placement.tone * 0.34)
+          .set(stretched ? '#34393d' : '#4d5154')
+          .lerp(new Color('#777875'), placement.tone * 0.3)
         mesh.setColorAt(index, color)
       })
       mesh.instanceMatrix.needsUpdate = true
@@ -281,7 +377,7 @@ export function SurfaceDressing({
 
     populate(rockRef.current, rocks, false)
     populate(ridgeRef.current, ridges, true)
-  }, [ridges, rocks, terrain])
+  }, [ridgeGeometry, ridges, rockGeometry, rocks, segments, terrain])
 
   useEffect(
     () => () => {
@@ -291,6 +387,7 @@ export function SurfaceDressing({
       ridgeMaterial.dispose()
       dustGeometry.dispose()
       dustMaterial.dispose()
+      scorchGeometry.dispose()
     },
     [
       dustGeometry,
@@ -299,10 +396,9 @@ export function SurfaceDressing({
       ridgeMaterial,
       rockGeometry,
       rockMaterial,
+      scorchGeometry,
     ],
   )
-
-  const scorchMatrix = useMemo(() => new Matrix4().makeScale(1, 1, 1), [])
 
   return (
     <group position={transform.position} quaternion={transform.orientation}>
@@ -318,15 +414,9 @@ export function SurfaceDressing({
         castShadow
         receiveShadow
       />
-      <mesh
-        matrix={scorchMatrix}
-        position-y={LOCAL_SURFACE_RENDER_OFFSET + 0.000004}
-        rotation-x={-Math.PI / 2}
-        scale={[0.00125, 0.00072, 1]}
-      >
-        <circleGeometry args={[1, 28]} />
+      <mesh geometry={scorchGeometry}>
         <meshBasicMaterial
-          color="#17191d"
+          color={VISUAL_PALETTE.damageChar}
           depthWrite={false}
           opacity={0.5}
           polygonOffset

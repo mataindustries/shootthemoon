@@ -1,35 +1,57 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
-  AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
-  CircleGeometry,
   Color,
   DoubleSide,
   DynamicDrawUsage,
+  Float32BufferAttribute,
   Group,
   InstancedMesh,
   MeshBasicMaterial,
+  MeshStandardMaterial,
   Object3D,
   OctahedronGeometry,
   Points,
   PointsMaterial,
-  RingGeometry,
+  SphereGeometry,
 } from 'three'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import {
   getFirstStrikePresentationProgress,
   type FirstStrikePresentationState,
 } from '../app/firstStrikePresentation.ts'
+import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
+import { sampleRenderedSurface } from '../render/renderedSurface.ts'
+import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
+import {
+  MATERIAL_RESPONSE,
+  VISUAL_PALETTE,
+} from '../render/visualSystem.ts'
 
-const DEBRIS_COUNT = 48
-const DUST_COUNT = 72
+const DEBRIS_COUNT = 42
+const DUST_COUNT = 88
+const SHEET_SEGMENTS = 42
+
+export const IMPACT_EMITTER_CLEARANCE_M = 0.015
 
 interface LunarImpactEffectsProps {
   readonly rivalSite: LandingSite
   readonly presentation: FirstStrikePresentationState
+  readonly terrain: SurfaceTerrainProfile
+  readonly segments: number
+}
+
+export function calculateImpactEmitterHeight(
+  terrain: SurfaceTerrainProfile,
+  segments: number,
+): number {
+  return (
+    sampleRenderedSurface(terrain, segments, 0, 0).y +
+    IMPACT_EMITTER_CLEARANCE_M * LOCAL_METRES_TO_RENDER_UNITS
+  )
 }
 
 function createRandom(seed: number): () => number {
@@ -53,12 +75,61 @@ function smoothstep(value: number): number {
   return clamped * clamped * (3 - 2 * clamped)
 }
 
+function createRegolithSheetGeometry(seed: number): BufferGeometry {
+  const random = createRandom(seed ^ 0x728e_41b5)
+  const innerNoise = Array.from(
+    { length: SHEET_SEGMENTS },
+    () => random() * 0.13 - 0.065,
+  )
+  const outerNoise = Array.from(
+    { length: SHEET_SEGMENTS },
+    () => random() * 0.2 - 0.1,
+  )
+  const positions: number[] = []
+  const colors: number[] = []
+  const indices: number[] = []
+  const innerColor = new Color(VISUAL_PALETTE.damageHeat)
+  const outerColor = new Color(VISUAL_PALETTE.damageRim)
+
+  for (let index = 0; index <= SHEET_SEGMENTS; index += 1) {
+    const wrapped = index % SHEET_SEGMENTS
+    const angle = (wrapped / SHEET_SEGMENTS) * Math.PI * 2
+    const innerRadius = 0.71 + innerNoise[wrapped]!
+    const outerRadius = 1 + outerNoise[wrapped]!
+    const cosine = Math.cos(angle)
+    const sine = Math.sin(angle)
+    positions.push(cosine * innerRadius, 0.0018, sine * innerRadius)
+    positions.push(
+      cosine * outerRadius,
+      0.0005 + (wrapped % 3) * 0.00018,
+      sine * outerRadius,
+    )
+    innerColor.toArray(colors, index * 6)
+    outerColor.toArray(colors, index * 6 + 3)
+
+    if (index < SHEET_SEGMENTS) {
+      const base = index * 2
+      indices.push(base, base + 1, base + 2, base + 2, base + 1, base + 3)
+    }
+  }
+
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3))
+  geometry.setIndex(indices)
+  geometry.computeVertexNormals()
+  geometry.computeBoundingSphere()
+  return geometry
+}
+
 export function LunarImpactEffects({
   rivalSite,
   presentation,
+  terrain,
+  segments,
 }: LunarImpactEffectsProps) {
   const flashRef = useRef<Group>(null)
-  const surfaceLightRef = useRef<Group>(null)
+  const surfaceSheetRef = useRef<Group>(null)
   const ejectaRef = useRef<InstancedMesh>(null)
   const dustRef = useRef<Points>(null)
   const dummyRef = useRef(new Object3D())
@@ -67,35 +138,50 @@ export function LunarImpactEffects({
     () => landingSiteToRenderTransform(rivalSite),
     [rivalSite],
   )
-  const position = useMemo(
-    () => transform.position.clone().addScaledVector(transform.up, 0.00056),
-    [transform.position, transform.up],
+  const emitterHeight = useMemo(
+    () => calculateImpactEmitterHeight(terrain, segments),
+    [segments, terrain],
   )
+  const position = useMemo(
+    () =>
+      transform.position
+        .clone()
+        .addScaledVector(transform.up, emitterHeight),
+    [emitterHeight, transform.position, transform.up],
+  )
+  const seed = useMemo(() => seedForSite(rivalSite), [rivalSite])
   const randomValues = useMemo(() => {
-    const random = createRandom(seedForSite(rivalSite))
+    const random = createRandom(seed)
     return Array.from({ length: DEBRIS_COUNT }, (_, index) => ({
-      angle: (index / DEBRIS_COUNT) * Math.PI * 2 + random() * 0.11,
-      distance: 0.48 + random() * 0.7,
-      height: 0.17 + random() * 0.5,
+      angle:
+        (index / DEBRIS_COUNT) * Math.PI * 2 + (random() - 0.5) * 0.38,
+      delay: random() * 0.18,
+      distance: 0.48 + random() * 0.78,
+      height: 0.28 + random() * 0.82,
       spin: random() * Math.PI * 2,
-      size: 0.48 + random() * 0.82,
+      size: 0.46 + random() * 0.9,
+      wreckage: index % 7 === 0 || index % 11 === 0,
     }))
-  }, [rivalSite])
+  }, [seed])
   const dustValues = useMemo(() => {
-    const random = createRandom(seedForSite(rivalSite) ^ 0xa2e8_19d1)
+    const random = createRandom(seed ^ 0xa2e8_19d1)
     return Array.from({ length: DUST_COUNT }, (_, index) => ({
-      angle: (index / DUST_COUNT) * Math.PI * 2 + random() * 0.16,
-      distance: 0.35 + random() * 0.85,
-      height: 0.08 + random() * 0.3,
+      angle:
+        (index / DUST_COUNT) * Math.PI * 2 + (random() - 0.5) * 0.52,
+      delay: random() * 0.24,
+      distance: 0.4 + random() * 0.96,
+      height: 0.16 + random() * 0.64,
+      drift: (random() - 0.5) * 0.24,
     }))
-  }, [rivalSite])
+  }, [seed])
   const dustGeometry = useMemo(() => {
     const geometry = new BufferGeometry()
     const colors = new Float32Array(DUST_COUNT * 3)
-    const dustColor = new Color('#d7c0ad')
+    const regolithColor = new Color(VISUAL_PALETTE.damageRim)
+    const charColor = new Color(VISUAL_PALETTE.damageChar)
 
     for (let index = 0; index < DUST_COUNT; index += 1) {
-      dustColor.toArray(colors, index * 3)
+      ;(index % 5 === 0 ? charColor : regolithColor).toArray(colors, index * 3)
     }
 
     geometry.setAttribute(
@@ -105,15 +191,16 @@ export function LunarImpactEffects({
     geometry.setAttribute('color', new BufferAttribute(colors, 3))
     return geometry
   }, [])
-  const flashGeometry = useMemo(() => new OctahedronGeometry(1, 2), [])
-  const lightGeometry = useMemo(() => new CircleGeometry(1, 40), [])
-  const curtainGeometry = useMemo(() => new RingGeometry(0.72, 1, 40), [])
+  const flashGeometry = useMemo(() => new SphereGeometry(1, 16, 8), [])
+  const sheetGeometry = useMemo(
+    () => createRegolithSheetGeometry(seed),
+    [seed],
+  )
   const debrisGeometry = useMemo(() => new OctahedronGeometry(1, 0), [])
   const flashMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: '#fff8e8',
+        color: '#ff9a55',
         depthTest: false,
         depthWrite: false,
         opacity: 0,
@@ -122,39 +209,50 @@ export function LunarImpactEffects({
       }),
     [],
   )
-  const surfaceMaterial = useMemo(
+  const flashCoreMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: '#ff7d35',
+        color: '#fff0ce',
+        depthTest: false,
         depthWrite: false,
         opacity: 0,
-        side: DoubleSide,
         toneMapped: false,
         transparent: true,
       }),
     [],
   )
-  const debrisMaterial = useMemo(
+  const sheetMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: '#d9b8a0',
+        color: '#c9b0a2',
         depthWrite: false,
         opacity: 0,
-        toneMapped: false,
+        side: DoubleSide,
+        toneMapped: true,
         transparent: true,
+        vertexColors: true,
+      }),
+    [],
+  )
+  const debrisMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: '#8c8177',
+        ...MATERIAL_RESPONSE.lunar,
+        flatShading: true,
+        vertexColors: true,
       }),
     [],
   )
   const dustMaterial = useMemo(
     () =>
       new PointsMaterial({
-        color: '#ffffff',
+        color: '#a89d92',
         depthWrite: false,
         opacity: 0,
-        size: 0.0044,
+        size: 0.0028,
         sizeAttenuation: true,
+        toneMapped: true,
         transparent: true,
         vertexColors: true,
       }),
@@ -166,40 +264,57 @@ export function LunarImpactEffects({
     if (ejecta === null) return
     ejecta.count = DEBRIS_COUNT
     ejecta.instanceMatrix.setUsage(DynamicDrawUsage)
-  }, [])
+
+    const regolith = new Color(VISUAL_PALETTE.damageRim)
+    const char = new Color(VISUAL_PALETTE.damageChar)
+    const wreck = new Color(VISUAL_PALETTE.rivalWreck)
+    const heat = new Color(VISUAL_PALETTE.damageHeat)
+    randomValues.forEach((sample, index) => {
+      ejecta.setColorAt(
+        index,
+        sample.wreckage ? (index % 2 === 0 ? wreck : heat) : index % 4 === 0 ? char : regolith,
+      )
+    })
+    if (ejecta.instanceColor !== null) ejecta.instanceColor.needsUpdate = true
+  }, [randomValues])
 
   useEffect(
     () => () => {
       flashGeometry.dispose()
-      lightGeometry.dispose()
-      curtainGeometry.dispose()
+      sheetGeometry.dispose()
       debrisGeometry.dispose()
       dustGeometry.dispose()
       flashMaterial.dispose()
-      surfaceMaterial.dispose()
+      flashCoreMaterial.dispose()
+      sheetMaterial.dispose()
       debrisMaterial.dispose()
       dustMaterial.dispose()
       delete gl.domElement.dataset.impactEffectPhase
     }, [
-      curtainGeometry,
       debrisGeometry,
       debrisMaterial,
       dustGeometry,
       dustMaterial,
       flashGeometry,
       flashMaterial,
+      flashCoreMaterial,
       gl,
-      lightGeometry,
-      surfaceMaterial,
+      sheetGeometry,
+      sheetMaterial,
     ],
   )
 
   useFrame(() => {
     const flash = flashRef.current
-    const surfaceLight = surfaceLightRef.current
+    const surfaceSheet = surfaceSheetRef.current
     const ejecta = ejectaRef.current
     const dust = dustRef.current
-    if (flash === null || surfaceLight === null || ejecta === null || dust === null) {
+    if (
+      flash === null ||
+      surfaceSheet === null ||
+      ejecta === null ||
+      dust === null
+    ) {
       return
     }
 
@@ -207,88 +322,107 @@ export function LunarImpactEffects({
     const flashPhase = presentation.phase === 'impact-flash'
     const ejectaPhase = presentation.phase === 'ejecta'
     const revealPhase = presentation.phase === 'crater-reveal'
-    const flashPulse = flashPhase
-      ? Math.sin(Math.PI * Math.min(1, progress * 1.35)) ** 0.45
-      : 0
-    const effectProgress = flashPhase ? 0 : ejectaPhase ? progress : 1
+    const flashWindow = Math.min(1, progress / 0.42)
+    const flashPulse = flashPhase ? Math.sin(Math.PI * flashWindow) ** 0.42 : 0
+    const eventProgress = flashPhase
+      ? progress * 0.18
+      : ejectaPhase
+        ? 0.18 + progress * 0.82
+        : 1
+    const expansion = smoothstep(eventProgress)
     const revealFade = revealPhase ? 1 - smoothstep(progress) : 1
-    const expansion = smoothstep(effectProgress)
 
     flash.visible = flashPulse > 0.005
-    flash.scale.setScalar(0.014 + progress * 0.088)
-    flashMaterial.opacity = flashPulse
-    surfaceLight.scale.setScalar(
-      flashPhase ? 0.018 + smoothstep(progress) * 0.09 : 0.108 + expansion * 0.025,
-    )
-    surfaceMaterial.opacity = flashPhase
-      ? flashPulse * 0.82
-      : Math.max(0, (1 - expansion) * 0.44 * revealFade)
+    flash.scale.setScalar(0.003 + smoothstep(flashWindow) * 0.0085)
+    flashMaterial.opacity = flashPulse * 0.56
+    flashCoreMaterial.opacity = flashPulse * 0.94
+
+    surfaceSheet.visible = !revealPhase || revealFade > 0.02
+    surfaceSheet.scale.setScalar(0.014 + expansion * 0.128)
+    sheetMaterial.opacity = flashPhase
+      ? flashPulse * 0.34
+      : ejectaPhase
+        ? (1 - smoothstep(progress)) * 0.4
+        : revealFade * 0.08
 
     const dummy = dummyRef.current
     for (let index = 0; index < DEBRIS_COUNT; index += 1) {
       const sample = randomValues[index]!
-      const radialProgress = expansion * sample.distance
-      const ballisticHeight =
-        Math.sin(Math.PI * Math.min(1, effectProgress)) * sample.height
+      const localProgress = Math.max(
+        0,
+        Math.min(1, (progress - sample.delay) / (1 - sample.delay)),
+      )
+      const travel = smoothstep(localProgress)
+      const radialDistance = travel * sample.distance * 0.12
+      const ballisticHeight = 4 * localProgress * (1 - localProgress) * sample.height
       dummy.position.set(
-        Math.cos(sample.angle) * radialProgress * 0.12,
-        ballisticHeight * 0.085 + 0.002,
-        Math.sin(sample.angle) * radialProgress * 0.12,
+        Math.cos(sample.angle) * radialDistance,
+        ballisticHeight * 0.075 + 0.0012,
+        Math.sin(sample.angle) * radialDistance,
       )
       dummy.rotation.set(
-        sample.spin + effectProgress * 5.2,
-        sample.angle,
-        sample.spin * 0.4 + effectProgress * 3.8,
+        sample.spin + localProgress * 5.1,
+        sample.angle + localProgress * 2.3,
+        sample.spin * 0.4 + localProgress * 4.2,
       )
-      const size = sample.size * 0.0026 * revealFade
-      dummy.scale.setScalar(size)
+      const activeScale = ejectaPhase ? 1 : revealPhase ? revealFade : 0
+      const size = sample.size * (sample.wreckage ? 0.0032 : 0.00245) * activeScale
+      dummy.scale.set(size * 1.25, size * 0.75, size)
       dummy.updateMatrix()
       ejecta.setMatrixAt(index, dummy.matrix)
     }
     ejecta.instanceMatrix.needsUpdate = true
-    debrisMaterial.opacity = ejectaPhase ? Math.max(0, 0.92 - progress * 0.5) : revealFade * 0.32
 
     const positions = dust.geometry.getAttribute('position') as BufferAttribute
     for (let index = 0; index < DUST_COUNT; index += 1) {
       const sample = dustValues[index]!
-      const radialProgress = expansion * sample.distance
+      const localProgress = Math.max(
+        0,
+        Math.min(1, (progress - sample.delay) / (1 - sample.delay)),
+      )
+      const travel = smoothstep(localProgress)
+      const radialDistance = travel * sample.distance * 0.135
+      const angle = sample.angle + sample.drift * localProgress
       positions.setXYZ(
         index,
-        Math.cos(sample.angle) * radialProgress * 0.095,
-        Math.sin(Math.PI * effectProgress) * sample.height * 0.052 + 0.001,
-        Math.sin(sample.angle) * radialProgress * 0.095,
+        Math.cos(angle) * radialDistance,
+        4 * localProgress * (1 - localProgress) * sample.height * 0.056 + 0.001,
+        Math.sin(angle) * radialDistance,
       )
     }
     positions.needsUpdate = true
-    dustMaterial.opacity = ejectaPhase ? Math.max(0, 0.78 - progress * 0.54) : revealFade * 0.2
+    dustMaterial.opacity = ejectaPhase
+      ? Math.max(0, 0.58 - smoothstep(progress) * 0.42)
+      : revealPhase
+        ? revealFade * 0.11
+        : 0
     gl.domElement.dataset.impactEffectPhase = presentation.phase
   })
 
   return (
     <group position={position} quaternion={transform.orientation}>
-      <group ref={surfaceLightRef}>
-        <mesh
-          geometry={lightGeometry}
-          material={surfaceMaterial}
-          rotation-x={-Math.PI / 2}
-        />
-        <mesh
-          geometry={curtainGeometry}
-          material={surfaceMaterial}
-          position-y={0.001}
-          rotation-x={-Math.PI / 2}
-          scale={1.12}
-        />
+      <group ref={surfaceSheetRef}>
+        <mesh geometry={sheetGeometry} material={sheetMaterial} />
       </group>
-      <group ref={flashRef}>
+      <group ref={flashRef} position-y={0.003}>
         <mesh geometry={flashGeometry} material={flashMaterial} />
+        <mesh
+          geometry={flashGeometry}
+          material={flashCoreMaterial}
+          scale={0.42}
+        />
       </group>
       <instancedMesh
         ref={ejectaRef}
         args={[debrisGeometry, debrisMaterial, DEBRIS_COUNT]}
         frustumCulled={false}
       />
-      <points ref={dustRef} geometry={dustGeometry} material={dustMaterial} frustumCulled={false} />
+      <points
+        ref={dustRef}
+        geometry={dustGeometry}
+        material={dustMaterial}
+        frustumCulled={false}
+      />
     </group>
   )
 }

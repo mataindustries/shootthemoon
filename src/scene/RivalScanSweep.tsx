@@ -6,11 +6,11 @@ import {
 } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
-  AdditiveBlending,
   BoxGeometry,
+  DoubleSide,
   Group,
   InstancedMesh,
-  MeshBasicMaterial,
+  MeshStandardMaterial,
   Object3D,
   OctahedronGeometry,
   RingGeometry,
@@ -23,6 +23,12 @@ import { getRivalIdentity } from '../content/rivalIdentity.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import type { RivalSignalSnapshot } from '../domain/rival.ts'
 import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
+import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
+import {
+  EMISSIVE_LIMITS,
+  MATERIAL_RESPONSE,
+  VISUAL_PALETTE,
+} from '../render/visualSystem.ts'
 import {
   createRivalSurfaceAttachment,
   type RivalSurfaceAttachment,
@@ -38,6 +44,8 @@ interface ScanSample {
 export interface RivalScanSweepProps {
   readonly rival: RivalSignalSnapshot
   readonly presentation: RivalPresentationState
+  readonly terrain: SurfaceTerrainProfile
+  readonly segments: number
 }
 
 function wrappedAngleDifference(a: number, b: number): number {
@@ -61,6 +69,8 @@ function createScanSamples(site: LandingSite): readonly ScanSample[] {
 export function RivalScanSweep({
   rival,
   presentation,
+  terrain,
+  segments,
 }: RivalScanSweepProps) {
   const sweepRef = useRef<Group>(null)
   const sampleRef = useRef<InstancedMesh>(null)
@@ -68,53 +78,68 @@ export function RivalScanSweep({
   const dummyRef = useRef(new Object3D())
   const identity = getRivalIdentity(rival.identityId)
   const attachment: RivalSurfaceAttachment = useMemo(
-    () => createRivalSurfaceAttachment(rival.site),
-    [rival.site],
+    () => createRivalSurfaceAttachment(rival.site, terrain, segments),
+    [rival.site, segments, terrain],
   )
   const samples = useMemo(() => createScanSamples(rival.site), [rival.site])
   const sweepGeometry = useMemo(
-    () => new RingGeometry(0.78, 1, 28, 1, -0.24, 0.48),
+    () => new RingGeometry(0.94, 1, 30, 1, -0.14, 0.28),
     [],
   )
   const echoGeometry = useMemo(
-    () => new RingGeometry(0.9, 1, 20, 1, -0.15, 0.3),
+    () => new RingGeometry(0.96, 1, 24, 1, -0.09, 0.18),
     [],
   )
-  const sampleGeometry = useMemo(() => new BoxGeometry(0.22, 0.12, 1.4), [])
-  const coreGeometry = useMemo(() => new OctahedronGeometry(0.52, 0), [])
+  const sampleGeometry = useMemo(() => new BoxGeometry(0.18, 0.1, 1.1), [])
+  const coreGeometry = useMemo(() => new OctahedronGeometry(0.46, 0), [])
   const sweepMaterial = useMemo(
     () =>
-      new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.signal,
+      new MeshStandardMaterial({
+        color: VISUAL_PALETTE.rivalCyanPanel,
         depthWrite: false,
+        emissive: identity.palette.signal,
+        emissiveIntensity: EMISSIVE_LIMITS.panel,
         opacity: 0,
-        toneMapped: false,
+        roughness: 0.62,
+        side: DoubleSide,
         transparent: true,
       }),
     [identity.palette.signal],
   )
   const echoMaterial = useMemo(
     () =>
-      new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.highlight,
+      new MeshStandardMaterial({
+        color: VISUAL_PALETTE.rivalFrame,
         depthWrite: false,
+        emissive: VISUAL_PALETTE.rivalCyanEmissive,
+        emissiveIntensity: 0.3,
         opacity: 0,
-        toneMapped: false,
+        roughness: 0.72,
+        side: DoubleSide,
         transparent: true,
       }),
-    [identity.palette.highlight],
+    [],
   )
   const sampleMaterial = useMemo(
     () =>
-      new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.signal,
+      new MeshStandardMaterial({
+        color: VISUAL_PALETTE.rivalCyanPanel,
         depthWrite: false,
+        emissive: identity.palette.signal,
+        emissiveIntensity: 0.36,
         opacity: 0,
-        toneMapped: false,
+        roughness: 0.58,
         transparent: true,
+      }),
+    [identity.palette.signal],
+  )
+  const coreMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: VISUAL_PALETTE.rivalCyanPanel,
+        emissive: identity.palette.signal,
+        emissiveIntensity: EMISSIVE_LIMITS.activePanel,
+        ...MATERIAL_RESPONSE.rivalPanel,
       }),
     [identity.palette.signal],
   )
@@ -151,9 +176,11 @@ export function RivalScanSweep({
       sweepMaterial.dispose()
       echoMaterial.dispose()
       sampleMaterial.dispose()
+      coreMaterial.dispose()
     },
     [
       coreGeometry,
+      coreMaterial,
       echoGeometry,
       echoMaterial,
       sampleGeometry,
@@ -177,6 +204,8 @@ export function RivalScanSweep({
       ? getRivalPresentationProgress(presentation, performance.now())
       : 0
     sweep.visible = active
+    core.visible = active
+    sampleMesh.visible = active
 
     if (!active) {
       sweepMaterial.opacity = 0
@@ -186,14 +215,17 @@ export function RivalScanSweep({
     }
 
     const eased = progress * progress * (3 - 2 * progress)
+    const envelope = Math.sin(progress * Math.PI)
     const sweepAngle = -0.7 + eased * Math.PI * 2.7
     const radiusM = 4.5 + eased * 23
     sweep.rotation.y = sweepAngle
     sweep.scale.setScalar(radiusM)
-    sweepMaterial.opacity = Math.sin(progress * Math.PI) * 0.76
-    echoMaterial.opacity = Math.sin(progress * Math.PI) * 0.34
-    sampleMaterial.opacity = 0.26 + Math.sin(progress * Math.PI) * 0.42
-    core.scale.setScalar(0.8 + Math.sin(progress * Math.PI * 4) * 0.22)
+    sweepMaterial.opacity = envelope * 0.42
+    echoMaterial.opacity = envelope * 0.22
+    sampleMaterial.opacity = 0.16 + envelope * 0.24
+    core.scale.setScalar(0.84 + Math.sin(progress * Math.PI * 4) * 0.12)
+    coreMaterial.emissiveIntensity =
+      EMISSIVE_LIMITS.panel + envelope * 0.12
 
     const dummy = dummyRef.current
 
@@ -201,14 +233,18 @@ export function RivalScanSweep({
       const difference = Math.abs(
         wrappedAngleDifference(sample.angleRad, sweepAngle),
       )
-      const response = Math.exp(-difference * 7.5) * Math.sin(progress * Math.PI)
+      const response = Math.exp(-difference * 8.5) * envelope
       dummy.position.set(
         Math.sin(sample.angleRad) * sample.radiusM,
-        0.22 + response * 0.48,
+        0.22 + response * 0.34,
         Math.cos(sample.angleRad) * sample.radiusM,
       )
       dummy.rotation.set(0, sample.angleRad, 0)
-      dummy.scale.set(0.72 + response * 1.4, 0.65 + response * 3.2, 0.72)
+      dummy.scale.set(
+        0.72 + response * 0.82,
+        0.7 + response * 2.1,
+        0.72,
+      )
       dummy.updateMatrix()
       sampleMesh.setMatrixAt(index, dummy.matrix)
     })
@@ -219,6 +255,7 @@ export function RivalScanSweep({
     <group position={attachment.position} quaternion={attachment.orientation}>
       <group
         name="rival-scan-sweep"
+        position-z={-1.18 * LOCAL_METRES_TO_RENDER_UNITS}
         rotation-y={rival.surfaceHeadingRad}
         scale={LOCAL_METRES_TO_RENDER_UNITS}
       >
@@ -232,17 +269,17 @@ export function RivalScanSweep({
           <mesh
             geometry={echoGeometry}
             material={echoMaterial}
-            position-y={0.36}
+            position-y={0.34}
             rotation-x={-Math.PI / 2}
-            scale={0.72}
+            scale={0.78}
           />
         </group>
         <instancedMesh
           ref={sampleRef}
           args={[sampleGeometry, sampleMaterial, SAMPLE_COUNT]}
         />
-        <group ref={coreRef} position-y={0.82}>
-          <mesh geometry={coreGeometry} material={echoMaterial} />
+        <group ref={coreRef} position-y={1.42}>
+          <mesh geometry={coreGeometry} material={coreMaterial} />
         </group>
       </group>
     </group>

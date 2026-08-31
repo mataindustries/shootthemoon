@@ -18,6 +18,8 @@ interface CinematicHudProps {
   readonly lunarControlContested: boolean
   readonly firstStrikeAvailable: boolean
   readonly firstStrikeComplete: boolean
+  readonly soundAvailable: boolean
+  readonly soundEnabled: boolean
   readonly onClaim: () => void
   readonly onClear: () => void
   readonly onReturn: () => void
@@ -25,6 +27,7 @@ interface CinematicHudProps {
   readonly onMine: () => void
   readonly onConstruct: () => void
   readonly onResetPrototype: () => void
+  readonly onToggleSound: () => void
 }
 
 function formatCoordinate(valueRad: number, positive: string, negative: string) {
@@ -149,6 +152,8 @@ export function CinematicHud({
   lunarControlContested,
   firstStrikeAvailable,
   firstStrikeComplete,
+  soundAvailable,
+  soundEnabled,
   onClaim,
   onClear,
   onReturn,
@@ -156,6 +161,7 @@ export function CinematicHud({
   onMine,
   onConstruct,
   onResetPrototype,
+  onToggleSound,
 }: CinematicHudProps) {
   const latitude =
     site === null
@@ -201,13 +207,23 @@ export function CinematicHud({
               firstStrikeComplete,
             )}
           </span>
-          <button
-            className="reset-button"
-            type="button"
-            onClick={onResetPrototype}
-          >
-            RESET PROTOTYPE
-          </button>
+          <div className="hud-utilities">
+            <button
+              className="sound-toggle"
+              type="button"
+              onClick={onToggleSound}
+              disabled={!soundAvailable}
+            >
+              SOUND {soundAvailable ? (soundEnabled ? 'ON' : 'OFF') : '—'}
+            </button>
+            <button
+              className="reset-button"
+              type="button"
+              onClick={onResetPrototype}
+            >
+              RESET PROTOTYPE
+            </button>
+          </div>
         </div>
       </header>
 

@@ -1,79 +1,184 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import {
   DirectionalLight,
   Object3D,
+  PointLight,
   Vector3,
   type OrthographicCamera,
 } from 'three'
-import { useFrame } from '@react-three/fiber'
+import {
+  getFirstStrikePresentationProgress,
+  type FirstStrikePresentationState,
+} from '../app/firstStrikePresentation.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
-import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
+import { VISUAL_PALETTE } from '../render/visualSystem.ts'
 
 const SUN_OFFSET = new Vector3(4.6, 2.6, 3.4)
-const CINEMATIC_KEY_DIRECTION = SUN_OFFSET.clone().normalize()
+const WORLD_UP = new Vector3(0, 1, 0)
+const WORLD_EAST = new Vector3(1, 0, 0)
+const WORLD_SOUTH = new Vector3(0, 0, 1)
+const LAUNCH_LIGHT_CLEARANCE = 0.00152
+const IMPACT_LIGHT_CLEARANCE = 0.00814
 
 interface LightingRigProps {
-  readonly phase: ExperiencePhase
   readonly landingSite: LandingSite | null
   readonly strategicFocusSite?: LandingSite | null
   readonly cinematicReadability?: boolean
-  readonly followCameraForReadability?: boolean
   readonly enableSurfaceShadows: boolean
+  readonly closeViewShadows: boolean
+  readonly firstStrikePresentation: FirstStrikePresentationState
+  readonly residualScarLight: boolean
+  readonly surfaceHeight?: number | undefined
 }
 
 export function LightingRig({
-  phase,
   landingSite,
   strategicFocusSite = null,
   cinematicReadability = false,
-  followCameraForReadability = false,
   enableSurfaceShadows,
+  closeViewShadows,
+  firstStrikePresentation,
+  residualScarLight,
+  surfaceHeight = LOCAL_SURFACE_RENDER_OFFSET,
 }: LightingRigProps) {
   const lightRef = useRef<DirectionalLight>(null)
+  const eventLightRef = useRef<PointLight>(null)
   const targetRef = useRef<Object3D>(null)
-  const temporaryKeyDirectionRef = useRef(new Vector3())
-  const castsSurfaceShadow =
-    enableSurfaceShadows &&
-    (strategicFocusSite !== null ||
-      phase === 'approach' ||
-      phase === 'landed' ||
-      phase === 'returning')
+  const castsSurfaceShadow = enableSurfaceShadows
   const activeSite = strategicFocusSite ?? landingSite
+  const activeTransform = useMemo(
+    () =>
+      activeSite === null ? null : landingSiteToRenderTransform(activeSite),
+    [activeSite],
+  )
+  const activeUp = activeTransform?.up ?? WORLD_UP
+  const activeEast = activeTransform?.east ?? WORLD_EAST
+  const activeSouth = activeTransform?.south ?? WORLD_SOUTH
   const targetPosition = useMemo(() => {
-    if (activeSite === null) {
+    if (activeTransform === null) {
       return new Vector3()
     }
 
-    const transform = landingSiteToRenderTransform(activeSite)
     return castsSurfaceShadow
-      ? transform.position
+      ? activeTransform.position
           .clone()
-          .addScaledVector(transform.up, LOCAL_SURFACE_RENDER_OFFSET)
-      : transform.position
-  }, [activeSite, castsSurfaceShadow])
-  const lightPosition = useMemo(() => {
-    if (!castsSurfaceShadow || activeSite === null) {
-      return targetPosition.clone().add(SUN_OFFSET)
+          .addScaledVector(activeTransform.up, surfaceHeight)
+      : activeTransform.position
+  }, [activeTransform, castsSurfaceShadow, surfaceHeight])
+  const lightPosition = useMemo(
+    () => targetPosition.clone().add(SUN_OFFSET),
+    [targetPosition],
+  )
+  const ambientIntensity = cinematicReadability
+    ? closeViewShadows
+      ? 0.45
+      : 0.22
+    : closeViewShadows
+      ? 0.16
+      : 0.04
+  const scarShadowView =
+    firstStrikePresentation.phase === 'impact-flash' ||
+    firstStrikePresentation.phase === 'ejecta' ||
+    firstStrikePresentation.phase === 'crater-reveal' ||
+    firstStrikePresentation.phase === 'scar-explore'
+  const shadowExtent = scarShadowView ? 0.105 : 0.022
+
+  useFrame(() => {
+    const eventLight = eventLightRef.current
+    if (eventLight === null) return
+
+    const rivalReadLight =
+      firstStrikePresentation.phase === 'idle' &&
+      cinematicReadability &&
+      closeViewShadows
+    eventLight.color.set(
+      rivalReadLight ? VISUAL_PALETTE.rivalHighlight : '#ffe0c4',
+    )
+
+    if (rivalReadLight) {
+      eventLight.distance = 0.065
+      eventLight.position
+        .copy(targetPosition)
+        .addScaledVector(activeUp, 0.016)
+        .addScaledVector(activeEast, 0.014)
+        .addScaledVector(activeSouth, 0.012)
+      eventLight.intensity = 0.034
+      return
     }
 
-    const transform = landingSiteToRenderTransform(activeSite)
-    const strategicKey = strategicFocusSite !== null
+    const progress = getFirstStrikePresentationProgress(
+      firstStrikePresentation,
+    )
 
-    return targetPosition
-      .clone()
-      .addScaledVector(transform.east, strategicKey ? 3.4 : 4.8)
-      .addScaledVector(transform.up, strategicKey ? 4.2 : 1.38)
-      .addScaledVector(transform.south, strategicKey ? 1.4 : 2.1)
-  }, [activeSite, castsSurfaceShadow, strategicFocusSite, targetPosition])
-  const ambientIntensity = cinematicReadability
-    ? castsSurfaceShadow
-      ? 0.32
-      : 0.22
-    : castsSurfaceShadow
-      ? 0.19
-      : 0.055
+    if (firstStrikePresentation.phase === 'launch') {
+      eventLight.distance = 0.026
+      eventLight.position
+        .copy(targetPosition)
+        .addScaledVector(activeUp, LAUNCH_LIGHT_CLEARANCE)
+      eventLight.intensity =
+        Math.sin(Math.PI * Math.min(1, progress / 0.42)) ** 1.2 * 0.006
+      return
+    }
+
+    if (firstStrikePresentation.phase === 'impact-flash') {
+      const flashWindow = Math.min(1, progress / 0.42)
+      const flashPulse = Math.sin(Math.PI * flashWindow) ** 0.42
+      eventLight.distance = 0.18
+      eventLight.position
+        .copy(targetPosition)
+        .addScaledVector(activeUp, IMPACT_LIGHT_CLEARANCE)
+      eventLight.intensity = flashPulse * 0.12
+      return
+    }
+
+    if (
+      firstStrikePresentation.phase === 'ejecta' ||
+      firstStrikePresentation.phase === 'crater-reveal' ||
+      firstStrikePresentation.phase === 'orbital-pullback' ||
+      firstStrikePresentation.phase === 'scar-explore' ||
+      firstStrikePresentation.phase === 'ending' ||
+      residualScarLight
+    ) {
+      eventLight.distance =
+        firstStrikePresentation.phase === 'orbital-pullback' ||
+        firstStrikePresentation.phase === 'ending' ||
+        firstStrikePresentation.phase === 'scar-explore' ||
+        residualScarLight
+          ? 0.085
+          : 0.18
+      eventLight.position
+        .copy(targetPosition)
+        .addScaledVector(activeUp, 0.035)
+        .addScaledVector(activeEast, 0.038)
+        .addScaledVector(activeSouth, -0.022)
+
+      switch (firstStrikePresentation.phase) {
+        case 'ejecta':
+          eventLight.intensity = 0.05 - progress * 0.02
+          break
+        case 'crater-reveal':
+          eventLight.intensity = 0.065 - progress * 0.025
+          break
+        case 'orbital-pullback':
+          eventLight.intensity = 0.024 - progress * 0.012
+          break
+        case 'scar-explore':
+          eventLight.intensity = 0.05
+          break
+        case 'ending':
+          eventLight.intensity = 0.014
+          break
+        default:
+          eventLight.intensity = 0.016
+      }
+      return
+    }
+
+    eventLight.intensity = 0
+  })
 
   useEffect(() => {
     const light = lightRef.current
@@ -92,53 +197,33 @@ export function LightingRig({
     light.shadow.normalBias = 0.000065
 
     const shadowCamera = light.shadow.camera as OrthographicCamera
-    shadowCamera.left = -0.022
-    shadowCamera.right = 0.022
-    shadowCamera.top = 0.022
-    shadowCamera.bottom = -0.022
+    shadowCamera.left = -shadowExtent
+    shadowCamera.right = shadowExtent
+    shadowCamera.top = shadowExtent
+    shadowCamera.bottom = -shadowExtent
     shadowCamera.near = 4.3
     shadowCamera.far = 6.8
     shadowCamera.updateProjectionMatrix()
     light.shadow.needsUpdate = true
-  }, [castsSurfaceShadow, lightPosition, targetPosition])
-
-  useFrame((state) => {
-    const light = lightRef.current
-    const target = targetRef.current
-
-    if (!followCameraForReadability || light === null || target === null) {
-      return
-    }
-
-    const keyDirection = temporaryKeyDirectionRef.current
-      .copy(state.camera.position)
-
-    if (keyDirection.lengthSq() <= 1e-12) {
-      keyDirection.copy(CINEMATIC_KEY_DIRECTION)
-    } else {
-      keyDirection
-        .normalize()
-        .multiplyScalar(0.86)
-        .addScaledVector(CINEMATIC_KEY_DIRECTION, 0.14)
-        .normalize()
-    }
-
-    light.position.copy(targetPosition).addScaledVector(keyDirection, 6)
-    light.target = target
-  })
+  }, [castsSurfaceShadow, lightPosition, shadowExtent, targetPosition])
 
   return (
     <>
-      <ambientLight
-        color="#68788d"
-        intensity={ambientIntensity}
-      />
+      <ambientLight color="#8895a5" intensity={ambientIntensity} />
       <directionalLight
         ref={lightRef}
         castShadow={castsSurfaceShadow}
-        color="#eef3ff"
-        intensity={castsSurfaceShadow ? 3.7 : 3.05}
+        color="#fff4df"
+        intensity={castsSurfaceShadow ? 2.55 : 2.85}
         position={lightPosition}
+      />
+      <pointLight
+        ref={eventLightRef}
+        color="#ffe0c4"
+        decay={2}
+        distance={0.18}
+        intensity={0}
+        position={targetPosition}
       />
       <object3D ref={targetRef} position={targetPosition} />
     </>

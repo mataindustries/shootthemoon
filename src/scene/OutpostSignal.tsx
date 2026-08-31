@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
 import {
-  AdditiveBlending,
   Group,
   MeshBasicMaterial,
   SphereGeometry,
@@ -9,6 +8,7 @@ import {
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
+import { VISUAL_PALETTE } from '../render/visualSystem.ts'
 
 const TAP_DISTANCE_PX = 10
 
@@ -63,7 +63,7 @@ export function OutpostSignal({
     const pulse = 1 + Math.sin(state.clock.elapsedTime * 3.1) * 0.06
     const scale = Math.max(
       0.013,
-      Math.min(0.027, distance * (active ? 0.0065 : 0.0054)),
+      Math.min(0.021, distance * (active ? 0.0052 : 0.0046)),
     )
     group.scale.setScalar(scale * pulse * (focused ? 1.14 : 1))
     group.rotation.y = state.clock.elapsedTime * (active ? 0.32 : 0.18)
@@ -98,20 +98,22 @@ export function OutpostSignal({
         <mesh rotation-x={Math.PI / 2}>
           <torusGeometry args={[0.72, active ? 0.085 : 0.055, 7, 28]} />
           <meshBasicMaterial
-            blending={AdditiveBlending}
-            color={active ? '#ff9c50' : '#cf7140'}
+            color={
+              active
+                ? VISUAL_PALETTE.playerAmberEmissive
+                : VISUAL_PALETTE.playerAmberPanel
+            }
             depthWrite={false}
-            opacity={active ? 0.86 : 0.62}
+            opacity={active ? 0.68 : 0.52}
             transparent
           />
         </mesh>
-        <mesh position-y={0.62}>
-          <cylinderGeometry args={[0.045, 0.16, 1.22, 8]} />
+        <mesh position-y={0.19}>
+          <cylinderGeometry args={[0.06, 0.14, 0.36, 8]} />
           <meshBasicMaterial
-            blending={AdditiveBlending}
-            color={active ? '#ff6b27' : '#b6532d'}
+            color={VISUAL_PALETTE.playerWarningRed}
             depthWrite={false}
-            opacity={active ? 0.82 : 0.48}
+            opacity={active ? 0.7 : 0.48}
             transparent
           />
         </mesh>
@@ -119,8 +121,11 @@ export function OutpostSignal({
           <mesh key={x} position={[x, 0.13 + index * 0.1, 0]}>
             <octahedronGeometry args={[active ? 0.14 : 0.1, 0]} />
             <meshBasicMaterial
-              color={index === 1 ? '#ffd09a' : '#e76a31'}
-              toneMapped={false}
+              color={
+                index === 1
+                  ? VISUAL_PALETTE.playerHotMetal
+                  : VISUAL_PALETTE.playerAmberEmissive
+              }
             />
           </mesh>
         ))}
@@ -128,10 +133,9 @@ export function OutpostSignal({
           <mesh position-y={0.04} rotation-x={Math.PI / 2}>
             <ringGeometry args={[0.24, 0.38, 24]} />
             <meshBasicMaterial
-              blending={AdditiveBlending}
-              color="#ffcf8b"
+              color={VISUAL_PALETTE.playerHotMetal}
               depthWrite={false}
-              opacity={0.68}
+              opacity={0.44}
               transparent
             />
           </mesh>

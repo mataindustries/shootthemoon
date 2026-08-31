@@ -14,7 +14,8 @@ interface FirstStrikeHudProps {
   readonly onCancel: () => void
   readonly onFire: () => void
   readonly onExploreScar: () => void
-  readonly onPlayAgain: () => void
+  readonly onReturnToOrbit: () => void
+  readonly onReplayStrike: () => void
 }
 
 const STRIKE_CAPTIONS: Readonly<Record<string, string>> = Object.freeze({
@@ -39,7 +40,8 @@ export function FirstStrikeHud({
   onCancel,
   onFire,
   onExploreScar,
-  onPlayAgain,
+  onReturnToOrbit,
+  onReplayStrike,
 }: FirstStrikeHudProps) {
   if (strike === null || rival === null) {
     return null
@@ -121,26 +123,47 @@ export function FirstStrikeHud({
 
       {phase === 'ending' ? (
         <section className="strike-ending" aria-label="Prototype complete">
-          <span>PROTOTYPE COMPLETE</span>
+          <span>NULL MERIDIAN · SIGNAL LOST</span>
           <h1>FIRST STRIKE COMPLETE</h1>
-          <p>THE MOON REMEMBERS.</p>
+          <p>THE MOON REMEMBERS</p>
           <small>Null Meridian's foothold is gone. Its scar remains.</small>
           <div>
             <button type="button" onClick={onExploreScar}>
-              EXPLORE THE SCAR
+              EXPLORE SCAR
             </button>
-            <button type="button" onClick={onPlayAgain}>
-              PLAY AGAIN
+            <button type="button" onClick={onReturnToOrbit}>
+              RETURN TO ORBIT
+            </button>
+            <button type="button" onClick={onReplayStrike}>
+              REPLAY STRIKE
             </button>
           </div>
         </section>
       ) : null}
 
+      {phase === 'scar-explore' ? (
+        <section className="scar-explore-controls" aria-label="Scar exploration">
+          <div>
+            <span>NULL MERIDIAN · IMPACT SITE</span>
+            <b>DRAG TO INSPECT · PINCH TO ZOOM</b>
+          </div>
+          <button type="button" onClick={onReturnToOrbit}>
+            RETURN TO ORBIT
+          </button>
+        </section>
+      ) : null}
+
       {completedIdle ? (
-        <div className="strike-complete-status">
-          <span>FIRST STRIKE COMPLETE</span>
-          <b>PERMANENT SCAR · NULL MERIDIAN</b>
-        </div>
+        <section className="strike-complete-status">
+          <div>
+            <span>FIRST STRIKE COMPLETE</span>
+            <b>PERMANENT SCAR · NULL MERIDIAN</b>
+          </div>
+          <div>
+            <button type="button" onClick={onExploreScar}>EXPLORE SCAR</button>
+            <button type="button" onClick={onReplayStrike}>REPLAY STRIKE</button>
+          </div>
+        </section>
       ) : null}
     </div>
   )

@@ -6,18 +6,14 @@ import {
 } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
-  AdditiveBlending,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
-  CircleGeometry,
   ConeGeometry,
   CubicBezierCurve3,
-  DoubleSide,
   Group,
   InstancedMesh,
   Mesh,
-  MeshBasicMaterial,
   MeshStandardMaterial,
   Object3D,
   OctahedronGeometry,
@@ -33,13 +29,20 @@ import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import type { RivalSignalSnapshot } from '../domain/rival.ts'
 import {
   LOCAL_METRES_TO_RENDER_UNITS,
-  LOCAL_SURFACE_RENDER_OFFSET,
 } from '../render/localSurface.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
-import { RIVAL_SURFACE_CLEARANCE } from './RivalFoothold.tsx'
+import { sampleRenderedSurface } from '../render/renderedSurface.ts'
+import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
+import {
+  EMISSIVE_LIMITS,
+  MATERIAL_RESPONSE,
+  VISUAL_PALETTE,
+} from '../render/visualSystem.ts'
+import { createRivalSurfaceAttachment } from './RivalFoothold.tsx'
 
-const DUST_PARTICLE_COUNT = 84
+const DUST_PARTICLE_COUNT = 68
 const CRAFT_SCALE = LOCAL_METRES_TO_RENDER_UNITS * 1.3
+const IMPACT_FRAGMENT_COUNT = 8
 
 interface DustCloud {
   readonly geometry: BufferGeometry
@@ -51,6 +54,10 @@ export interface RivalRevealEffectsProps {
   readonly playerSite: LandingSite
   readonly rival: RivalSignalSnapshot
   readonly presentation: RivalPresentationState
+  readonly playerTerrain: SurfaceTerrainProfile
+  readonly playerTerrainSegments: number
+  readonly rivalTerrain: SurfaceTerrainProfile
+  readonly rivalTerrainSegments: number
 }
 
 function createRandom(seed: number): () => number {
@@ -77,13 +84,13 @@ function createDustCloud(site: LandingSite): DustCloud {
     const offset = index * 3
     const angle = random() * Math.PI * 2
     const radiusM = 0.8 + random() * 3.8
-    const speedM = 8 + random() * 18
+    const speedM = 7 + random() * 16
 
     origins[offset] = Math.cos(angle) * radiusM
-    origins[offset + 1] = 0.25 + random() * 1.4
+    origins[offset + 1] = 0.2 + random() * 1.1
     origins[offset + 2] = Math.sin(angle) * radiusM
     velocities[offset] = Math.cos(angle) * speedM
-    velocities[offset + 1] = 5 + random() * 13
+    velocities[offset + 1] = 4 + random() * 11
     velocities[offset + 2] = Math.sin(angle) * speedM
     positions[offset] = origins[offset] ?? 0
     positions[offset + 1] = origins[offset + 1] ?? 0
@@ -127,6 +134,10 @@ export function RivalRevealEffects({
   playerSite,
   rival,
   presentation,
+  playerTerrain,
+  playerTerrainSegments,
+  rivalTerrain,
+  rivalTerrainSegments,
 }: RivalRevealEffectsProps) {
   const warningRef = useRef<Group>(null)
   const warningShardRef = useRef<InstancedMesh>(null)
@@ -134,9 +145,8 @@ export function RivalRevealEffects({
   const craftBodyRef = useRef<Mesh>(null)
   const craftCrownRef = useRef<InstancedMesh>(null)
   const impactRef = useRef<Group>(null)
-  const shockRef = useRef<InstancedMesh>(null)
+  const fragmentRef = useRef<InstancedMesh>(null)
   const flashRef = useRef<Group>(null)
-  const scarRef = useRef<Mesh>(null)
   const dummyRef = useRef(new Object3D())
   const temporaryPositionRef = useRef(new Vector3())
   const playerTransform = useMemo(
@@ -153,16 +163,28 @@ export function RivalRevealEffects({
         .clone()
         .addScaledVector(
           playerTransform.up,
-          LOCAL_SURFACE_RENDER_OFFSET + 0.000016,
+          sampleRenderedSurface(
+            playerTerrain,
+            playerTerrainSegments,
+            0,
+            0,
+          ).y + 0.000016,
         ),
-    [playerTransform.position, playerTransform.up],
+    [
+      playerTerrain,
+      playerTerrainSegments,
+      playerTransform.position,
+      playerTransform.up,
+    ],
   )
   const rivalEffectPosition = useMemo(
     () =>
-      rivalTransform.position
-        .clone()
-        .addScaledVector(rivalTransform.up, RIVAL_SURFACE_CLEARANCE),
-    [rivalTransform.position, rivalTransform.up],
+      createRivalSurfaceAttachment(
+        rival.site,
+        rivalTerrain,
+        rivalTerrainSegments,
+      ).position,
+    [rival.site, rivalTerrain, rivalTerrainSegments],
   )
   const identity = getRivalIdentity(rival.identityId)
   const craftPath = useMemo(
@@ -178,21 +200,22 @@ export function RivalRevealEffects({
   const dust = useMemo(() => createDustCloud(rival.site), [rival.site])
 
   const shardGeometry = useMemo(() => new BoxGeometry(1, 1, 1), [])
-  const craftBodyGeometry = useMemo(() => new ConeGeometry(1.38, 8.8, 3), [])
+  const craftBodyGeometry = useMemo(() => new ConeGeometry(1.38, 8.8, 5), [])
   const craftCrownGeometry = useMemo(
-    () => new BoxGeometry(0.52, 3.4, 0.76),
+    () => new BoxGeometry(0.38, 3.6, 0.68),
     [],
   )
   const flashGeometry = useMemo(() => new OctahedronGeometry(1, 1), [])
-  const scarGeometry = useMemo(() => new CircleGeometry(1, 28), [])
+
   const warningMaterial = useMemo(
     () =>
-      new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.signal,
+      new MeshStandardMaterial({
+        color: VISUAL_PALETTE.rivalCyanPanel,
         depthWrite: false,
+        emissive: identity.palette.signal,
+        emissiveIntensity: 0.26,
         opacity: 0,
-        toneMapped: false,
+        roughness: 0.62,
         transparent: true,
       }),
     [identity.palette.signal],
@@ -200,72 +223,52 @@ export function RivalRevealEffects({
   const craftMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: '#29424d',
-        emissive: identity.palette.signal,
-        emissiveIntensity: 0.62,
-        metalness: 0.84,
-        opacity: 1,
-        roughness: 0.25,
-        transparent: true,
+        color: VISUAL_PALETTE.rivalSkeleton,
+        ...MATERIAL_RESPONSE.rivalSkeleton,
       }),
-    [identity.palette.signal],
+    [],
   )
   const craftEdgeMaterial = useMemo(
     () =>
-      new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.signal,
-        depthWrite: false,
-        opacity: 0.86,
-        toneMapped: false,
-        transparent: true,
+      new MeshStandardMaterial({
+        color: VISUAL_PALETTE.rivalCyanPanel,
+        emissive: identity.palette.signal,
+        emissiveIntensity: 0.28,
+        ...MATERIAL_RESPONSE.rivalPanel,
       }),
     [identity.palette.signal],
   )
-  const shockMaterial = useMemo(
+  const fragmentMaterial = useMemo(
     () =>
-      new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.signal,
+      new MeshStandardMaterial({
+        color: VISUAL_PALETTE.lunarShadow,
         depthWrite: false,
         opacity: 0,
-        toneMapped: false,
+        roughness: 0.96,
         transparent: true,
       }),
-    [identity.palette.signal],
+    [],
   )
   const flashMaterial = useMemo(
     () =>
-      new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.highlight,
-        depthTest: false,
+      new MeshStandardMaterial({
+        color: VISUAL_PALETTE.rivalHighlight,
         depthWrite: false,
+        emissive: VISUAL_PALETTE.rivalCyanEmissive,
+        emissiveIntensity: EMISSIVE_LIMITS.activePanel,
         opacity: 0,
-        toneMapped: false,
+        roughness: 0.38,
         transparent: true,
       }),
-    [identity.palette.highlight],
-  )
-  const scarMaterial = useMemo(
-    () =>
-      new MeshBasicMaterial({
-        color: identity.palette.shadow,
-        depthWrite: false,
-        opacity: 0,
-        side: DoubleSide,
-        transparent: true,
-      }),
-    [identity.palette.shadow],
+    [],
   )
   const dustMaterial = useMemo(
     () =>
       new PointsMaterial({
-        blending: AdditiveBlending,
-        color: '#a7bbc0',
+        color: VISUAL_PALETTE.lunarMid,
         depthWrite: false,
         opacity: 0,
-        size: 0.000075,
+        size: 0.000065,
         sizeAttenuation: true,
         transparent: true,
       }),
@@ -278,13 +281,23 @@ export function RivalRevealEffects({
 
     if (warningShards !== null) {
       const dummy = dummyRef.current
+      const angles = [0.28, 1.18, 2.34, 3.26, 4.58, 5.72]
+      const radii = [5.2, 7.25, 5.86, 7.62, 6.35, 5.45]
 
-      for (let index = 0; index < 6; index += 1) {
-        const angle = (index / 6) * Math.PI * 2 + 0.22
-        const radius = index % 2 === 0 ? 5.4 : 7.1
-        dummy.position.set(Math.sin(angle) * radius, 0.14, Math.cos(angle) * radius)
-        dummy.rotation.set(0, angle, index % 2 === 0 ? 0.22 : -0.22)
-        dummy.scale.set(index % 2 === 0 ? 2.1 : 1.25, 0.12, 0.38)
+      for (let index = 0; index < angles.length; index += 1) {
+        const angle = angles[index] ?? 0
+        const radius = radii[index] ?? 6
+        dummy.position.set(
+          Math.sin(angle) * radius,
+          0.14 + (index % 2) * 0.06,
+          Math.cos(angle) * radius,
+        )
+        dummy.rotation.set(0, angle, index % 2 === 0 ? 0.18 : -0.12)
+        dummy.scale.set(
+          index % 2 === 0 ? 1.65 : 1.08,
+          0.09,
+          0.24 + (index % 3) * 0.05,
+        )
         dummy.updateMatrix()
         warningShards.setMatrixAt(index, dummy.matrix)
       }
@@ -296,10 +309,14 @@ export function RivalRevealEffects({
       const dummy = dummyRef.current
 
       for (let index = 0; index < 3; index += 1) {
-        const angle = (index - 1) * 0.78
-        dummy.position.set(Math.sin(angle) * 1.64, 0.75, Math.cos(angle) * 0.44)
-        dummy.rotation.set(0, angle, angle * -0.28)
-        dummy.scale.set(1, 0.9 + index * 0.14, 1)
+        const angle = [-0.72, 0.08, 0.84][index] ?? 0
+        dummy.position.set(
+          Math.sin(angle) * 1.52,
+          0.48 + index * 0.34,
+          Math.cos(angle) * 0.4,
+        )
+        dummy.rotation.set(0, angle, angle * -0.24)
+        dummy.scale.set(1, 0.84 + index * 0.12, 1)
         dummy.updateMatrix()
         craftCrown.setMatrixAt(index, dummy.matrix)
       }
@@ -314,14 +331,12 @@ export function RivalRevealEffects({
       craftBodyGeometry.dispose()
       craftCrownGeometry.dispose()
       flashGeometry.dispose()
-      scarGeometry.dispose()
       dust.geometry.dispose()
       warningMaterial.dispose()
       craftMaterial.dispose()
       craftEdgeMaterial.dispose()
-      shockMaterial.dispose()
+      fragmentMaterial.dispose()
       flashMaterial.dispose()
-      scarMaterial.dispose()
       dustMaterial.dispose()
     },
     [
@@ -333,10 +348,8 @@ export function RivalRevealEffects({
       dustMaterial,
       flashGeometry,
       flashMaterial,
-      scarGeometry,
-      scarMaterial,
+      fragmentMaterial,
       shardGeometry,
-      shockMaterial,
       warningMaterial,
     ],
   )
@@ -348,18 +361,16 @@ export function RivalRevealEffects({
     const craft = craftRef.current
     const craftBody = craftBodyRef.current
     const impact = impactRef.current
-    const shock = shockRef.current
+    const fragments = fragmentRef.current
     const flash = flashRef.current
-    const scar = scarRef.current
 
     if (
       warning === null ||
       craft === null ||
       craftBody === null ||
       impact === null ||
-      shock === null ||
-      flash === null ||
-      scar === null
+      fragments === null ||
+      flash === null
     ) {
       return
     }
@@ -376,9 +387,9 @@ export function RivalRevealEffects({
       Math.sin(warningProgress * Math.PI * 3.4) * 0.5
     warning.visible = warningActive
     warning.rotation.y = warningProgress * 0.52
-    warning.scale.setScalar(0.84 + Math.abs(interruption) * 0.22)
+    warning.scale.setScalar(0.9 + Math.abs(interruption) * 0.12)
     warningMaterial.opacity = warningActive
-      ? (0.18 + Math.abs(interruption) * 0.34) *
+      ? (0.12 + Math.abs(interruption) * 0.2) *
         (presentation.phase === 'warning' ? 1 : warningProgress)
       : 0
 
@@ -395,49 +406,66 @@ export function RivalRevealEffects({
       rival.surfaceHeadingRad + craftProgress * 0.28,
       -0.48 * (1 - craftProgress),
     )
-    const craftFade =
-      presentation.phase === 'impact' ? Math.max(0, 1 - progress / 0.2) : 1
-    const approachScale =
+    const distanceReadabilityScale =
       presentation.phase === 'capsule-approach'
-        ? 1 +
-          (1 - smoothstep((craftProgress - 0.82) / 0.18)) * 55
+        ? 1 + (1 - smoothstep((craftProgress - 0.7) / 0.3)) * 18
         : 1
-    craft.scale.setScalar(CRAFT_SCALE * approachScale)
-    craftBody.castShadow = craftProgress > 0.96
-    craftMaterial.opacity = craftFade
-    craftEdgeMaterial.opacity = craftFade * 0.86
+    const settlingScale =
+      presentation.phase === 'impact'
+        ? 1 - smoothstep(progress / 0.2) * 0.18
+        : 1
+    craft.scale.setScalar(
+      CRAFT_SCALE * distanceReadabilityScale * settlingScale,
+    )
+    craftBody.castShadow = craftProgress > 0.94
 
     const impactState = impactSample(presentation, nowMs)
     impact.visible = impactState.visible
     const impactAge = smoothstep(impactState.age)
-    const flashStrength = Math.sin(Math.min(1, impactAge * 0.92) * Math.PI)
-    flash.scale.setScalar(0.8 + flashStrength * 6.2)
-    flashMaterial.opacity = flashStrength * 0.92 * impactState.fade
-    shockMaterial.opacity = (1 - impactAge) * 0.72 * impactState.fade
-    scarMaterial.opacity = Math.min(0.64, impactAge * 0.78) *
-      Math.max(0.35, impactState.fade)
-    dustMaterial.opacity = Math.sin(impactAge * Math.PI) * 0.58 * impactState.fade
+    const flashCycle = Math.min(1, impactAge * 3.4)
+    const flashStrength = Math.sin(flashCycle * Math.PI)
+    flash.scale.setScalar(0.7 + flashStrength * 3.1)
+    flashMaterial.opacity = flashStrength * 0.5 * impactState.fade
+    fragmentMaterial.opacity =
+      Math.sin(impactAge * Math.PI) * 0.52 * impactState.fade
+    dustMaterial.opacity =
+      Math.sin(impactAge * Math.PI) * 0.42 * impactState.fade
 
-    const shockDummy = dummyRef.current
-    const shockRadiusM = 3.2 + impactAge * 23
+    const fragmentDummy = dummyRef.current
+    const fragmentAngles = [0.16, 0.92, 1.84, 2.58, 3.42, 4.18, 5.06, 5.78]
+    const fragmentRanges = [8.2, 12.5, 9.6, 14.2, 10.8, 13.4, 8.9, 11.7]
 
-    for (let index = 0; index < 8; index += 1) {
-      const angle = (index / 8) * Math.PI * 2
-      shockDummy.position.set(
-        Math.sin(angle) * shockRadiusM,
-        0.22,
-        Math.cos(angle) * shockRadiusM,
+    for (let index = 0; index < IMPACT_FRAGMENT_COUNT; index += 1) {
+      const angle = fragmentAngles[index] ?? 0
+      const range = fragmentRanges[index] ?? 10
+      const radiusM = 2.2 + impactAge * range
+      const lift =
+        0.14 +
+        Math.sin(impactAge * Math.PI) * (0.26 + (index % 3) * 0.16)
+      fragmentDummy.position.set(
+        Math.sin(angle) * radiusM,
+        lift,
+        Math.cos(angle) * radiusM,
       )
-      shockDummy.rotation.set(0, angle, 0)
-      shockDummy.scale.set(1.6 + impactAge * 1.8, 0.12, 2.8)
-      shockDummy.updateMatrix()
-      shock.setMatrixAt(index, shockDummy.matrix)
+      fragmentDummy.rotation.set(
+        index * 0.11,
+        angle + index * 0.04,
+        index % 2 === 0 ? 0.16 : -0.12,
+      )
+      fragmentDummy.scale.set(
+        0.72 + (index % 3) * 0.28,
+        0.08 + impactAge * 0.08,
+        0.78 + (index % 2) * 0.42,
+      )
+      fragmentDummy.updateMatrix()
+      fragments.setMatrixAt(index, fragmentDummy.matrix)
     }
 
-    shock.instanceMatrix.needsUpdate = impactState.visible
-    scar.scale.setScalar(3.5 + impactAge * 15.5)
+    fragments.instanceMatrix.needsUpdate = impactState.visible
 
-    const positionAttribute = dust.geometry.getAttribute('position') as BufferAttribute
+    const positionAttribute = dust.geometry.getAttribute(
+      'position',
+    ) as BufferAttribute
     const positions = positionAttribute.array as Float32Array
 
     for (let index = 0; index < DUST_PARTICLE_COUNT; index += 1) {
@@ -462,10 +490,11 @@ export function RivalRevealEffects({
 
   return (
     <>
-      <group position={playerEffectPosition} quaternion={playerTransform.orientation}>
-        <group
-          scale={LOCAL_METRES_TO_RENDER_UNITS}
-        >
+      <group
+        position={playerEffectPosition}
+        quaternion={playerTransform.orientation}
+      >
+        <group scale={LOCAL_METRES_TO_RENDER_UNITS}>
           <group ref={warningRef} name="rival-warning-disturbance">
             <instancedMesh
               ref={warningShardRef}
@@ -475,7 +504,10 @@ export function RivalRevealEffects({
         </group>
       </group>
 
-      <group position={rivalTransform.position} quaternion={rivalTransform.orientation}>
+      <group
+        position={rivalTransform.position}
+        quaternion={rivalTransform.orientation}
+      >
         <group ref={craftRef} name="rival-insertion-craft" scale={CRAFT_SCALE}>
           <mesh
             ref={craftBodyRef}
@@ -490,26 +522,21 @@ export function RivalRevealEffects({
         </group>
       </group>
 
-      <group position={rivalEffectPosition} quaternion={rivalTransform.orientation}>
+      <group
+        position={rivalEffectPosition}
+        quaternion={rivalTransform.orientation}
+      >
         <group
           ref={impactRef}
           name="rival-impact-effects"
           rotation-y={rival.surfaceHeadingRad}
           scale={LOCAL_METRES_TO_RENDER_UNITS}
         >
-          <mesh
-            ref={scarRef}
-            name="rival-impact-scar"
-            geometry={scarGeometry}
-            material={scarMaterial}
-            position-y={0.08}
-            rotation-x={-Math.PI / 2}
-          />
           <instancedMesh
-            ref={shockRef}
-            args={[shardGeometry, shockMaterial, 8]}
+            ref={fragmentRef}
+            args={[shardGeometry, fragmentMaterial, IMPACT_FRAGMENT_COUNT]}
           />
-          <group ref={flashRef} position-y={1.1}>
+          <group ref={flashRef} position-y={0.92}>
             <mesh geometry={flashGeometry} material={flashMaterial} />
           </group>
           <points

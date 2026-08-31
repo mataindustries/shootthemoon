@@ -32,6 +32,18 @@ function watchBrowserErrors(page: Page): BrowserErrors {
   return errors
 }
 
+async function dismissLaunchGate(page: Page): Promise<void> {
+  const entry = page.getByRole('button', {
+    name: /^(BEGIN INVASION|CONTINUE)$/,
+  })
+
+  if (await entry.isVisible()) {
+    await entry.click()
+  }
+
+  await expect(page.locator('main')).toHaveAttribute('data-entry-open', 'false')
+}
+
 async function openReadyScene(page: Page, initialSave: string): Promise<void> {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'deviceMemory', {
@@ -57,25 +69,40 @@ async function openReadyScene(page: Page, initialSave: string): Promise<void> {
     'data-draw-calls',
     /\d+/,
   )
+  await dismissLaunchGate(page)
 }
 
 async function setStrikePresentation(
   page: Page,
   phase: string,
   progress: number | null,
+  replay = false,
 ): Promise<void> {
   await page.evaluate(
     (detail) =>
       window.dispatchEvent(
         new CustomEvent('first-strike:set-presentation', { detail }),
       ),
-    { phase, progress },
+    { phase, progress, replay },
   )
   await expect(page.locator('main')).toHaveAttribute(
     'data-first-strike-presentation',
     phase,
   )
   await page.waitForTimeout(80)
+}
+
+async function readWebGlState(page: Page): Promise<{
+  readonly contextLost: boolean | null
+  readonly error: number | null
+}> {
+  return page.locator('.scene-canvas canvas').evaluate((canvas) => {
+    const context = canvas.getContext('webgl2')
+    return {
+      contextLost: context?.isContextLost() ?? null,
+      error: context?.getError() ?? null,
+    }
+  })
 }
 
 async function returnToOrbitIfNeeded(page: Page): Promise<void> {
@@ -116,6 +143,22 @@ async function readMetrics(page: Page): Promise<RenderMetrics> {
   }))
 }
 
+async function readSettledMetrics(page: Page): Promise<RenderMetrics> {
+  const viewport = page.viewportSize()
+
+  if (viewport === null) {
+    throw new Error('A fixed viewport is required for settled render metrics.')
+  }
+
+  await page.setViewportSize({
+    width: viewport.width + 1,
+    height: viewport.height,
+  })
+  await page.setViewportSize(viewport)
+  await page.waitForTimeout(120)
+  return readMetrics(page)
+}
+
 async function capture(
   page: Page,
   filename: string,
@@ -136,7 +179,7 @@ test.beforeAll(async () => {
 test('complete First Strike production loop, restoration, orientation, and reset', async ({
   page,
 }) => {
-  test.setTimeout(120_000)
+  test.setTimeout(300_000)
   const errors = watchBrowserErrors(page)
   const metrics: Array<{ phase: string; metrics: RenderMetrics }> = []
   await openReadyScene(page, createStrikeReadySave())
@@ -173,9 +216,10 @@ test('complete First Strike production loop, restoration, orientation, and reset
   await page.getByRole('button', { name: 'FIRE' }).click()
   await expect(main).toHaveAttribute('data-first-strike-status', 'LAUNCHING')
   await setStrikePresentation(page, 'arming', 0.72)
+  await capture(page, '02b-warhead-armed-world.png', metrics)
 
   await advanceStrike(page, 'launch')
-  await setStrikePresentation(page, 'launch', 0.48)
+  await setStrikePresentation(page, 'launch', 0.24)
   await expect(canvas).toHaveAttribute('data-warhead-radius', /\d+/)
   await capture(page, '03-warhead-launch.png', metrics)
 
@@ -218,34 +262,123 @@ test('complete First Strike production loop, restoration, orientation, and reset
   await expect(main).toHaveAttribute('data-ending-complete', 'true')
   await expect(main).toHaveAttribute('data-final-vesper-complete', 'true')
   await expect(page.locator('.strike-ending')).toContainText(
-    'THE MOON REMEMBERS.',
+    'THE MOON REMEMBERS',
   )
   await capture(page, '10-mvp-ending.png', metrics)
+  await page.waitForTimeout(700)
+  const endingSettledFrame = Number(
+    await canvas.getAttribute('data-frame-count'),
+  )
+  await page.waitForTimeout(900)
+  expect(
+    Number(await canvas.getAttribute('data-frame-count')) - endingSettledFrame,
+  ).toBeLessThanOrEqual(1)
 
   const scarLatitude = await main.getAttribute('data-scar-latitude')
   const scarLongitude = await main.getAttribute('data-scar-longitude')
-  const completedSaveBeforeReplayCancel = await page.evaluate(
+  const completedOre = await main.getAttribute('data-lunar-ore')
+  const completedSaveBeforeReplay = await page.evaluate(
     (key) => localStorage.getItem(key),
     OUTPOST_STORAGE_KEY,
   )
-  page.once('dialog', (dialog) => dialog.dismiss())
-  await page.getByRole('button', { name: 'PLAY AGAIN' }).click()
+  const originalEndingMetrics = await readSettledMetrics(page)
+  metrics[metrics.length - 1] = {
+    phase: '10-mvp-ending',
+    metrics: originalEndingMetrics,
+  }
+
+  await page.getByRole('button', { name: 'REPLAY STRIKE' }).click()
+  // Software WebGL can spend longer than the authored 2.4 s arming beat
+  // rendering the first replay frame. Pin the phase immediately so the
+  // deterministic test hook, rather than wall-clock rendering speed, owns it.
+  await setStrikePresentation(page, 'arming', 0.72, true)
   await expect(main).toHaveAttribute('data-first-strike-status', 'COMPLETE')
+  await expect(main).toHaveAttribute('data-first-strike-presentation', 'arming')
+  await expect(main).toHaveAttribute('data-first-strike-replay', 'true')
+  await expect(main).toHaveAttribute('data-render-mode', 'continuous')
+
+  const replayFrames: Array<{ phase: string; metrics: RenderMetrics }> = []
+  const replayPhases = [
+    ['launch', 0.48],
+    ['orbital-flight', 0.55],
+    ['vesper-transmission', 0.46],
+    ['target-approach', 0.82],
+    ['impact-flash', 0.28],
+    ['ejecta', 0.46],
+    ['crater-reveal', 0.7],
+    ['orbital-pullback', 0.82],
+    ['ending', null],
+  ] as const
+
+  for (const [phase, progress] of replayPhases) {
+    await advanceStrike(page, phase)
+    await setStrikePresentation(page, phase, progress, true)
+    replayFrames.push({ phase, metrics: await readMetrics(page) })
+  }
+
+  await expect(main).toHaveAttribute('data-first-strike-status', 'COMPLETE')
+  await expect(main).toHaveAttribute('data-impact-complete', 'true')
+  await expect(main).toHaveAttribute('data-scar-created', 'true')
+  await expect(main).toHaveAttribute('data-scar-latitude', scarLatitude ?? '')
+  await expect(main).toHaveAttribute('data-scar-longitude', scarLongitude ?? '')
+  await expect(main).toHaveAttribute('data-lunar-ore', completedOre ?? '')
+  await expect(main).toHaveAttribute('data-render-mode', 'demand')
   expect(
     await page.evaluate((key) => localStorage.getItem(key), OUTPOST_STORAGE_KEY),
-  ).toBe(completedSaveBeforeReplayCancel)
+  ).toBe(completedSaveBeforeReplay)
 
-  await page.getByRole('button', { name: 'EXPLORE THE SCAR' }).click()
-  await expect(main).toHaveAttribute('data-first-strike-presentation', 'idle')
-  await expect(canvas).toHaveAttribute('data-camera-mode', 'orbit')
+  await expect(canvas).not.toHaveAttribute('data-impact-effect-phase', /.+/)
+  await expect(canvas).not.toHaveAttribute('data-strike-route-progress', /.+/)
+  // The presentation commit disposes transient geometries after its last
+  // demand frame. Compare equally warmed post-cleanup frames rather than one
+  // pre-cleanup sample and one lazy-uploaded sample.
+  const replayEndingMetrics = await readSettledMetrics(page)
+  replayFrames[replayFrames.length - 1] = {
+    phase: 'ending',
+    metrics: replayEndingMetrics,
+  }
+  expect(replayEndingMetrics.drawCalls).toBe(originalEndingMetrics.drawCalls)
+  expect(replayEndingMetrics.triangles).toBe(originalEndingMetrics.triangles)
+  expect(replayEndingMetrics.points).toBe(originalEndingMetrics.points)
+  // renderer.info counts only geometries uploaded in a presented frame. The
+  // close/orbital scar LOD can therefore differ by its two lazy uploads even
+  // when the final scene is identical; cap both settled samples instead of
+  // treating upload order as persistent ownership.
+  expect(
+    Math.max(
+      replayEndingMetrics.geometries,
+      originalEndingMetrics.geometries,
+    ),
+  ).toBeLessThanOrEqual(20)
+  expect(
+    Math.abs(
+      replayEndingMetrics.geometries - originalEndingMetrics.geometries,
+    ),
+  ).toBeLessThanOrEqual(2)
+  expect(replayEndingMetrics.textures).toBe(originalEndingMetrics.textures)
+  expect(replayEndingMetrics.programs).toBe(originalEndingMetrics.programs)
+
+  await page.getByRole('button', { name: 'EXPLORE SCAR' }).click()
+  await expect(main).toHaveAttribute(
+    'data-first-strike-presentation',
+    'scar-explore',
+  )
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'strike-scar-explore')
   await expect(main).toHaveAttribute('data-render-mode', 'demand')
+  expect(Number(await canvas.getAttribute('data-camera-clearance'))).toBeGreaterThanOrEqual(0.018)
+  await capture(page, '13-scar-explore.png', metrics)
   await page.waitForTimeout(700)
   const settledFrame = Number(await canvas.getAttribute('data-frame-count'))
   await page.waitForTimeout(900)
   expect(Number(await canvas.getAttribute('data-frame-count')) - settledFrame).toBeLessThanOrEqual(1)
 
+  await page.getByRole('button', { name: 'RETURN TO ORBIT' }).click()
+  await expect(main).toHaveAttribute('data-first-strike-presentation', 'idle')
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'orbit')
+
   await page.reload()
   await expect(main).toHaveAttribute('data-scene-ready', 'true')
+  await dismissLaunchGate(page)
   await expect(main).toHaveAttribute('data-first-strike-status', 'COMPLETE')
   await expect(main).toHaveAttribute('data-first-strike-presentation', 'idle')
   await expect(main).toHaveAttribute('data-scar-latitude', scarLatitude ?? '')
@@ -259,9 +392,16 @@ test('complete First Strike production loop, restoration, orientation, and reset
   await expect(page.locator('.strike-complete-status')).toBeVisible()
   await capture(page, '12-landscape-completed-state.png', metrics)
 
+  const allStrikeMetrics = [...metrics, ...replayFrames]
+  console.log(
+    'FIRST_STRIKE_FRAME_METRICS ' + JSON.stringify(allStrikeMetrics),
+  )
   expect(await canvas.getAttribute('data-renderer')).toBe('webgl2')
-  expect(Math.max(...metrics.map((entry) => entry.metrics.programs))).toBeLessThanOrEqual(24)
+  expect(Math.max(...allStrikeMetrics.map((entry) => entry.metrics.drawCalls))).toBeLessThanOrEqual(45)
+  expect(Math.max(...allStrikeMetrics.map((entry) => entry.metrics.triangles))).toBeLessThanOrEqual(120_000)
+  expect(Math.max(...allStrikeMetrics.map((entry) => entry.metrics.programs))).toBeLessThanOrEqual(24)
   expect((await readMetrics(page)).textures).toBeLessThanOrEqual(6)
+  expect(await readWebGlState(page)).toEqual({ contextLost: false, error: 0 })
 
   page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: 'RESET PROTOTYPE' }).click()
@@ -271,8 +411,15 @@ test('complete First Strike production loop, restoration, orientation, and reset
   expect(
     await page.evaluate((key) => localStorage.getItem(key), OUTPOST_STORAGE_KEY),
   ).toBeNull()
+  await expect(main).toHaveAttribute('data-entry-open', 'true')
+  await expect(
+    page.getByRole('button', { name: 'BEGIN INVASION' }),
+  ).toBeVisible()
+  await dismissLaunchGate(page)
 
   await page.setViewportSize({ width: 390, height: 844 })
+  await page.waitForTimeout(250)
+  await expect(canvas).toHaveAttribute('data-camera-mode', 'orbit')
   const bounds = await canvas.boundingBox()
   if (bounds === null) throw new Error('Canvas did not have bounds after reset.')
   await page.touchscreen.tap(

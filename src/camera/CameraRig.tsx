@@ -27,10 +27,8 @@ import {
   LOCAL_METRES_TO_RENDER_UNITS,
   LOCAL_SURFACE_RENDER_OFFSET,
 } from '../render/localSurface.ts'
-import {
-  localSurfaceToRender,
-  type SurfaceTerrainProfile,
-} from '../render/surfaceTerrain.ts'
+import { sampleRenderedSurface } from '../render/renderedSurface.ts'
+import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { useCinematicProgress } from './CinematicClock.tsx'
 import {
   getRivalPresentationProgress,
@@ -83,6 +81,7 @@ interface CameraRigProps {
   readonly orbitalFocusSite: LandingSite | null
   readonly outpost: OutpostSnapshot | null
   readonly terrain: SurfaceTerrainProfile | null
+  readonly terrainSegments: number
   readonly rivalSite: LandingSite | null
   readonly dualOrbitPreferred: boolean
   readonly rivalPresentation: RivalPresentationState
@@ -206,6 +205,7 @@ function localPointToWorld(
 function getSurfaceCameraPose(
   site: LandingSite,
   terrain: SurfaceTerrainProfile | null,
+  terrainSegments: number,
 ): SurfaceCameraPose {
   const transform = landingSiteToRenderTransform(site)
   const targetXM = 1.6
@@ -213,7 +213,12 @@ function getSurfaceCameraPose(
   const targetGround =
     terrain === null
       ? LOCAL_SURFACE_RENDER_OFFSET
-      : localSurfaceToRender(terrain, targetXM, targetZM).y
+      : sampleRenderedSurface(
+          terrain,
+          terrainSegments,
+          targetXM,
+          targetZM,
+        ).y
 
   return {
     position: localPointToWorld(site, 0.00115, 0.00255, 0.0043),
@@ -261,6 +266,7 @@ function getSurfaceFocusKind(
 function getSurfaceFocusPose(
   site: LandingSite,
   terrain: SurfaceTerrainProfile,
+  terrainSegments: number,
   outpost: OutpostSnapshot,
   kind: SurfaceFocusKind,
   nowMs: number,
@@ -285,8 +291,9 @@ function getSurfaceFocusPose(
       zM: (kinematics.position.zM + targetDeposit.position.zM) / 2,
     }
   }
-  const ground = localSurfaceToRender(
+  const ground = sampleRenderedSurface(
     terrain,
+    terrainSegments,
     focusPosition.xM,
     focusPosition.zM,
   )
@@ -410,7 +417,8 @@ function applyStrikeProjection(
     phase === 'launch' ||
     phase === 'impact-flash' ||
     phase === 'ejecta' ||
-    phase === 'crater-reveal'
+    phase === 'crater-reveal' ||
+    phase === 'scar-explore'
   const orbital =
     phase === 'orbital-flight' ||
     phase === 'vesper-transmission' ||
@@ -440,6 +448,16 @@ function configureRivalSurfaceControls(controls: OrbitControls): void {
   controls.maxPolarAngle = 1.48
   controls.rotateSpeed = 0.38
   controls.zoomSpeed = 0.56
+}
+
+function configureScarSurfaceControls(controls: OrbitControls): void {
+  controls.enablePan = false
+  controls.minDistance = 0.14
+  controls.maxDistance = 0.72
+  controls.minPolarAngle = 0.28
+  controls.maxPolarAngle = 1.36
+  controls.rotateSpeed = 0.36
+  controls.zoomSpeed = 0.54
 }
 
 function updateCameraDataset(
@@ -473,6 +491,7 @@ export function CameraRig({
   orbitalFocusSite,
   outpost,
   terrain,
+  terrainSegments,
   rivalSite,
   dualOrbitPreferred,
   rivalPresentation,
@@ -565,6 +584,51 @@ export function CameraRig({
 
     const viewportKey = `${viewportSize.width}x${viewportSize.height}`
     const strikePhase = firstStrikePresentation.phase
+
+    if (strikePhase === 'scar-explore') {
+      if (
+        configuredStrikePresentationRef.current?.phase === strikePhase &&
+        configuredStrikePresentationRef.current.viewportKey === viewportKey
+      ) {
+        controls.enabled = true
+        updateCameraDataset(camera, controls)
+        invalidate()
+        return
+      }
+
+      configuredStrikePresentationRef.current = {
+        phase: strikePhase,
+        viewportKey,
+      }
+      configuredRivalPresentationRef.current = null
+      journeyRef.current = null
+      rivalJourneyRef.current = null
+      strikeJourneyRef.current = null
+      clearOrbitControlsTransientState(controls)
+      gl.domElement.dataset.cameraInteracting = 'false'
+      gl.domElement.dataset.cameraMode = 'strike-scar-explore'
+      delete gl.domElement.dataset.cameraPathMinimumRadius
+
+      if (rivalSite === null || orbitalFocusSite === null) {
+        controls.enabled = false
+        invalidate()
+        return
+      }
+
+      const plan = createStrikeCameraPlan(
+        orbitalFocusSite,
+        rivalSite,
+        camera.aspect,
+      )
+      strikePlanRef.current = plan
+      configureScarSurfaceControls(controls)
+      synchronizeOrbitControls(camera, controls, plan.scarExplorePose)
+      applyStrikeProjection(camera, strikePhase)
+      controls.enabled = true
+      updateCameraDataset(camera, controls)
+      invalidate()
+      return
+    }
 
     if (strikePhase !== 'idle') {
       if (
@@ -798,7 +862,11 @@ export function CameraRig({
 
     if (phase === 'approach' && landingSite !== null) {
       const transform = landingSiteToRenderTransform(landingSite)
-      const surfacePose = getSurfaceCameraPose(landingSite, terrain)
+      const surfacePose = getSurfaceCameraPose(
+        landingSite,
+        terrain,
+        terrainSegments,
+      )
       const start = camera.position.clone()
       const end = surfacePose.position
       const controlOne = start
@@ -876,7 +944,11 @@ export function CameraRig({
       controls.zoomSpeed = 0.62
 
       if (landingSite !== null) {
-        const surfacePose = getSurfaceCameraPose(landingSite, terrain)
+        const surfacePose = getSurfaceCameraPose(
+          landingSite,
+          terrain,
+          terrainSegments,
+        )
         synchronizeOrbitControls(camera, controls, surfacePose)
       }
 
@@ -951,6 +1023,14 @@ export function CameraRig({
     const controls = controlsRef.current
 
     if (controls === null) {
+      return
+    }
+
+    if (firstStrikePresentation.phase === 'scar-explore') {
+      configureScarSurfaceControls(controls)
+      applyStrikeProjection(camera, firstStrikePresentation.phase)
+      updateCameraDataset(camera, controls)
+      invalidate()
       return
     }
 
@@ -1034,6 +1114,13 @@ export function CameraRig({
     const controls = controlsRef.current
 
     if (controls === null) {
+      return
+    }
+
+    if (firstStrikePresentation.phase === 'scar-explore') {
+      controls.enabled = true
+      controls.update(Math.min(delta, 0.05))
+      updateCameraDataset(camera, controls)
       return
     }
 
@@ -1153,6 +1240,7 @@ export function CameraRig({
         const focusPose = getSurfaceFocusPose(
           landingSite,
           terrain,
+          terrainSegments,
           outpost,
           focusKind,
           nowMs,

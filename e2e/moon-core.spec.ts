@@ -43,6 +43,18 @@ function watchBrowserErrors(page: Page): BrowserErrors {
   return errors
 }
 
+async function dismissLaunchGate(page: Page): Promise<void> {
+  const entry = page.getByRole('button', {
+    name: /^(BEGIN INVASION|CONTINUE)$/,
+  })
+
+  if (await entry.isVisible()) {
+    await entry.click()
+  }
+
+  await expect(page.locator('main')).toHaveAttribute('data-entry-open', 'false')
+}
+
 async function openReadyScene(
   page: Page,
   initialSave: string | null = null,
@@ -73,6 +85,7 @@ async function openReadyScene(
     'data-draw-calls',
     /\d+/,
   )
+  await dismissLaunchGate(page)
 }
 
 async function canvasCenter(page: Page): Promise<{ x: number; y: number }> {
@@ -590,9 +603,11 @@ test('complete mobile First Outpost loop queues one Rival Signal after extractor
   await expect(main).toHaveAttribute('data-selected-deposit', 'deposit-gamma')
   await expect(page.locator('.deposit-readout')).toContainText('LUNAR ORE')
 
-  await pauseTransitionsWhenRobotState(page, 'mining')
+  await pauseTransitionsWhenRobotState(page, 'traveling')
   await page.getByRole('button', { name: 'MINE DEPOSIT' }).click()
   await expect(main).toHaveAttribute('data-robot-state', 'traveling')
+  await pauseTransitionsWhenRobotState(page, 'mining')
+  await setTransitionsPaused(page, false)
   await expect(main).toHaveAttribute('data-robot-state', 'mining', {
     timeout: 6_000,
   })
@@ -741,6 +756,7 @@ test('Rival Signal camera is invariant across controlled starting orientations',
         'data-scene-ready',
         'true',
       )
+      await dismissLaunchGate(page)
     }
 
     const main = page.locator('main')
@@ -1010,7 +1026,7 @@ test('complete paced Rival Signal reveal restores controllable orbit', async ({
 test('complete migrated-save Rival Signal loop, restoration, reset, and performance', async ({
   page,
 }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
   const errors = watchBrowserErrors(page)
   await openReadyScene(page, createLegacyActiveExtractorSave())
   const main = page.locator('main')
@@ -1265,6 +1281,7 @@ test('complete migrated-save Rival Signal loop, restoration, reset, and performa
 
   await page.reload()
   await expect(main).toHaveAttribute('data-scene-ready', 'true')
+  await dismissLaunchGate(page)
   await expect(main).toHaveAttribute('data-phase', 'landed')
   await expect(main).toHaveAttribute('data-outpost-stage', 'extractor-active')
   await expect(main).toHaveAttribute('data-rival-reveal-state', 'REVEALED')
@@ -1325,6 +1342,11 @@ test('complete migrated-save Rival Signal loop, restoration, reset, and performa
       () => localStorage.getItem('shoot-the-moon:first-outpost:v1'),
     ),
   ).toBeNull()
+  await expect(main).toHaveAttribute('data-entry-open', 'true')
+  await expect(
+    page.getByRole('button', { name: 'BEGIN INVASION' }),
+  ).toBeVisible()
+  await dismissLaunchGate(page)
 })
 
 test('interrupted cinematic normalizes to a held, resumable reveal', async ({
@@ -1348,6 +1370,7 @@ test('interrupted cinematic normalizes to a held, resumable reveal', async ({
   await page.reload()
 
   await expect(main).toHaveAttribute('data-scene-ready', 'true')
+  await dismissLaunchGate(page)
   await expect(main).toHaveAttribute('data-phase', 'landed')
   await expect(main).toHaveAttribute('data-rival-reveal-state', 'QUEUED')
   await expect(main).toHaveAttribute('data-rival-presentation', 'idle')

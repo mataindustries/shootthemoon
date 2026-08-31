@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { Vector3 } from 'three'
+import { PerspectiveCamera, Vector3 } from 'three'
 import {
   createLandingSite,
   createLunarLocation,
   normalizeLongitude,
   surfaceUnitVector,
 } from '../domain/lunarCoordinates.ts'
-import { MOON_RENDER_RADIUS } from '../render/renderCoordinates.ts'
+import {
+  MOON_RENDER_RADIUS,
+  landingSiteToRenderTransform,
+} from '../render/renderCoordinates.ts'
 import { sampleMinimumCameraRadius } from './orbitalCameraPath.ts'
 import {
   STRIKE_CAMERA_SAFETY,
@@ -134,9 +137,51 @@ describe('deterministic First Strike route', () => {
       )).toBeGreaterThanOrEqual(
         STRIKE_CAMERA_SAFETY.approachMinimumRadius - 1e-9,
       )
+      expect(plan.armingPose.position.length()).toBeGreaterThanOrEqual(
+        STRIKE_CAMERA_SAFETY.surfaceMinimumRadius,
+      )
+      expect(plan.launchPose.position.length()).toBeGreaterThanOrEqual(
+        STRIKE_CAMERA_SAFETY.surfaceMinimumRadius,
+      )
+      expect(plan.scarExplorePose.position.length()).toBeGreaterThanOrEqual(
+        STRIKE_CAMERA_SAFETY.surfaceMinimumRadius,
+      )
       expect(plan.finalOrbitPose.position.length()).toBeGreaterThan(
         MOON_RENDER_RADIUS + 2,
       )
+    },
+  )
+
+  it.each([390 / 844, 844 / 390])(
+    'frames the complete permanent damage field with untouched terrain at aspect %f',
+    (aspect) => {
+      const player = site(0.248, -0.684)
+      const rival = site(-0.61, 2.08)
+      const plan = createStrikeCameraPlan(player, rival, aspect)
+      const transform = landingSiteToRenderTransform(rival)
+      const camera = new PerspectiveCamera(aspect < 0.72 ? 52 : 41, aspect)
+      camera.position.copy(plan.scarExplorePose.position)
+      camera.up.copy(plan.scarExplorePose.up)
+      camera.lookAt(plan.scarExplorePose.target)
+      camera.updateMatrixWorld(true)
+
+      for (let index = 0; index < 32; index += 1) {
+        const angle = (index / 32) * Math.PI * 2
+        const radius = 0.09
+        const x = Math.cos(angle) * radius
+        const z = Math.sin(angle) * radius
+        const point = new Vector3(
+          x,
+          Math.sqrt(1 - x * x - z * z) - 1,
+          z,
+        )
+          .applyQuaternion(transform.orientation)
+          .add(transform.position)
+          .project(camera)
+
+        expect(Math.abs(point.x)).toBeLessThan(0.84)
+        expect(Math.abs(point.y)).toBeLessThan(0.84)
+      }
     },
   )
 })

@@ -9,12 +9,14 @@ export type FirstStrikePresentationPhase =
   | 'ejecta'
   | 'crater-reveal'
   | 'orbital-pullback'
+  | 'scar-explore'
   | 'ending'
 
 export interface FirstStrikePresentationState {
   readonly phase: FirstStrikePresentationPhase
   readonly startedAtMs: number
   readonly progressOverride: number | null
+  readonly replay: boolean
 }
 
 export const FIRST_STRIKE_PRESENTATION_DURATIONS_MS: Readonly<
@@ -53,8 +55,9 @@ export function createFirstStrikePresentation(
   phase: FirstStrikePresentationPhase = 'idle',
   startedAtMs = performance.now(),
   progressOverride: number | null = null,
+  replay = false,
 ): FirstStrikePresentationState {
-  return { phase, startedAtMs, progressOverride }
+  return { phase, startedAtMs, progressOverride, replay }
 }
 
 export function getFirstStrikePresentationDurationMs(
@@ -92,13 +95,13 @@ export function getNextAutomaticFirstStrikePhase(
 export function firstStrikeNeedsContinuousFrames(
   phase: FirstStrikePresentationPhase,
 ): boolean {
-  return phase !== 'idle' && phase !== 'ending'
+  return phase !== 'idle' && phase !== 'scar-explore' && phase !== 'ending'
 }
 
 export function firstStrikeLocksCamera(
   phase: FirstStrikePresentationPhase,
 ): boolean {
-  return phase !== 'idle'
+  return phase !== 'idle' && phase !== 'scar-explore'
 }
 
 export function firstStrikeShowsWarhead(

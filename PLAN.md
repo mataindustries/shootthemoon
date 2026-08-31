@@ -1,12 +1,14 @@
 # Shoot the Moon implementation plan
 
-Status: Rival Signal vertical slice implemented, 2026-08-28
+Status: First Strike release-candidate visual implementation and automated
+verification complete, 2026-08-31; physical Android acceptance remains open.
 
 Moon Core remains the technical foundation. The current product slice extends
-it through one complete First Outpost loop: orbit, select, land, deploy one
-miner, mine Lunar Ore, construct one extractor, return to orbit, and revisit a
-persistent claimed site. The architecture and budgets remain gates for every
-extension.
+it through one authored First Strike loop: orbit, claim, land, deploy one
+miner, mine Lunar Ore, construct one extractor, discover and scan Commander
+Vesper's Null Meridian foothold, deliberately arm and launch one lunar warhead,
+and revisit the resulting permanent scar. The architecture and budgets remain
+gates for every extension.
 
 ## Product boundary
 
@@ -24,6 +26,11 @@ The implemented checkpoint contains:
 - one code-authored miner with deterministic deployment, travel, mining,
   return, cargo, and unload states;
 - exactly three stable Lunar Ore deposits and one constructible extractor;
+- one deterministic rival foothold, authored reveal, transmission, and scan;
+- one arm, cancel, confirm, and launch flow with a deterministic 26.1-second
+  First Strike cinematic;
+- one persistent lunar scar at the exact canonical rival coordinate, plus
+  safe transient replay and close scar inspection;
 - a versioned local domain save, safe transient-state restoration, reset, and
   orbit-to-outpost revisit flow;
 - a surface-attached orbital signature that evolves with the outpost;
@@ -31,10 +38,10 @@ The implemented checkpoint contains:
 
 Explicitly excluded are additional buildings, currencies, workers, power
 networks, upgrade trees, crafting, combat, accounts, multiplayer, matchmaking,
-network persistence, elaborate dashboards, other celestial bodies,
-solar-system travel, DOM or canvas gameplay sprites, emoji assets, fake
-perspective, and any 2D gameplay implementation. New scope requires an explicit
-plan change.
+network persistence, territory systems, additional weapons, elaborate
+dashboards, other celestial bodies, solar-system travel, DOM or canvas gameplay
+sprites, emoji assets, fake perspective, and any 2D gameplay implementation.
+New scope requires an explicit plan change.
 
 ## Researched stack baseline
 
@@ -335,6 +342,93 @@ Status: implemented and automated. The cinematic peaks at 19 draw calls and
 32,000 triangles; both signatures use 21 calls and 32,300 triangles; the player
 surface remains at 50 calls and 58,160 triangles. Physical Android acceptance
 remains required.
+
+### M9 — First Strike MVP
+
+M9.1 advances the local save to schema 3 and adds one serializable First Strike
+snapshot. Strike readiness follows the completed Vesper scan; arming requires a
+separate confirmation; interrupted destructive phases normalize to safe domain
+states instead of restoring midway through presentation.
+
+M9.2 adds one code-authored lunar warhead and launcher, a deterministic
+spherical missile route, and a separate camera route. The nine automatic
+presentation phases total exactly 26.1 seconds. Both routes retain sampled
+radial clearance from the Moon, and the missile-follow phase remains the
+signature continuous 3D sequence.
+
+M9.3 commits impact facts at Commander Vesper's canonical foothold coordinate,
+damages Null Meridian, creates one permanent scar, and presents the authored
+ending. Refresh, return to orbit, close scar inspection, replay, and reset do
+not duplicate resources, rival structures, effects, or scars. Replay authority
+is transient presentation state and does not rewrite the completed save.
+
+Acceptance:
+
+- the locked loop remains `claim → land → deploy → mine → construct → reveal →
+  scan → arm → cancel/confirm → launch → impact → ending`;
+- the missile visibly clears the launcher, follows its deterministic safe arc,
+  separates from the camera, and impacts the exact rival coordinate;
+- schema 1 and 2 saves migrate to schema 3, while interrupted launch, impact,
+  ending, and exploration restores normalize safely;
+- complete, replay, refresh, and reset paths preserve domain authority without
+  serializing Three.js objects or presentation animation state;
+- production browser gates cover the strike route, camera clearance, page and
+  WebGL errors, persistence, replay, and demand-idle completed states.
+
+Status: complete at committed checkpoint `d377cb5` ("Complete First Strike
+lunar warhead MVP"). Its preserved baseline measured 33 draw calls, 32,766
+triangles, 24 warmed shader programs, and a JavaScript bundle below the 400 KiB
+gzip ceiling. Physical Android acceptance remained open.
+
+### M10 — release-candidate visual transformation
+
+M10.1 establishes one production renderer and faction material system in
+`src/render/visualSystem.ts`: ACES filmic tone mapping, explicit sRGB output,
+controlled exposure, fixed global sunlight, dark lunar shadow detail, restrained
+emissive values, and shared player, rival, damage, and neutral machinery
+responses. The concise governing rules live in `VISUAL_DIRECTION.md`.
+
+M10.2 rebuilds the capsule, miner, extractor, launcher, warhead, and Null
+Meridian foothold as coherent code-authored hard-surface assemblies. Player
+technology shares blackened industrial armor and amber/red internal light;
+Vesper's site uses a dark asymmetric skeleton with controlled cyan-white
+surgical elements. All structures attach to the final sampled terrain surface,
+not the prior flat tangent plane.
+
+M10.3 replaces symbolic strike presentation with controlled ignition and
+exhaust, vacuum-appropriate radial regolith and ballistic debris, rival-base
+destruction, and a depth-producing permanent crater. The scar combines a
+depressed floor, irregular raised rim, radial ejecta, altered regolith,
+embedded wreckage, cooling thermal points, and close/orbital presentations at
+the same canonical coordinate.
+
+M10.4 adds the `SHOOT THE MOON / FIRST STRIKE` opening gate, `BEGIN INVASION`
+and `CONTINUE` entry, compact contextual strike captions, the
+`FIRST STRIKE COMPLETE / THE MOON REMEMBERS` ending, scar exploration, orbit
+return, and safe strike replay. A discreet toggle gates original Web Audio
+sonification behind user interaction; optional feature-detected vibration is
+reserved for ignition and impact.
+
+Acceptance:
+
+- the existing gameplay states, canonical coordinates, 26.1-second missile and
+  camera timing, save schema, migrations, interruption normalization, and reset
+  behavior remain unchanged;
+- launch, impact, rival reveal, and scar exploration use one fixed world-sun
+  direction while a bounded shadow camera follows only the active close view;
+- no clipped white structures, broad cyan transparency, floating or buried
+  feet, decal-like crater, atmospheric mushroom cloud, or inactive effect loop
+  remains in final evidence;
+- portrait and landscape production evidence includes all 15 required frames
+  and one uninterrupted arming-to-ending recording, separated from the
+  untouched MVP baseline;
+- final automated verification and measured performance remain within the
+  release-candidate gates, followed by physical Android review.
+
+Status: visual implementation, production verification, evidence review, and
+automated performance measurement are complete. Physical Android touch,
+audio/haptics, sustained frame pacing, OLED shadow-detail, and thermal
+acceptance remain open before deployment approval.
 
 ## Verification commands
 

@@ -6,7 +6,6 @@ import {
 } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import {
-  AdditiveBlending,
   BoxGeometry,
   ConeGeometry,
   Group,
@@ -32,6 +31,7 @@ import {
   getRivalPresentationProgress,
   type RivalPresentationState,
 } from '../app/rivalPresentation.ts'
+import { VISUAL_PALETTE } from '../render/visualSystem.ts'
 
 const TAP_DISTANCE_PX = 10
 const SIGNAL_SURFACE_CLEARANCE = 0.00046
@@ -95,7 +95,6 @@ export function RivalSignal({
   const invalidate = useThree((state) => state.invalidate)
   const gl = useThree((state) => state.gl)
   const touchSelectionGate = useMemo(createTouchSelectionGate, [])
-  const identity = getRivalIdentity(rival.identityId)
   const transform = useMemo(
     () => landingSiteToRenderTransform(rival.site),
     [rival.site],
@@ -122,38 +121,35 @@ export function RivalSignal({
   const structureMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.signal,
+        color: VISUAL_PALETTE.rivalCyanPanel,
         depthWrite: false,
-        opacity: 0.72,
-        toneMapped: false,
+        opacity: 0.54,
+        toneMapped: true,
         transparent: true,
       }),
-    [identity.palette.signal],
+    [],
   )
   const highlightMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.highlight,
+        color: VISUAL_PALETTE.rivalCyanEmissive,
         depthWrite: false,
-        opacity: 0.82,
-        toneMapped: false,
+        opacity: 0.62,
+        toneMapped: true,
         transparent: true,
       }),
-    [identity.palette.highlight],
+    [],
   )
   const crownMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
-        blending: AdditiveBlending,
-        color: identity.palette.signal,
+        color: VISUAL_PALETTE.rivalCyanPanel,
         depthWrite: false,
-        opacity: 0.48,
-        toneMapped: false,
+        opacity: 0.34,
+        toneMapped: true,
         transparent: true,
       }),
-    [identity.palette.signal],
+    [],
   )
   const hitMaterial = useMemo(
     () => new MeshBasicMaterial({ visible: false }),
@@ -267,7 +263,7 @@ export function RivalSignal({
     const elapsedMs = state.clock.elapsedTime * 1_000
     const beat = sampleVesperSignalPulse(elapsedMs)
     const distance = state.camera.position.distanceTo(position)
-    const baseScale = Math.max(0.014, Math.min(0.029, distance * 0.0064))
+    const baseScale = Math.max(0.013, Math.min(0.023, distance * 0.0052))
     const presentationProgress = getRivalPresentationProgress(
       presentation,
       performance.now(),
@@ -297,8 +293,8 @@ export function RivalSignal({
     }
 
     shutters.instanceMatrix.needsUpdate = true
-    highlightMaterial.opacity = 0.68 + beat * 0.3
-    crownMaterial.opacity = 0.38 + beat * 0.28 + (focused ? 0.1 : 0)
+    highlightMaterial.opacity = 0.52 + beat * 0.18
+    crownMaterial.opacity = 0.26 + beat * 0.18 + (focused ? 0.08 : 0)
 
     if (isE2e) {
       projectedPointRef.current.copy(position).project(state.camera)

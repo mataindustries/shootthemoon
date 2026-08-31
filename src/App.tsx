@@ -6,8 +6,12 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Canvas } from '@react-three/fiber'
-import type { WebGLRenderer } from 'three'
+import { Canvas, useThree } from '@react-three/fiber'
+import {
+  ACESFilmicToneMapping,
+  SRGBColorSpace,
+  type WebGLRenderer,
+} from 'three'
 import type { LandingSite } from './domain/lunarCoordinates.ts'
 import {
   INITIAL_MOON_CORE_STATE,
@@ -52,6 +56,9 @@ import {
   type FirstStrikePresentationState,
 } from './app/firstStrikePresentation.ts'
 import { FirstStrikeHud } from './app/FirstStrikeHud.tsx'
+import { RENDER_EXPOSURE } from './render/visualSystem.ts'
+import { LaunchGate } from './app/LaunchGate.tsx'
+import { useCinematicAudio } from './audio/useCinematicAudio.ts'
 
 function WebGLFallback() {
   return (
@@ -59,6 +66,49 @@ function WebGLFallback() {
       Moon Core requires a browser with WebGL 2 enabled.
     </p>
   )
+}
+
+function configureRenderer(gl: WebGLRenderer): void {
+  gl.outputColorSpace = SRGBColorSpace
+  gl.toneMapping = ACESFilmicToneMapping
+  gl.toneMappingExposure = RENDER_EXPOSURE
+  gl.domElement.dataset.renderer = 'webgl2'
+}
+
+function WebGlContextRecovery() {
+  const { gl, invalidate } = useThree()
+
+  useEffect(() => {
+    let restorationFrame: number | null = null
+
+    const handleContextRestored = () => {
+      configureRenderer(gl)
+
+      if (restorationFrame !== null) {
+        window.cancelAnimationFrame(restorationFrame)
+      }
+
+      restorationFrame = window.requestAnimationFrame(() => {
+        restorationFrame = null
+        invalidate()
+      })
+    }
+
+    gl.domElement.addEventListener('webglcontextrestored', handleContextRestored)
+
+    return () => {
+      gl.domElement.removeEventListener(
+        'webglcontextrestored',
+        handleContextRestored,
+      )
+
+      if (restorationFrame !== null) {
+        window.cancelAnimationFrame(restorationFrame)
+      }
+    }
+  }, [gl, invalidate])
+
+  return null
 }
 
 const RIVAL_PRESENTATION_PHASES: readonly RivalPresentationPhase[] = [
@@ -87,8 +137,25 @@ const FIRST_STRIKE_PRESENTATION_PHASES: readonly FirstStrikePresentationPhase[] 
   'ejecta',
   'crater-reveal',
   'orbital-pullback',
+  'scar-explore',
   'ending',
 ]
+
+function requestHaptic(pattern: number | number[]): void {
+  try {
+    navigator.vibrate?.(pattern)
+  } catch {
+    // Haptics are an optional enhancement and must never block presentation.
+  }
+}
+
+function stopHaptics(): void {
+  try {
+    navigator.vibrate?.(0)
+  } catch {
+    // Some browsers expose vibration but reject cancellation outside a gesture.
+  }
+}
 
 function isRivalPresentationPhase(
   value: unknown,
@@ -105,6 +172,7 @@ function isFirstStrikePresentationPhase(
 }
 
 function App() {
+  const audio = useCinematicAudio()
   const [restoredPrototype] = useState(() =>
     loadPrototypeSave(window.localStorage),
   )
@@ -137,6 +205,7 @@ function App() {
       createFirstStrikePresentation(),
     )
   const [strikeConfirmationOpen, setStrikeConfirmationOpen] = useState(false)
+  const [entryOpen, setEntryOpen] = useState(true)
   const [previewRivalStage, setPreviewRivalStage] =
     useState<RivalStage | null>(null)
   const [selectedDepositId, setSelectedDepositId] = useState<string | null>(
@@ -149,7 +218,12 @@ function App() {
   const firstStrikeManualControlRef = useRef(false)
   const simulationPausedRef = useRef(false)
   const transitionsPausedRef = useRef(false)
+  const transitionGenerationRef = useRef(0)
+  const entryOpenRef = useRef(entryOpen)
   const rivalHiddenAtRef = useRef<number | null>(null)
+  const previousRobotStateRef = useRef(outpost?.robot.state ?? null)
+  const previousRivalAudioPhaseRef = useRef(rivalPresentation.phase)
+  const previousStrikeAudioPhaseRef = useRef(firstStrikePresentation.phase)
   const [rivalClockRunning, setRivalClockRunning] = useState(
     () => document.visibilityState !== 'hidden',
   )
@@ -158,14 +232,16 @@ function App() {
   const [dpr, setDpr] = useState(() =>
     calculateDpr(window.innerWidth, window.innerHeight, quality.maxDpr),
   )
+  entryOpenRef.current = entryOpen
   const continuousRendering =
-    state.phase === 'approach' ||
-    state.phase === 'returning' ||
-    (outpost !== null &&
-      (isRobotTransient(outpost.robot.state) ||
-        outpost.extractor?.status === 'constructing')) ||
-    rivalPresentationNeedsContinuousFrames(rivalPresentation.phase)
-    || firstStrikeNeedsContinuousFrames(firstStrikePresentation.phase)
+    !entryOpen &&
+    (state.phase === 'approach' ||
+      state.phase === 'returning' ||
+      (outpost !== null &&
+        (isRobotTransient(outpost.robot.state) ||
+          outpost.extractor?.status === 'constructing')) ||
+      rivalPresentationNeedsContinuousFrames(rivalPresentation.phase) ||
+      firstStrikeNeedsContinuousFrames(firstStrikePresentation.phase))
 
   useEffect(() => {
     const updateDpr = () =>
@@ -177,10 +253,15 @@ function App() {
     return () => window.removeEventListener('resize', updateDpr)
   }, [quality.maxDpr])
 
+  useEffect(() => () => stopHaptics(), [])
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
+        transitionGenerationRef.current += 1
         rivalHiddenAtRef.current = performance.now()
+        audio.stopAll()
+        stopHaptics()
         setRivalClockRunning(false)
         return
       }
@@ -216,7 +297,7 @@ function App() {
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () =>
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [])
+  }, [audio.stopAll])
 
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has('e2e')) {
@@ -251,6 +332,7 @@ function App() {
         return
       }
 
+      transitionGenerationRef.current += 1
       setRivalPresentation(
         createRivalPresentation(detail.phase, performance.now(), {
           progressOverride:
@@ -281,6 +363,7 @@ function App() {
         event as CustomEvent<{
           readonly phase: unknown
           readonly progress?: number | null
+          readonly replay?: boolean
         }>
       ).detail
 
@@ -288,12 +371,14 @@ function App() {
         return
       }
 
+      transitionGenerationRef.current += 1
       firstStrikeManualControlRef.current = true
       setFirstStrikePresentation(
         createFirstStrikePresentation(
           detail.phase,
           performance.now(),
           typeof detail.progress === 'number' ? detail.progress : null,
+          detail.replay ?? false,
         ),
       )
     }
@@ -356,6 +441,55 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const nextRobotState = outpost?.robot.state ?? null
+    const previousRobotState = previousRobotStateRef.current
+    previousRobotStateRef.current = nextRobotState
+
+    if (entryOpen || nextRobotState === previousRobotState) return
+
+    if (nextRobotState === 'deploying') audio.play('capsule')
+    if (nextRobotState === 'traveling' || nextRobotState === 'returning') {
+      audio.play('miner')
+    }
+    if (nextRobotState === 'mining') audio.play('drill')
+    if (nextRobotState === 'unloading') audio.play('ui-confirm')
+  }, [audio, entryOpen, outpost?.robot.state])
+
+  useEffect(() => {
+    const phase = rivalPresentation.phase
+    const previousPhase = previousRivalAudioPhaseRef.current
+    previousRivalAudioPhaseRef.current = phase
+    if (entryOpen || phase === previousPhase) return
+
+    if (phase === 'warning' || phase === 'intro-transmission') {
+      audio.play('rival')
+    } else if (phase === 'scanning') {
+      audio.play('scan')
+    } else if (phase === 'scan-response') {
+      audio.play('rival')
+    }
+  }, [audio, entryOpen, rivalPresentation.phase])
+
+  useEffect(() => {
+    const phase = firstStrikePresentation.phase
+    const previousPhase = previousStrikeAudioPhaseRef.current
+    previousStrikeAudioPhaseRef.current = phase
+    if (entryOpen || phase === previousPhase) return
+
+    if (phase === 'arming') audio.play('arm')
+    if (phase === 'launch') {
+      audio.play('ignition')
+      requestHaptic([24, 34, 42])
+    }
+    if (phase === 'orbital-flight') audio.play('flight')
+    if (phase === 'impact-flash') {
+      audio.play('impact')
+      requestHaptic([42, 28, 64])
+    }
+    if (phase === 'ending') audio.play('complete')
+  }, [audio, entryOpen, firstStrikePresentation.phase])
+
+  useEffect(() => {
     if (
       outpost !== null &&
       rival !== null &&
@@ -373,7 +507,7 @@ function App() {
   }, [state.phase])
 
   useEffect(() => {
-    if (state.phase !== 'landed' || outpost === null) {
+    if (entryOpen || state.phase !== 'landed' || outpost === null) {
       return
     }
 
@@ -394,7 +528,7 @@ function App() {
     }, intervalMs)
 
     return () => window.clearInterval(timer)
-  }, [outpost, state.phase])
+  }, [entryOpen, outpost, state.phase])
 
   const beginRivalReveal = useCallback(() => {
     if (
@@ -405,6 +539,7 @@ function App() {
       return
     }
 
+    transitionGenerationRef.current += 1
     dispatchRival({ type: 'beginCinematic', nowMs: Date.now() })
     setRivalPresentation(createRivalPresentation('warning'))
   }, [rival, rivalPresentation.phase])
@@ -429,12 +564,13 @@ function App() {
 
   useEffect(() => {
     if (
+      !entryOpen &&
       rival?.revealStatus === 'AWAITING_SAFE_MOMENT' &&
       state.phase === 'orbit'
     ) {
       dispatchRival({ type: 'safeMomentReached', nowMs: Date.now() })
     }
-  }, [rival?.revealStatus, state.phase])
+  }, [entryOpen, rival?.revealStatus, state.phase])
 
   useEffect(() => {
     if (
@@ -457,6 +593,7 @@ function App() {
 
   useEffect(() => {
     if (
+      entryOpen ||
       rival?.revealStatus !== 'QUEUED' ||
       rivalPresentation.phase !== 'idle' ||
       !rivalClockRunning
@@ -474,7 +611,15 @@ function App() {
     }
 
     let timer = 0
+    const transitionGeneration = transitionGenerationRef.current
     const attemptReveal = () => {
+      if (
+        transitionGeneration !== transitionGenerationRef.current ||
+        entryOpenRef.current
+      ) {
+        return
+      }
+
       if (
         document.visibilityState === 'hidden' ||
         simulationPausedRef.current ||
@@ -491,6 +636,7 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [
     beginRivalReveal,
+    entryOpen,
     rivalClockRunning,
     rival?.revealStatus,
     rivalPresentation.phase,
@@ -505,6 +651,7 @@ function App() {
       return
     }
 
+    transitionGenerationRef.current += 1
     if (currentPhase === 'warning' && state.phase !== 'orbit') {
       dispatch({ type: 'returnToOrbit' })
     }
@@ -561,6 +708,7 @@ function App() {
     )
 
     if (
+      entryOpen ||
       !rivalClockRunning ||
       durationMs === null ||
       rivalPresentation.progressOverride !== null
@@ -569,36 +717,48 @@ function App() {
     }
 
     const elapsedMs = performance.now() - rivalPresentation.startedAtMs
+    const transitionGeneration = transitionGenerationRef.current
     const timer = window.setTimeout(() => {
       // The visibility state changes synchronously, while React may defer this
       // effect's cleanup under load. Never let an already-queued phase timer
       // consume a cinematic while the page is hidden.
-      if (document.visibilityState !== 'hidden') {
+      if (
+        transitionGeneration === transitionGenerationRef.current &&
+        !entryOpenRef.current &&
+        document.visibilityState !== 'hidden'
+      ) {
         advanceRivalPresentation()
       }
     }, Math.max(0, durationMs - elapsedMs))
     return () => window.clearTimeout(timer)
-  }, [advanceRivalPresentation, rivalClockRunning, rivalPresentation])
+  }, [
+    advanceRivalPresentation,
+    entryOpen,
+    rivalClockRunning,
+    rivalPresentation,
+  ])
 
   const advanceFirstStrikePresentation = useCallback(() => {
     const currentPhase = firstStrikePresentation.phase
+    const replay = firstStrikePresentation.replay
     const nextPhase = getNextAutomaticFirstStrikePhase(currentPhase)
 
     if (nextPhase === null) {
       return
     }
 
+    transitionGenerationRef.current += 1
     const nowMs = Date.now()
 
-    if (currentPhase === 'launch') {
+    if (!replay && currentPhase === 'launch') {
       dispatchFirstStrike({ type: 'completeLaunch', nowMs })
     }
 
-    if (currentPhase === 'vesper-transmission') {
+    if (!replay && currentPhase === 'vesper-transmission') {
       dispatchFirstStrike({ type: 'completeFinalTransmission', nowMs })
     }
 
-    if (currentPhase === 'impact-flash' && rival !== null) {
+    if (!replay && currentPhase === 'impact-flash' && rival !== null) {
       dispatchFirstStrike({
         type: 'completeImpact',
         rivalSite: rival.site,
@@ -606,14 +766,14 @@ function App() {
       })
     }
 
-    if (currentPhase === 'orbital-pullback') {
+    if (!replay && currentPhase === 'orbital-pullback') {
       dispatchFirstStrike({ type: 'completeEnding', nowMs })
     }
 
     setFirstStrikePresentation(
-      createFirstStrikePresentation(nextPhase, performance.now()),
+      createFirstStrikePresentation(nextPhase, performance.now(), null, replay),
     )
-  }, [firstStrikePresentation.phase, rival])
+  }, [firstStrikePresentation.phase, firstStrikePresentation.replay, rival])
 
   useEffect(() => {
     advanceFirstStrikePresentationRef.current =
@@ -626,6 +786,7 @@ function App() {
     )
 
     if (
+      entryOpen ||
       !rivalClockRunning ||
       firstStrikeManualControlRef.current ||
       durationMs === null ||
@@ -635,8 +796,13 @@ function App() {
     }
 
     const elapsedMs = performance.now() - firstStrikePresentation.startedAtMs
+    const transitionGeneration = transitionGenerationRef.current
     const timer = window.setTimeout(() => {
-      if (document.visibilityState !== 'hidden') {
+      if (
+        transitionGeneration === transitionGenerationRef.current &&
+        !entryOpenRef.current &&
+        document.visibilityState !== 'hidden'
+      ) {
         advanceFirstStrikePresentation()
       }
     }, Math.max(0, durationMs - elapsedMs))
@@ -644,6 +810,7 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [
     advanceFirstStrikePresentation,
+    entryOpen,
     firstStrikePresentation,
     rivalClockRunning,
   ])
@@ -691,6 +858,7 @@ function App() {
       state.phase === 'orbit' &&
       rivalPresentation.phase === 'idle'
     ) {
+      transitionGenerationRef.current += 1
       setRivalPresentation(createRivalPresentation())
       dispatch({ type: 'revisit', landingSite: outpost.site })
     }
@@ -714,6 +882,7 @@ function App() {
     }
 
     setPreviewRivalStage(null)
+    transitionGenerationRef.current += 1
     setRivalPresentation(createRivalPresentation('rival-focus'))
   }, [firstStrike?.rivalFootholdDamaged, rival, rivalPresentation.phase, state.phase])
 
@@ -726,16 +895,19 @@ function App() {
       return
     }
 
+    transitionGenerationRef.current += 1
     setRivalPresentation(createRivalPresentation('scanning'))
   }, [rival, rivalPresentation.phase])
 
   const handleReturnFromRival = useCallback(() => {
     const phase = rival?.scanCompleted ? 'contested' : 'dual-sites'
+    transitionGenerationRef.current += 1
     setRivalPresentation(createRivalPresentation(phase))
   }, [rival?.scanCompleted])
 
   const handleReplayRival = useCallback(() => {
     if (rival?.replayEligible) {
+      transitionGenerationRef.current += 1
       setRivalPresentation(
         createRivalPresentation('warning', performance.now(), {
           replay: true,
@@ -749,32 +921,36 @@ function App() {
       return
     }
 
+    transitionGenerationRef.current += 1
     setRivalPresentation(createRivalPresentation())
   }, [rival?.skipEligible, rivalPresentation.replay])
 
   const handleDeploy = useCallback(() => {
+    audio.play('ui-confirm')
     dispatchOutpost({ type: 'deploy', nowMs: Date.now() })
-  }, [])
+  }, [audio])
 
   const handleMine = useCallback(() => {
     if (selectedDepositId !== null) {
+      audio.play('ui-confirm')
       dispatchOutpost({
         type: 'mine',
         depositId: selectedDepositId,
         nowMs: Date.now(),
       })
     }
-  }, [selectedDepositId])
+  }, [audio, selectedDepositId])
 
   const handleConstruct = useCallback(() => {
     if (selectedDepositId !== null) {
+      audio.play('capsule')
       dispatchOutpost({
         type: 'constructExtractor',
         depositId: selectedDepositId,
         nowMs: Date.now(),
       })
     }
-  }, [selectedDepositId])
+  }, [audio, selectedDepositId])
 
   const handleArmFirstStrike = useCallback(() => {
     if (firstStrike?.status !== 'READY') {
@@ -782,8 +958,9 @@ function App() {
     }
 
     dispatchFirstStrike({ type: 'arm', nowMs: Date.now() })
+    audio.play('ui-confirm')
     setStrikeConfirmationOpen(true)
-  }, [firstStrike?.status])
+  }, [audio, firstStrike?.status])
 
   const handleOpenStrikeConfirmation = useCallback(() => {
     if (firstStrike?.status === 'ARMED') {
@@ -792,9 +969,10 @@ function App() {
   }, [firstStrike?.status])
 
   const handleCancelStrike = useCallback(() => {
+    audio.play('ui-cancel')
     setStrikeConfirmationOpen(false)
     dispatchFirstStrike({ type: 'cancelLaunchConfirmation' })
-  }, [])
+  }, [audio])
 
   const handleFireFirstStrike = useCallback(() => {
     if (
@@ -805,7 +983,9 @@ function App() {
       return
     }
 
+    transitionGenerationRef.current += 1
     setStrikeConfirmationOpen(false)
+    audio.play('ui-confirm')
     setSelectedDepositId(null)
     setRivalPresentation(createRivalPresentation())
     dispatchFirstStrike({ type: 'fire', nowMs: Date.now() })
@@ -814,11 +994,63 @@ function App() {
     if (state.phase !== 'orbit') {
       dispatch({ type: 'returnToOrbit' })
     }
-  }, [firstStrike?.status, outpost, rival, state.phase])
+  }, [audio, firstStrike?.status, outpost, rival, state.phase])
 
   const handleExploreScar = useCallback(() => {
+    transitionGenerationRef.current += 1
+    audio.stopAll()
+    audio.play('ui-confirm')
+    setFirstStrikePresentation(
+      createFirstStrikePresentation('scar-explore'),
+    )
+  }, [audio])
+
+  const handleReturnFromScar = useCallback(() => {
+    transitionGenerationRef.current += 1
+    audio.stopAll()
+    audio.play('ui-cancel')
     setFirstStrikePresentation(createFirstStrikePresentation())
-  }, [])
+  }, [audio])
+
+  const handleReplayStrike = useCallback(() => {
+    if (
+      firstStrike?.status !== 'COMPLETE' ||
+      outpost === null ||
+      rival === null
+    ) {
+      return
+    }
+
+    transitionGenerationRef.current += 1
+    audio.stopAll()
+    audio.play('ui-confirm')
+    firstStrikeManualControlRef.current = false
+    setStrikeConfirmationOpen(false)
+    setSelectedDepositId(null)
+    setRivalPresentation(createRivalPresentation())
+    setFirstStrikePresentation(
+      createFirstStrikePresentation('arming', performance.now(), null, true),
+    )
+
+    if (state.phase !== 'orbit') dispatch({ type: 'returnToOrbit' })
+  }, [audio, firstStrike?.status, outpost, rival, state.phase])
+
+  const handleBeginExperience = useCallback(() => {
+    entryOpenRef.current = false
+    audio.unlock()
+    audio.play('enter')
+    setEntryOpen(false)
+  }, [audio])
+
+  const handleClaim = useCallback(() => {
+    audio.play('ui-confirm')
+    dispatch({ type: 'claim' })
+  }, [audio])
+
+  const handleClearSite = useCallback(() => {
+    audio.play('ui-cancel')
+    dispatch({ type: 'clearSite' })
+  }, [audio])
 
   const handleResetPrototype = useCallback(() => {
     const confirmed = window.confirm(
@@ -829,6 +1061,10 @@ function App() {
       return
     }
 
+    transitionGenerationRef.current += 1
+    entryOpenRef.current = true
+    audio.reset()
+    stopHaptics()
     saveEnabledRef.current = false
     restoredSessionRef.current = false
     firstStrikeManualControlRef.current = false
@@ -838,15 +1074,15 @@ function App() {
     setRivalPresentation(createRivalPresentation())
     setFirstStrikePresentation(createFirstStrikePresentation())
     setStrikeConfirmationOpen(false)
+    setEntryOpen(true)
     dispatchOutpost({ type: 'reset' })
     dispatchRival({ type: 'reset' })
     dispatchFirstStrike({ type: 'reset' })
     dispatch({ type: 'resetPrototype' })
-  }, [])
+  }, [audio])
 
   const handleCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
-    gl.toneMappingExposure = 1.08
-    gl.domElement.dataset.renderer = 'webgl2'
+    configureRenderer(gl)
   }, [])
 
   const renderedRival = useMemo(
@@ -902,6 +1138,8 @@ function App() {
       data-first-strike-status={firstStrike?.status ?? 'none'}
       data-first-strike-available={firstStrike?.available ?? false}
       data-first-strike-presentation={firstStrikePresentation.phase}
+      data-first-strike-replay={firstStrikePresentation.replay}
+      data-entry-open={entryOpen}
       data-launch-complete={firstStrike?.launchCompleted ?? false}
       data-impact-complete={firstStrike?.impactCompleted ?? false}
       data-rival-damaged={firstStrike?.rivalFootholdDamaged ?? false}
@@ -945,7 +1183,9 @@ function App() {
         onCreated={handleCreated}
         shadows="basic"
       >
+        <WebGlContextRecovery />
         <SceneRoot
+          active={!entryOpen}
           phase={state.phase}
           landingSite={state.landingSite}
           outpost={outpost}
@@ -975,8 +1215,11 @@ function App() {
         lunarControlContested={rival?.scanResponseCompleted ?? false}
         firstStrikeAvailable={firstStrike?.available ?? false}
         firstStrikeComplete={firstStrike?.status === 'COMPLETE'}
-        onClaim={() => dispatch({ type: 'claim' })}
-        onClear={() => dispatch({ type: 'clearSite' })}
+        soundAvailable={audio.available}
+        soundEnabled={audio.enabled}
+        onToggleSound={audio.toggle}
+        onClaim={handleClaim}
+        onClear={handleClearSite}
         onReturn={handleReturnToOrbit}
         onDeploy={handleDeploy}
         onMine={handleMine}
@@ -1013,8 +1256,18 @@ function App() {
         onCancel={handleCancelStrike}
         onFire={handleFireFirstStrike}
         onExploreScar={handleExploreScar}
-        onPlayAgain={handleResetPrototype}
+        onReturnToOrbit={handleReturnFromScar}
+        onReplayStrike={handleReplayStrike}
       />
+      {entryOpen ? (
+        <LaunchGate
+          continuing={outpost !== null || rival !== null || firstStrike !== null}
+          soundAvailable={audio.available}
+          soundEnabled={audio.enabled}
+          onBegin={handleBeginExperience}
+          onToggleSound={audio.toggle}
+        />
+      ) : null}
     </main>
   )
 }

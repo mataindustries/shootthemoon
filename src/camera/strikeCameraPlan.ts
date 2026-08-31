@@ -28,6 +28,7 @@ export interface StrikeCameraPlan {
   readonly flightEndPose: CameraPose
   readonly targetWidePose: CameraPose
   readonly impactPose: CameraPose
+  readonly scarExplorePose: CameraPose
   readonly finalOrbitPose: CameraPose
   readonly flightCamera: SafeOrbitalCameraPath
   readonly transmissionCamera: SafeOrbitalCameraPath
@@ -57,11 +58,11 @@ function getPlayerSurfacePose(
   return {
     position: localPointToWorld(
       playerSite,
-      narrowPortrait ? 0.028 : 0.038,
-      narrowPortrait ? 0.038 : 0.032,
-      narrowPortrait ? 0.065 : 0.052,
+      narrowPortrait ? 0.0075 : 0.01,
+      narrowPortrait ? 0.0225 : 0.0195,
+      narrowPortrait ? 0.013 : 0.016,
     ),
-    target: localPointToWorld(playerSite, 0, 0.006, 0),
+    target: localPointToWorld(playerSite, 0, 0.004, 0),
     up: transform.up.clone(),
   }
 }
@@ -96,6 +97,23 @@ function getImpactPose(
       narrowPortrait ? 0.17 : 0.15,
     ),
     target: localPointToWorld(rivalSite, 0, 0.008, 0),
+    up: transform.up.clone(),
+  }
+}
+
+function getScarExplorePose(
+  rivalSite: LandingSite,
+  narrowPortrait: boolean,
+): CameraPose {
+  const transform = landingSiteToRenderTransform(rivalSite)
+  return {
+    position: localPointToWorld(
+      rivalSite,
+      narrowPortrait ? 0.17 : 0.2,
+      narrowPortrait ? 0.34 : 0.25,
+      narrowPortrait ? 0.43 : 0.38,
+    ),
+    target: localPointToWorld(rivalSite, 0, 0.001, 0),
     up: transform.up.clone(),
   }
 }
@@ -139,11 +157,11 @@ export function createStrikeCameraPlan(
   const launchPose: CameraPose = {
     position: armingPose.position.clone().addScaledVector(
       landingSiteToRenderTransform(playerSite).east,
-      narrowPortrait ? 0.006 : 0.009,
+      narrowPortrait ? 0.001 : 0.002,
     ),
     target: armingPose.target.clone().addScaledVector(
       landingSiteToRenderTransform(playerSite).up,
-      0.014,
+      0.006,
     ),
     up: armingPose.up.clone(),
   }
@@ -192,6 +210,7 @@ export function createStrikeCameraPlan(
     transmissionTarget,
   )
   const impactPose = getImpactPose(rivalSite, narrowPortrait)
+  const scarExplorePose = getScarExplorePose(rivalSite, narrowPortrait)
   const finalOrbitPose = getFinalOrbitPose(
     playerSite,
     rivalSite,
@@ -234,6 +253,7 @@ export function createStrikeCameraPlan(
     flightEndPose,
     targetWidePose,
     impactPose,
+    scarExplorePose,
     finalOrbitPose,
     flightCamera,
     transmissionCamera,

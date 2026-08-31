@@ -14,33 +14,41 @@ import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
-import {
-  localSurfaceToRender,
-  type SurfaceTerrainProfile,
-} from '../render/surfaceTerrain.ts'
+import { sampleRenderedSurface } from '../render/renderedSurface.ts'
+import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { canConstructExtractor } from '../simulation/outpostSimulation.ts'
 import { isSimulationTimePaused } from '../simulation/simulationTime.ts'
+import {
+  EMISSIVE_LIMITS,
+  MATERIAL_RESPONSE,
+  VISUAL_PALETTE,
+} from '../render/visualSystem.ts'
 
 const CRYSTALS_PER_DEPOSIT = 3
 const TAP_DISTANCE_PX = 10
+const CRYSTAL_EMBED_M = 0.035
 
 interface MineralDepositsProps {
   readonly outpost: OutpostSnapshot
   readonly terrain: SurfaceTerrainProfile
+  readonly segments: number
   readonly selectedDepositId: string | null
   readonly interactive: boolean
+  readonly active: boolean
   readonly onSelect: (depositId: string) => void
 }
 
 interface PlacementFootprintProps {
   readonly outpost: OutpostSnapshot
   readonly terrain: SurfaceTerrainProfile
+  readonly segments: number
   readonly selectedDepositId: string | null
 }
 
 function PlacementFootprint({
   outpost,
   terrain,
+  segments,
   selectedDepositId,
 }: PlacementFootprintProps) {
   const deposit =
@@ -56,8 +64,9 @@ function PlacementFootprint({
     return null
   }
 
-  const sample = localSurfaceToRender(
+  const sample = sampleRenderedSurface(
     terrain,
+    segments,
     deposit.position.xM,
     deposit.position.zM,
   )
@@ -89,8 +98,10 @@ function PlacementFootprint({
 export function MineralDeposits({
   outpost,
   terrain,
+  segments,
   selectedDepositId,
   interactive,
+  active,
   onSelect,
 }: MineralDepositsProps) {
   const crystalRef = useRef<InstancedMesh>(null)
@@ -136,11 +147,6 @@ export function MineralDeposits({
     const oreColor = new Color('#d8b284')
 
     outpost.deposits.forEach((deposit, depositIndex) => {
-      const sample = localSurfaceToRender(
-        terrain,
-        deposit.position.xM,
-        deposit.position.zM,
-      )
       const yieldRatio = deposit.remainingYield / deposit.initialYield
       const occupiedScale =
         outpost.extractor?.depositId === deposit.id ? 0.46 : 1
@@ -156,13 +162,48 @@ export function MineralDeposits({
           (0.58 + yieldRatio * 0.42) *
           occupiedScale
         const scale = sizeM * LOCAL_METRES_TO_RENDER_UNITS
-        dummy.position.set(
-          sample.x + Math.sin(angle) * offsetM * LOCAL_METRES_TO_RENDER_UNITS,
-          sample.y + scale * 0.78,
-          sample.z + Math.cos(angle) * offsetM * LOCAL_METRES_TO_RENDER_UNITS,
+        const crystalXM = deposit.position.xM + Math.sin(angle) * offsetM
+        const crystalZM = deposit.position.zM + Math.cos(angle) * offsetM
+        const sample = sampleRenderedSurface(
+          terrain,
+          segments,
+          crystalXM,
+          crystalZM,
         )
-        dummy.rotation.set(0.12 * crystalIndex, angle, 0.16 - crystalIndex * 0.1)
+        dummy.position.set(0, 0, 0)
+        dummy.rotation.set(
+          0.12 * crystalIndex,
+          angle,
+          0.16 - crystalIndex * 0.1,
+        )
         dummy.scale.set(scale * 0.68, scale * 1.45, scale * 0.68)
+        dummy.updateMatrix()
+        const positions = crystalGeometry.getAttribute('position')
+        const vertex = new Vector3()
+        let groundedY = Number.NEGATIVE_INFINITY
+
+        for (
+          let vertexIndex = 0;
+          vertexIndex < positions.count;
+          vertexIndex += 1
+        ) {
+          vertex
+            .fromBufferAttribute(positions, vertexIndex)
+            .applyMatrix4(dummy.matrix)
+          const vertexSurface = sampleRenderedSurface(
+            terrain,
+            segments,
+            crystalXM + vertex.x / LOCAL_METRES_TO_RENDER_UNITS,
+            crystalZM + vertex.z / LOCAL_METRES_TO_RENDER_UNITS,
+          )
+          groundedY = Math.max(groundedY, vertexSurface.y - vertex.y)
+        }
+
+        dummy.position.set(
+          sample.x,
+          groundedY - CRYSTAL_EMBED_M * LOCAL_METRES_TO_RENDER_UNITS,
+          sample.z,
+        )
         dummy.updateMatrix()
         mesh.setMatrixAt(instanceIndex, dummy.matrix)
         mesh.setColorAt(
@@ -177,10 +218,17 @@ export function MineralDeposits({
     if (mesh.instanceColor !== null) {
       mesh.instanceColor.needsUpdate = true
     }
-  }, [crystalsVisible, outpost.deposits, outpost.extractor, terrain])
+  }, [
+    crystalGeometry,
+    crystalsVisible,
+    outpost.deposits,
+    outpost.extractor,
+    segments,
+    terrain,
+  ])
 
   useEffect(() => {
-    if (!crystalsVisible) {
+    if (!active || !crystalsVisible) {
       return
     }
 
@@ -190,7 +238,7 @@ export function MineralDeposits({
       }
     }, 180)
     return () => window.clearInterval(timer)
-  }, [crystalsVisible, invalidate])
+  }, [active, crystalsVisible, invalidate])
 
   useEffect(
     () => () => {
@@ -213,7 +261,7 @@ export function MineralDeposits({
     const indicators = indicatorRef.current
     const beams = beamRef.current
 
-    if (!crystalsVisible || indicators === null || beams === null) {
+    if (!active || !crystalsVisible || indicators === null || beams === null) {
       return
     }
 
@@ -222,8 +270,9 @@ export function MineralDeposits({
     const indicatorColor = indicatorColorRef.current
 
     outpost.deposits.forEach((deposit, index) => {
-      const sample = localSurfaceToRender(
+      const sample = sampleRenderedSurface(
         terrain,
+        segments,
         deposit.position.xM,
         deposit.position.zM,
       )
@@ -325,11 +374,10 @@ export function MineralDeposits({
         onClick={handleCrystalClick}
       >
         <meshStandardMaterial
-          color="#d9ae7a"
-          emissive="#9e401a"
-          emissiveIntensity={1.15}
-          metalness={0.28}
-          roughness={0.48}
+          color={VISUAL_PALETTE.playerHotMetal}
+          emissive={VISUAL_PALETTE.playerAmberEmissive}
+          emissiveIntensity={EMISSIVE_LIMITS.activePanel}
+          {...MATERIAL_RESPONSE.playerHeatDark}
           vertexColors
         />
       </instancedMesh>
@@ -358,8 +406,9 @@ export function MineralDeposits({
         />
       </instancedMesh>
       {outpost.deposits.map((deposit) => {
-        const sample = localSurfaceToRender(
+        const sample = sampleRenderedSurface(
           terrain,
+          segments,
           deposit.position.xM,
           deposit.position.zM,
         )
@@ -385,6 +434,7 @@ export function MineralDeposits({
       <PlacementFootprint
         outpost={outpost}
         terrain={terrain}
+        segments={segments}
         selectedDepositId={selectedDepositId}
       />
     </group>

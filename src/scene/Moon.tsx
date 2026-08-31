@@ -22,6 +22,7 @@ import {
   endTouch,
   resetTouchSelectionGate,
 } from '../interaction/touchSelectionGate.ts'
+import { MATERIAL_RESPONSE } from '../render/visualSystem.ts'
 
 const COLOR_TEXTURE_URL = '/assets/moon/lroc_color_2k.jpg'
 const BUMP_TEXTURE_URL = '/assets/moon/ldem_3_8bit.jpg'
@@ -202,10 +203,10 @@ export function Moon({
         <meshStandardMaterial
           bumpMap={bumpTexture}
           bumpScale={0.022}
-          color="#aeb0b3"
+          color="#aaa8a1"
           map={colorTexture}
-          metalness={0}
-          roughness={0.96}
+          metalness={MATERIAL_RESPONSE.lunar.metalness}
+          roughness={MATERIAL_RESPONSE.lunar.roughness}
         />
       </mesh>
       <RimGlow

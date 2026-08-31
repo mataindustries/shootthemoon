@@ -1,7 +1,8 @@
 # Moon Core Android performance budget
 
-Status: First Strike measured in production, 2026-08-29. Physical Pixel 6a
-frame-time, memory, touch, and thermal acceptance remains open.
+Status: release-candidate production automation measured 2026-08-31. Physical
+Pixel 6a frame-time, memory, touch, audio/haptics, and thermal acceptance
+remains open.
 
 ## Target and measurement conditions
 
@@ -33,7 +34,65 @@ profiling because it changes performance.
 The renderer requires WebGL 2. The app must show its accessible fallback rather
 than attempt a partial 2D implementation when WebGL 2 is unavailable.
 
-## Current checkpoint measurements
+## Release-candidate final measurements
+
+These counters come from the final uncommitted production build at a 390 × 844
+CSS-pixel viewport, DPR 1.0, and the deterministic medium tier. Headless
+Chromium validates scene budgets and lifecycle behavior; it does not substitute
+for physical Android FPS, thermals, driver allocation, or touch latency.
+
+| Player/Rival frame | Draw calls | Triangles | Points | Geometries | Textures | Programs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Fresh orbit | 3 | 31,520 | 640 | 3 | 5 | 3 |
+| Stored player surface | 29 | 55,464 | 694 | 19 | 6 | 13 |
+| Focused active extractor | 42 | 57,656 | 694 | 37 | 6 | 15 |
+| Settled active player surface | 59 | 59,264 | 694 | 34 | 6 | 18 |
+| Rival orbital transition | 9 | 32,016 | 640 | 10 | 5 | 11 |
+| Rival capsule approach | 18 | 32,012 | 640 | 22 | 5 | 13 |
+| Rival impact | 19 | 34,060 | 640 | 16 | 6 | 12 |
+| Both faction signatures | 23 | 32,404 | 640 | 28 | 5 | 14 |
+| Rival focused | 19 | 34,060 | 640 | 16 | 6 | 12 |
+| Rival scan | 25 | 34,404 | 640 | 20 | 6 | 15 |
+
+| First Strike frame | Draw calls | Triangles | Points | Geometries | Textures | Programs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Protocol unlocked | 24 | 32,464 | 640 | 28 | 5 | 14 |
+| Ignition/clearance | 19 | 32,088 | 656 | 26 | 5 | 13 |
+| Missile-follow flight | 14 | 31,896 | 656 | 26 | 5 | 14 |
+| Replay impact peak | 29 | 35,180 | 728 | 20 | 6 | 17 |
+| Ejecta/crater reveal (peak calls) | 33 | 33,917 | 728 | 24 | 5 | 18 |
+| Interactive scar close view | 29 | 33,413 | 640 | 20 | 5 | 14 |
+| Ending | 16 | 32,831 | 640 | 20 | 5 | 14 |
+| Restored completed scar | 22 | 33,327 | 640 | 19 | 5 | 12 |
+
+The final player surface is 59 draw calls, one below the release target. The
+strike peaks at 33 calls, 35,180 triangles, 28 geometries, 6 textures, and 18
+warmed programs, below the 45-call, 120,000-triangle, 6-texture, and 24-program
+ceilings. The stored surface rendered 0 frames over 800 ms; the entry gate,
+ending, and interactive scar each rendered at most one frame over their 900 ms
+idle windows. Bounded scanner, contested-orbit, and settled extractor motion
+used 4/1,000 ms, at most 10/1,400 ms, and at most 8/1,400 ms respectively.
+
+The deliberate WebGL context-loss gate restores the same canvas and schedules
+one demand frame. Chromium queues one `GL_INVALID_OPERATION` while executing
+`WEBGL_lose_context`; after that induced queue is drained, the new restored
+frame reports `NO_ERROR`, no context loss, and no console or page error.
+
+Production transfer/build observations for the final build:
+
+- JavaScript: 1,294,178 bytes minified; Vite reports 353.91 kB gzip and
+  `gzip -9` produces 348,698 bytes (340.53 KiB); SHA-256
+  `d24170c4ac8462c68950b58e57f5bc7bb708efa889cb66ef7dd3e8c92b4b5ca9`;
+- CSS: 27,324 bytes minified; Vite reports 6.38 kB gzip and `gzip -9`
+  produces 6,350 bytes; SHA-256
+  `509e0882fe0553c3d637551595165e8bd756908ae008d94ecb58e45f458e0a84`;
+- HTML: 500 bytes; Vite reports 0.31 kB gzip and `gzip -9` produces 327
+  bytes; SHA-256
+  `bd95faecf0567059b3665eb6f72091007381320f66097d1cadce1bbd9775120a`;
+- the single JavaScript chunk remains 59.47 KiB below the 400 KiB hard gzip
+  ceiling, while retaining Vite's non-blocking raw chunk-size warning.
+
+## Pre-release checkpoint measurements (historical)
 
 These are automated production-build counters, not physical-device frame-time
 evidence. They were captured at a 390 × 844 CSS-pixel viewport, DPR 1.0, a
@@ -134,8 +193,8 @@ Current compromises and mobile risks:
   disabled on the low tier;
 - quality is selected once from memory/core hints and the pixel cap; sustained
   frame-time hysteresis is not implemented yet;
-- the local terrain is a deterministic bounded visual overlay with a shared
-  approximate grounding sampler, not a canonical global height query or a
+- the local terrain is a deterministic bounded visual overlay with an exact
+  rendered-triangle sampler, not a canonical global height query or a
   traversable terrain-tile system;
 - the active scene now clears the 60-call target at 50 calls, but future hero
   structures should preserve that 10-call target headroom;
@@ -266,7 +325,9 @@ The Moon is lit primarily by one sun:
 
 - one DirectionalLight is the direct light;
 - at most one low-cost ambient or hemisphere contribution may aid readability;
-- no point or spot lights affect the first-playable scene;
+- one always-mounted, unshadowed event point light provides bounded launch,
+  impact, scar, and rival close-view readability; it returns to zero intensity
+  outside those beats;
 - no real-time shadow map is active in orbit;
 - no SSAO, bloom, depth of field, motion blur, volumetrics, screen-space
   reflections, or extra post-processing pass is included.

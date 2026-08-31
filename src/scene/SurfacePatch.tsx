@@ -21,14 +21,54 @@ import {
   type SurfaceTerrainProfile,
 } from '../render/surfaceTerrain.ts'
 import { useCinematicProgress } from '../camera/CinematicClock.tsx'
+import {
+  MATERIAL_RESPONSE,
+  VISUAL_PALETTE,
+} from '../render/visualSystem.ts'
 
 const DETAIL_TEXTURE_SIZE = 128
+
+type SurfacePatchShader = Parameters<
+  MeshStandardMaterial['onBeforeCompile']
+>[0]
+
+function featherSurfacePatchEdges(shader: SurfacePatchShader): void {
+  shader.vertexShader = shader.vertexShader
+    .replace(
+      '#include <common>',
+      '#include <common>\nvarying vec2 vSurfacePatchUv;',
+    )
+    .replace(
+      '#include <uv_vertex>',
+      '#include <uv_vertex>\nvSurfacePatchUv = uv;',
+    )
+  shader.fragmentShader = shader.fragmentShader
+    .replace(
+      '#include <common>',
+      '#include <common>\nvarying vec2 vSurfacePatchUv;',
+    )
+    .replace(
+      '#include <alphamap_fragment>',
+      [
+        '#include <alphamap_fragment>',
+        'float patchEdge = min(min(vSurfacePatchUv.x, 1.0 - vSurfacePatchUv.x), min(vSurfacePatchUv.y, 1.0 - vSurfacePatchUv.y));',
+        'float patchFeather = smoothstep(0.0, 0.17, patchEdge);',
+        'diffuseColor.a *= patchFeather;',
+        'if (patchFeather < 0.008) discard;',
+      ].join('\n'),
+    )
+}
+
+function surfacePatchProgramKey(): string {
+  return 'surface-patch-feather-v1'
+}
 
 interface SurfacePatchProps {
   readonly site: LandingSite
   readonly phase: ExperiencePhase
   readonly segments: number
   readonly terrain: SurfaceTerrainProfile
+  readonly maximumOpacity?: number
 }
 
 function createRandom(seed: number): () => number {
@@ -74,9 +114,9 @@ function createSurfaceGeometry(
   const colors = new Float32Array(vertexCount * 3)
   const uvs = new Float32Array(vertexCount * 2)
   const indices: number[] = []
-  const shadow = new Color('#3f4853')
-  const midtone = new Color('#7c8792')
-  const highlight = new Color('#b6bdc3')
+  const shadow = new Color(VISUAL_PALETTE.lunarShadow)
+  const midtone = new Color(VISUAL_PALETTE.lunarMid)
+  const highlight = new Color(VISUAL_PALETTE.lunarSunlit)
   const temporaryColor = new Color()
 
   for (let row = 0; row <= segments; row += 1) {
@@ -150,6 +190,7 @@ export function SurfacePatch({
   phase,
   segments,
   terrain,
+  maximumOpacity = 1,
 }: SurfacePatchProps) {
   const materialRef = useRef<MeshStandardMaterial>(null)
   const progressRef = useCinematicProgress()
@@ -173,8 +214,8 @@ export function SurfacePatch({
     const progress =
       phase === 'landed' || phase === 'returning' ? 1 : progressRef.current
     const reveal = Math.max(0, Math.min(1, (progress - 0.5) / 0.2))
-    material.opacity = smoothstep(reveal)
-    material.depthWrite = reveal > 0.96
+    material.opacity = smoothstep(reveal) * maximumOpacity
+    material.depthWrite = false
   })
 
   return (
@@ -190,15 +231,16 @@ export function SurfacePatch({
           ref={materialRef}
           bumpMap={detailTexture}
           bumpScale={0.000082}
-          color="#a3aab1"
-          emissive="#0c121b"
-          emissiveIntensity={0.24}
-          metalness={0}
-          opacity={phase === 'landed' ? 1 : 0}
+          color="#a39d94"
+          customProgramCacheKey={surfacePatchProgramKey}
+          depthWrite={false}
+          metalness={MATERIAL_RESPONSE.lunar.metalness}
+          onBeforeCompile={featherSurfacePatchEdges}
+          opacity={phase === 'landed' ? maximumOpacity : 0}
           polygonOffset
           polygonOffsetFactor={-1}
           polygonOffsetUnits={-1}
-          roughness={1}
+          roughness={MATERIAL_RESPONSE.lunar.roughness}
           transparent
           vertexColors
         />
