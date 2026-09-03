@@ -9,6 +9,10 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { VISUAL_PALETTE } from '../render/visualSystem.ts'
+import {
+  E2E_HARNESS_BUILD_ENABLED,
+  shouldEnableE2eHarness,
+} from '../testing/e2eHarness.ts'
 
 const TAP_DISTANCE_PX = 10
 
@@ -40,7 +44,11 @@ export function OutpostSignal({
   )
   const active = outpost.stage === 'extractor-active'
   const isE2e = useMemo(
-    () => new URLSearchParams(window.location.search).has('e2e'),
+    () =>
+      shouldEnableE2eHarness(
+        E2E_HARNESS_BUILD_ENABLED,
+        window.location.search,
+      ),
     [],
   )
 

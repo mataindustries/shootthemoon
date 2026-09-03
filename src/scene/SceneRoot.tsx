@@ -47,6 +47,18 @@ import { LunarImpactEffects } from './LunarImpactEffects.tsx'
 import { PermanentLunarScar } from './PermanentLunarScar.tsx'
 import { VISUAL_PALETTE } from '../render/visualSystem.ts'
 import { sampleRenderedSurface } from '../render/renderedSurface.ts'
+import type { CounterstrikeSnapshot } from '../domain/counterstrike.ts'
+import { deriveSecondaryImpactSite } from '../domain/counterstrike.ts'
+import {
+  counterstrikeNeedsContinuousFrames,
+  type CounterstrikeRunState,
+} from '../simulation/counterstrikeSimulation.ts'
+import { CounterstrikeMissileSystem } from './CounterstrikeMissileSystem.tsx'
+import {
+  InterceptedThreatRecord,
+  OrbitalInterceptEffects,
+} from './OrbitalInterceptEffects.tsx'
+import { CounterstrikeDamage } from './CounterstrikeDamage.tsx'
 
 const CLEAR_COLOR = VISUAL_PALETTE.space
 
@@ -59,6 +71,8 @@ interface SceneRootProps {
   readonly rivalPresentation: RivalPresentationState
   readonly firstStrike: FirstStrikeSnapshot | null
   readonly firstStrikePresentation: FirstStrikePresentationState
+  readonly counterstrike: CounterstrikeSnapshot | null
+  readonly counterstrikeRun: CounterstrikeRunState
   readonly selectedDepositId: string | null
   readonly quality: QualitySettings
   readonly onSelect: (site: LandingSite) => void
@@ -88,6 +102,8 @@ export function SceneRoot({
   rivalPresentation,
   firstStrike,
   firstStrikePresentation,
+  counterstrike,
+  counterstrikeRun,
   selectedDepositId,
   quality,
   onSelect,
@@ -118,11 +134,29 @@ export function SceneRoot({
         : createSurfaceTerrainProfile(firstStrike.scar.site),
     [firstStrike?.scar],
   )
+  const counterstrikeTerrain = useMemo(
+    () =>
+      outpost === null ? null : createSurfaceTerrainProfile(outpost.site),
+    [outpost],
+  )
+  const secondaryImpactSite = useMemo(
+    () => (outpost === null ? null : deriveSecondaryImpactSite(outpost)),
+    [outpost],
+  )
   const rivalTerrainSegments = Math.min(quality.patchSegments, 32)
   const playerSurfaceHeight =
     terrain === null
       ? undefined
       : sampleRenderedSurface(terrain, quality.patchSegments, 0, 0).y
+  const counterstrikeSurfaceHeight =
+    counterstrikeTerrain === null
+      ? undefined
+      : sampleRenderedSurface(
+          counterstrikeTerrain,
+          quality.patchSegments,
+          outpost?.extractor?.position.xM ?? 0,
+          outpost?.extractor?.position.zM ?? 0,
+        ).y
   const rivalSurfaceHeight =
     rivalTerrain === null
       ? undefined
@@ -138,6 +172,28 @@ export function SceneRoot({
   const strikeAnimationActive = firstStrikeNeedsContinuousFrames(
     firstStrikePresentation.phase,
   )
+  const counterstrikeAnimationActive = counterstrikeNeedsContinuousFrames(
+    counterstrikeRun.status,
+  )
+  const counterstrikePresentationActive =
+    counterstrikeRun.status !== 'dormant'
+  const counterstrikeVisualOutcome =
+    counterstrikeRun.status === 'impact'
+      ? 'FAILURE'
+      : counterstrikeRun.status === 'success'
+        ? 'SUCCESS'
+        : counterstrikeRun.status === 'resolved'
+          ? counterstrikeRun.outcome
+          : counterstrikeRun.replay
+            ? null
+            : counterstrike?.acceptedOutcome ?? null
+  const counterstrikeFailureVisible =
+    counterstrikeVisualOutcome === 'FAILURE' &&
+    (counterstrikeRun.status === 'impact' ||
+      counterstrikeRun.status === 'resolved')
+  const counterstrikeSuccessVisible =
+    counterstrikeVisualOutcome === 'SUCCESS' &&
+    counterstrikeRun.status === 'resolved'
   const strikePresentationActive = firstStrikePresentation.phase !== 'idle'
   const replayBeforeDamage =
     firstStrikePresentation.replay &&
@@ -185,6 +241,7 @@ export function SceneRoot({
     rivalPresentation.phase === 'scan-response'
   const rivalFootholdVisible =
     rival !== null &&
+    !counterstrikePresentationActive &&
     (phase === 'orbit' ||
       phase === 'selected' ||
       phase === 'returning' ||
@@ -239,6 +296,7 @@ export function SceneRoot({
     (phase === 'orbit' || phase === 'selected') &&
     !rivalAnimationActive &&
     !strikeAnimationActive &&
+    !counterstrikePresentationActive &&
     !rivalDamagedForPresentation
   const closeViewShadows =
     showLandingScene ||
@@ -252,7 +310,10 @@ export function SceneRoot({
     firstStrikePresentation.phase === 'scar-explore'
   useDemandAnimation(
     active &&
-      (outpostAnimationActive || rivalAnimationActive || strikeAnimationActive),
+      (outpostAnimationActive ||
+        rivalAnimationActive ||
+        strikeAnimationActive ||
+        counterstrikeAnimationActive),
   )
   useLowFrequencyDemandAnimation(active && orbitalSignalHeartbeat)
 
@@ -267,7 +328,9 @@ export function SceneRoot({
         phase={phase}
         landingSite={landingSite}
         orbitalFocusSite={
-          strikePresentationActive
+          counterstrikePresentationActive
+            ? outpost?.site ?? null
+            : strikePresentationActive
             ? outpost?.site ?? null
             : firstStrike?.status === 'COMPLETE' && firstStrike.scar !== null
             ? firstStrike.scar.site
@@ -280,11 +343,17 @@ export function SceneRoot({
         dualOrbitPreferred={rival?.stage !== null}
         rivalPresentation={rivalPresentation}
         firstStrikePresentation={firstStrikePresentation}
+        counterstrikeRun={counterstrikeRun}
+        counterstrikeSecondaryImpactSite={secondaryImpactSite}
       />
       <LightingRig
         landingSite={landingSite}
         strategicFocusSite={
-          strikePresentationActive
+          counterstrikePresentationActive
+            ? counterstrikeFailureVisible
+              ? outpost?.site ?? null
+              : null
+            : strikePresentationActive
             ? strikeAtPlayer
               ? outpost?.site ?? null
               : rival?.site ?? null
@@ -294,9 +363,28 @@ export function SceneRoot({
                 ? firstStrike?.scar?.site ?? null
                 : null
         }
-        cinematicReadability={cinematicReadability}
-        enableSurfaceShadows={quality.tier !== 'low'}
-        closeViewShadows={closeViewShadows && !completedScarOrbit}
+        cinematicReadability={
+          cinematicReadability || counterstrikePresentationActive
+        }
+        enableSurfaceShadows={
+          quality.tier !== 'low' && !counterstrikePresentationActive
+        }
+        closeViewShadows={
+          counterstrikeFailureVisible ||
+          (closeViewShadows &&
+            !completedScarOrbit &&
+            !counterstrikePresentationActive)
+        }
+        closeReadLightColor={
+          counterstrikeFailureVisible
+            ? VISUAL_PALETTE.damageEmber
+            : undefined
+        }
+        closeReadLightLocalPosition={
+          counterstrikeFailureVisible
+            ? outpost?.extractor?.position
+            : undefined
+        }
         firstStrikePresentation={firstStrikePresentation}
         residualScarLight={completedScarOrbit}
         surfaceHeight={
@@ -304,7 +392,9 @@ export function SceneRoot({
             ? strikeAtPlayer
               ? playerSurfaceHeight
               : rivalSurfaceHeight
-            : rivalFocused || completedScarOrbit
+            : counterstrikeFailureVisible
+              ? counterstrikeSurfaceHeight
+              : rivalFocused || completedScarOrbit
               ? rivalSurfaceHeight
               : playerSurfaceHeight
         }
@@ -323,12 +413,13 @@ export function SceneRoot({
       </Suspense>
 
       {landingSite !== null && phase === 'selected' && outpost === null ? (
-        <LandingMarker site={landingSite} />
+        <LandingMarker active={active} site={landingSite} />
       ) : null}
 
       {outpost !== null &&
       (phase === 'orbit' || phase === 'selected') &&
       !strikePresentationActive &&
+      !counterstrikePresentationActive &&
       !rivalCloseFocus ? (
         <OutpostSignal
           outpost={outpost}
@@ -346,6 +437,44 @@ export function SceneRoot({
             phase === 'orbit' && rivalPresentation.phase === 'idle'
           }
           onFocus={onFocusRival}
+        />
+      ) : null}
+
+      {outpost !== null &&
+      rival !== null &&
+      secondaryImpactSite !== null &&
+      counterstrikePresentationActive &&
+      counterstrikeRun.status !== 'resolved' &&
+      counterstrikeRun.status !== 'success' ? (
+        <CounterstrikeMissileSystem
+          playerSite={outpost.site}
+          rivalSite={rival.site}
+          secondaryImpactSite={secondaryImpactSite}
+          run={counterstrikeRun}
+        />
+      ) : null}
+
+      {outpost !== null &&
+      rival !== null &&
+      secondaryImpactSite !== null &&
+      counterstrikeRun.status === 'success' ? (
+        <OrbitalInterceptEffects
+          playerSite={outpost.site}
+          rivalSite={rival.site}
+          secondaryImpactSite={secondaryImpactSite}
+          run={counterstrikeRun}
+        />
+      ) : null}
+
+      {outpost !== null &&
+      rival !== null &&
+      secondaryImpactSite !== null &&
+      counterstrikeSuccessVisible ? (
+        <InterceptedThreatRecord
+          playerSite={outpost.site}
+          rivalSite={rival.site}
+          secondaryImpactSite={secondaryImpactSite}
+          interceptProgress={counterstrikeRun.interceptRouteProgress ?? 0.7}
         />
       ) : null}
 
@@ -392,6 +521,7 @@ export function SceneRoot({
       firstStrike?.scar !== undefined &&
       scarTerrain !== null &&
       scarVisibleForPresentation &&
+      !counterstrikeFailureVisible &&
       (phase === 'orbit' ||
         phase === 'selected' ||
         firstStrikePresentation.phase !== 'idle') ? (
@@ -522,9 +652,62 @@ export function SceneRoot({
                 terrain={terrain}
                 segments={quality.patchSegments}
                 signalInterrupted={rivalPresentation.phase === 'warning'}
+                damaged={counterstrikeFailureVisible}
+                damageSequence={counterstrikeRun}
               />
             </>
           ) : null}
+        </>
+      ) : null}
+
+      {counterstrikeFailureVisible &&
+      counterstrikeTerrain !== null &&
+      outpost !== null ? (
+        <>
+          <SurfacePatch
+            site={outpost.site}
+            phase="landed"
+            segments={quality.patchSegments}
+            terrain={counterstrikeTerrain}
+            maximumOpacity={0.9}
+          />
+          {!showLandingScene ? (
+            <>
+              <InvasionCapsule
+                site={outpost.site}
+                phase="landed"
+                outpost={outpost}
+                terrain={counterstrikeTerrain}
+                segments={quality.patchSegments}
+                compact
+              />
+              <MinerRobot
+                outpost={outpost}
+                terrain={counterstrikeTerrain}
+                segments={quality.patchSegments}
+                compact
+              />
+              <Extractor
+                outpost={outpost}
+                terrain={counterstrikeTerrain}
+                segments={quality.patchSegments}
+                damaged
+                compact
+                damageSequence={counterstrikeRun}
+              />
+            </>
+          ) : null}
+          <CounterstrikeDamage
+            outpost={outpost}
+            terrain={counterstrikeTerrain}
+            segments={quality.patchSegments}
+            run={counterstrikeRun}
+            transientImpact={counterstrikeRun.status === 'impact'}
+            permanent={
+              counterstrikeRun.status === 'impact' ||
+              counterstrikeRun.status === 'resolved'
+            }
+          />
         </>
       ) : null}
 

@@ -14,11 +14,18 @@ import {
 import { useFrame } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
-import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
+import {
+  LOCAL_METRES_TO_RENDER_UNITS,
+} from '../render/localSurface.ts'
 import { maximumRenderedSurfaceHeight, sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { EXTRACTOR_CONSTRUCTION_DURATION_MS } from '../simulation/outpostSimulation.ts'
 import { simulationNowMs } from '../simulation/simulationTime.ts'
+import {
+  COUNTERSTRIKE_TIMING,
+  getCounterstrikeRunProgress,
+  type CounterstrikeRunState,
+} from '../simulation/counterstrikeSimulation.ts'
 import {
   EMISSIVE_LIMITS,
   MATERIAL_RESPONSE,
@@ -30,6 +37,9 @@ interface ExtractorProps {
   readonly terrain: SurfaceTerrainProfile
   readonly segments: number
   readonly signalInterrupted?: boolean
+  readonly damaged?: boolean
+  readonly compact?: boolean
+  readonly damageSequence?: CounterstrikeRunState | undefined
 }
 
 const EXTRACTOR_PAD_RADIUS_M = 1.08
@@ -141,6 +151,9 @@ export function Extractor({
   terrain,
   segments,
   signalInterrupted = false,
+  damaged = false,
+  compact = false,
+  damageSequence,
 }: ExtractorProps) {
   const extractor = outpost.extractor
   const rootRef = useRef<Group>(null)
@@ -155,6 +168,9 @@ export function Extractor({
   const drumAccentRef = useRef<InstancedMesh>(null)
   const pumpPartsRef = useRef<InstancedMesh>(null)
   const constructionDustRef = useRef<Group>(null)
+  const damagedPartsRef = useRef<InstancedMesh>(null)
+  const damageDetailsRef = useRef<Group>(null)
+  const damageSparksRef = useRef<Group>(null)
   const transform = useMemo(
     () => landingSiteToRenderTransform(outpost.site),
     [outpost.site],
@@ -181,17 +197,21 @@ export function Extractor({
     () =>
       new MeshStandardMaterial({
         color: VISUAL_PALETTE.playerArmor,
+        emissive: compact && damaged ? VISUAL_PALETTE.damageEmber : '#000000',
+        emissiveIntensity: compact && damaged ? 0.045 : 0,
         ...MATERIAL_RESPONSE.playerArmor,
       }),
-    [],
+    [compact, damaged],
   )
   const steelMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
         color: VISUAL_PALETTE.playerSteel,
+        emissive: compact && damaged ? VISUAL_PALETTE.damageHeat : '#000000',
+        emissiveIntensity: compact && damaged ? 0.035 : 0,
         ...MATERIAL_RESPONSE.playerSteel,
       }),
-    [],
+    [compact, damaged],
   )
   const heatMaterial = useMemo(
     () =>
@@ -208,6 +228,41 @@ export function Extractor({
         emissive: VISUAL_PALETTE.playerAmberEmissive,
         emissiveIntensity: EMISSIVE_LIMITS.panel,
         ...MATERIAL_RESPONSE.playerHeatDark,
+      }),
+    [],
+  )
+  const damagedPartsMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: VISUAL_PALETTE.playerHeatDark,
+        emissive: VISUAL_PALETTE.damageEmber,
+        emissiveIntensity: 0.08,
+        ...MATERIAL_RESPONSE.playerHeatDark,
+      }),
+    [],
+  )
+  const damageSparkGeometry = useMemo(() => {
+    const geometry = new BufferGeometry()
+    const positions = new Float32Array(10 * 3)
+    for (let index = 0; index < 10; index += 1) {
+      const angle = index * 2.399963229728653
+      positions[index * 3] = Math.cos(angle) * (0.12 + (index % 3) * 0.08)
+      positions[index * 3 + 1] = (index % 5) * 0.12
+      positions[index * 3 + 2] = Math.sin(angle) * (0.12 + (index % 4) * 0.06)
+    }
+    geometry.setAttribute('position', new BufferAttribute(positions, 3))
+    return geometry
+  }, [])
+  const damageSparkMaterial = useMemo(
+    () =>
+      new PointsMaterial({
+        color: VISUAL_PALETTE.playerHotMetal,
+        depthWrite: false,
+        opacity: 0.72,
+        size: 0.00008,
+        sizeAttenuation: true,
+        toneMapped: true,
+        transparent: true,
       }),
     [],
   )
@@ -410,6 +465,61 @@ export function Extractor({
     pumpParts.instanceMatrix.needsUpdate = true
   }, [grounding])
 
+  useLayoutEffect(() => {
+    const damagedParts = damagedPartsRef.current
+    if (damagedParts === null) return
+
+    const dummy = new Object3D()
+    const definitions = [
+      {
+        position: [0.72, 1.82, 0.08] as const,
+        rotation: [0.42, 0.3, -0.78] as const,
+        scale: [0.18, 1.3, 0.16] as const,
+      },
+      {
+        position: [-0.62, 0.32, 0.62] as const,
+        rotation: [0.22, -0.5, 0.34] as const,
+        scale: [0.52, 0.12, 0.28] as const,
+      },
+      {
+        position: [0.18, 2.18, -0.12] as const,
+        rotation: [-0.2, 0.52, 1.08] as const,
+        scale: [0.14, 0.82, 0.13] as const,
+      },
+      {
+        position: [-0.76, 1.22, -0.18] as const,
+        rotation: [0.7, -0.24, -0.46] as const,
+        scale: [0.12, 0.7, 0.11] as const,
+      },
+      {
+        position: [0.58, 0.52, -0.54] as const,
+        rotation: [0.3, 0.8, 0.52] as const,
+        scale: [0.46, 0.11, 0.2] as const,
+      },
+    ]
+
+    definitions.forEach((definition, index) => {
+      dummy.position.set(
+        definition.position[0],
+        definition.position[1],
+        definition.position[2],
+      )
+      dummy.rotation.set(
+        definition.rotation[0],
+        definition.rotation[1],
+        definition.rotation[2],
+      )
+      dummy.scale.set(
+        definition.scale[0],
+        definition.scale[1],
+        definition.scale[2],
+      )
+      dummy.updateMatrix()
+      damagedParts.setMatrixAt(index, dummy.matrix)
+    })
+    damagedParts.instanceMatrix.needsUpdate = true
+  }, [])
+
   useEffect(
     () => () => {
       boxGeometry.dispose()
@@ -418,14 +528,20 @@ export function Extractor({
       steelMaterial.dispose()
       heatMaterial.dispose()
       operationMaterial.dispose()
+      damagedPartsMaterial.dispose()
       constructionDustGeometry.dispose()
       constructionDustMaterial.dispose()
+      damageSparkGeometry.dispose()
+      damageSparkMaterial.dispose()
     },
     [
       armorMaterial,
       boxGeometry,
       constructionDustGeometry,
       constructionDustMaterial,
+      damageSparkGeometry,
+      damageSparkMaterial,
+      damagedPartsMaterial,
       heatMaterial,
       operationMaterial,
       serviceGeometry,
@@ -467,9 +583,54 @@ export function Extractor({
       0,
       Math.min(1, (constructionProgress - 0.57) / 0.43),
     )
+    const counterstrikeProgress =
+      damageSequence?.status === 'impact'
+        ? getCounterstrikeRunProgress(damageSequence, performance.now())
+        : 1
+    const impactContactProgress =
+      COUNTERSTRIKE_TIMING.impactContactMs / COUNTERSTRIKE_TIMING.impactMs
+    const damageVisible =
+      damaged &&
+      (damageSequence?.status !== 'impact' ||
+        counterstrikeProgress >= impactContactProgress)
+    const damageImpactProgress = Math.max(
+      0,
+      Math.min(
+        1,
+        (counterstrikeProgress - impactContactProgress) / 0.34,
+      ),
+    )
     baseRef.current.scale.set(1, baseProgress, 1)
     towerRef.current.scale.set(1, towerProgress, 1)
     machineryRef.current.scale.setScalar(machineryProgress)
+    towerRef.current.rotation.z = damageVisible ? 0.27 : 0
+    machineryRef.current.rotation.z = damageVisible ? -0.34 : 0
+    machineryRef.current.position.x = damageVisible ? 0.28 : 0
+    armorMaterial.emissiveIntensity = damageVisible ? 0.085 : 0
+    steelMaterial.emissiveIntensity = damageVisible ? 0.065 : 0
+    if (damagedPartsRef.current !== null) {
+      damagedPartsRef.current.visible = damageVisible
+    }
+    if (damageDetailsRef.current !== null) {
+      damageDetailsRef.current.visible = damageVisible
+    }
+    if (damageSparksRef.current !== null) {
+      const sparkWindow =
+        damageSequence?.status === 'impact' &&
+        damageImpactProgress > 0.04 &&
+        damageImpactProgress < 0.72
+      damageSparksRef.current.visible =
+        sparkWindow &&
+        (Math.sin(state.clock.elapsedTime * 41) > 0.12 ||
+          Math.sin(state.clock.elapsedTime * 17.7) < -0.72)
+      damageSparksRef.current.position.y =
+        1.36 - damageImpactProgress * 0.42
+      damageSparksRef.current.rotation.y = state.clock.elapsedTime * 4.2
+      damageSparkMaterial.opacity = Math.max(
+        0,
+        0.82 - damageImpactProgress * 0.78,
+      )
+    }
 
     if (constructionDustRef.current !== null) {
       constructionDustRef.current.rotation.y = constructionProgress * 1.8
@@ -480,12 +641,22 @@ export function Extractor({
 
     if (extractor.status === 'active') {
       const elapsed = state.clock.elapsedTime
-      drumRef.current.rotation.x = elapsed * 2.8
-      pumpRef.current.rotation.z = -0.16 + Math.sin(elapsed * 3.4) * 0.22
+      drumRef.current.rotation.x = damageVisible ? 0.58 : elapsed * 2.8
+      pumpRef.current.rotation.z = damageVisible
+        ? -0.74
+        : -0.16 + Math.sin(elapsed * 3.4) * 0.22
 
       const interruptionGate =
         Math.sin(elapsed * 27) > 0.2 || Math.sin(elapsed * 11.4) < -0.72
-      operationMaterial.emissiveIntensity = signalInterrupted
+      operationMaterial.emissiveIntensity = damageVisible
+        ? damageSequence?.status === 'impact'
+          ? damageImpactProgress < 0.16
+            ? 0
+            : Math.sin(elapsed * 7.4) > 0.46
+              ? 0.28
+              : 0.028
+          : 0.08
+        : signalInterrupted
         ? interruptionGate
           ? 0.05
           : 0.34
@@ -553,6 +724,7 @@ export function Extractor({
             castShadow
             position={[0, 0.86, 1.02]}
             material={steelMaterial}
+            visible={!compact}
           >
             <cylinderGeometry args={[0.55, 0.24, 0.7, 6, 1, true]} />
           </mesh>
@@ -570,18 +742,48 @@ export function Extractor({
             <instancedMesh
               ref={drumAccentRef}
               args={[boxGeometry, operationMaterial, 2]}
+              visible={!compact}
             />
           </mesh>
-          <group ref={pumpRef} position={[0, 1.38, 0]}>
+          <group ref={pumpRef} position={[0, 1.38, 0]} visible={!compact}>
             <instancedMesh
               ref={pumpPartsRef}
               args={[boxGeometry, steelMaterial, 3]}
               castShadow
             />
           </group>
-          <mesh castShadow position-y={-0.2} rotation-x={Math.PI} material={heatMaterial}>
+          <mesh
+            castShadow
+            position-y={-0.2}
+            rotation-x={Math.PI}
+            material={heatMaterial}
+            visible={!compact}
+          >
             <coneGeometry args={[0.24, 1.12, 8, 2]} />
           </mesh>
+          {damaged ? (
+            <group
+              ref={damageDetailsRef}
+              visible={damageSequence?.status !== 'impact'}
+              name="damaged-extractor-silhouette"
+            >
+              <instancedMesh
+                ref={damagedPartsRef}
+                args={[boxGeometry, damagedPartsMaterial, 5]}
+                castShadow={!compact}
+              />
+              <group
+                ref={damageSparksRef}
+                position={[0.28, 1.36, 0.12]}
+                visible={false}
+              >
+                <points
+                  geometry={damageSparkGeometry}
+                  material={damageSparkMaterial}
+                />
+              </group>
+            </group>
+          ) : null}
         </group>
       </group>
     </group>

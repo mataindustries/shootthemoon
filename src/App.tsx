@@ -59,6 +59,22 @@ import { FirstStrikeHud } from './app/FirstStrikeHud.tsx'
 import { RENDER_EXPOSURE } from './render/visualSystem.ts'
 import { LaunchGate } from './app/LaunchGate.tsx'
 import { useCinematicAudio } from './audio/useCinematicAudio.ts'
+import {
+  COUNTERSTRIKE_TIMING,
+  counterstrikeFactsReducer,
+  counterstrikeNeedsContinuousFrames,
+  counterstrikeRunReducer,
+  createCounterstrikeRunState,
+  getCounterstrikeRunDurationMs,
+  type CounterstrikeRunState,
+  type CounterstrikeRunStatus,
+  type InterceptionJudgement,
+} from './simulation/counterstrikeSimulation.ts'
+import { CounterstrikeHud } from './app/CounterstrikeHud.tsx'
+import {
+  E2E_HARNESS_BUILD_ENABLED,
+  shouldEnableE2eHarness,
+} from './testing/e2eHarness.ts'
 
 function WebGLFallback() {
   return (
@@ -141,6 +157,20 @@ const FIRST_STRIKE_PRESENTATION_PHASES: readonly FirstStrikePresentationPhase[] 
   'ending',
 ]
 
+const COUNTERSTRIKE_RUN_STATUSES: readonly CounterstrikeRunStatus[] = [
+  'dormant',
+  'warning',
+  'tracking',
+  'intercept-ready',
+  'interceptor-launched',
+  'success',
+  'missed',
+  'impact',
+  'resolved',
+]
+
+const COUNTERSTRIKE_ENDING_HOLD_MS = 3_600
+
 function requestHaptic(pattern: number | number[]): void {
   try {
     navigator.vibrate?.(pattern)
@@ -171,13 +201,24 @@ function isFirstStrikePresentationPhase(
   )
 }
 
+function isCounterstrikeRunStatus(
+  value: unknown,
+): value is CounterstrikeRunStatus {
+  return COUNTERSTRIKE_RUN_STATUSES.includes(value as CounterstrikeRunStatus)
+}
+
 function App() {
   const audio = useCinematicAudio()
+  const e2eHarnessActive = shouldEnableE2eHarness(
+    E2E_HARNESS_BUILD_ENABLED,
+    window.location.search,
+  )
   const [restoredPrototype] = useState(() =>
     loadPrototypeSave(window.localStorage),
   )
   const restoredOutpost = restoredPrototype?.outpost ?? null
   const restoredFirstStrike = restoredPrototype?.firstStrike ?? null
+  const restoredCounterstrike = restoredPrototype?.counterstrike ?? null
   const [state, dispatch] = useReducer(
     moonCoreReducer,
     restoredOutpost === null
@@ -198,6 +239,14 @@ function App() {
     firstStrikeReducer,
     restoredFirstStrike,
   )
+  const [counterstrike, dispatchCounterstrike] = useReducer(
+    counterstrikeFactsReducer,
+    restoredCounterstrike,
+  )
+  const [counterstrikeRun, setCounterstrikeRun] =
+    useState<CounterstrikeRunState>(() =>
+      createCounterstrikeRunState(restoredCounterstrike, performance.now()),
+    )
   const [rivalPresentation, setRivalPresentation] =
     useState<RivalPresentationState>(() => createRivalPresentation())
   const [firstStrikePresentation, setFirstStrikePresentation] =
@@ -215,7 +264,10 @@ function App() {
   const restoredSessionRef = useRef(restoredPrototype !== null)
   const advanceRivalPresentationRef = useRef<() => void>(() => undefined)
   const advanceFirstStrikePresentationRef = useRef<() => void>(() => undefined)
+  const advanceCounterstrikeRef = useRef<() => void>(() => undefined)
+  const counterstrikeFireElapsedOverrideRef = useRef<number | null>(null)
   const firstStrikeManualControlRef = useRef(false)
+  const counterstrikeManualControlRef = useRef(false)
   const simulationPausedRef = useRef(false)
   const transitionsPausedRef = useRef(false)
   const transitionGenerationRef = useRef(0)
@@ -224,6 +276,8 @@ function App() {
   const previousRobotStateRef = useRef(outpost?.robot.state ?? null)
   const previousRivalAudioPhaseRef = useRef(rivalPresentation.phase)
   const previousStrikeAudioPhaseRef = useRef(firstStrikePresentation.phase)
+  const previousCounterstrikeAudioStateRef = useRef(counterstrikeRun.status)
+  const counterstrikeImpactCueFiredRef = useRef(false)
   const [rivalClockRunning, setRivalClockRunning] = useState(
     () => document.visibilityState !== 'hidden',
   )
@@ -241,7 +295,8 @@ function App() {
         (isRobotTransient(outpost.robot.state) ||
           outpost.extractor?.status === 'constructing')) ||
       rivalPresentationNeedsContinuousFrames(rivalPresentation.phase) ||
-      firstStrikeNeedsContinuousFrames(firstStrikePresentation.phase))
+      firstStrikeNeedsContinuousFrames(firstStrikePresentation.phase) ||
+      counterstrikeNeedsContinuousFrames(counterstrikeRun.status))
 
   useEffect(() => {
     const updateDpr = () =>
@@ -281,13 +336,19 @@ function App() {
         )
         setFirstStrikePresentation((current) =>
           current.phase === 'idle' ||
-          current.phase === 'ending' ||
+          current.phase === 'scar-explore' ||
           current.progressOverride !== null
             ? current
             : {
                 ...current,
                 startedAtMs: current.startedAtMs + hiddenDurationMs,
               },
+        )
+        setCounterstrikeRun((current) =>
+          counterstrikeRunReducer(current, {
+            type: 'shiftClock',
+            durationMs: hiddenDurationMs,
+          }),
         )
       }
 
@@ -300,7 +361,7 @@ function App() {
   }, [audio.stopAll])
 
   useEffect(() => {
-    if (!new URLSearchParams(window.location.search).has('e2e')) {
+    if (!e2eHarnessActive) {
       return
     }
 
@@ -385,6 +446,103 @@ function App() {
     const advanceFirstStrikePresentationForTest = () => {
       advanceFirstStrikePresentationRef.current()
     }
+    const setCounterstrikeRunForTest = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          readonly status: unknown
+          readonly progress?: number
+          readonly attemptNumber?: 0 | 1 | 2
+          readonly attemptsUsed?: 0 | 1 | 2
+          readonly attemptElapsedMs?: number
+          readonly attemptElapsedAtFireMs?: number | null
+          readonly judgement?: InterceptionJudgement | null
+          readonly outcome?: 'SUCCESS' | 'FAILURE' | null
+          readonly replay?: boolean
+        }>
+      ).detail
+      if (!isCounterstrikeRunStatus(detail.status)) return
+      const status = detail.status
+
+      transitionGenerationRef.current += 1
+      counterstrikeManualControlRef.current = true
+      const nowMs = performance.now()
+      setCounterstrikeRun((current) => {
+        const attemptNumber = detail.attemptNumber ??
+          (status === 'tracking' ||
+          status === 'intercept-ready' ||
+          status === 'interceptor-launched' ||
+          status === 'missed'
+            ? 1
+            : 0)
+        const base: CounterstrikeRunState = {
+          ...current,
+          status,
+          phaseStartedAtMs: nowMs,
+          attemptStartedAtMs:
+            attemptNumber === 0
+              ? null
+              : typeof detail.attemptElapsedMs === 'number'
+                ? nowMs - Math.max(0, detail.attemptElapsedMs)
+                : status === 'intercept-ready'
+                  ? nowMs - COUNTERSTRIKE_TIMING.trackingMs
+                  : nowMs,
+          attemptNumber,
+          attemptsUsed: detail.attemptsUsed ?? current.attemptsUsed,
+          judgement: detail.judgement ?? null,
+          attemptElapsedAtFireMs:
+            detail.attemptElapsedAtFireMs !== undefined
+              ? detail.attemptElapsedAtFireMs
+              : current.attemptElapsedAtFireMs,
+          outcome: detail.outcome ?? null,
+          replay: detail.replay ?? current.replay,
+          threatProgressStart:
+            attemptNumber === 2 ? 0.66 : status === 'warning' ? 0 : 0.08,
+          threatProgressEnd:
+            status === 'warning'
+              ? 0.08
+              : attemptNumber === 2
+                ? status === 'intercept-ready'
+                  ? 0.91
+                  : 0.78
+                : status === 'intercept-ready'
+                  ? 0.58
+                  : 0.4,
+          interceptRouteProgress:
+            status === 'success' ||
+            status === 'resolved' ||
+            status === 'interceptor-launched'
+              ? current.interceptRouteProgress ?? 0.7
+              : null,
+        }
+        const durationMs = getCounterstrikeRunDurationMs(base)
+        const progress = Math.max(0, Math.min(1, detail.progress ?? 0))
+        return {
+          ...base,
+          phaseStartedAtMs:
+            durationMs === null ? nowMs : nowMs - durationMs * progress,
+        }
+      })
+    }
+    const advanceCounterstrikeForTest = () => {
+      advanceCounterstrikeRef.current()
+    }
+    const setCounterstrikeFireElapsedForTest = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          readonly attemptElapsedMs: unknown
+          acknowledged?: boolean
+        }>
+      ).detail
+      const attemptElapsedMs = detail.attemptElapsedMs
+      if (
+        typeof attemptElapsedMs === 'number' &&
+        Number.isFinite(attemptElapsedMs) &&
+        attemptElapsedMs >= 0
+      ) {
+        counterstrikeFireElapsedOverrideRef.current = attemptElapsedMs
+        detail.acknowledged = true
+      }
+    }
 
     window.addEventListener('first-outpost:set-simulation-paused', setPaused)
     window.addEventListener(
@@ -410,6 +568,18 @@ function App() {
     window.addEventListener(
       'first-strike:advance-presentation',
       advanceFirstStrikePresentationForTest,
+    )
+    window.addEventListener(
+      'counterstrike:set-run',
+      setCounterstrikeRunForTest,
+    )
+    window.addEventListener(
+      'counterstrike:advance',
+      advanceCounterstrikeForTest,
+    )
+    window.addEventListener(
+      'counterstrike:set-fire-elapsed',
+      setCounterstrikeFireElapsedForTest,
     )
     return () => {
       window.removeEventListener('first-outpost:set-simulation-paused', setPaused)
@@ -437,8 +607,20 @@ function App() {
         'first-strike:advance-presentation',
         advanceFirstStrikePresentationForTest,
       )
+      window.removeEventListener(
+        'counterstrike:set-run',
+        setCounterstrikeRunForTest,
+      )
+      window.removeEventListener(
+        'counterstrike:advance',
+        advanceCounterstrikeForTest,
+      )
+      window.removeEventListener(
+        'counterstrike:set-fire-elapsed',
+        setCounterstrikeFireElapsedForTest,
+      )
     }
-  }, [])
+  }, [e2eHarnessActive])
 
   useEffect(() => {
     const nextRobotState = outpost?.robot.state ?? null
@@ -490,15 +672,95 @@ function App() {
   }, [audio, entryOpen, firstStrikePresentation.phase])
 
   useEffect(() => {
+    const status = counterstrikeRun.status
+    const previousStatus = previousCounterstrikeAudioStateRef.current
+    previousCounterstrikeAudioStateRef.current = status
+    if (entryOpen || status === previousStatus) return
+
+    if (status === 'warning') {
+      audio.stopAll()
+      audio.play('threat-warning')
+      requestHaptic([28, 46, 28])
+    } else if (status === 'tracking') {
+      audio.play('target-lock')
+    } else if (status === 'intercept-ready') {
+      audio.play('fire-window')
+      requestHaptic(
+        counterstrikeRun.attemptNumber === 2
+          ? [18, 12, 32]
+          : [14, 20, 18],
+      )
+    } else if (status === 'interceptor-launched') {
+      audio.play('interceptor-launch')
+      requestHaptic([22, 20, 38])
+    } else if (status === 'missed') {
+      audio.play('near-miss')
+      requestHaptic([10, 38, 10])
+    } else if (status === 'success') {
+      audio.play('orbital-interception')
+      requestHaptic([28, 22, 34])
+    } else if (status === 'impact') {
+      counterstrikeImpactCueFiredRef.current = false
+    } else if (status === 'resolved') {
+      audio.stopAll()
+      stopHaptics()
+    }
+  }, [
+    audio,
+    counterstrikeRun.attemptNumber,
+    counterstrikeRun.status,
+    entryOpen,
+  ])
+
+  useEffect(() => {
+    if (
+      entryOpen ||
+      !rivalClockRunning ||
+      counterstrikeRun.status !== 'impact' ||
+      counterstrikeImpactCueFiredRef.current
+    ) {
+      return
+    }
+
+    const elapsedMs = performance.now() - counterstrikeRun.phaseStartedAtMs
+    const timer = window.setTimeout(() => {
+      if (
+        document.visibilityState === 'hidden' ||
+        counterstrikeImpactCueFiredRef.current
+      ) {
+        return
+      }
+
+      counterstrikeImpactCueFiredRef.current = true
+      audio.play('structural-impact')
+      requestHaptic([46, 28, 62])
+    }, Math.max(0, COUNTERSTRIKE_TIMING.impactContactMs - elapsedMs))
+
+    return () => window.clearTimeout(timer)
+  }, [
+    audio,
+    counterstrikeRun.phaseStartedAtMs,
+    counterstrikeRun.status,
+    entryOpen,
+    rivalClockRunning,
+  ])
+
+  useEffect(() => {
     if (
       outpost !== null &&
       rival !== null &&
       firstStrike !== null &&
+      counterstrike !== null &&
       saveEnabledRef.current
     ) {
-      writePrototypeSave(window.localStorage, { outpost, rival, firstStrike })
+      writePrototypeSave(window.localStorage, {
+        outpost,
+        rival,
+        firstStrike,
+        counterstrike,
+      })
     }
-  }, [firstStrike, outpost, rival])
+  }, [counterstrike, firstStrike, outpost, rival])
 
   useEffect(() => {
     if (phaseIsAwayFromSurface(state.phase)) {
@@ -590,6 +852,22 @@ function App() {
       nowMs: Date.now(),
     })
   }, [firstStrike, outpost, rival])
+
+  useEffect(() => {
+    if (
+      counterstrike === null ||
+      firstStrike === null ||
+      counterstrike.available
+    ) {
+      return
+    }
+
+    dispatchCounterstrike({
+      type: 'unlock',
+      firstStrike,
+      nowMs: Date.now(),
+    })
+  }, [counterstrike, firstStrike])
 
   useEffect(() => {
     if (
@@ -815,6 +1093,144 @@ function App() {
     rivalClockRunning,
   ])
 
+  const beginCounterstrike = useCallback(
+    (replay: boolean) => {
+      if (
+        counterstrike?.available !== true ||
+        outpost === null ||
+        rival === null ||
+        (replay
+          ? counterstrikeRun.status !== 'resolved' ||
+            !counterstrike.replayEligible
+          : counterstrikeRun.status !== 'dormant' ||
+            counterstrike.acceptedOutcome !== null)
+      ) {
+        return
+      }
+
+      transitionGenerationRef.current += 1
+      audio.stopAll()
+      stopHaptics()
+      firstStrikeManualControlRef.current = false
+      counterstrikeManualControlRef.current = false
+      counterstrikeFireElapsedOverrideRef.current = null
+      setSelectedDepositId(null)
+      setPreviewRivalStage(null)
+      setRivalPresentation(createRivalPresentation())
+      setFirstStrikePresentation(createFirstStrikePresentation())
+      setCounterstrikeRun((current) =>
+        counterstrikeRunReducer(current, {
+          type: 'begin',
+          clockMs: performance.now(),
+          replay,
+        }),
+      )
+    },
+    [audio, counterstrike, counterstrikeRun.status, outpost, rival],
+  )
+
+  useEffect(() => {
+    if (
+      entryOpen ||
+      !rivalClockRunning ||
+      firstStrikeManualControlRef.current ||
+      firstStrikePresentation.phase !== 'ending' ||
+      firstStrikePresentation.replay ||
+      counterstrike?.available !== true ||
+      counterstrike.acceptedOutcome !== null ||
+      counterstrikeRun.status !== 'dormant'
+    ) {
+      return
+    }
+
+    const elapsedMs = performance.now() - firstStrikePresentation.startedAtMs
+    const transitionGeneration = transitionGenerationRef.current
+    const timer = window.setTimeout(() => {
+      if (
+        transitionGeneration === transitionGenerationRef.current &&
+        !entryOpenRef.current &&
+        document.visibilityState !== 'hidden'
+      ) {
+        beginCounterstrike(false)
+      }
+    }, Math.max(0, COUNTERSTRIKE_ENDING_HOLD_MS - elapsedMs))
+
+    return () => window.clearTimeout(timer)
+  }, [
+    beginCounterstrike,
+    counterstrike?.acceptedOutcome,
+    counterstrike?.available,
+    counterstrikeRun.status,
+    entryOpen,
+    firstStrikePresentation,
+    rivalClockRunning,
+  ])
+
+  const advanceCounterstrike = useCallback(() => {
+    transitionGenerationRef.current += 1
+    setCounterstrikeRun((current) =>
+      counterstrikeRunReducer(current, {
+        type: 'advance',
+        clockMs: performance.now(),
+      }),
+    )
+  }, [])
+
+  useEffect(() => {
+    advanceCounterstrikeRef.current = advanceCounterstrike
+  }, [advanceCounterstrike])
+
+  useEffect(() => {
+    const durationMs = getCounterstrikeRunDurationMs(counterstrikeRun)
+    if (
+      entryOpen ||
+      !rivalClockRunning ||
+      counterstrikeManualControlRef.current ||
+      durationMs === null
+    ) {
+      return
+    }
+
+    const elapsedMs = performance.now() - counterstrikeRun.phaseStartedAtMs
+    const transitionGeneration = transitionGenerationRef.current
+    const timer = window.setTimeout(() => {
+      if (
+        transitionGeneration === transitionGenerationRef.current &&
+        !entryOpenRef.current &&
+        document.visibilityState !== 'hidden'
+      ) {
+        advanceCounterstrike()
+      }
+    }, Math.max(0, durationMs - elapsedMs))
+
+    return () => window.clearTimeout(timer)
+  }, [
+    advanceCounterstrike,
+    counterstrikeRun,
+    entryOpen,
+    rivalClockRunning,
+  ])
+
+  useEffect(() => {
+    if (
+      counterstrikeRun.status !== 'resolved' ||
+      counterstrikeRun.replay ||
+      counterstrikeRun.outcome === null ||
+      counterstrike === null ||
+      counterstrike.acceptedOutcome !== null ||
+      outpost === null
+    ) {
+      return
+    }
+
+    dispatchCounterstrike({
+      type: 'acceptOutcome',
+      outcome: counterstrikeRun.outcome,
+      outpost,
+      nowMs: Date.now(),
+    })
+  }, [counterstrike, counterstrikeRun, outpost])
+
   const handleSelect = useCallback((landingSite: LandingSite) => {
     if (outpost === null) {
       dispatch({ type: 'select', landingSite })
@@ -837,6 +1253,7 @@ function App() {
         nowMs,
       })
       dispatchFirstStrike({ type: 'establish', nowMs })
+      dispatchCounterstrike({ type: 'establish', nowMs })
     } else if (outpost !== null) {
       dispatchOutpost({ type: 'resumeSurface', nowMs })
     }
@@ -1035,6 +1452,80 @@ function App() {
     if (state.phase !== 'orbit') dispatch({ type: 'returnToOrbit' })
   }, [audio, firstStrike?.status, outpost, rival, state.phase])
 
+  const handleBeginCounterstrike = useCallback(() => {
+    beginCounterstrike(false)
+    audio.play('ui-confirm')
+  }, [audio, beginCounterstrike])
+
+  const handleFireInterceptor = useCallback(() => {
+    setCounterstrikeRun((current) => {
+      const elapsedOverride = e2eHarnessActive
+        ? counterstrikeFireElapsedOverrideRef.current
+        : null
+      counterstrikeFireElapsedOverrideRef.current = null
+      const clockMs =
+        elapsedOverride !== null && current.attemptStartedAtMs !== null
+          ? current.attemptStartedAtMs + elapsedOverride
+          : performance.now()
+      return counterstrikeRunReducer(current, {
+        type: 'fire',
+        clockMs,
+      })
+    })
+  }, [e2eHarnessActive])
+
+  const handleReplayCounterstrike = useCallback(() => {
+    beginCounterstrike(true)
+    audio.play('ui-confirm')
+  }, [audio, beginCounterstrike])
+
+  const handleAcceptCounterstrikePreview = useCallback(() => {
+    if (
+      counterstrikeRun.status !== 'resolved' ||
+      !counterstrikeRun.replay ||
+      counterstrikeRun.outcome === null ||
+      counterstrike === null ||
+      outpost === null
+    ) {
+      return
+    }
+
+    dispatchCounterstrike({
+      type: 'acceptOutcome',
+      outcome: counterstrikeRun.outcome,
+      outpost,
+      nowMs: Date.now(),
+    })
+    setCounterstrikeRun((current) =>
+      counterstrikeRunReducer(current, {
+        type: 'restoreAccepted',
+        outcome: counterstrikeRun.outcome,
+        clockMs: performance.now(),
+      }),
+    )
+    audio.play('ui-confirm')
+  }, [audio, counterstrike, counterstrikeRun, outpost])
+
+  const handleKeepAcceptedCounterstrike = useCallback(() => {
+    if (
+      counterstrikeRun.status !== 'resolved' ||
+      !counterstrikeRun.replay ||
+      counterstrike?.acceptedOutcome === null ||
+      counterstrike?.acceptedOutcome === undefined
+    ) {
+      return
+    }
+
+    setCounterstrikeRun((current) =>
+      counterstrikeRunReducer(current, {
+        type: 'restoreAccepted',
+        outcome: counterstrike.acceptedOutcome,
+        clockMs: performance.now(),
+      }),
+    )
+    audio.play('ui-cancel')
+  }, [audio, counterstrike, counterstrikeRun.replay, counterstrikeRun.status])
+
   const handleBeginExperience = useCallback(() => {
     entryOpenRef.current = false
     audio.unlock()
@@ -1068,16 +1559,25 @@ function App() {
     saveEnabledRef.current = false
     restoredSessionRef.current = false
     firstStrikeManualControlRef.current = false
+    counterstrikeManualControlRef.current = false
+    counterstrikeFireElapsedOverrideRef.current = null
     resetPrototypeSave(window.localStorage)
     setSelectedDepositId(null)
     setPreviewRivalStage(null)
     setRivalPresentation(createRivalPresentation())
     setFirstStrikePresentation(createFirstStrikePresentation())
+    setCounterstrikeRun((current) =>
+      counterstrikeRunReducer(current, {
+        type: 'reset',
+        clockMs: performance.now(),
+      }),
+    )
     setStrikeConfirmationOpen(false)
     setEntryOpen(true)
     dispatchOutpost({ type: 'reset' })
     dispatchRival({ type: 'reset' })
     dispatchFirstStrike({ type: 'reset' })
+    dispatchCounterstrike({ type: 'reset' })
     dispatch({ type: 'resetPrototype' })
   }, [audio])
 
@@ -1154,6 +1654,32 @@ function App() {
       data-final-vesper-complete={
         firstStrike?.finalVesperTransmissionCompleted ?? false
       }
+      data-counterstrike-available={counterstrike?.available ?? false}
+      data-counterstrike-state={counterstrikeRun.status}
+      data-counterstrike-attempt-number={counterstrikeRun.attemptNumber}
+      data-counterstrike-attempts={counterstrikeRun.attemptsUsed}
+      data-counterstrike-judgement={counterstrikeRun.judgement ?? 'none'}
+      data-counterstrike-attempt-elapsed-ms={
+        counterstrikeRun.attemptElapsedAtFireMs ?? 'none'
+      }
+      data-counterstrike-outcome={counterstrikeRun.outcome ?? 'none'}
+      data-counterstrike-replay={counterstrikeRun.replay}
+      data-counterstrike-accepted-outcome={
+        counterstrike?.acceptedOutcome ?? 'none'
+      }
+      data-counterstrike-replay-eligible={
+        counterstrike?.replayEligible ?? false
+      }
+      data-outpost-damage-state={
+        counterstrike?.outpostDamageState ?? 'INTACT'
+      }
+      data-repairs-required={counterstrike?.repairsRequired ?? false}
+      data-secondary-impact-latitude={
+        counterstrike?.secondaryImpactSite?.location.latitudeRad ?? 'none'
+      }
+      data-secondary-impact-longitude={
+        counterstrike?.secondaryImpactSite?.location.longitudeRad ?? 'none'
+      }
       data-lunar-control={
         firstStrike?.rivalFootholdDamaged
           ? 'scarred'
@@ -1193,6 +1719,8 @@ function App() {
           rivalPresentation={rivalPresentation}
           firstStrike={firstStrike}
           firstStrikePresentation={firstStrikePresentation}
+          counterstrike={counterstrike}
+          counterstrikeRun={counterstrikeRun}
           selectedDepositId={selectedDepositId}
           quality={quality}
           onLandingComplete={handleLandingComplete}
@@ -1215,6 +1743,8 @@ function App() {
         lunarControlContested={rival?.scanResponseCompleted ?? false}
         firstStrikeAvailable={firstStrike?.available ?? false}
         firstStrikeComplete={firstStrike?.status === 'COMPLETE'}
+        counterstrikeState={counterstrikeRun.status}
+        counterstrikeOutcome={counterstrikeRun.outcome}
         soundAvailable={audio.available}
         soundEnabled={audio.enabled}
         onToggleSound={audio.toggle}
@@ -1231,7 +1761,8 @@ function App() {
         presentation={rivalPresentation}
         showControlStatus={
           (state.phase === 'orbit' || state.phase === 'selected') &&
-          firstStrikePresentation.phase === 'idle'
+          firstStrikePresentation.phase === 'idle' &&
+          counterstrikeRun.status === 'dormant'
         }
         onAdvance={advanceRivalPresentation}
         onReturnToOrbit={handleReturnFromRival}
@@ -1241,27 +1772,48 @@ function App() {
         firstStrikeAvailable={firstStrike?.available ?? false}
         rivalDamaged={firstStrike?.rivalFootholdDamaged ?? false}
       />
-      <FirstStrikeHud
-        strike={firstStrike}
+      {counterstrikeRun.status === 'dormant' ? (
+        <FirstStrikeHud
+          strike={firstStrike}
+          rival={rival}
+          presentation={firstStrikePresentation}
+          confirmationOpen={strikeConfirmationOpen}
+          showReady={
+            state.phase === 'orbit' &&
+            (rivalPresentation.phase === 'idle' ||
+              rivalPresentation.phase === 'contested')
+          }
+          onArm={handleArmFirstStrike}
+          onOpenConfirmation={handleOpenStrikeConfirmation}
+          onCancel={handleCancelStrike}
+          onFire={handleFireFirstStrike}
+          onExploreScar={handleExploreScar}
+          onReturnToOrbit={handleReturnFromScar}
+          onReplayStrike={handleReplayStrike}
+        />
+      ) : null}
+      <CounterstrikeHud
+        snapshot={counterstrike}
+        run={counterstrikeRun}
         rival={rival}
-        presentation={firstStrikePresentation}
-        confirmationOpen={strikeConfirmationOpen}
         showReady={
           state.phase === 'orbit' &&
-          (rivalPresentation.phase === 'idle' ||
-            rivalPresentation.phase === 'contested')
+          firstStrikePresentation.phase === 'idle'
         }
-        onArm={handleArmFirstStrike}
-        onOpenConfirmation={handleOpenStrikeConfirmation}
-        onCancel={handleCancelStrike}
-        onFire={handleFireFirstStrike}
-        onExploreScar={handleExploreScar}
-        onReturnToOrbit={handleReturnFromScar}
-        onReplayStrike={handleReplayStrike}
+        onBegin={handleBeginCounterstrike}
+        onFire={handleFireInterceptor}
+        onReplay={handleReplayCounterstrike}
+        onAcceptPreview={handleAcceptCounterstrikePreview}
+        onKeepAccepted={handleKeepAcceptedCounterstrike}
       />
       {entryOpen ? (
         <LaunchGate
-          continuing={outpost !== null || rival !== null || firstStrike !== null}
+          continuing={
+            outpost !== null ||
+            rival !== null ||
+            firstStrike !== null ||
+            counterstrike !== null
+          }
           soundAvailable={audio.available}
           soundEnabled={audio.enabled}
           onBegin={handleBeginExperience}

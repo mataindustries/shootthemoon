@@ -54,12 +54,34 @@ import {
   createStrikeCameraPlan,
   type StrikeCameraPlan,
 } from './strikeCameraPlan.ts'
+import {
+  getCounterstrikeRunProgress,
+  type CounterstrikeRunState,
+} from '../simulation/counterstrikeSimulation.ts'
+import {
+  COUNTERSTRIKE_CAMERA_SAFETY,
+  COUNTERSTRIKE_IMPACT_CAMERA_TIMING,
+  createCounterstrikeCameraPlan,
+  sampleCounterstrikeImpactCamera,
+  type CounterstrikeImpactCameraBeat,
+  type CounterstrikeCameraPlan,
+} from './counterstrikeCameraPlan.ts'
+import {
+  E2E_HARNESS_BUILD_ENABLED,
+  shouldEnableE2eHarness,
+} from '../testing/e2eHarness.ts'
 
 const ORBIT_DIRECTION = new Vector3(3.2, 0.32, 0.92).normalize()
 const DESKTOP_ORBIT_DISTANCE = 3.345
 const PORTRAIT_ORBIT_DISTANCE = 4.7
 const ORBIT_TARGET = new Vector3(0, 0, 0)
 const WORLD_UP = new Vector3(0, 1, 0)
+function getCounterstrikeCameraProgress(
+  run: CounterstrikeRunState,
+  nowMs: number,
+): number {
+  return getCounterstrikeRunProgress(run, nowMs)
+}
 
 interface Journey {
   readonly path: CubicBezierCurve3
@@ -86,6 +108,8 @@ interface CameraRigProps {
   readonly dualOrbitPreferred: boolean
   readonly rivalPresentation: RivalPresentationState
   readonly firstStrikePresentation: FirstStrikePresentationState
+  readonly counterstrikeRun: CounterstrikeRunState
+  readonly counterstrikeSecondaryImpactSite: LandingSite | null
 }
 
 type SurfaceFocusKind =
@@ -129,6 +153,11 @@ interface ConfiguredRivalPresentation {
 
 interface ConfiguredStrikePresentation {
   readonly phase: FirstStrikePresentationState['phase']
+  readonly viewportKey: string
+}
+
+interface ConfiguredCounterstrikePresentation {
+  readonly key: string
   readonly viewportKey: string
 }
 
@@ -428,8 +457,8 @@ function applyStrikeProjection(
   camera.far = close ? 12 : 80
   camera.fov = close
     ? isNarrowPortrait(camera)
-      ? 52
-      : 41
+      ? 38
+      : 34
     : orbital
       ? isNarrowPortrait(camera)
         ? 56
@@ -438,6 +467,50 @@ function applyStrikeProjection(
         ? 58
         : 42
   camera.updateProjectionMatrix()
+}
+
+function applyCounterstrikeProjection(
+  camera: PerspectiveCamera,
+  run: CounterstrikeRunState,
+): void {
+  const close =
+    run.status === 'impact' ||
+    (run.status === 'resolved' && run.outcome === 'FAILURE')
+  camera.near = close ? 0.00018 : 0.01
+  camera.far = close ? 8 : 80
+  camera.fov = close
+    ? isNarrowPortrait(camera)
+      ? 48
+      : 39
+    : isNarrowPortrait(camera)
+      ? 56
+      : 40
+  camera.updateProjectionMatrix()
+}
+
+function applyCounterstrikeImpactProjection(
+  camera: PerspectiveCamera,
+  beat: CounterstrikeImpactCameraBeat,
+): void {
+  camera.near = 0.00018
+  camera.far = 8
+  const portrait = isNarrowPortrait(camera)
+  const nextFov =
+    beat === 'wide'
+      ? portrait
+        ? 58
+        : 46
+      : beat === 'medium' || beat === 'contact'
+        ? portrait
+          ? 51
+          : 41
+        : portrait
+          ? 48
+          : 39
+  if (camera.fov !== nextFov) {
+    camera.fov = nextFov
+    camera.updateProjectionMatrix()
+  }
 }
 
 function configureRivalSurfaceControls(controls: OrbitControls): void {
@@ -496,6 +569,8 @@ export function CameraRig({
   dualOrbitPreferred,
   rivalPresentation,
   firstStrikePresentation,
+  counterstrikeRun,
+  counterstrikeSecondaryImpactSite,
 }: CameraRigProps) {
   const camera = useThree((state) => state.camera) as PerspectiveCamera
   const gl = useThree((state) => state.gl)
@@ -509,14 +584,20 @@ export function CameraRig({
     useRef<ConfiguredRivalPresentation | null>(null)
   const configuredStrikePresentationRef =
     useRef<ConfiguredStrikePresentation | null>(null)
+  const configuredCounterstrikePresentationRef =
+    useRef<ConfiguredCounterstrikePresentation | null>(null)
   const strikeJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
   const strikePlanRef = useRef<StrikeCameraPlan | null>(null)
+  const counterstrikeJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
+  const counterstrikePlanRef = useRef<CounterstrikeCameraPlan | null>(null)
   const savedRivalJourneyStartRef = useRef<SavedRivalJourneyStart | null>(
     null,
   )
   const temporaryPositionRef = useRef(new Vector3())
   const temporaryTargetRef = useRef(new Vector3())
   const temporaryUpRef = useRef(new Vector3())
+  const counterstrikeImpactViewRef = useRef(new Vector3())
+  const counterstrikeImpactSideRef = useRef(new Vector3())
   const closeProjectionAppliedRef = useRef(false)
   const surfaceFocusKindRef = useRef<SurfaceFocusKind | null>(null)
   const savedSurfaceViewRef = useRef<SavedSurfaceView | null>(null)
@@ -583,6 +664,139 @@ export function CameraRig({
     }
 
     const viewportKey = `${viewportSize.width}x${viewportSize.height}`
+    const counterstrikeKey = `${counterstrikeRun.status}:${counterstrikeRun.attemptNumber}:${counterstrikeRun.outcome ?? 'none'}:${counterstrikeRun.replay}`
+
+    if (counterstrikeRun.status !== 'dormant') {
+      if (
+        configuredCounterstrikePresentationRef.current?.key ===
+          counterstrikeKey &&
+        configuredCounterstrikePresentationRef.current.viewportKey ===
+          viewportKey
+      ) {
+        controls.enabled = false
+        updateCameraDataset(camera, controls)
+        invalidate()
+        return
+      }
+
+      configuredCounterstrikePresentationRef.current = {
+        key: counterstrikeKey,
+        viewportKey,
+      }
+      configuredStrikePresentationRef.current = null
+      configuredRivalPresentationRef.current = null
+      journeyRef.current = null
+      rivalJourneyRef.current = null
+      strikeJourneyRef.current = null
+      strikePlanRef.current = null
+      counterstrikeJourneyRef.current = null
+      counterstrikePlanRef.current = null
+      controls.enabled = false
+      clearOrbitControlsTransientState(controls)
+      gl.domElement.dataset.cameraInteracting = 'false'
+      gl.domElement.dataset.cameraMode = `counterstrike-${counterstrikeRun.status}`
+      delete gl.domElement.dataset.cameraPathMinimumRadius
+
+      if (
+        orbitalFocusSite === null ||
+        rivalSite === null ||
+        counterstrikeSecondaryImpactSite === null
+      ) {
+        invalidate()
+        return
+      }
+
+      const plan = createCounterstrikeCameraPlan(
+        orbitalFocusSite,
+        rivalSite,
+        counterstrikeSecondaryImpactSite,
+        camera.aspect,
+      )
+      counterstrikePlanRef.current = plan
+      let pose: CameraPose = plan.trackingPose
+      let journey: SafeOrbitalCameraPath | null = null
+
+      if (counterstrikeRun.status === 'warning') {
+        journey = plan.warningCamera
+      } else if (counterstrikeRun.status === 'interceptor-launched') {
+        journey = plan.interceptorCamera
+      } else if (counterstrikeRun.status === 'success') {
+        journey = plan.successCamera
+      } else if (counterstrikeRun.status === 'impact') {
+        const beat = sampleCounterstrikeImpactCamera(
+          plan,
+          getCounterstrikeCameraProgress(
+            counterstrikeRun,
+            performance.now(),
+          ),
+          temporaryPositionRef.current,
+          temporaryTargetRef.current,
+          temporaryUpRef.current,
+        )
+        pose = {
+          position: temporaryPositionRef.current,
+          target: temporaryTargetRef.current,
+          up: temporaryUpRef.current,
+        }
+        gl.domElement.dataset.counterstrikeCameraBeat = beat
+        gl.domElement.dataset.cameraPathMinimumRadius =
+          COUNTERSTRIKE_CAMERA_SAFETY.damageMinimumRadius.toFixed(6)
+        applyCounterstrikeImpactProjection(camera, beat)
+      } else if (counterstrikeRun.status === 'resolved') {
+        pose =
+          counterstrikeRun.outcome === 'FAILURE'
+            ? plan.damagePose
+            : plan.successPose
+        if (counterstrikeRun.outcome === 'FAILURE') {
+          gl.domElement.dataset.counterstrikeCameraBeat = 'damage-hold'
+        } else {
+          delete gl.domElement.dataset.counterstrikeCameraBeat
+        }
+      } else {
+        delete gl.domElement.dataset.counterstrikeCameraBeat
+      }
+
+      counterstrikeJourneyRef.current = journey
+      if (counterstrikeRun.status !== 'impact') {
+        applyCounterstrikeProjection(camera, counterstrikeRun)
+      }
+
+      if (journey !== null) {
+        gl.domElement.dataset.cameraPathMinimumRadius =
+          journey.minimumRadius.toFixed(6)
+        journey.sample(
+          getCounterstrikeCameraProgress(
+            counterstrikeRun,
+            performance.now(),
+          ),
+          temporaryPositionRef.current,
+          temporaryTargetRef.current,
+          temporaryUpRef.current,
+        )
+        pose = {
+          position: temporaryPositionRef.current,
+          target: temporaryTargetRef.current,
+          up: temporaryUpRef.current,
+        }
+      }
+
+      camera.position.copy(pose.position)
+      camera.up.copy(pose.up)
+      controls.target.copy(pose.target)
+      camera.lookAt(pose.target)
+      updateCameraDataset(camera, controls)
+      invalidate()
+      return
+    }
+
+    const exitedCounterstrike =
+      configuredCounterstrikePresentationRef.current !== null
+    configuredCounterstrikePresentationRef.current = null
+    counterstrikeJourneyRef.current = null
+    counterstrikePlanRef.current = null
+    if (exitedCounterstrike) {
+      delete gl.domElement.dataset.counterstrikeCameraBeat
+    }
     const strikePhase = firstStrikePresentation.phase
 
     if (strikePhase === 'scar-explore') {
@@ -963,6 +1177,7 @@ export function CameraRig({
       phase === 'orbit' &&
       (exitedRivalPresentation ||
         exitedStrikePresentation ||
+        exitedCounterstrike ||
         journeyRef.current !== null ||
         camera.position.length() < 2)
 
@@ -970,7 +1185,7 @@ export function CameraRig({
 
     if (restoreOrbitPose) {
       orbitPosition =
-        (exitedRivalPresentation || exitedStrikePresentation || dualOrbitPreferred) &&
+        (exitedRivalPresentation || exitedStrikePresentation || exitedCounterstrike || dualOrbitPreferred) &&
         orbitalFocusSite !== null &&
         rivalSite !== null
           ? getDualOrbitView(camera, orbitalFocusSite, rivalSite)
@@ -1005,6 +1220,8 @@ export function CameraRig({
     invalidate()
   }, [
     camera,
+    counterstrikeRun,
+    counterstrikeSecondaryImpactSite,
     dualOrbitPreferred,
     firstStrikePresentation,
     gl,
@@ -1023,6 +1240,14 @@ export function CameraRig({
     const controls = controlsRef.current
 
     if (controls === null) {
+      return
+    }
+
+    if (counterstrikeRun.status !== 'dormant') {
+      controls.enabled = false
+      applyCounterstrikeProjection(camera, counterstrikeRun)
+      updateCameraDataset(camera, controls)
+      invalidate()
       return
     }
 
@@ -1064,6 +1289,7 @@ export function CameraRig({
     invalidate()
   }, [
     camera,
+    counterstrikeRun,
     invalidate,
     phase,
     firstStrikePresentation.phase,
@@ -1073,7 +1299,12 @@ export function CameraRig({
   ])
 
   useEffect(() => {
-    if (!new URLSearchParams(window.location.search).has('e2e')) {
+    if (
+      !shouldEnableE2eHarness(
+        E2E_HARNESS_BUILD_ENABLED,
+        window.location.search,
+      )
+    ) {
       return
     }
 
@@ -1114,6 +1345,70 @@ export function CameraRig({
     const controls = controlsRef.current
 
     if (controls === null) {
+      return
+    }
+
+    if (counterstrikeRun.status !== 'dormant') {
+      controls.enabled = false
+      const runProgress = getCounterstrikeRunProgress(
+        counterstrikeRun,
+        performance.now(),
+      )
+
+      if (counterstrikeRun.status === 'impact') {
+        const plan = counterstrikePlanRef.current
+        if (plan === null) {
+          updateCameraDataset(camera, controls)
+          return
+        }
+        const beat = sampleCounterstrikeImpactCamera(
+          plan,
+          runProgress,
+          temporaryPositionRef.current,
+          temporaryTargetRef.current,
+          temporaryUpRef.current,
+        )
+        const impulseProgress =
+          (runProgress - COUNTERSTRIKE_IMPACT_CAMERA_TIMING.contactProgress) /
+          0.075
+        if (impulseProgress >= 0 && impulseProgress <= 1) {
+          const view = counterstrikeImpactViewRef.current
+            .copy(temporaryPositionRef.current)
+            .sub(temporaryTargetRef.current)
+            .normalize()
+          const side = counterstrikeImpactSideRef.current
+            .crossVectors(temporaryUpRef.current, view)
+            .normalize()
+          const impulse =
+            Math.sin(impulseProgress * Math.PI * 5) *
+            (1 - impulseProgress) *
+            0.00016
+          temporaryPositionRef.current
+            .addScaledVector(side, impulse)
+            .addScaledVector(temporaryUpRef.current, Math.abs(impulse) * 0.22)
+          temporaryTargetRef.current.addScaledVector(side, -impulse * 0.16)
+        }
+        gl.domElement.dataset.counterstrikeCameraBeat = beat
+        applyCounterstrikeImpactProjection(camera, beat)
+      } else {
+        const journey = counterstrikeJourneyRef.current
+        if (journey === null) {
+          updateCameraDataset(camera, controls)
+          return
+        }
+        journey.sample(
+          runProgress,
+          temporaryPositionRef.current,
+          temporaryTargetRef.current,
+          temporaryUpRef.current,
+        )
+      }
+      camera.position.copy(temporaryPositionRef.current)
+      camera.up.copy(temporaryUpRef.current)
+      camera.lookAt(temporaryTargetRef.current)
+      controls.target.copy(temporaryTargetRef.current)
+      updateCameraDataset(camera, controls)
+      if (runProgress < 1) state.invalidate()
       return
     }
 

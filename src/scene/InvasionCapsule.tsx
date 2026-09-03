@@ -14,7 +14,9 @@ import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { useCinematicProgress } from '../camera/CinematicClock.tsx'
-import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
+import {
+  LOCAL_METRES_TO_RENDER_UNITS,
+} from '../render/localSurface.ts'
 import { maximumRenderedSurfaceHeight, sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
@@ -53,6 +55,7 @@ interface InvasionCapsuleProps {
   readonly outpost: OutpostSnapshot | null
   readonly terrain: SurfaceTerrainProfile
   readonly segments: number
+  readonly compact?: boolean
 }
 
 function smoothstep(value: number): number {
@@ -323,10 +326,12 @@ function CapsuleModel({
   outpost,
   padOffsetsModel,
   rampOpenAngle,
+  compact,
 }: {
   readonly outpost: OutpostSnapshot | null
   readonly padOffsetsModel: readonly number[]
   readonly rampOpenAngle: number
+  readonly compact: boolean
 }) {
   const hatchRef = useRef<Group>(null)
   const detailRef = useRef<InstancedMesh>(null)
@@ -503,59 +508,63 @@ function CapsuleModel({
       <mesh castShadow position-y={1.03} receiveShadow material={armorMaterial}>
         <coneGeometry args={[0.45, 0.76, 12, 2]} />
       </mesh>
-      <mesh castShadow position-y={-0.82} rotation-z={Math.PI} material={heatMaterial}>
-        <coneGeometry args={[0.42, 0.46, 12, 1, true]} />
-      </mesh>
-      <instancedMesh
-        ref={detailRef}
-        args={[boxGeometry, steelMaterial, 12]}
-        castShadow
-        receiveShadow
-      />
-      <instancedMesh ref={beltRef} args={[beltGeometry, beltMaterial, 2]} />
-
-      <mesh position={[0, 0.01, 0.535]}>
-        <boxGeometry args={[0.65, 0.84, 0.06]} />
-        <meshStandardMaterial
-          ref={bayMaterialRef}
-          color={VISUAL_PALETTE.playerHeatDark}
-          emissive={VISUAL_PALETTE.playerAmberEmissive}
-          emissiveIntensity={EMISSIVE_LIMITS.panel}
-          {...MATERIAL_RESPONSE.playerHeatDark}
-        />
-      </mesh>
-      <group ref={hatchRef} position={[0, -0.42, 0.6]}>
-        <mesh castShadow position-y={0.42} receiveShadow material={armorMaterial}>
-          <boxGeometry args={[0.74, 0.84, 0.075]} />
-        </mesh>
-        <mesh position={[0, 0.42, 0.041]}>
-          <boxGeometry args={[0.52, 0.06, 0.018]} />
-          <meshStandardMaterial
-            ref={rampLightRef}
-            color={VISUAL_PALETTE.playerAmberPanel}
-            emissive={VISUAL_PALETTE.playerAmberEmissive}
-            emissiveIntensity={0.24}
-            {...MATERIAL_RESPONSE.playerHeatDark}
+      {!compact ? (
+        <>
+          <mesh castShadow position-y={-0.82} rotation-z={Math.PI} material={heatMaterial}>
+            <coneGeometry args={[0.42, 0.46, 12, 1, true]} />
+          </mesh>
+          <instancedMesh
+            ref={detailRef}
+            args={[boxGeometry, steelMaterial, 12]}
+            castShadow
+            receiveShadow
           />
-        </mesh>
-      </group>
+          <instancedMesh ref={beltRef} args={[beltGeometry, beltMaterial, 2]} />
 
-      <CapsuleLandingGear padOffsetsModel={padOffsetsModel} />
+          <mesh position={[0, 0.01, 0.535]}>
+            <boxGeometry args={[0.65, 0.84, 0.06]} />
+            <meshStandardMaterial
+              ref={bayMaterialRef}
+              color={VISUAL_PALETTE.playerHeatDark}
+              emissive={VISUAL_PALETTE.playerAmberEmissive}
+              emissiveIntensity={EMISSIVE_LIMITS.panel}
+              {...MATERIAL_RESPONSE.playerHeatDark}
+            />
+          </mesh>
+          <group ref={hatchRef} position={[0, -0.42, 0.6]}>
+            <mesh castShadow position-y={0.42} receiveShadow material={armorMaterial}>
+              <boxGeometry args={[0.74, 0.84, 0.075]} />
+            </mesh>
+            <mesh position={[0, 0.42, 0.041]}>
+              <boxGeometry args={[0.52, 0.06, 0.018]} />
+              <meshStandardMaterial
+                ref={rampLightRef}
+                color={VISUAL_PALETTE.playerAmberPanel}
+                emissive={VISUAL_PALETTE.playerAmberEmissive}
+                emissiveIntensity={0.24}
+                {...MATERIAL_RESPONSE.playerHeatDark}
+              />
+            </mesh>
+          </group>
 
-      <mesh position-y={-1.04} rotation-z={Math.PI} material={heatMaterial}>
-        <cylinderGeometry args={[0.12, 0.28, 0.34, 10, 1, true]} />
-      </mesh>
-      <mesh position-y={-1.08} rotation-z={Math.PI}>
-        <cylinderGeometry args={[0.075, 0.1, 0.08, 10]} />
-        <meshStandardMaterial
-          color={VISUAL_PALETTE.playerHotMetal}
-          emissive={VISUAL_PALETTE.playerAmberEmissive}
-          emissiveIntensity={EMISSIVE_LIMITS.panel}
-          metalness={0.34}
-          roughness={0.62}
-          side={DoubleSide}
-        />
-      </mesh>
+          <CapsuleLandingGear padOffsetsModel={padOffsetsModel} />
+
+          <mesh position-y={-1.04} rotation-z={Math.PI} material={heatMaterial}>
+            <cylinderGeometry args={[0.12, 0.28, 0.34, 10, 1, true]} />
+          </mesh>
+          <mesh position-y={-1.08} rotation-z={Math.PI}>
+            <cylinderGeometry args={[0.075, 0.1, 0.08, 10]} />
+            <meshStandardMaterial
+              color={VISUAL_PALETTE.playerHotMetal}
+              emissive={VISUAL_PALETTE.playerAmberEmissive}
+              emissiveIntensity={EMISSIVE_LIMITS.panel}
+              metalness={0.34}
+              roughness={0.62}
+              side={DoubleSide}
+            />
+          </mesh>
+        </>
+      ) : null}
     </group>
   )
 }
@@ -566,6 +575,7 @@ export function InvasionCapsule({
   outpost,
   terrain,
   segments,
+  compact = false,
 }: InvasionCapsuleProps) {
   const capsuleRef = useRef<Group>(null)
   const progressRef = useCinematicProgress()
@@ -586,6 +596,7 @@ export function InvasionCapsule({
       outpost !== null || phase === 'landed' || phase === 'returning'
         ? 1
         : progressRef.current
+    const landedHeight = grounding.landedHeight
     const descent = smoothstep(Math.max(0, Math.min(1, (progress - 0.06) / 0.8)))
     const remaining = 1 - descent
     const impactAge = Math.max(0, Math.min(1, (progress - 0.86) / 0.14))
@@ -596,7 +607,7 @@ export function InvasionCapsule({
 
     capsule.position.set(
       remaining * remaining * 0.026,
-      MathUtils.lerp(0.19, grounding.landedHeight, descent) + bounce,
+      MathUtils.lerp(0.19, landedHeight, descent) + bounce,
       -remaining * 0.034 + Math.sin(descent * Math.PI) * 0.005,
     )
     capsule.rotation.y = remaining * Math.PI * 6
@@ -610,6 +621,7 @@ export function InvasionCapsule({
           outpost={outpost}
           padOffsetsModel={grounding.padOffsetsModel}
           rampOpenAngle={grounding.rampOpenAngle}
+          compact={compact}
         />
       </group>
     </group>

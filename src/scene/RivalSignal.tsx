@@ -32,6 +32,10 @@ import {
   type RivalPresentationState,
 } from '../app/rivalPresentation.ts'
 import { VISUAL_PALETTE } from '../render/visualSystem.ts'
+import {
+  E2E_HARNESS_BUILD_ENABLED,
+  shouldEnableE2eHarness,
+} from '../testing/e2eHarness.ts'
 
 const TAP_DISTANCE_PX = 10
 const SIGNAL_SURFACE_CLEARANCE = 0.00046
@@ -156,7 +160,11 @@ export function RivalSignal({
     [],
   )
   const isE2e = useMemo(
-    () => new URLSearchParams(window.location.search).has('e2e'),
+    () =>
+      shouldEnableE2eHarness(
+        E2E_HARNESS_BUILD_ENABLED,
+        window.location.search,
+      ),
     [],
   )
 

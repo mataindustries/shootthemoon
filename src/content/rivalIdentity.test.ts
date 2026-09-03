@@ -45,6 +45,12 @@ describe('rival identity content', () => {
     expect(VESPER_RIVAL_IDENTITY.territorialThreat).toBe(
       'The Moon has room for two claims. I do not.',
     )
+    expect(VESPER_RIVAL_IDENTITY.counterstrikeDefeatedTransmission).toContain(
+      'Clean interception.',
+    )
+    expect(VESPER_RIVAL_IDENTITY.counterstrikeDamageTransmission).toContain(
+      'Still standing.',
+    )
   })
 
   it('keeps every transmission concise enough for a phone', () => {
@@ -57,6 +63,12 @@ describe('rival identity content', () => {
     expect(
       wordCount(VESPER_RIVAL_IDENTITY.territorialThreat),
     ).toBeLessThanOrEqual(12)
+    expect(
+      wordCount(VESPER_RIVAL_IDENTITY.counterstrikeDefeatedTransmission),
+    ).toBeLessThanOrEqual(16)
+    expect(
+      wordCount(VESPER_RIVAL_IDENTITY.counterstrikeDamageTransmission),
+    ).toBeLessThanOrEqual(16)
 
     expect(VESPER_RIVAL_IDENTITY.introTransmission.length).toBeLessThanOrEqual(
       140,

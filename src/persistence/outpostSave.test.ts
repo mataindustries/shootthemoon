@@ -24,6 +24,12 @@ import {
   firstStrikeReducer,
 } from '../simulation/firstStrikeSimulation.ts'
 import {
+  counterstrikeFactsReducer,
+  createCounterstrikeRunState,
+  createMigratedCounterstrike,
+  type CounterstrikeRunStatus,
+} from '../simulation/counterstrikeSimulation.ts'
+import {
   OUTPOST_SAVE_SCHEMA_VERSION,
   OUTPOST_STORAGE_KEY,
   deserializePrototypeSave,
@@ -213,10 +219,20 @@ function revealedPrototype(): PrototypeSnapshot {
     nowMs: START_MS + 3_300,
   })!
 
+  const firstStrike = createMigratedFirstStrike(
+    outpost,
+    rival,
+    START_MS + 3_300,
+  )
+
   return {
     outpost,
     rival,
-    firstStrike: createMigratedFirstStrike(outpost, rival, START_MS + 3_300),
+    firstStrike,
+    counterstrike: createMigratedCounterstrike(
+      firstStrike,
+      START_MS + 3_300,
+    ),
   }
 }
 
@@ -412,6 +428,7 @@ describe('Rival Signal schema migration and atomic persistence', () => {
         outpost: prototype.outpost,
         rival: pending,
         firstStrike: prototype.firstStrike,
+        counterstrike: prototype.counterstrike,
       },
       START_MS + 3_300,
     )
@@ -504,6 +521,41 @@ describe('First Strike schema-v3 persistence', () => {
       ),
     }
     return prototype
+  }
+
+  function completedStrikePrototype(): PrototypeSnapshot {
+    const prototype = strikeReadyPrototype()
+    let strike = firstStrikeReducer(prototype.firstStrike, {
+      type: 'arm',
+      nowMs: START_MS + 4_300,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'fire',
+      nowMs: START_MS + 4_400,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'completeLaunch',
+      nowMs: START_MS + 4_500,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'completeFinalTransmission',
+      nowMs: START_MS + 4_550,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'completeImpact',
+      rivalSite: prototype.rival.site,
+      nowMs: START_MS + 4_600,
+    })!
+    strike = firstStrikeReducer(strike, {
+      type: 'completeEnding',
+      nowMs: START_MS + 4_700,
+    })!
+
+    return {
+      ...prototype,
+      firstStrike: strike,
+      counterstrike: createMigratedCounterstrike(strike, START_MS + 4_700),
+    }
   }
 
   it('migrates a schema-v2 completed scan directly to an available strike', () => {
@@ -603,7 +655,7 @@ describe('First Strike schema-v3 persistence', () => {
     }
     const restored = deserializePrototypeSave(serialized, START_MS + 4_800)
 
-    expect(raw.schemaVersion).toBe(3)
+    expect(raw.schemaVersion).toBe(OUTPOST_SAVE_SCHEMA_VERSION)
     expect(raw.firstStrike.status).toBe('COMPLETE')
     expect(raw.firstStrike.scar.canonicalLanding).toMatchObject({
       latitudeRad: prototype.rival.site.location.latitudeRad,
@@ -650,6 +702,120 @@ describe('First Strike schema-v3 persistence', () => {
 
     expect(
       deserializePrototypeSave(JSON.stringify(raw), START_MS + 4_800),
+    ).toBeNull()
+  })
+
+  it('migrates a literal schema-3 completed ending to an available Counterstrike checkpoint', () => {
+    const raw = JSON.parse(
+      serializePrototypeSave(completedStrikePrototype(), START_MS + 5_000),
+    ) as Record<string, unknown>
+    raw.schemaVersion = 3
+    delete raw.counterstrike
+
+    const restored = deserializePrototypeSave(
+      JSON.stringify(raw),
+      START_MS + 5_100,
+    )
+
+    expect(restored?.counterstrike).toMatchObject({
+      available: true,
+      acceptedOutcome: null,
+      outpostDamageState: 'INTACT',
+      replayEligible: false,
+    })
+    expect(restored?.firstStrike.status).toBe('COMPLETE')
+  })
+
+  it.each(['SUCCESS', 'FAILURE'] as const)(
+    'round trips the accepted %s ending without serializing transient run state',
+    (outcome) => {
+      const prototype = completedStrikePrototype()
+      const accepted = counterstrikeFactsReducer(prototype.counterstrike, {
+        type: 'acceptOutcome',
+        outcome,
+        outpost: prototype.outpost,
+        nowMs: START_MS + 5_100,
+      })!
+      const serialized = serializePrototypeSave(
+        { ...prototype, counterstrike: accepted },
+        START_MS + 5_200,
+      )
+      const raw = JSON.parse(serialized) as {
+        counterstrike: Record<string, unknown>
+      }
+      const restored = deserializePrototypeSave(serialized, START_MS + 5_300)
+
+      expect(raw.counterstrike).not.toHaveProperty('status')
+      expect(raw.counterstrike).not.toHaveProperty('phaseStartedAtMs')
+      expect(raw.counterstrike).not.toHaveProperty('attemptsUsed')
+      expect(restored?.counterstrike).toEqual(accepted)
+      expect(
+        createCounterstrikeRunState(restored!.counterstrike, 700),
+      ).toMatchObject({ status: 'resolved', outcome, replay: false })
+    },
+  )
+
+  it('normalizes every accidentally supplied transient run state to the checkpoint', () => {
+    const statuses: readonly CounterstrikeRunStatus[] = [
+      'dormant',
+      'warning',
+      'tracking',
+      'intercept-ready',
+      'interceptor-launched',
+      'success',
+      'missed',
+      'impact',
+      'resolved',
+    ]
+    const prototype = completedStrikePrototype()
+
+    for (const status of statuses) {
+      const raw = JSON.parse(
+        serializePrototypeSave(prototype, START_MS + 5_000),
+      ) as { counterstrike: Record<string, unknown> }
+      raw.counterstrike.status = status
+      raw.counterstrike.phaseStartedAtMs = 123
+      raw.counterstrike.attemptsUsed = 2
+      const restored = deserializePrototypeSave(
+        JSON.stringify(raw),
+        START_MS + 5_100,
+      )!
+
+      expect(
+        createCounterstrikeRunState(restored.counterstrike, 900),
+      ).toMatchObject({
+        status: 'dormant',
+        attemptNumber: 0,
+        attemptsUsed: 0,
+        outcome: null,
+      })
+    }
+  })
+
+  it('rejects a secondary impact moved away from the canonical extractor-side coordinate', () => {
+    const prototype = completedStrikePrototype()
+    const failure = counterstrikeFactsReducer(prototype.counterstrike, {
+      type: 'acceptOutcome',
+      outcome: 'FAILURE',
+      outpost: prototype.outpost,
+      nowMs: START_MS + 5_100,
+    })!
+    const raw = JSON.parse(
+      serializePrototypeSave(
+        { ...prototype, counterstrike: failure },
+        START_MS + 5_200,
+      ),
+    ) as {
+      counterstrike: {
+        secondaryImpactSite: {
+          canonicalLanding: { longitudeRad: number }
+        }
+      }
+    }
+    raw.counterstrike.secondaryImpactSite.canonicalLanding.longitudeRad += 0.001
+
+    expect(
+      deserializePrototypeSave(JSON.stringify(raw), START_MS + 5_300),
     ).toBeNull()
   })
 })
