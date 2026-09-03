@@ -18,7 +18,9 @@ import {
 import { useFrame } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
-import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
+import {
+  LOCAL_METRES_TO_RENDER_UNITS,
+} from '../render/localSurface.ts'
 import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { getRobotKinematics } from '../simulation/outpostSimulation.ts'
@@ -28,11 +30,16 @@ import {
   MATERIAL_RESPONSE,
   VISUAL_PALETTE,
 } from '../render/visualSystem.ts'
+import {
+  E2E_HARNESS_BUILD_ENABLED,
+  shouldEnableE2eHarness,
+} from '../testing/e2eHarness.ts'
 
 interface MinerRobotProps {
   readonly outpost: OutpostSnapshot
   readonly terrain: SurfaceTerrainProfile
   readonly segments: number
+  readonly compact?: boolean
 }
 
 interface MiningEffectsProps {
@@ -360,7 +367,12 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
   )
 }
 
-export function MinerRobot({ outpost, terrain, segments }: MinerRobotProps) {
+export function MinerRobot({
+  outpost,
+  terrain,
+  segments,
+  compact = false,
+}: MinerRobotProps) {
   const robotRef = useRef<Group>(null)
   const upperMachineryRef = useRef<Group>(null)
   const wheelRef = useRef<InstancedMesh>(null)
@@ -418,7 +430,11 @@ export function MinerRobot({ outpost, terrain, segments }: MinerRobotProps) {
     [],
   )
   const isE2e = useMemo(
-    () => new URLSearchParams(window.location.search).has('e2e'),
+    () =>
+      shouldEnableE2eHarness(
+        E2E_HARNESS_BUILD_ENABLED,
+        window.location.search,
+      ),
     [],
   )
 
@@ -561,7 +577,8 @@ export function MinerRobot({ outpost, terrain, segments }: MinerRobotProps) {
 
     robot.position.set(
       grounding.position.x,
-      grounding.position.y + deploymentLiftM * LOCAL_METRES_TO_RENDER_UNITS,
+      grounding.position.y +
+        deploymentLiftM * LOCAL_METRES_TO_RENDER_UNITS,
       grounding.position.z,
     )
     robot.quaternion.copy(grounding.orientation)
@@ -671,8 +688,13 @@ export function MinerRobot({ outpost, terrain, segments }: MinerRobotProps) {
           <instancedMesh
             ref={lightRef}
             args={[structureGeometry, lightMaterial, 3]}
+            visible={!compact}
           />
-          <group ref={drillArmRef} position={[0, 0.28, 0.72]}>
+          <group
+            ref={drillArmRef}
+            position={[0, 0.28, 0.72]}
+            visible={!compact}
+          >
             <mesh
               ref={drillBitRef}
               position-z={0.86}
@@ -700,7 +722,9 @@ export function MinerRobot({ outpost, terrain, segments }: MinerRobotProps) {
           </group>
         </group>
       </group>
-      <MiningEffects outpost={outpost} terrain={terrain} segments={segments} />
+      {!compact ? (
+        <MiningEffects outpost={outpost} terrain={terrain} segments={segments} />
+      ) : null}
     </group>
   )
 }

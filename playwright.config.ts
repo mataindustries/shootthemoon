@@ -19,7 +19,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
     video:
       process.env.RIVAL_RECORDING === '1' ||
-      process.env.FIRST_STRIKE_RECORDING === '1'
+      process.env.FIRST_STRIKE_RECORDING === '1' ||
+      process.env.COUNTERSTRIKE_RECORDING === '1'
         ? 'on'
         : 'off',
     userAgent:

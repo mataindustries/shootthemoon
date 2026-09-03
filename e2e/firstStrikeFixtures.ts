@@ -17,7 +17,15 @@ import {
   createMigratedFirstStrike,
   firstStrikeReducer,
 } from '../src/simulation/firstStrikeSimulation.ts'
-import { serializePrototypeSave } from '../src/persistence/outpostSave.ts'
+import {
+  counterstrikeFactsReducer,
+  createMigratedCounterstrike,
+} from '../src/simulation/counterstrikeSimulation.ts'
+import {
+  deserializePrototypeSave,
+  serializePrototypeSave,
+} from '../src/persistence/outpostSave.ts'
+import type { CounterstrikeOutcome } from '../src/domain/counterstrike.ts'
 
 const SITE = createLandingSite(createLunarLocation(0.248, -0.684, 18))
 const DEPOSIT_ID = DEPOSIT_BLUEPRINTS[0]!.id
@@ -72,8 +80,9 @@ function readyPrototype(nowMs: number) {
     nowMs: nowMs - 5_300,
   })!
   const firstStrike = createMigratedFirstStrike(outpost, rival, nowMs - 5_200)
+  const counterstrike = createMigratedCounterstrike(firstStrike, nowMs - 5_200)
 
-  return { outpost, rival, firstStrike }
+  return { outpost, rival, firstStrike, counterstrike }
 }
 
 export function createStrikeReadySave(nowMs = Date.now()): string {
@@ -109,4 +118,28 @@ export function createCompletedStrikeSave(nowMs = Date.now()): string {
   })!
 
   return serializePrototypeSave({ ...prototype, firstStrike: strike }, nowMs)
+}
+
+export function createAcceptedCounterstrikeSave(
+  outcome: CounterstrikeOutcome,
+  nowMs = Date.now(),
+): string {
+  const completed = deserializePrototypeSave(
+    createCompletedStrikeSave(nowMs),
+    nowMs,
+  )
+  if (completed === null) {
+    throw new Error('Completed First Strike fixture did not deserialize.')
+  }
+  const counterstrike = counterstrikeFactsReducer(completed.counterstrike, {
+    type: 'acceptOutcome',
+    outcome,
+    outpost: completed.outpost,
+    nowMs,
+  })
+  if (counterstrike === null) {
+    throw new Error('Counterstrike fixture did not accept its outcome.')
+  }
+
+  return serializePrototypeSave({ ...completed, counterstrike }, nowMs)
 }

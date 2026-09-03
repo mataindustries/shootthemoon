@@ -6,6 +6,7 @@ import {
   type LandingSite,
   type Vec3,
 } from '../domain/lunarCoordinates.ts'
+import { LOCAL_METRES_TO_RENDER_UNITS } from './localSurface.ts'
 
 export const MOON_RENDER_RADIUS = 1
 
@@ -46,3 +47,32 @@ export function landingSiteToRenderTransform(
   }
 }
 
+/**
+ * Converts a nearby canonical site into the deliberately expanded local scale
+ * used by close-range terrain and machinery. Radial altitude is excluded so
+ * callers can align the point to their exact rendered surface.
+ */
+export function landingSiteToLocalSurfaceRenderPoint(
+  originSite: LandingSite,
+  nearbySite: LandingSite,
+  target = new Vector3(),
+): Vector3 {
+  if (
+    originSite.datumId !== MEAN_LUNAR_DATUM.id ||
+    nearbySite.datumId !== MEAN_LUNAR_DATUM.id
+  ) {
+    throw new RangeError('Local surface rendering requires the mean lunar datum.')
+  }
+
+  const origin = landingSiteToRenderTransform(originSite)
+  const nearby = landingSiteToRenderTransform(nearbySite)
+  const canonicalScale = MOON_RENDER_RADIUS / MEAN_LUNAR_DATUM.referenceRadiusM
+  const delta = nearby.position.clone().sub(origin.position)
+  const eastM = delta.dot(origin.east) / canonicalScale
+  const southM = delta.dot(origin.south) / canonicalScale
+
+  return target
+    .copy(origin.position)
+    .addScaledVector(origin.east, eastM * LOCAL_METRES_TO_RENDER_UNITS)
+    .addScaledVector(origin.south, southM * LOCAL_METRES_TO_RENDER_UNITS)
+}

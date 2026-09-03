@@ -12,8 +12,12 @@ import {
   type FirstStrikePresentationState,
 } from '../app/firstStrikePresentation.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
+import type { LocalSurfacePosition } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
-import { LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
+import {
+  LOCAL_METRES_TO_RENDER_UNITS,
+  LOCAL_SURFACE_RENDER_OFFSET,
+} from '../render/localSurface.ts'
 import { VISUAL_PALETTE } from '../render/visualSystem.ts'
 
 const SUN_OFFSET = new Vector3(4.6, 2.6, 3.4)
@@ -22,6 +26,10 @@ const WORLD_EAST = new Vector3(1, 0, 0)
 const WORLD_SOUTH = new Vector3(0, 0, 1)
 const LAUNCH_LIGHT_CLEARANCE = 0.00152
 const IMPACT_LIGHT_CLEARANCE = 0.00814
+const COUNTERSTRIKE_READ_LIGHT_DISTANCE =
+  7.5 * LOCAL_METRES_TO_RENDER_UNITS
+const COUNTERSTRIKE_READ_LIGHT_UP = 3.2 * LOCAL_METRES_TO_RENDER_UNITS
+const COUNTERSTRIKE_READ_LIGHT_INTENSITY = 0.00018
 
 interface LightingRigProps {
   readonly landingSite: LandingSite | null
@@ -32,6 +40,8 @@ interface LightingRigProps {
   readonly firstStrikePresentation: FirstStrikePresentationState
   readonly residualScarLight: boolean
   readonly surfaceHeight?: number | undefined
+  readonly closeReadLightColor?: string | undefined
+  readonly closeReadLightLocalPosition?: LocalSurfacePosition | undefined
 }
 
 export function LightingRig({
@@ -43,6 +53,8 @@ export function LightingRig({
   firstStrikePresentation,
   residualScarLight,
   surfaceHeight = LOCAL_SURFACE_RENDER_OFFSET,
+  closeReadLightColor,
+  closeReadLightLocalPosition,
 }: LightingRigProps) {
   const lightRef = useRef<DirectionalLight>(null)
   const eventLightRef = useRef<PointLight>(null)
@@ -57,28 +69,31 @@ export function LightingRig({
   const activeUp = activeTransform?.up ?? WORLD_UP
   const activeEast = activeTransform?.east ?? WORLD_EAST
   const activeSouth = activeTransform?.south ?? WORLD_SOUTH
+  const counterstrikeReadLight = closeReadLightColor !== undefined
   const targetPosition = useMemo(() => {
     if (activeTransform === null) {
       return new Vector3()
     }
 
-    return castsSurfaceShadow
+    return castsSurfaceShadow || counterstrikeReadLight
       ? activeTransform.position
           .clone()
           .addScaledVector(activeTransform.up, surfaceHeight)
       : activeTransform.position
-  }, [activeTransform, castsSurfaceShadow, surfaceHeight])
+  }, [activeTransform, castsSurfaceShadow, counterstrikeReadLight, surfaceHeight])
   const lightPosition = useMemo(
     () => targetPosition.clone().add(SUN_OFFSET),
     [targetPosition],
   )
-  const ambientIntensity = cinematicReadability
-    ? closeViewShadows
-      ? 0.45
-      : 0.22
-    : closeViewShadows
-      ? 0.16
-      : 0.04
+  const ambientIntensity = counterstrikeReadLight
+    ? 0.075
+    : cinematicReadability
+      ? closeViewShadows
+        ? 0.45
+        : 0.22
+      : closeViewShadows
+        ? 0.16
+        : 0.04
   const scarShadowView =
     firstStrikePresentation.phase === 'impact-flash' ||
     firstStrikePresentation.phase === 'ejecta' ||
@@ -90,22 +105,44 @@ export function LightingRig({
     const eventLight = eventLightRef.current
     if (eventLight === null) return
 
-    const rivalReadLight =
-      firstStrikePresentation.phase === 'idle' &&
-      cinematicReadability &&
-      closeViewShadows
+    const closeReadLight =
+      counterstrikeReadLight ||
+      (firstStrikePresentation.phase === 'idle' &&
+        cinematicReadability &&
+        closeViewShadows)
     eventLight.color.set(
-      rivalReadLight ? VISUAL_PALETTE.rivalHighlight : '#ffe0c4',
+      closeReadLight
+        ? closeReadLightColor ?? VISUAL_PALETTE.rivalHighlight
+        : '#ffe0c4',
     )
 
-    if (rivalReadLight) {
-      eventLight.distance = 0.065
+    if (closeReadLight) {
+      const counterstrikeReadLightEast =
+        (closeReadLightLocalPosition?.xM ?? 0) *
+        LOCAL_METRES_TO_RENDER_UNITS
+      const counterstrikeReadLightSouth =
+        (closeReadLightLocalPosition?.zM ?? 0) *
+        LOCAL_METRES_TO_RENDER_UNITS
+      eventLight.distance = counterstrikeReadLight
+        ? COUNTERSTRIKE_READ_LIGHT_DISTANCE
+        : 0.065
       eventLight.position
         .copy(targetPosition)
-        .addScaledVector(activeUp, 0.016)
-        .addScaledVector(activeEast, 0.014)
-        .addScaledVector(activeSouth, 0.012)
-      eventLight.intensity = 0.034
+        .addScaledVector(
+          activeUp,
+          counterstrikeReadLight ? COUNTERSTRIKE_READ_LIGHT_UP : 0.016,
+        )
+        .addScaledVector(
+          activeEast,
+          counterstrikeReadLight ? counterstrikeReadLightEast : 0.014,
+        )
+        .addScaledVector(
+          activeSouth,
+          counterstrikeReadLight ? counterstrikeReadLightSouth : 0.012,
+        )
+      eventLight.intensity = counterstrikeReadLight
+        ? COUNTERSTRIKE_READ_LIGHT_INTENSITY
+        : 0.034
       return
     }
 

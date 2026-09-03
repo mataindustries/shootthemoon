@@ -10,6 +10,10 @@ import {
 import { useFrame, useThree } from '@react-three/fiber'
 import { MathUtils } from 'three'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
+import {
+  E2E_HARNESS_BUILD_ENABLED,
+  shouldEnableE2eHarness,
+} from '../testing/e2eHarness.ts'
 
 const APPROACH_DURATION_SECONDS = 6.2
 const RETURN_DURATION_SECONDS = 2.4
@@ -77,7 +81,12 @@ export function CinematicClockProvider({
   }, [invalidate])
 
   useEffect(() => {
-    if (!new URLSearchParams(window.location.search).has('e2e')) {
+    if (
+      !shouldEnableE2eHarness(
+        E2E_HARNESS_BUILD_ENABLED,
+        window.location.search,
+      )
+    ) {
       return
     }
 

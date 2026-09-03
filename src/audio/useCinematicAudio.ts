@@ -14,6 +14,13 @@ export type CinematicSoundCue =
   | 'flight'
   | 'impact'
   | 'complete'
+  | 'threat-warning'
+  | 'target-lock'
+  | 'fire-window'
+  | 'interceptor-launch'
+  | 'near-miss'
+  | 'orbital-interception'
+  | 'structural-impact'
 
 interface AudioGraph {
   readonly context: AudioContext
@@ -248,6 +255,38 @@ function playCue(graph: AudioGraph, cue: CinematicSoundCue): void {
     case 'complete':
       tone(graph, 55, 0.9, 0.24, 'sine', 82)
       tone(graph, 110, 0.7, 0.1, 'triangle', 164, 0.16)
+      break
+    case 'threat-warning':
+      tone(graph, 148, 0.2, 0.16, 'square', 116)
+      tone(graph, 148, 0.2, 0.14, 'square', 116, 0.34)
+      noise(graph, 0.7, 0.045, 920)
+      break
+    case 'target-lock':
+      tone(graph, 240, 0.42, 0.09, 'triangle', 620)
+      tone(graph, 620, 0.12, 0.075, 'sine', 760, 0.4)
+      break
+    case 'fire-window':
+      tone(graph, 430, 0.12, 0.1, 'triangle', 610)
+      tone(graph, 540, 0.12, 0.11, 'triangle', 760, 0.18)
+      tone(graph, 680, 0.18, 0.12, 'sine', 920, 0.36)
+      break
+    case 'interceptor-launch':
+      noise(graph, 0.62, 0.2, 1_750)
+      tone(graph, 84, 0.66, 0.24, 'sawtooth', 172)
+      break
+    case 'near-miss':
+      tone(graph, 410, 0.24, 0.1, 'triangle', 172)
+      noise(graph, 0.25, 0.055, 1_200, 0.08)
+      break
+    case 'orbital-interception':
+      noise(graph, 0.72, 0.27, 2_200)
+      tone(graph, 96, 0.82, 0.28, 'sine', 58)
+      tone(graph, 720, 0.28, 0.08, 'triangle', 310, 0.04)
+      break
+    case 'structural-impact':
+      noise(graph, 0.96, 0.32, 1_300)
+      tone(graph, 34, 1.08, 0.38, 'sine', 24)
+      tone(graph, 124, 0.32, 0.11, 'square', 66, 0.05)
       break
   }
 }

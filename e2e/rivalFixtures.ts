@@ -14,6 +14,7 @@ import {
   rivalSignalReducer,
 } from '../src/simulation/rivalSimulation.ts'
 import { createMigratedFirstStrike } from '../src/simulation/firstStrikeSimulation.ts'
+import { createMigratedCounterstrike } from '../src/simulation/counterstrikeSimulation.ts'
 import {
   serializeOutpostSave,
   serializePrototypeSave,
@@ -74,11 +75,13 @@ function createCinematicPrototype(nowMs: number) {
     type: 'beginCinematic',
     nowMs: nowMs - 1_100,
   })!
+  const firstStrike = createMigratedFirstStrike(outpost, rival, nowMs)
 
   return {
     outpost,
     rival,
-    firstStrike: createMigratedFirstStrike(outpost, rival, nowMs),
+    firstStrike,
+    counterstrike: createMigratedCounterstrike(firstStrike, nowMs),
   }
 }
 
@@ -123,11 +126,13 @@ export function createScanAwaitingResponseSave(
     nowMs: nowMs - 1_600,
   })!
 
+  const firstStrike = createMigratedFirstStrike(outpost, rival, nowMs)
   return serializePrototypeSave(
     {
       outpost,
       rival,
-      firstStrike: createMigratedFirstStrike(outpost, rival, nowMs),
+      firstStrike,
+      counterstrike: createMigratedCounterstrike(firstStrike, nowMs),
     },
     nowMs,
   )

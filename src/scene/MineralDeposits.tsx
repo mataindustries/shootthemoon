@@ -23,6 +23,10 @@ import {
   MATERIAL_RESPONSE,
   VISUAL_PALETTE,
 } from '../render/visualSystem.ts'
+import {
+  E2E_HARNESS_BUILD_ENABLED,
+  shouldEnableE2eHarness,
+} from '../testing/e2eHarness.ts'
 
 const CRYSTALS_PER_DEPOSIT = 3
 const TAP_DISTANCE_PX = 10
@@ -131,7 +135,11 @@ export function MineralDeposits({
   )
   const crystalsVisible = outpost.stage !== 'capsule-landed'
   const isE2e = useMemo(
-    () => new URLSearchParams(window.location.search).has('e2e'),
+    () =>
+      shouldEnableE2eHarness(
+        E2E_HARNESS_BUILD_ENABLED,
+        window.location.search,
+      ),
     [],
   )
 

@@ -6,6 +6,8 @@ import {
   canMineDeposit,
 } from '../simulation/outpostSimulation.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
+import type { CounterstrikeOutcome } from '../domain/counterstrike.ts'
+import type { CounterstrikeRunStatus } from '../simulation/counterstrikeSimulation.ts'
 
 interface CinematicHudProps {
   readonly phase: ExperiencePhase
@@ -18,6 +20,8 @@ interface CinematicHudProps {
   readonly lunarControlContested: boolean
   readonly firstStrikeAvailable: boolean
   readonly firstStrikeComplete: boolean
+  readonly counterstrikeState: CounterstrikeRunStatus
+  readonly counterstrikeOutcome: CounterstrikeOutcome | null
   readonly soundAvailable: boolean
   readonly soundEnabled: boolean
   readonly onClaim: () => void
@@ -50,7 +54,20 @@ function phaseLabel(
   rivalRevealed: boolean,
   firstStrikeAvailable: boolean,
   firstStrikeComplete: boolean,
+  counterstrikeState: CounterstrikeRunStatus,
+  counterstrikeOutcome: CounterstrikeOutcome | null,
 ): string {
+  if (counterstrikeState !== 'dormant') {
+    if (counterstrikeState === 'resolved') {
+      return counterstrikeOutcome === 'FAILURE'
+        ? 'OUTPOST DAMAGED · REPAIRS REQUIRED'
+        : 'OUTPOST SECURE · THREAT DEFEATED'
+    }
+    return counterstrikeState === 'warning'
+      ? 'HOSTILE SIGNAL · ORBITAL APPROACH'
+      : 'VESPER COUNTERSTRIKE · INTERCEPT ACTIVE'
+  }
+
   if (firstStrikeComplete) {
     return 'SCARRED MOON · ORBITAL RECORD'
   }
@@ -152,6 +169,8 @@ export function CinematicHud({
   lunarControlContested,
   firstStrikeAvailable,
   firstStrikeComplete,
+  counterstrikeState,
+  counterstrikeOutcome,
   soundAvailable,
   soundEnabled,
   onClaim,
@@ -188,7 +207,9 @@ export function CinematicHud({
         <div className="brand-lockup">
           <span className="brand-kicker">SHOOT THE MOON</span>
           <strong>
-            {firstStrikeComplete
+            {counterstrikeState !== 'dormant'
+              ? 'ORBITAL INTERCEPT'
+              : firstStrikeComplete
               ? 'SCARRED MOON'
               : firstStrikeAvailable
                 ? 'FIRST STRIKE'
@@ -205,6 +226,8 @@ export function CinematicHud({
               rivalRevealed,
               firstStrikeAvailable,
               firstStrikeComplete,
+              counterstrikeState,
+              counterstrikeOutcome,
             )}
           </span>
           <div className="hud-utilities">

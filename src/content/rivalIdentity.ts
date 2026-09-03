@@ -34,6 +34,8 @@ export interface RivalIdentityContent {
   readonly introTransmission: string
   readonly scanResponse: string
   readonly finalStrikeTransmission: string
+  readonly counterstrikeDefeatedTransmission: string
+  readonly counterstrikeDamageTransmission: string
   readonly territorialThreat: string
   readonly strategicLabels: RivalStrategicLabels
 }
@@ -76,6 +78,10 @@ export const VESPER_RIVAL_IDENTITY: RivalIdentityContent = Object.freeze({
     'You found me. Good. Memorize the site; you will not see it unfinished again.',
   finalStrikeTransmission:
     'You found one foothold. Null Meridian survives—and I remember who fired.',
+  counterstrikeDefeatedTransmission:
+    'Clean interception. Keep watching the dark; Null Meridian does not repeat itself.',
+  counterstrikeDamageTransmission:
+    'Still standing. Good. Count what survived before you count what is yours.',
   territorialThreat: 'The Moon has room for two claims. I do not.',
   strategicLabels: VESPER_STRATEGIC_LABELS,
 })
