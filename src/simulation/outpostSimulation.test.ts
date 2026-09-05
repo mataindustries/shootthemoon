@@ -13,7 +13,6 @@ import {
   DEPLOYMENT_DURATION_MS,
   EXTRACTOR_CONSTRUCTION_DURATION_MS,
   EXTRACTOR_COST,
-  EXTRACTOR_PRODUCTION_INTERVAL_MS,
   MINER_CARGO_CAPACITY,
   MINING_DURATION_MS,
   UNLOADING_DURATION_MS,
@@ -28,6 +27,10 @@ import {
   getTravelDurationMs,
   resumeSurfaceSimulation,
 } from './outpostSimulation.ts'
+import {
+  advanceOutpostOperations,
+  calculateOutpostOperations,
+} from './outpostOperations.ts'
 
 const SITE = createLandingSite(createLunarLocation(0.42, -1.13, 12))
 const START_MS = 10_000
@@ -175,7 +178,7 @@ describe('ore and extractor rules', () => {
     ).toBe(constructed)
   })
 
-  it('activates once, produces on deterministic intervals, and skips closed-scene time', () => {
+  it('activates once, produces deterministically, and skips closed-scene time', () => {
     const first = runOneMiningCycle(deployedOutpost(), START_MS)
     const second = runOneMiningCycle(first.outpost, first.completedAtMs + 10)
     const constructionAt = second.completedAtMs + 10
@@ -186,19 +189,19 @@ describe('ore and extractor rules', () => {
     expect(outpost.extractor?.status).toBe('active')
     expect(outpost.stage).toBe('extractor-active')
 
-    outpost = advanceOutpost(
-      outpost,
-      activationAt + EXTRACTOR_PRODUCTION_INTERVAL_MS * 3 + 250,
-    )
-    expect(outpost.lunarOre).toBe(
-      second.outpost.lunarOre - EXTRACTOR_COST + 3,
-    )
+    const startingOre = outpost.lunarOre
+    const rate = calculateOutpostOperations(outpost).productionPerMin
+    outpost = advanceOutpostOperations(outpost, activationAt + 60_000)
+    expect(outpost.lunarOre).toBeCloseTo(startingOre + rate, 8)
 
     const resumed = resumeSurfaceSimulation(outpost, activationAt + 60_000)
-    const next = advanceOutpost(
+    const next = advanceOutpostOperations(
       resumed,
-      activationAt + 60_000 + EXTRACTOR_PRODUCTION_INTERVAL_MS,
+      activationAt + 120_000,
     )
-    expect(next.lunarOre).toBe(resumed.lunarOre + 1)
+    expect(next.lunarOre).toBeCloseTo(
+      resumed.lunarOre + calculateOutpostOperations(resumed).productionPerMin,
+      8,
+    )
   })
 })

@@ -52,7 +52,7 @@ export function FirstStrikeHud({
   const identity = getRivalIdentity(rival.identityId)
   const ready = showReady && phase === 'idle' &&
     (strike.status === 'READY' || strike.status === 'ARMED')
-  const completedIdle = phase === 'idle' && strike.status === 'COMPLETE'
+  const completedIdle = showReady && phase === 'idle' && strike.status === 'COMPLETE'
 
   return (
     <div className="first-strike-hud" aria-live="polite">

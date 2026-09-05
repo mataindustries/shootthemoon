@@ -1,4 +1,8 @@
-import { findDeposit, type OutpostSnapshot } from '../domain/outpost.ts'
+import {
+  findDeposit,
+  type OperatingMode,
+  type OutpostSnapshot,
+} from '../domain/outpost.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import {
   EXTRACTOR_COST,
@@ -7,7 +11,12 @@ import {
 } from '../simulation/outpostSimulation.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
 import type { CounterstrikeOutcome } from '../domain/counterstrike.ts'
+import type { OutpostDamageState } from '../domain/counterstrike.ts'
 import type { CounterstrikeRunStatus } from '../simulation/counterstrikeSimulation.ts'
+import {
+  analyzeLandingSite,
+  calculateOutpostOperations,
+} from '../simulation/outpostOperations.ts'
 
 interface CinematicHudProps {
   readonly phase: ExperiencePhase
@@ -22,6 +31,7 @@ interface CinematicHudProps {
   readonly firstStrikeComplete: boolean
   readonly counterstrikeState: CounterstrikeRunStatus
   readonly counterstrikeOutcome: CounterstrikeOutcome | null
+  readonly damageState: OutpostDamageState
   readonly soundAvailable: boolean
   readonly soundEnabled: boolean
   readonly onClaim: () => void
@@ -30,8 +40,98 @@ interface CinematicHudProps {
   readonly onDeploy: () => void
   readonly onMine: () => void
   readonly onConstruct: () => void
+  readonly onSetOperatingMode: (mode: OperatingMode) => void
   readonly onResetPrototype: () => void
   readonly onToggleSound: () => void
+}
+
+const OPERATING_MODES: readonly OperatingMode[] = [
+  'CONSERVE',
+  'BALANCED',
+  'OVERDRIVE',
+]
+
+function formatMetric(value: number, digits = 1): string {
+  return value.toFixed(digits).replace(/\.0$/, '')
+}
+
+function OperationsPanel({
+  outpost,
+  damageState,
+  rivalSignalHeld,
+  onSetOperatingMode,
+  onReturn,
+}: {
+  readonly outpost: OutpostSnapshot
+  readonly damageState: OutpostDamageState
+  readonly rivalSignalHeld: boolean
+  readonly onSetOperatingMode: (mode: OperatingMode) => void
+  readonly onReturn: () => void
+}) {
+  const metrics = calculateOutpostOperations(outpost, damageState)
+
+  return (
+    <section
+      className="operations-panel"
+      aria-label="Outpost operations"
+      data-operation-status={metrics.status}
+    >
+      <div className="operations-panel__heading">
+        <div>
+          <span>OUTPOST OPERATIONS</span>
+          <strong>{metrics.status}</strong>
+        </div>
+        <b>{Math.round(metrics.operatingEfficiency * 100)}% EFF</b>
+      </div>
+      <ContextPrompt
+        outpost={outpost}
+        selectedDepositId={null}
+        rivalSignalHeld={rivalSignalHeld}
+      />
+      {damageState === 'DAMAGED' ? (
+        <p className="operations-damage" role="status">
+          OUTPOST DAMAGED · −30% PRODUCTION
+        </p>
+      ) : null}
+      <div className="operations-metrics">
+        <div>
+          <span>ENERGY</span>
+          <strong>{formatMetric(metrics.energyGeneratedKw)} KW</strong>
+          <small>{formatMetric(metrics.energyConsumedKw)} USED</small>
+        </div>
+        <div>
+          <span>ROBOTS</span>
+          <strong>{metrics.activeRobots} / {metrics.availableRobots}</strong>
+          <small>ACTIVE</small>
+        </div>
+        <div>
+          <span>ORE RATE</span>
+          <strong>{formatMetric(metrics.productionPerMin)}</strong>
+          <small>ORE / MIN</small>
+        </div>
+        <div>
+          <span>STORAGE</span>
+          <strong>{formatMetric(metrics.storageUsed)} / {metrics.storageCapacity}</strong>
+          <small>LUNAR ORE</small>
+        </div>
+      </div>
+      <div className="operations-controls" aria-label="Operating mode">
+        {OPERATING_MODES.map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            aria-pressed={outpost.operations.mode === mode}
+            onClick={() => onSetOperatingMode(mode)}
+          >
+            {mode}
+          </button>
+        ))}
+      </div>
+      <button className="operations-return" type="button" onClick={onReturn}>
+        RETURN TO ORBIT
+      </button>
+    </section>
+  )
 }
 
 function formatCoordinate(valueRad: number, positive: string, negative: string) {
@@ -68,11 +168,11 @@ function phaseLabel(
       : 'VESPER COUNTERSTRIKE · INTERCEPT ACTIVE'
   }
 
-  if (firstStrikeComplete) {
+  if (firstStrikeComplete && phase !== 'landed') {
     return 'SCARRED MOON · ORBITAL RECORD'
   }
 
-  if (firstStrikeAvailable) {
+  if (firstStrikeAvailable && phase !== 'landed') {
     return 'LUNAR WARHEAD AVAILABLE'
   }
 
@@ -171,6 +271,7 @@ export function CinematicHud({
   firstStrikeComplete,
   counterstrikeState,
   counterstrikeOutcome,
+  damageState,
   soundAvailable,
   soundEnabled,
   onClaim,
@@ -179,6 +280,7 @@ export function CinematicHud({
   onDeploy,
   onMine,
   onConstruct,
+  onSetOperatingMode,
   onResetPrototype,
   onToggleSound,
 }: CinematicHudProps) {
@@ -200,6 +302,8 @@ export function CinematicHud({
     outpost !== null && selectedDeposit !== null
       ? canMineDeposit(outpost, selectedDeposit.id)
       : false
+  const siteAnalysis = site === null ? null : analyzeLandingSite(site)
+  const operationsActive = outpost?.extractor?.status === 'active'
 
   return (
     <div className="hud" aria-live="polite">
@@ -255,7 +359,7 @@ export function CinematicHud({
           <section className="surface-status" aria-label="Outpost status">
             <div className="ore-counter">
               <span>LUNAR ORE</span>
-              <strong>{outpost.lunarOre}</strong>
+              <strong>{formatMetric(outpost.lunarOre)}</strong>
             </div>
             <div className="robot-status" data-robot-status={outpost.robot.state}>
               <span className="signal-dot" aria-hidden="true" />
@@ -263,12 +367,23 @@ export function CinematicHud({
             </div>
           </section>
 
-          <ContextPrompt
-            outpost={outpost}
-            selectedDepositId={selectedDepositId}
-            rivalSignalHeld={rivalSignalHeld}
-          />
+          {!operationsActive ? (
+            <ContextPrompt
+              outpost={outpost}
+              selectedDepositId={selectedDepositId}
+              rivalSignalHeld={rivalSignalHeld}
+            />
+          ) : null}
 
+          {operationsActive ? (
+            <OperationsPanel
+              outpost={outpost}
+              damageState={damageState}
+              rivalSignalHeld={rivalSignalHeld}
+              onSetOperatingMode={onSetOperatingMode}
+              onReturn={onReturn}
+            />
+          ) : (
           <section className="command-deck" aria-label="Outpost commands">
             {selectedDeposit !== null ? (
               <div
@@ -325,6 +440,7 @@ export function CinematicHud({
               RETURN TO ORBIT
             </button>
           </section>
+          )}
         </>
       ) : site === null ? (
         <div className="orbit-instruction">
@@ -378,6 +494,23 @@ export function CinematicHud({
           <div className="datum-line">
             MEAN SPHERE · ALT {formatAltitude(site.location.heightM)} M
           </div>
+
+          {!targetingOutpost && siteAnalysis !== null ? (
+            <div className="site-qualities" aria-label="Site qualities">
+              <div>
+                <span>SOLAR</span>
+                <strong>{siteAnalysis.solarQuality.toUpperCase()}</strong>
+              </div>
+              <div>
+                <span>EXTRACTION</span>
+                <strong>{siteAnalysis.extractionQuality.toUpperCase()}</strong>
+              </div>
+              <div>
+                <span>LOGISTICS</span>
+                <strong>{siteAnalysis.logisticsQuality.toUpperCase()}</strong>
+              </div>
+            </div>
+          ) : null}
 
           {phase === 'selected' ? (
             <div className="site-actions">

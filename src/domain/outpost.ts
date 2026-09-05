@@ -21,6 +21,14 @@ export type OutpostStage =
 
 export type ExtractorStatus = 'constructing' | 'active'
 
+export type OperatingMode = 'CONSERVE' | 'BALANCED' | 'OVERDRIVE'
+
+export interface OutpostOperationsState {
+  readonly mode: OperatingMode
+  readonly storageCapacity: number
+  readonly lastUpdatedAtMs: number
+}
+
 export interface LocalSurfacePosition {
   readonly xM: number
   readonly zM: number
@@ -69,6 +77,7 @@ export interface OutpostSnapshot {
   readonly establishedAtMs: number
   readonly updatedAtMs: number
   readonly lunarOre: number
+  readonly operations: OutpostOperationsState
   readonly robot: MinerRobot
   readonly deposits: readonly MineralDeposit[]
   readonly extractor: Extractor | null

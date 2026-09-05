@@ -1,0 +1,41 @@
+{
+  "ordinaryBuildHarnessRejectedEvenWithQuery": true,
+  "currentPreviewAssetsVerified": {
+    "/assets/index-Pl55l1fR.js": "d5a0b320480618e4b5ae852ec0c690a88bcda9dea5054125fc643628c1533582",
+    "/assets/index-r2pSd6Sd.css": "7cc5b05911efc636de3a68353019c50f45938c93baa9f319f2b680140427dc53",
+    "/assets/moon/ldem_3_8bit.jpg": "6d93f887e7d8bedfe35ab89ba785e5e3ca12381bd092a5e6abe2c707dda8bb98",
+    "/assets/moon/lroc_color_2k.jpg": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170",
+    "/index.html": "677044f4fb4116ce3e2c8825e929c120ca3b1ee850a5d2af06408fd695ec535f"
+  },
+  "artifactSizes": {
+    "/assets/index-Pl55l1fR.js": {
+      "bytes": 1358843,
+      "gzip9Bytes": 366512
+    },
+    "/assets/index-r2pSd6Sd.css": {
+      "bytes": 41918,
+      "gzip9Bytes": 8913
+    },
+    "/assets/moon/ldem_3_8bit.jpg": {
+      "bytes": 111552,
+      "gzip9Bytes": 111575
+    },
+    "/assets/moon/lroc_color_2k.jpg": {
+      "bytes": 457942,
+      "gzip9Bytes": 447999
+    },
+    "/index.html": {
+      "bytes": 500,
+      "gzip9Bytes": 316
+    }
+  },
+  "javascriptGzipBytes": 366512,
+  "browserErrors": [],
+  "surfaceMetrics": {
+    "drawCalls": 42,
+    "triangles": 40018,
+    "programs": 13
+  },
+  "idleFrames": 5,
+  "idleDurationMs": 1400
+}
