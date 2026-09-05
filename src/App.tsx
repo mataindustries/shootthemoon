@@ -13,6 +13,8 @@ import {
   type WebGLRenderer,
 } from 'three'
 import type { LandingSite } from './domain/lunarCoordinates.ts'
+import type { OperatingMode } from './domain/outpost.ts'
+import { calculateOutpostOperations } from './simulation/outpostOperations.ts'
 import {
   INITIAL_MOON_CORE_STATE,
   moonCoreReducer,
@@ -785,12 +787,20 @@ function App() {
       : 400
     const timer = window.setInterval(() => {
       if (!simulationPausedRef.current && !transitionsPausedRef.current) {
-        dispatchOutpost({ type: 'tick', nowMs: Date.now() })
+        const nowMs = Date.now()
+        dispatchOutpost({ type: 'tick', nowMs })
+        if (outpost.extractor?.status === 'active') {
+          dispatchOutpost({
+            type: 'operationsTick',
+            nowMs,
+            damageState: counterstrike?.outpostDamageState ?? 'INTACT',
+          })
+        }
       }
     }, intervalMs)
 
     return () => window.clearInterval(timer)
-  }, [entryOpen, outpost, state.phase])
+  }, [counterstrike?.outpostDamageState, entryOpen, outpost, state.phase])
 
   const beginRivalReveal = useCallback(() => {
     if (
@@ -1369,6 +1379,19 @@ function App() {
     }
   }, [audio, selectedDepositId])
 
+  const handleSetOperatingMode = useCallback(
+    (mode: OperatingMode) => {
+      audio.play('ui-confirm')
+      dispatchOutpost({
+        type: 'setOperatingMode',
+        mode,
+        nowMs: Date.now(),
+        damageState: counterstrike?.outpostDamageState ?? 'INTACT',
+      })
+    },
+    [audio, counterstrike?.outpostDamageState],
+  )
+
   const handleArmFirstStrike = useCallback(() => {
     if (firstStrike?.status !== 'READY') {
       return
@@ -1478,6 +1501,27 @@ function App() {
     beginCounterstrike(true)
     audio.play('ui-confirm')
   }, [audio, beginCounterstrike])
+
+  const handleInspectOutpostOperations = useCallback(() => {
+    if (
+      outpost === null ||
+      counterstrike?.acceptedOutcome == null ||
+      counterstrikeRun.status !== 'resolved' ||
+      counterstrikeRun.replay ||
+      state.phase !== 'orbit'
+    ) return
+    transitionGenerationRef.current += 1
+    audio.stopAll()
+    audio.play('ui-confirm')
+    setCounterstrikeRun((current) =>
+      counterstrikeRunReducer(current, {
+        type: 'reset',
+        clockMs: performance.now(),
+      }),
+    )
+    setSelectedDepositId(null)
+    dispatch({ type: 'revisit', landingSite: outpost.site })
+  }, [audio, counterstrike?.acceptedOutcome, counterstrikeRun.replay, counterstrikeRun.status, outpost, state.phase])
 
   const handleAcceptCounterstrikePreview = useCallback(() => {
     if (
@@ -1606,6 +1650,13 @@ function App() {
   const rivalSignalHeld =
     rival?.revealStatus === 'AWAITING_SAFE_MOMENT' ||
     (restoredSessionRef.current && rival?.revealStatus === 'QUEUED')
+  const operationsMetrics =
+    outpost?.extractor?.status === 'active'
+      ? calculateOutpostOperations(
+          outpost,
+          counterstrike?.outpostDamageState ?? 'INTACT',
+        )
+      : null
 
   return (
     <main
@@ -1674,6 +1725,13 @@ function App() {
         counterstrike?.outpostDamageState ?? 'INTACT'
       }
       data-repairs-required={counterstrike?.repairsRequired ?? false}
+      data-operating-mode={outpost?.operations.mode ?? 'none'}
+      data-operation-status={operationsMetrics?.status ?? 'OFFLINE'}
+      data-operation-rate={operationsMetrics?.productionPerMin ?? 0}
+      data-operation-efficiency={operationsMetrics?.operatingEfficiency ?? 0}
+      data-operation-energy-throttle={operationsMetrics?.energyThrottle ?? 0}
+      data-operation-active-robots={operationsMetrics?.activeRobots ?? 0}
+      data-operation-storage-capacity={outpost?.operations.storageCapacity ?? 0}
       data-secondary-impact-latitude={
         counterstrike?.secondaryImpactSite?.location.latitudeRad ?? 'none'
       }
@@ -1745,6 +1803,7 @@ function App() {
         firstStrikeComplete={firstStrike?.status === 'COMPLETE'}
         counterstrikeState={counterstrikeRun.status}
         counterstrikeOutcome={counterstrikeRun.outcome}
+        damageState={counterstrike?.outpostDamageState ?? 'INTACT'}
         soundAvailable={audio.available}
         soundEnabled={audio.enabled}
         onToggleSound={audio.toggle}
@@ -1754,6 +1813,7 @@ function App() {
         onDeploy={handleDeploy}
         onMine={handleMine}
         onConstruct={handleConstruct}
+        onSetOperatingMode={handleSetOperatingMode}
         onResetPrototype={handleResetPrototype}
       />
       <RivalHud
@@ -1805,6 +1865,7 @@ function App() {
         onReplay={handleReplayCounterstrike}
         onAcceptPreview={handleAcceptCounterstrikePreview}
         onKeepAccepted={handleKeepAcceptedCounterstrike}
+        onInspectOutpost={handleInspectOutpostOperations}
       />
       {entryOpen ? (
         <LaunchGate

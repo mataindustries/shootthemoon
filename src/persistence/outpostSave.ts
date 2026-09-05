@@ -6,6 +6,8 @@ import {
   RESOURCE_NAME,
   type Extractor,
   type MineralDeposit,
+  type OperatingMode,
+  type OutpostOperationsState,
   type OutpostSnapshot,
   type OutpostStage,
   type RobotState,
@@ -51,13 +53,15 @@ import {
   counterstrikeFactsReducer,
   createMigratedCounterstrike,
 } from '../simulation/counterstrikeSimulation.ts'
+import { createOutpostOperationsState } from '../simulation/outpostOperations.ts'
 
-export const OUTPOST_SAVE_SCHEMA_VERSION = 4
+export const OUTPOST_SAVE_SCHEMA_VERSION = 5
 export const OUTPOST_STORAGE_KEY = 'shoot-the-moon:first-outpost:v1'
 
 const PRE_RIVAL_SAVE_SCHEMA_VERSION = 1
 const PRE_STRIKE_SAVE_SCHEMA_VERSION = 2
 const PRE_COUNTERSTRIKE_SAVE_SCHEMA_VERSION = 3
+const PRE_OPERATIONS_SAVE_SCHEMA_VERSION = 4
 const VALUE_EPSILON = 1e-9
 
 export interface StorageLike {
@@ -100,7 +104,7 @@ interface CounterstrikeSaveData
   } | null
 }
 
-interface PrototypeSaveEnvelopeV4 {
+interface PrototypeSaveEnvelopeV5 {
   readonly schemaVersion: typeof OUTPOST_SAVE_SCHEMA_VERSION
   readonly savedAtMs: number
   readonly canonicalLanding: CanonicalLandingSave
@@ -108,6 +112,40 @@ interface PrototypeSaveEnvelopeV4 {
   readonly rival: RivalSaveData
   readonly firstStrike: FirstStrikeSaveData
   readonly counterstrike: CounterstrikeSaveData
+}
+
+function isOperatingMode(value: unknown): value is OperatingMode {
+  return (
+    value === 'CONSERVE' || value === 'BALANCED' || value === 'OVERDRIVE'
+  )
+}
+
+function parseOperations(
+  value: unknown,
+  lunarOre: number,
+  nowMs: number,
+  schemaVersion: number,
+): OutpostOperationsState | null {
+  if (schemaVersion <= PRE_OPERATIONS_SAVE_SCHEMA_VERSION) {
+    return createOutpostOperationsState(nowMs, lunarOre)
+  }
+
+  if (
+    !isRecord(value) ||
+    !isOperatingMode(value.mode) ||
+    !isFiniteNumber(value.storageCapacity) ||
+    value.storageCapacity <= 0 ||
+    value.storageCapacity + VALUE_EPSILON < lunarOre ||
+    !isNonNegativeNumber(value.lastUpdatedAtMs)
+  ) {
+    return null
+  }
+
+  return {
+    mode: value.mode,
+    storageCapacity: value.storageCapacity,
+    lastUpdatedAtMs: nowMs,
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -394,6 +432,15 @@ function normalizeOutpostForResume(
     lunarOre:
       outpost.lunarOre +
       (robotWasCarrying ? outpost.robot.carriedOre : 0),
+    operations: {
+      ...outpost.operations,
+      storageCapacity: Math.max(
+        outpost.operations.storageCapacity,
+        outpost.lunarOre +
+          (robotWasCarrying ? outpost.robot.carriedOre : 0),
+      ),
+      lastUpdatedAtMs: nowMs,
+    },
     robot,
     extractor,
   }
@@ -403,6 +450,7 @@ function parseOutpost(
   canonicalLanding: unknown,
   value: unknown,
   nowMs: number,
+  schemaVersion: number,
 ): OutpostSnapshot | null {
   const site = parseLandingSite(canonicalLanding)
 
@@ -443,6 +491,15 @@ function parseOutpost(
     return null
   }
 
+  const operations = parseOperations(
+    value.operations,
+    value.lunarOre,
+    nowMs,
+    schemaVersion,
+  )
+
+  if (operations === null) return null
+
   const parsed: OutpostSnapshot = {
     id: OUTPOST_ID,
     site,
@@ -450,6 +507,7 @@ function parseOutpost(
     establishedAtMs: value.establishedAtMs,
     updatedAtMs: value.updatedAtMs,
     lunarOre: value.lunarOre,
+    operations,
     robot: {
       id: MINER_ID,
       state: value.robot.state,
@@ -950,7 +1008,7 @@ function normalizePrototypeForResume(
 function toEnvelope(
   prototype: PrototypeSnapshot,
   savedAtMs: number,
-): PrototypeSaveEnvelopeV4 {
+): PrototypeSaveEnvelopeV5 {
   const safe = normalizePrototypeForResume(prototype, savedAtMs)
   const { site: _outpostSite, ...outpostData } = safe.outpost
   const { site: _rivalSite, ...rivalData } = safe.rival
@@ -1019,6 +1077,7 @@ export function deserializePrototypeSave(
     (value.schemaVersion !== PRE_RIVAL_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_STRIKE_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_COUNTERSTRIKE_SAVE_SCHEMA_VERSION &&
+      value.schemaVersion !== PRE_OPERATIONS_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== OUTPOST_SAVE_SCHEMA_VERSION) ||
     !isNonNegativeNumber(value.savedAtMs) ||
     !isNonNegativeNumber(nowMs)
@@ -1030,6 +1089,7 @@ export function deserializePrototypeSave(
     value.canonicalLanding,
     value.outpost,
     nowMs,
+    value.schemaVersion,
   )
 
   if (outpost === null) {

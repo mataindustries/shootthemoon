@@ -59,6 +59,8 @@ import {
   OrbitalInterceptEffects,
 } from './OrbitalInterceptEffects.tsx'
 import { CounterstrikeDamage } from './CounterstrikeDamage.tsx'
+import { OperationalRobotFleet } from './OperationalRobotFleet.tsx'
+import { calculateOutpostOperations } from '../simulation/outpostOperations.ts'
 
 const CLEAR_COLOR = VISUAL_PALETTE.space
 
@@ -137,11 +139,13 @@ export function SceneRoot({
   const counterstrikeTerrain = useMemo(
     () =>
       outpost === null ? null : createSurfaceTerrainProfile(outpost.site),
-    [outpost],
+    [outpost?.site],
   )
   const secondaryImpactSite = useMemo(
     () => (outpost === null ? null : deriveSecondaryImpactSite(outpost)),
-    [outpost],
+    // Economic ticks do not move this anchor. A new object here would reset
+    // CameraRig's surface pose and interrupt every drag/zoom during production.
+    [outpost?.site, outpost?.extractor?.position],
   )
   const rivalTerrainSegments = Math.min(quality.patchSegments, 32)
   const playerSurfaceHeight =
@@ -157,6 +161,13 @@ export function SceneRoot({
           outpost?.extractor?.position.xM ?? 0,
           outpost?.extractor?.position.zM ?? 0,
         ).y
+  const operationsMetrics =
+    outpost?.extractor?.status === 'active'
+      ? calculateOutpostOperations(
+          outpost,
+          counterstrike?.outpostDamageState ?? 'INTACT',
+        )
+      : null
   const rivalSurfaceHeight =
     rivalTerrain === null
       ? undefined
@@ -177,6 +188,9 @@ export function SceneRoot({
   )
   const counterstrikePresentationActive =
     counterstrikeRun.status !== 'dormant'
+  const persistentOutpostDamage =
+    !counterstrikePresentationActive &&
+    counterstrike?.outpostDamageState === 'DAMAGED'
   const counterstrikeVisualOutcome =
     counterstrikeRun.status === 'impact'
       ? 'FAILURE'
@@ -328,7 +342,7 @@ export function SceneRoot({
         phase={phase}
         landingSite={landingSite}
         orbitalFocusSite={
-          counterstrikePresentationActive
+          counterstrikePresentationActive || counterstrike?.acceptedOutcome != null
             ? outpost?.site ?? null
             : strikePresentationActive
             ? outpost?.site ?? null
@@ -652,9 +666,28 @@ export function SceneRoot({
                 terrain={terrain}
                 segments={quality.patchSegments}
                 signalInterrupted={rivalPresentation.phase === 'warning'}
-                damaged={counterstrikeFailureVisible}
+                damaged={counterstrikeFailureVisible || persistentOutpostDamage}
                 damageSequence={counterstrikeRun}
+                operations={operationsMetrics ?? undefined}
               />
+              {operationsMetrics !== null ? (
+                <OperationalRobotFleet
+                  outpost={outpost}
+                  operations={operationsMetrics}
+                  terrain={terrain}
+                  segments={quality.patchSegments}
+                />
+              ) : null}
+              {persistentOutpostDamage ? (
+                <CounterstrikeDamage
+                  outpost={outpost}
+                  terrain={terrain}
+                  segments={quality.patchSegments}
+                  run={counterstrikeRun}
+                  transientImpact={false}
+                  permanent
+                />
+              ) : null}
             </>
           ) : null}
         </>
@@ -694,6 +727,7 @@ export function SceneRoot({
                 damaged
                 compact
                 damageSequence={counterstrikeRun}
+                operations={operationsMetrics ?? undefined}
               />
             </>
           ) : null}

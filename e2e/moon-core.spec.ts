@@ -417,8 +417,12 @@ async function pauseTransitionsWhenRobotState(
       return
     }
 
+    const observedStates: string[] = []
     const observer = new MutationObserver(() => {
-      if ((main as HTMLElement).dataset.robotState === targetState) {
+      const currentState = (main as HTMLElement).dataset.robotState!
+      if (observedStates.at(-1) !== currentState) observedStates.push(currentState)
+      main.setAttribute('data-observed-robot-states', observedStates.join(','))
+      if (currentState === targetState) {
         observer.disconnect()
         pause()
       }
@@ -603,14 +607,14 @@ test('complete mobile First Outpost loop queues one Rival Signal after extractor
   await expect(main).toHaveAttribute('data-selected-deposit', 'deposit-gamma')
   await expect(page.locator('.deposit-readout')).toContainText('LUNAR ORE')
 
-  await pauseTransitionsWhenRobotState(page, 'traveling')
-  await page.getByRole('button', { name: 'MINE DEPOSIT' }).click()
-  await expect(main).toHaveAttribute('data-robot-state', 'traveling')
+  // Observe both real transitions in-browser and pause only at mining.
+  // Holding traveling across Node round trips lets wall time overtake mining.
   await pauseTransitionsWhenRobotState(page, 'mining')
-  await setTransitionsPaused(page, false)
-  await expect(main).toHaveAttribute('data-robot-state', 'mining', {
+  await page.getByRole('button', { name: 'MINE DEPOSIT' }).click()
+  await expect(main).toHaveAttribute('data-robot-state', /^(mining|returning)$/, {
     timeout: 6_000,
   })
+  await expect(main).toHaveAttribute('data-observed-robot-states', 'traveling,mining')
   await expect(main).toHaveAttribute('data-render-mode', 'continuous')
   const miningFrame = await readFrameCount(page)
   const availableAnimationFrames = await measureBrowserAnimationFrames(page, 600)

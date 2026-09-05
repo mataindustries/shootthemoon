@@ -31,6 +31,7 @@ import {
   MATERIAL_RESPONSE,
   VISUAL_PALETTE,
 } from '../render/visualSystem.ts'
+import type { OutpostOperationsMetrics } from '../simulation/outpostOperations.ts'
 
 interface ExtractorProps {
   readonly outpost: OutpostSnapshot
@@ -40,6 +41,7 @@ interface ExtractorProps {
   readonly damaged?: boolean
   readonly compact?: boolean
   readonly damageSequence?: CounterstrikeRunState | undefined
+  readonly operations?: OutpostOperationsMetrics | undefined
 }
 
 const EXTRACTOR_PAD_RADIUS_M = 1.08
@@ -154,6 +156,7 @@ export function Extractor({
   damaged = false,
   compact = false,
   damageSequence,
+  operations,
 }: ExtractorProps) {
   const extractor = outpost.extractor
   const rootRef = useRef<Group>(null)
@@ -641,14 +644,32 @@ export function Extractor({
 
     if (extractor.status === 'active') {
       const elapsed = state.clock.elapsedTime
-      drumRef.current.rotation.x = damageVisible ? 0.58 : elapsed * 2.8
+      const productionActivity = Math.max(
+        0,
+        Math.min(1, (operations?.productionPerMin ?? 5) / 8),
+      )
+      const machinerySpeed =
+        operations?.status === 'STORAGE FULL'
+          ? 0
+          : damageVisible
+            ? 0.55 * productionActivity
+            : 0.9 + productionActivity * 2.1
+      drumRef.current.rotation.x = elapsed * machinerySpeed + (damageVisible ? 0.58 : 0)
       pumpRef.current.rotation.z = damageVisible
-        ? -0.74
-        : -0.16 + Math.sin(elapsed * 3.4) * 0.22
+        ? -0.5 + Math.sin(elapsed * Math.max(0.4, machinerySpeed)) * 0.08
+        : -0.16 + Math.sin(elapsed * Math.max(0.4, machinerySpeed * 1.3)) * 0.22
 
       const interruptionGate =
         Math.sin(elapsed * 27) > 0.2 || Math.sin(elapsed * 11.4) < -0.72
-      operationMaterial.emissiveIntensity = damageVisible
+      const lowEnergyGate =
+        operations?.status !== 'LOW ENERGY' ||
+        Math.sin(elapsed * 4.4) > 0.08
+      operationMaterial.emissiveIntensity =
+        operations?.status === 'STORAGE FULL'
+          ? 0.015
+          : !lowEnergyGate
+            ? 0.008
+            : damageVisible
         ? damageSequence?.status === 'impact'
           ? damageImpactProgress < 0.16
             ? 0
@@ -662,7 +683,8 @@ export function Extractor({
           : 0.34
         : Math.min(
             EMISSIVE_LIMITS.activePanel,
-            EMISSIVE_LIMITS.panel + Math.sin(elapsed * 3.6) * 0.055,
+            EMISSIVE_LIMITS.panel +
+              Math.sin(elapsed * (1.4 + productionActivity * 3.2)) * 0.055,
           )
     }
   })

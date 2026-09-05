@@ -25,6 +25,7 @@ interface CounterstrikeHudProps {
   readonly onReplay: () => void
   readonly onAcceptPreview: () => void
   readonly onKeepAccepted: () => void
+  readonly onInspectOutpost: () => void
 }
 
 function pointerSample(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -129,6 +130,7 @@ export function CounterstrikeHud({
   onReplay,
   onAcceptPreview,
   onKeepAccepted,
+  onInspectOutpost,
 }: CounterstrikeHudProps) {
   if (snapshot === null || rival === null) {
     return null
@@ -276,14 +278,23 @@ export function CounterstrikeHud({
               </button>
             </div>
           ) : (
-            <button
-              className="counterstrike-replay"
-              type="button"
-              onClick={onReplay}
-              disabled={!snapshot.replayEligible}
-            >
-              REPLAY COUNTERSTRIKE
-            </button>
+            <div className="counterstrike-ending__actions">
+              <button
+                type="button"
+                onClick={onInspectOutpost}
+                disabled={snapshot.acceptedOutcome === null}
+              >
+                VIEW OUTPOST OPERATIONS
+              </button>
+              <button
+                className="counterstrike-replay"
+                type="button"
+                onClick={onReplay}
+                disabled={!snapshot.replayEligible}
+              >
+                REPLAY COUNTERSTRIKE
+              </button>
+            </div>
           )}
         </section>
       ) : null}

@@ -471,7 +471,7 @@ test('Counterstrike success is touch-fair, persistent, idle, and within budget',
     (key) => JSON.parse(localStorage.getItem(key) ?? '{}'),
     OUTPOST_STORAGE_KEY,
   )
-  expect(persisted.schemaVersion).toBe(4)
+  expect(persisted.schemaVersion).toBe(5)
   expect(persisted.counterstrike).toMatchObject({
     acceptedOutcome: 'SUCCESS',
     interceptionSucceeded: true,
@@ -483,6 +483,10 @@ test('Counterstrike success is touch-fair, persistent, idle, and within budget',
   })
   expect(persisted.counterstrike).not.toHaveProperty('status')
 
+  await page.getByRole('button', { name: 'VIEW OUTPOST OPERATIONS' }).tap()
+  await expect(main).toHaveAttribute('data-counterstrike-state', 'dormant')
+  await expect(main).toHaveAttribute('data-phase', 'selected')
+  await expect(main).toHaveAttribute('data-counterstrike-accepted-outcome', 'SUCCESS')
   await page.reload()
   await dismissLaunchGate(page)
   await expect(main).toHaveAttribute('data-counterstrike-state', 'resolved')
@@ -749,6 +753,10 @@ test('Counterstrike failure preserves progress and replay replacement is deliber
   await page.setViewportSize({ width: 390, height: 844 })
   await page.waitForTimeout(180)
 
+  await page.getByRole('button', { name: 'VIEW OUTPOST OPERATIONS' }).tap()
+  await expect(main).toHaveAttribute('data-counterstrike-state', 'dormant')
+  await expect(main).toHaveAttribute('data-phase', 'selected')
+  await expect(main).toHaveAttribute('data-counterstrike-accepted-outcome', 'FAILURE')
   await page.reload()
   await dismissLaunchGate(page)
   await expect(main).toHaveAttribute('data-counterstrike-state', 'resolved')
@@ -776,6 +784,7 @@ test('Counterstrike failure preserves progress and replay replacement is deliber
   await expect(page.locator('.counterstrike-ending')).toContainText(
     'ACCEPT THIS ENDING?',
   )
+  await expect(page.getByRole('button', { name: 'VIEW OUTPOST OPERATIONS' })).toHaveCount(0)
   let persistedOutcome = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key) ?? '{}').counterstrike.acceptedOutcome,
     OUTPOST_STORAGE_KEY,

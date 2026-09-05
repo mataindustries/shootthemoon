@@ -13,6 +13,13 @@ import {
   type RobotState,
 } from '../domain/outpost.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
+import type { OutpostDamageState } from '../domain/counterstrike.ts'
+import {
+  advanceOutpostOperations,
+  createOutpostOperationsState,
+  setOperatingMode,
+} from './outpostOperations.ts'
+import type { OperatingMode } from '../domain/outpost.ts'
 
 export const DEPLOYMENT_DURATION_MS = 1_700
 export const MINING_DURATION_MS = 2_800
@@ -51,6 +58,17 @@ export type OutpostAction =
       readonly nowMs: number
     }
   | { readonly type: 'tick'; readonly nowMs: number }
+  | {
+      readonly type: 'setOperatingMode'
+      readonly mode: OperatingMode
+      readonly nowMs: number
+      readonly damageState: OutpostDamageState
+    }
+  | {
+      readonly type: 'operationsTick'
+      readonly nowMs: number
+      readonly damageState: OutpostDamageState
+    }
   | { readonly type: 'resumeSurface'; readonly nowMs: number }
   | { readonly type: 'reset' }
 
@@ -164,6 +182,7 @@ export function createInitialOutpost(
     establishedAtMs: nowMs,
     updatedAtMs: nowMs,
     lunarOre: 0,
+    operations: createOutpostOperationsState(nowMs),
     robot: {
       id: MINER_ID,
       state: 'stored',
@@ -416,7 +435,10 @@ function advanceRobotOnce(
       return {
         ...outpost,
         updatedAtMs: transitionAtMs,
-        lunarOre: outpost.lunarOre + robot.carriedOre,
+        lunarOre: Math.min(
+          outpost.operations.storageCapacity,
+          outpost.lunarOre + robot.carriedOre,
+        ),
         robot: {
           ...robot,
           state: 'idle',
@@ -475,6 +497,10 @@ function advanceExtractor(
       ...initial,
       stage: 'extractor-active',
       updatedAtMs: extractor.activationTimestampMs,
+      operations: {
+        ...initial.operations,
+        lastUpdatedAtMs: extractor.activationTimestampMs,
+      },
       extractor: {
         ...extractor,
         status: 'active',
@@ -488,28 +514,7 @@ function advanceExtractor(
     return initial
   }
 
-  const producedOre = Math.floor(
-    (nowMs - extractor.lastProductionAtMs) /
-      EXTRACTOR_PRODUCTION_INTERVAL_MS,
-  )
-
-  if (producedOre <= 0) {
-    return initial
-  }
-
-  const productionTimestampMs =
-    extractor.lastProductionAtMs +
-    producedOre * EXTRACTOR_PRODUCTION_INTERVAL_MS
-
-  return {
-    ...initial,
-    updatedAtMs: productionTimestampMs,
-    lunarOre: initial.lunarOre + producedOre,
-    extractor: {
-      ...extractor,
-      lastProductionAtMs: productionTimestampMs,
-    },
-  }
+  return initial
 }
 
 export function advanceOutpost(
@@ -534,6 +539,10 @@ export function resumeSurfaceSimulation(
       ...outpost.extractor,
       lastProductionAtMs: nowMs,
     },
+    operations: {
+      ...outpost.operations,
+      lastUpdatedAtMs: nowMs,
+    },
   }
 }
 
@@ -556,6 +565,19 @@ export function outpostReducer(
         : constructExtractor(state, action.depositId, action.nowMs)
     case 'tick':
       return state === null ? null : advanceOutpost(state, action.nowMs)
+    case 'operationsTick':
+      return state === null
+        ? null
+        : advanceOutpostOperations(state, action.nowMs, action.damageState)
+    case 'setOperatingMode':
+      return state === null
+        ? null
+        : setOperatingMode(
+            state,
+            action.mode,
+            action.nowMs,
+            action.damageState,
+          )
     case 'resumeSurface':
       return state === null
         ? null

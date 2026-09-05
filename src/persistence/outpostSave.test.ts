@@ -314,6 +314,56 @@ describe('versioned first outpost save', () => {
     expect(storage.values.has(OUTPOST_STORAGE_KEY)).toBe(false)
     expect(loadOutpostSave(storage)).toBeNull()
   })
+
+  it('migrates schema v4 operations deterministically without changing ore', () => {
+    const source = activeExtractorOutpost()
+    const raw = JSON.parse(
+      serializePrototypeSave(revealedPrototype(), START_MS + 4_000),
+    ) as {
+      schemaVersion: number
+      outpost: Record<string, unknown>
+    }
+    raw.schemaVersion = 4
+    delete raw.outpost.operations
+
+    const restored = deserializePrototypeSave(
+      JSON.stringify(raw),
+      START_MS + 9_000,
+    )
+
+    expect(restored?.outpost.lunarOre).toBe(source.lunarOre)
+    expect(restored?.outpost.operations).toMatchObject({
+      mode: 'BALANCED',
+      lastUpdatedAtMs: START_MS + 9_000,
+    })
+    expect(restored!.outpost.operations.storageCapacity).toBeGreaterThanOrEqual(
+      source.lunarOre,
+    )
+  })
+
+  it('round trips operating mode and skips hidden refresh time', () => {
+    const prototype = revealedPrototype()
+    const source = {
+      ...prototype,
+      outpost: {
+        ...prototype.outpost,
+        operations: {
+          ...prototype.outpost.operations,
+          mode: 'OVERDRIVE' as const,
+          lastUpdatedAtMs: START_MS + 4_000,
+        },
+      },
+    }
+    const serialized = serializePrototypeSave(source, START_MS + 4_500)
+    const restored = deserializePrototypeSave(serialized, START_MS + 90_000)
+
+    expect(restored?.outpost.lunarOre).toBe(source.outpost.lunarOre)
+    expect(restored?.outpost.operations).toEqual({
+      mode: 'OVERDRIVE',
+      storageCapacity: source.outpost.operations.storageCapacity,
+      lastUpdatedAtMs: START_MS + 90_000,
+    })
+  })
 })
 
 describe('Rival Signal schema migration and atomic persistence', () => {

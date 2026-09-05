@@ -26,9 +26,12 @@ const FIXTURE_SITE = createLandingSite(
 const FIXTURE_DEPOSIT_ID =
   DEPOSIT_BLUEPRINTS[0]?.id ?? 'deposit-alpha'
 
-function createActiveExtractorOutpost(nowMs: number) {
+function createActiveExtractorOutpost(
+  nowMs: number,
+  site = FIXTURE_SITE,
+) {
   const establishedAtMs = nowMs - 12_000
-  const initial = createInitialOutpost(FIXTURE_SITE, establishedAtMs)
+  const initial = createInitialOutpost(site, establishedAtMs)
   const prepared = {
     ...initial,
     stage: 'miner-deployed' as const,
@@ -55,6 +58,19 @@ function createActiveExtractorOutpost(nowMs: number) {
 export function createLegacyActiveExtractorSave(nowMs = Date.now()): string {
   const envelope = JSON.parse(
     serializeOutpostSave(createActiveExtractorOutpost(nowMs), nowMs),
+  ) as Record<string, unknown>
+
+  envelope.schemaVersion = 1
+  delete envelope.rival
+  return JSON.stringify(envelope)
+}
+
+export function createActiveExtractorSaveForSite(
+  site: ReturnType<typeof createLandingSite>,
+  nowMs = Date.now(),
+): string {
+  const envelope = JSON.parse(
+    serializeOutpostSave(createActiveExtractorOutpost(nowMs, site), nowMs),
   ) as Record<string, unknown>
 
   envelope.schemaVersion = 1
