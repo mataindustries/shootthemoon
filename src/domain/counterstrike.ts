@@ -12,6 +12,10 @@ export const COUNTERSTRIKE_ID = 'vesper-orbital-counterstrike' as const
 
 export type CounterstrikeOutcome = 'SUCCESS' | 'FAILURE'
 export type OutpostDamageState = 'INTACT' | 'DAMAGED'
+export type CounterstrikeOrder =
+  | 'PRIORITIZE_INTERCEPTOR'
+  | 'HARDEN_OUTPOST'
+  | 'KEEP_EXTRACTING'
 
 /**
  * Persisted Counterstrike facts only. The active warning, timing window,
@@ -24,7 +28,12 @@ export interface CounterstrikeSnapshot {
   readonly updatedAtMs: number
   readonly available: boolean
   readonly availableAtMs: number | null
+  readonly detectedAtMs: number | null
+  readonly selectedOrder: CounterstrikeOrder | null
+  readonly orderIssuedAtMs: number | null
   readonly acceptedOutcome: CounterstrikeOutcome | null
+  readonly acceptedOrder: CounterstrikeOrder | null
+  readonly productionDamagePenalty: number
   readonly interceptionSucceeded: boolean | null
   readonly outpostDamageState: OutpostDamageState
   readonly secondaryImpactSite: LandingSite | null

@@ -46,6 +46,7 @@ import {
   COUNTERSTRIKE_ID,
   deriveSecondaryImpactSite,
   type CounterstrikeOutcome,
+  type CounterstrikeOrder,
   type CounterstrikeSnapshot,
   type OutpostDamageState,
 } from '../domain/counterstrike.ts'
@@ -55,13 +56,14 @@ import {
 } from '../simulation/counterstrikeSimulation.ts'
 import { createOutpostOperationsState } from '../simulation/outpostOperations.ts'
 
-export const OUTPOST_SAVE_SCHEMA_VERSION = 5
+export const OUTPOST_SAVE_SCHEMA_VERSION = 6
 export const OUTPOST_STORAGE_KEY = 'shoot-the-moon:first-outpost:v1'
 
 const PRE_RIVAL_SAVE_SCHEMA_VERSION = 1
 const PRE_STRIKE_SAVE_SCHEMA_VERSION = 2
 const PRE_COUNTERSTRIKE_SAVE_SCHEMA_VERSION = 3
 const PRE_OPERATIONS_SAVE_SCHEMA_VERSION = 4
+const PRE_COMMAND_SAVE_SCHEMA_VERSION = 5
 const VALUE_EPSILON = 1e-9
 
 export interface StorageLike {
@@ -104,7 +106,7 @@ interface CounterstrikeSaveData
   } | null
 }
 
-interface PrototypeSaveEnvelopeV5 {
+interface PrototypeSaveEnvelopeV6 {
   readonly schemaVersion: typeof OUTPOST_SAVE_SCHEMA_VERSION
   readonly savedAtMs: number
   readonly canonicalLanding: CanonicalLandingSave
@@ -215,6 +217,14 @@ function isFirstStrikeStatus(value: unknown): value is FirstStrikeStatus {
 
 function isCounterstrikeOutcome(value: unknown): value is CounterstrikeOutcome {
   return value === 'SUCCESS' || value === 'FAILURE'
+}
+
+function isCounterstrikeOrder(value: unknown): value is CounterstrikeOrder {
+  return (
+    value === 'PRIORITIZE_INTERCEPTOR' ||
+    value === 'HARDEN_OUTPOST' ||
+    value === 'KEEP_EXTRACTING'
+  )
 }
 
 function isOutpostDamageState(value: unknown): value is OutpostDamageState {
@@ -855,6 +865,8 @@ function counterstrikeStateIsConsistent(
 ): boolean {
   const timestamps = [
     counterstrike.availableAtMs,
+    counterstrike.detectedAtMs,
+    counterstrike.orderIssuedAtMs,
     counterstrike.completedAtMs,
     counterstrike.acceptedAtMs,
   ]
@@ -873,7 +885,15 @@ function counterstrikeStateIsConsistent(
   if (!timestampsAreOrdered || !availabilityMatches) return false
 
   if (counterstrike.acceptedOutcome === null) {
+    const commandStateMatches =
+      counterstrike.acceptedOrder === null &&
+      counterstrike.productionDamagePenalty === 0 &&
+      (counterstrike.selectedOrder === null
+        ? counterstrike.orderIssuedAtMs === null
+        : counterstrike.detectedAtMs !== null &&
+          counterstrike.orderIssuedAtMs !== null)
     return (
+      commandStateMatches &&
       counterstrike.interceptionSucceeded === null &&
       counterstrike.outpostDamageState === 'INTACT' &&
       counterstrike.secondaryImpactSite === null &&
@@ -896,6 +916,8 @@ function counterstrikeStateIsConsistent(
 
   if (counterstrike.acceptedOutcome === 'SUCCESS') {
     return (
+      counterstrike.productionDamagePenalty === 0 &&
+      counterstrike.selectedOrder === counterstrike.acceptedOrder &&
       counterstrike.interceptionSucceeded === true &&
       counterstrike.outpostDamageState === 'INTACT' &&
       counterstrike.secondaryImpactSite === null &&
@@ -905,7 +927,11 @@ function counterstrikeStateIsConsistent(
   }
 
   const expectedImpact = deriveSecondaryImpactSite(outpost)
+  const expectedPenalty =
+    counterstrike.acceptedOrder === 'HARDEN_OUTPOST' ? 0.15 : 0.3
   return (
+    counterstrike.productionDamagePenalty === expectedPenalty &&
+    counterstrike.selectedOrder === counterstrike.acceptedOrder &&
     counterstrike.interceptionSucceeded === false &&
     counterstrike.outpostDamageState === 'DAMAGED' &&
     counterstrike.secondaryImpactSite !== null &&
@@ -918,7 +944,9 @@ function counterstrikeStateIsConsistent(
 function parseCounterstrike(
   value: unknown,
   outpost: OutpostSnapshot,
+  schemaVersion: number,
 ): CounterstrikeSnapshot | null {
+  const legacyCommandData = schemaVersion <= PRE_COMMAND_SAVE_SCHEMA_VERSION
   if (
     !isRecord(value) ||
     value.id !== COUNTERSTRIKE_ID ||
@@ -926,8 +954,20 @@ function parseCounterstrike(
     !isNonNegativeNumber(value.updatedAtMs) ||
     typeof value.available !== 'boolean' ||
     !isNullableTimestamp(value.availableAtMs) ||
+    (!legacyCommandData && !isNullableTimestamp(value.detectedAtMs)) ||
+    (!legacyCommandData &&
+      value.selectedOrder !== null &&
+      !isCounterstrikeOrder(value.selectedOrder)) ||
+    (!legacyCommandData && !isNullableTimestamp(value.orderIssuedAtMs)) ||
     (value.acceptedOutcome !== null &&
       !isCounterstrikeOutcome(value.acceptedOutcome)) ||
+    (!legacyCommandData &&
+      value.acceptedOrder !== null &&
+      !isCounterstrikeOrder(value.acceptedOrder)) ||
+    (!legacyCommandData &&
+      (!isFiniteNumber(value.productionDamagePenalty) ||
+        value.productionDamagePenalty < 0 ||
+        value.productionDamagePenalty > 1)) ||
     (value.interceptionSucceeded !== null &&
       typeof value.interceptionSucceeded !== 'boolean') ||
     !isOutpostDamageState(value.outpostDamageState) ||
@@ -950,13 +990,36 @@ function parseCounterstrike(
     if (secondaryImpactSite === null) return null
   }
 
+  const detectedAtMs = legacyCommandData
+    ? null
+    : (value.detectedAtMs as number | null)
+  const selectedOrder = legacyCommandData
+    ? null
+    : (value.selectedOrder as CounterstrikeOrder | null)
+  const orderIssuedAtMs = legacyCommandData
+    ? null
+    : (value.orderIssuedAtMs as number | null)
+  const acceptedOrder = legacyCommandData
+    ? null
+    : (value.acceptedOrder as CounterstrikeOrder | null)
+  const productionDamagePenalty = legacyCommandData
+    ? value.acceptedOutcome === 'FAILURE'
+      ? 0.3
+      : 0
+    : (value.productionDamagePenalty as number)
+
   const parsed: CounterstrikeSnapshot = {
     id: COUNTERSTRIKE_ID,
     createdAtMs: value.createdAtMs,
     updatedAtMs: value.updatedAtMs,
     available: value.available,
     availableAtMs: value.availableAtMs,
+    detectedAtMs,
+    selectedOrder,
+    orderIssuedAtMs,
     acceptedOutcome: value.acceptedOutcome,
+    acceptedOrder,
+    productionDamagePenalty,
     interceptionSucceeded: value.interceptionSucceeded,
     outpostDamageState: value.outpostDamageState,
     secondaryImpactSite,
@@ -1008,7 +1071,7 @@ function normalizePrototypeForResume(
 function toEnvelope(
   prototype: PrototypeSnapshot,
   savedAtMs: number,
-): PrototypeSaveEnvelopeV5 {
+): PrototypeSaveEnvelopeV6 {
   const safe = normalizePrototypeForResume(prototype, savedAtMs)
   const { site: _outpostSite, ...outpostData } = safe.outpost
   const { site: _rivalSite, ...rivalData } = safe.rival
@@ -1078,6 +1141,7 @@ export function deserializePrototypeSave(
       value.schemaVersion !== PRE_STRIKE_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_COUNTERSTRIKE_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_OPERATIONS_SAVE_SCHEMA_VERSION &&
+      value.schemaVersion !== PRE_COMMAND_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== OUTPOST_SAVE_SCHEMA_VERSION) ||
     !isNonNegativeNumber(value.savedAtMs) ||
     !isNonNegativeNumber(nowMs)
@@ -1158,7 +1222,11 @@ export function deserializePrototypeSave(
     }
   }
 
-  const counterstrike = parseCounterstrike(value.counterstrike, outpost)
+  const counterstrike = parseCounterstrike(
+    value.counterstrike,
+    outpost,
+    value.schemaVersion,
+  )
   if (counterstrike === null) return null
 
   return normalizePrototypeForResume(

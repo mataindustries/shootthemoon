@@ -134,6 +134,7 @@ export function createAcceptedCounterstrikeSave(
   const counterstrike = counterstrikeFactsReducer(completed.counterstrike, {
     type: 'acceptOutcome',
     outcome,
+    order: outcome === 'SUCCESS' ? 'PRIORITIZE_INTERCEPTOR' : 'HARDEN_OUTPOST',
     outpost: completed.outpost,
     nowMs,
   })

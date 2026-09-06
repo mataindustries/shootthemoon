@@ -22,6 +22,7 @@ import type { CounterstrikeRunState } from '../simulation/counterstrikeSimulatio
 import {
   COUNTERSTRIKE_TIMING,
   getCounterstrikeAttemptElapsedMs,
+  getCounterstrikeTimingProfile,
   getCounterstrikeRunProgress,
   getCounterstrikeThreatProgress,
 } from '../simulation/counterstrikeSimulation.ts'
@@ -375,18 +376,18 @@ export function CounterstrikeMissileSystem({
     route.getRenderPoint(targetZoneProgress, reticle.position)
     reticle.quaternion.copy(camera.quaternion)
     const attemptElapsed = getCounterstrikeAttemptElapsedMs(run, clockMs) ?? 0
+    const timing = getCounterstrikeTimingProfile(run.order)
     const inValidWindow =
-      attemptElapsed >= COUNTERSTRIKE_TIMING.validWindowStartMs &&
-      attemptElapsed <= COUNTERSTRIKE_TIMING.validWindowEndMs
-    const late = attemptElapsed > COUNTERSTRIKE_TIMING.validWindowEndMs
+      attemptElapsed >= timing.validWindowStartMs &&
+      attemptElapsed <= timing.validWindowEndMs
+    const late = attemptElapsed > timing.validWindowEndMs
     const trackingConvergence = MathUtils.clamp(
-      attemptElapsed / COUNTERSTRIKE_TIMING.validWindowStartMs,
+      attemptElapsed / timing.validWindowStartMs,
       0,
       1,
     )
     const windowProgress = MathUtils.clamp(
-      (attemptElapsed - COUNTERSTRIKE_TIMING.validWindowStartMs) /
-        COUNTERSTRIKE_TIMING.validWindowMs,
+      (attemptElapsed - timing.validWindowStartMs) / timing.validWindowMs,
       0,
       1,
     )

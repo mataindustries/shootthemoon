@@ -3,12 +3,15 @@ import type { OutpostSnapshot } from '../domain/outpost.ts'
 import {
   COUNTERSTRIKE_ID,
   deriveSecondaryImpactSite,
+  type CounterstrikeOrder,
   type CounterstrikeOutcome,
   type CounterstrikeSnapshot,
 } from '../domain/counterstrike.ts'
 
 export type CounterstrikeRunStatus =
   | 'dormant'
+  | 'command'
+  | 'command-confirmed'
   | 'warning'
   | 'tracking'
   | 'intercept-ready'
@@ -29,6 +32,7 @@ export interface CounterstrikeRunState {
   readonly judgement: InterceptionJudgement | null
   readonly attemptElapsedAtFireMs: number | null
   readonly outcome: CounterstrikeOutcome | null
+  readonly order: CounterstrikeOrder | null
   readonly replay: boolean
   readonly threatProgressStart: number
   readonly threatProgressEnd: number
@@ -36,6 +40,7 @@ export interface CounterstrikeRunState {
 }
 
 export const COUNTERSTRIKE_TIMING = Object.freeze({
+  commandConfirmationMs: 1_050,
   warningMs: 3_200,
   trackingMs: 5_800,
   readyMs: 2_400,
@@ -51,16 +56,58 @@ export const COUNTERSTRIKE_TIMING = Object.freeze({
   maximumAttempts: 2,
 })
 
+export const PRIORITIZED_INTERCEPT_WINDOW_MULTIPLIER = 1.4
+
+export interface CounterstrikeTimingProfile {
+  readonly trackingMs: number
+  readonly readyMs: number
+  readonly validWindowMs: number
+  readonly validWindowStartMs: number
+  readonly validWindowEndMs: number
+}
+
+export function getCounterstrikeTimingProfile(
+  order: CounterstrikeOrder | null,
+): CounterstrikeTimingProfile {
+  if (order !== 'PRIORITIZE_INTERCEPTOR') {
+    return COUNTERSTRIKE_TIMING
+  }
+
+  const widenedWindowMs =
+    COUNTERSTRIKE_TIMING.validWindowMs *
+    PRIORITIZED_INTERCEPT_WINDOW_MULTIPLIER
+  const addedWindowMs = widenedWindowMs - COUNTERSTRIKE_TIMING.validWindowMs
+  const trackingMs = COUNTERSTRIKE_TIMING.trackingMs - addedWindowMs / 2
+
+  return Object.freeze({
+    trackingMs,
+    readyMs: widenedWindowMs,
+    validWindowMs: widenedWindowMs,
+    validWindowStartMs: trackingMs,
+    validWindowEndMs: trackingMs + widenedWindowMs,
+  })
+}
+
 export const COUNTERSTRIKE_MAXIMUM_AUTOMATIC_DURATION_MS =
+  COUNTERSTRIKE_TIMING.commandConfirmationMs +
   COUNTERSTRIKE_TIMING.warningMs +
-  (COUNTERSTRIKE_TIMING.trackingMs +
-    COUNTERSTRIKE_TIMING.readyMs +
+  (getCounterstrikeTimingProfile('PRIORITIZE_INTERCEPTOR').trackingMs +
+    getCounterstrikeTimingProfile('PRIORITIZE_INTERCEPTOR').readyMs +
     COUNTERSTRIKE_TIMING.missedMs) *
     COUNTERSTRIKE_TIMING.maximumAttempts +
   COUNTERSTRIKE_TIMING.impactMs
 
 export type CounterstrikeFactsAction =
   | { readonly type: 'establish'; readonly nowMs: number }
+  | {
+      readonly type: 'detect'
+      readonly nowMs: number
+    }
+  | {
+      readonly type: 'issueOrder'
+      readonly order: CounterstrikeOrder
+      readonly nowMs: number
+    }
   | {
       readonly type: 'unlock'
       readonly firstStrike: FirstStrikeSnapshot
@@ -69,6 +116,7 @@ export type CounterstrikeFactsAction =
   | {
       readonly type: 'acceptOutcome'
       readonly outcome: CounterstrikeOutcome
+      readonly order: CounterstrikeOrder
       readonly outpost: OutpostSnapshot
       readonly nowMs: number
     }
@@ -80,12 +128,18 @@ export type CounterstrikeRunAction =
       readonly clockMs: number
       readonly replay: boolean
     }
+  | {
+      readonly type: 'issueOrder'
+      readonly order: CounterstrikeOrder
+      readonly clockMs: number
+    }
   | { readonly type: 'advance'; readonly clockMs: number }
   | { readonly type: 'fire'; readonly clockMs: number }
   | { readonly type: 'shiftClock'; readonly durationMs: number }
   | {
       readonly type: 'restoreAccepted'
       readonly outcome: CounterstrikeOutcome | null
+      readonly order?: CounterstrikeOrder | null
       readonly clockMs: number
     }
   | { readonly type: 'reset'; readonly clockMs: number }
@@ -115,7 +169,12 @@ export function createInitialCounterstrike(
     updatedAtMs: nowMs,
     available: false,
     availableAtMs: null,
+    detectedAtMs: null,
+    selectedOrder: null,
+    orderIssuedAtMs: null,
     acceptedOutcome: null,
+    acceptedOrder: null,
+    productionDamagePenalty: 0,
     interceptionSucceeded: null,
     outpostDamageState: 'INTACT',
     secondaryImpactSite: null,
@@ -178,6 +237,7 @@ function unlockCounterstrike(
 function acceptCounterstrikeOutcome(
   snapshot: CounterstrikeSnapshot,
   outcome: CounterstrikeOutcome,
+  order: CounterstrikeOrder,
   outpost: OutpostSnapshot,
   nowMs: number,
 ): CounterstrikeSnapshot {
@@ -193,6 +253,10 @@ function acceptCounterstrikeOutcome(
     ...snapshot,
     updatedAtMs: timestamp,
     acceptedOutcome: outcome,
+    selectedOrder: order,
+    acceptedOrder: order,
+    productionDamagePenalty:
+      success ? 0 : order === 'HARDEN_OUTPOST' ? 0.15 : 0.3,
     interceptionSucceeded: success,
     outpostDamageState: success ? 'INTACT' : 'DAMAGED',
     secondaryImpactSite,
@@ -215,12 +279,29 @@ export function counterstrikeFactsReducer(
   if (state === null) return null
 
   switch (action.type) {
+    case 'detect': {
+      if (!state.available || state.detectedAtMs !== null) return state
+      const timestamp = transitionTimestamp(state, action.nowMs)
+      return { ...state, updatedAtMs: timestamp, detectedAtMs: timestamp }
+    }
+    case 'issueOrder': {
+      if (!state.available || state.acceptedOutcome !== null) return state
+      const timestamp = transitionTimestamp(state, action.nowMs)
+      return {
+        ...state,
+        updatedAtMs: timestamp,
+        detectedAtMs: state.detectedAtMs ?? timestamp,
+        selectedOrder: action.order,
+        orderIssuedAtMs: timestamp,
+      }
+    }
     case 'unlock':
       return unlockCounterstrike(state, action.firstStrike, action.nowMs)
     case 'acceptOutcome':
       return acceptCounterstrikeOutcome(
         state,
         action.outcome,
+        action.order,
         action.outpost,
         action.nowMs,
       )
@@ -233,9 +314,16 @@ export function createCounterstrikeRunState(
 ): CounterstrikeRunState {
   assertTimestamp(clockMs, 'Counterstrike clock')
   const restoredOutcome = snapshot?.acceptedOutcome ?? null
+  const pendingOrder = snapshot?.selectedOrder ?? null
+  const pendingStatus =
+    snapshot?.available === true && snapshot.detectedAtMs !== null
+      ? pendingOrder === null
+        ? 'command'
+        : 'warning'
+      : 'dormant'
 
   return {
-    status: restoredOutcome === null ? 'dormant' : 'resolved',
+    status: restoredOutcome === null ? pendingStatus : 'resolved',
     phaseStartedAtMs: clockMs,
     attemptStartedAtMs: null,
     attemptNumber: 0,
@@ -243,6 +331,8 @@ export function createCounterstrikeRunState(
     judgement: null,
     attemptElapsedAtFireMs: null,
     outcome: restoredOutcome,
+    order:
+      restoredOutcome === null ? pendingOrder : snapshot?.acceptedOrder ?? null,
     replay: false,
     threatProgressStart: 0,
     threatProgressEnd: 0,
@@ -252,13 +342,15 @@ export function createCounterstrikeRunState(
 
 export function judgeInterceptionTiming(
   attemptElapsedMs: number,
+  order: CounterstrikeOrder | null = null,
 ): InterceptionJudgement {
   assertTimestamp(attemptElapsedMs, 'Interception timing')
 
-  if (attemptElapsedMs < COUNTERSTRIKE_TIMING.validWindowStartMs) {
+  const timing = getCounterstrikeTimingProfile(order)
+  if (attemptElapsedMs < timing.validWindowStartMs) {
     return 'EARLY'
   }
-  if (attemptElapsedMs <= COUNTERSTRIKE_TIMING.validWindowEndMs) {
+  if (attemptElapsedMs <= timing.validWindowEndMs) {
     return 'VALID'
   }
   return 'LATE'
@@ -268,12 +360,14 @@ export function getCounterstrikeRunDurationMs(
   run: CounterstrikeRunState,
 ): number | null {
   switch (run.status) {
+    case 'command-confirmed':
+      return COUNTERSTRIKE_TIMING.commandConfirmationMs
     case 'warning':
       return COUNTERSTRIKE_TIMING.warningMs
     case 'tracking':
-      return COUNTERSTRIKE_TIMING.trackingMs
+      return getCounterstrikeTimingProfile(run.order).trackingMs
     case 'intercept-ready':
-      return COUNTERSTRIKE_TIMING.readyMs
+      return getCounterstrikeTimingProfile(run.order).readyMs
     case 'interceptor-launched':
       return run.judgement === 'VALID'
         ? COUNTERSTRIKE_TIMING.launchedValidMs
@@ -285,6 +379,7 @@ export function getCounterstrikeRunDurationMs(
     case 'impact':
       return COUNTERSTRIKE_TIMING.impactMs
     case 'dormant':
+    case 'command':
     case 'resolved':
       return null
   }
@@ -354,6 +449,14 @@ function advanceRun(
   clockMs: number,
 ): CounterstrikeRunState {
   switch (run.status) {
+    case 'command-confirmed':
+      return {
+        ...run,
+        status: 'warning',
+        phaseStartedAtMs: clockMs,
+        threatProgressStart: 0,
+        threatProgressEnd: 0.08,
+      }
     case 'warning':
       return beginTrackingAttempt(
         { ...run, threatProgressStart: 0.08, threatProgressEnd: 0.08 },
@@ -423,6 +526,7 @@ function advanceRun(
         threatProgressEnd: 1,
       }
     case 'dormant':
+    case 'command':
     case 'resolved':
       return run
   }
@@ -442,7 +546,7 @@ function fireInterceptor(
   }
 
   const attemptElapsedMs = Math.max(0, clockMs - run.attemptStartedAtMs)
-  const judgement = judgeInterceptionTiming(attemptElapsedMs)
+  const judgement = judgeInterceptionTiming(attemptElapsedMs, run.order)
   const currentThreatProgress = getCounterstrikeThreatProgress(run, clockMs)
   const routeAdvance = judgement === 'VALID' ? 0.045 : 0.07
   const interceptRouteProgress = Math.min(
@@ -472,7 +576,7 @@ export function counterstrikeRunReducer(
       assertTimestamp(action.clockMs, 'Counterstrike clock')
       if (run.status !== 'dormant' && run.status !== 'resolved') return run
       return {
-        status: 'warning',
+        status: 'command',
         phaseStartedAtMs: action.clockMs,
         attemptStartedAtMs: null,
         attemptNumber: 0,
@@ -480,10 +584,20 @@ export function counterstrikeRunReducer(
         judgement: null,
         attemptElapsedAtFireMs: null,
         outcome: null,
+        order: null,
         replay: action.replay,
         threatProgressStart: 0,
         threatProgressEnd: 0.08,
         interceptRouteProgress: null,
+      }
+    case 'issueOrder':
+      assertTimestamp(action.clockMs, 'Counterstrike clock')
+      if (run.status !== 'command') return run
+      return {
+        ...run,
+        status: 'command-confirmed',
+        phaseStartedAtMs: action.clockMs,
+        order: action.order,
       }
     case 'advance':
       assertTimestamp(action.clockMs, 'Counterstrike clock')
@@ -508,6 +622,7 @@ export function counterstrikeRunReducer(
         ...createCounterstrikeRunState(null, action.clockMs),
         status: action.outcome === null ? 'dormant' : 'resolved',
         outcome: action.outcome,
+        order: action.order ?? null,
       }
     case 'reset':
       return createCounterstrikeRunState(null, action.clockMs)
@@ -517,5 +632,5 @@ export function counterstrikeRunReducer(
 export function counterstrikeNeedsContinuousFrames(
   status: CounterstrikeRunStatus,
 ): boolean {
-  return status !== 'dormant' && status !== 'resolved'
+  return status !== 'dormant' && status !== 'resolved' && status !== 'command'
 }
