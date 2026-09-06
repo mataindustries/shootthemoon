@@ -323,6 +323,23 @@ describe('Counterstrike accepted facts and canonical damage', () => {
       orbitalDebrisRecorded: false,
       repairsRequired: true,
     })
+    const repaired = counterstrikeFactsReducer(failure, {
+      type: 'completeRepairs',
+      nowMs: START_MS + 300,
+    })!
+    expect(repaired).toMatchObject({
+      acceptedOutcome: 'FAILURE',
+      productionDamagePenalty: 0,
+      outpostDamageState: 'INTACT',
+      repairsRequired: false,
+      secondaryImpactSite: failure.secondaryImpactSite,
+    })
+    expect(
+      counterstrikeFactsReducer(repaired, {
+        type: 'completeRepairs',
+        nowMs: START_MS + 400,
+      }),
+    ).toBe(repaired)
     expect(outpost.extractor?.status).toBe('active')
     expect(outpost.lunarOre).toBe(activeOutpost().lunarOre)
   })

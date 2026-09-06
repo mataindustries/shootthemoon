@@ -120,6 +120,7 @@ export type CounterstrikeFactsAction =
       readonly outpost: OutpostSnapshot
       readonly nowMs: number
     }
+  | { readonly type: 'completeRepairs'; readonly nowMs: number }
   | { readonly type: 'reset' }
 
 export type CounterstrikeRunAction =
@@ -305,6 +306,23 @@ export function counterstrikeFactsReducer(
         action.outpost,
         action.nowMs,
       )
+    case 'completeRepairs': {
+      if (
+        state.acceptedOutcome !== 'FAILURE' ||
+        state.outpostDamageState !== 'DAMAGED' ||
+        !state.repairsRequired
+      ) {
+        return state
+      }
+      const timestamp = transitionTimestamp(state, action.nowMs)
+      return {
+        ...state,
+        updatedAtMs: timestamp,
+        productionDamagePenalty: 0,
+        outpostDamageState: 'INTACT',
+        repairsRequired: false,
+      }
+    }
   }
 }
 

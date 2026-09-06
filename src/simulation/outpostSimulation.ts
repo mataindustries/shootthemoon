@@ -2,6 +2,7 @@ import {
   DEPOSIT_BLUEPRINTS,
   EXTRACTOR_ID,
   MINER_ID,
+  MODULE_ID,
   OUTPOST_ID,
   RESOURCE_NAME,
   ROBOT_IDLE_POSITION,
@@ -10,6 +11,7 @@ import {
   type LocalSurfacePosition,
   type MineralDeposit,
   type OutpostSnapshot,
+  type OutpostModuleKind,
   type RobotState,
 } from '../domain/outpost.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
@@ -31,6 +33,9 @@ export const EXTRACTOR_CONSTRUCTION_DURATION_MS = 2_600
 export const EXTRACTOR_PRODUCTION_INTERVAL_MS = 2_000
 export const EXTRACTOR_COST = 60
 export const MINER_CARGO_CAPACITY = 35
+export const OUTPOST_MODULE_COST = 20
+export const MODULE_CONSTRUCTION_DURATION_MS = 3_000
+export const STORAGE_SILO_CAPACITY = 400
 
 const MINIMUM_TRAVEL_DURATION_MS = 1_050
 const TRAVEL_SPEED_M_PER_SECOND = 9.5
@@ -74,6 +79,13 @@ export type OutpostAction =
       readonly commandOrder?: CounterstrikeOrder | null
       readonly commandActive?: boolean
     }
+  | {
+      readonly type: 'constructModule'
+      readonly kind: OutpostModuleKind
+      readonly nowMs: number
+      readonly damageState: OutpostDamageState
+    }
+  | { readonly type: 'applyDamage'; readonly nowMs: number }
   | { readonly type: 'resumeSurface'; readonly nowMs: number }
   | { readonly type: 'reset' }
 
@@ -197,6 +209,44 @@ export function createInitialOutpost(
     },
     deposits,
     extractor: null,
+    module: null,
+  }
+}
+
+export function canConstructModule(
+  outpost: OutpostSnapshot,
+  kind: OutpostModuleKind,
+  damageState: OutpostDamageState = 'INTACT',
+): boolean {
+  return (
+    outpost.module === null &&
+    outpost.extractor?.status === 'active' &&
+    outpost.lunarOre >= OUTPOST_MODULE_COST &&
+    (kind !== 'REPAIR_GANTRY' || damageState === 'DAMAGED')
+  )
+}
+
+export function constructModule(
+  outpost: OutpostSnapshot,
+  kind: OutpostModuleKind,
+  nowMs: number,
+  damageState: OutpostDamageState = 'INTACT',
+): OutpostSnapshot {
+  if (!canConstructModule(outpost, kind, damageState)) return outpost
+
+  return {
+    ...outpost,
+    updatedAtMs: nowMs,
+    lunarOre: outpost.lunarOre - OUTPOST_MODULE_COST,
+    module: {
+      id: MODULE_ID,
+      kind,
+      status: 'constructing',
+      constructionStartedAtMs: nowMs,
+      completionTimestampMs: nowMs + MODULE_CONSTRUCTION_DURATION_MS,
+      repairProgress: kind === 'REPAIR_GANTRY' ? 0 : 1,
+      lastRepairAtMs: nowMs + MODULE_CONSTRUCTION_DURATION_MS,
+    },
   }
 }
 
@@ -522,11 +572,46 @@ function advanceExtractor(
   return initial
 }
 
+function advanceModule(
+  initial: OutpostSnapshot,
+  nowMs: number,
+): OutpostSnapshot {
+  const module = initial.module
+  if (
+    module === null ||
+    module.status === 'active' ||
+    nowMs < module.completionTimestampMs
+  ) {
+    return initial
+  }
+
+  return {
+    ...initial,
+    updatedAtMs: module.completionTimestampMs,
+    operations: {
+      ...initial.operations,
+      storageCapacity:
+        module.kind === 'STORAGE_SILO'
+          ? STORAGE_SILO_CAPACITY
+          : initial.operations.storageCapacity,
+      lastUpdatedAtMs: module.completionTimestampMs,
+    },
+    module: {
+      ...module,
+      status: 'active',
+      lastRepairAtMs: module.completionTimestampMs,
+    },
+  }
+}
+
 export function advanceOutpost(
   outpost: OutpostSnapshot,
   nowMs: number,
 ): OutpostSnapshot {
-  return advanceExtractor(advanceRobot(outpost, nowMs), nowMs)
+  return advanceModule(
+    advanceExtractor(advanceRobot(outpost, nowMs), nowMs),
+    nowMs,
+  )
 }
 
 export function resumeSurfaceSimulation(
@@ -580,6 +665,31 @@ export function outpostReducer(
             action.commandOrder,
             action.commandActive,
           )
+    case 'constructModule':
+      return state === null
+        ? null
+        : constructModule(
+            state,
+            action.kind,
+            action.nowMs,
+            action.damageState,
+          )
+    case 'applyDamage':
+      return state === null || state.module?.kind !== 'REPAIR_GANTRY'
+        ? state
+        : {
+            ...state,
+            updatedAtMs: action.nowMs,
+            operations: {
+              ...state.operations,
+              lastUpdatedAtMs: action.nowMs,
+            },
+            module: {
+              ...state.module,
+              repairProgress: 0,
+              lastRepairAtMs: action.nowMs,
+            },
+          }
     case 'setOperatingMode':
       return state === null
         ? null

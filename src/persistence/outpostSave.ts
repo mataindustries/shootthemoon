@@ -2,12 +2,15 @@ import {
   DEPOSIT_BLUEPRINTS,
   EXTRACTOR_ID,
   MINER_ID,
+  MODULE_ID,
   OUTPOST_ID,
   RESOURCE_NAME,
   type Extractor,
   type MineralDeposit,
   type OperatingMode,
   type OutpostOperationsState,
+  type OutpostModule,
+  type OutpostModuleKind,
   type OutpostSnapshot,
   type OutpostStage,
   type RobotState,
@@ -55,8 +58,9 @@ import {
   createMigratedCounterstrike,
 } from '../simulation/counterstrikeSimulation.ts'
 import { createOutpostOperationsState } from '../simulation/outpostOperations.ts'
+import { STORAGE_SILO_CAPACITY } from '../simulation/outpostSimulation.ts'
 
-export const OUTPOST_SAVE_SCHEMA_VERSION = 6
+export const OUTPOST_SAVE_SCHEMA_VERSION = 7
 export const OUTPOST_STORAGE_KEY = 'shoot-the-moon:first-outpost:v1'
 
 const PRE_RIVAL_SAVE_SCHEMA_VERSION = 1
@@ -64,6 +68,7 @@ const PRE_STRIKE_SAVE_SCHEMA_VERSION = 2
 const PRE_COUNTERSTRIKE_SAVE_SCHEMA_VERSION = 3
 const PRE_OPERATIONS_SAVE_SCHEMA_VERSION = 4
 const PRE_COMMAND_SAVE_SCHEMA_VERSION = 5
+const PRE_MODULE_SAVE_SCHEMA_VERSION = 6
 const VALUE_EPSILON = 1e-9
 
 export interface StorageLike {
@@ -106,7 +111,7 @@ interface CounterstrikeSaveData
   } | null
 }
 
-interface PrototypeSaveEnvelopeV6 {
+interface PrototypeSaveEnvelopeV7 {
   readonly schemaVersion: typeof OUTPOST_SAVE_SCHEMA_VERSION
   readonly savedAtMs: number
   readonly canonicalLanding: CanonicalLandingSave
@@ -114,6 +119,14 @@ interface PrototypeSaveEnvelopeV6 {
   readonly rival: RivalSaveData
   readonly firstStrike: FirstStrikeSaveData
   readonly counterstrike: CounterstrikeSaveData
+}
+
+function isOutpostModuleKind(value: unknown): value is OutpostModuleKind {
+  return (
+    value === 'SOLAR_WING' ||
+    value === 'STORAGE_SILO' ||
+    value === 'REPAIR_GANTRY'
+  )
 }
 
 function isOperatingMode(value: unknown): value is OperatingMode {
@@ -393,6 +406,41 @@ function parseExtractor(value: unknown): Extractor | null | undefined {
   }
 }
 
+function parseModule(
+  value: unknown,
+  schemaVersion: number,
+): OutpostModule | null | undefined {
+  if (schemaVersion <= PRE_MODULE_SAVE_SCHEMA_VERSION) return null
+  if (value === null) return null
+  if (
+    !isRecord(value) ||
+    value.id !== MODULE_ID ||
+    !isOutpostModuleKind(value.kind) ||
+    (value.status !== 'constructing' && value.status !== 'active') ||
+    !isNonNegativeNumber(value.constructionStartedAtMs) ||
+    !isNonNegativeNumber(value.completionTimestampMs) ||
+    value.completionTimestampMs < value.constructionStartedAtMs ||
+    !isFiniteNumber(value.repairProgress) ||
+    value.repairProgress < 0 ||
+    value.repairProgress > 1 ||
+    !isNonNegativeNumber(value.lastRepairAtMs)
+  ) {
+    return undefined
+  }
+  if (value.kind !== 'REPAIR_GANTRY' && value.repairProgress !== 1) {
+    return undefined
+  }
+  return {
+    id: MODULE_ID,
+    kind: value.kind,
+    status: value.status,
+    constructionStartedAtMs: value.constructionStartedAtMs,
+    completionTimestampMs: value.completionTimestampMs,
+    repairProgress: value.repairProgress,
+    lastRepairAtMs: value.lastRepairAtMs,
+  }
+}
+
 function normalizeOutpostForResume(
   outpost: OutpostSnapshot,
   nowMs: number,
@@ -424,7 +472,18 @@ function normalizeOutpostForResume(
           ...outpost.extractor,
           status: 'active' as const,
           lastProductionAtMs: nowMs,
-        }
+      }
+  const module =
+    outpost.module === null
+      ? null
+      : outpost.module.status === 'constructing' &&
+          nowMs >= outpost.module.completionTimestampMs
+        ? {
+            ...outpost.module,
+            status: 'active' as const,
+            lastRepairAtMs: nowMs,
+          }
+        : outpost.module
   let stage = outpost.stage
 
   if (robotIsTransient && stage === 'capsule-landed') {
@@ -445,7 +504,9 @@ function normalizeOutpostForResume(
     operations: {
       ...outpost.operations,
       storageCapacity: Math.max(
-        outpost.operations.storageCapacity,
+        module?.status === 'active' && module.kind === 'STORAGE_SILO'
+          ? STORAGE_SILO_CAPACITY
+          : outpost.operations.storageCapacity,
         outpost.lunarOre +
           (robotWasCarrying ? outpost.robot.carriedOre : 0),
       ),
@@ -453,6 +514,7 @@ function normalizeOutpostForResume(
     },
     robot,
     extractor,
+    module,
   }
 }
 
@@ -501,6 +563,9 @@ function parseOutpost(
     return null
   }
 
+  const module = parseModule(value.module, schemaVersion)
+  if (module === undefined) return null
+
   const operations = parseOperations(
     value.operations,
     value.lunarOre,
@@ -527,6 +592,7 @@ function parseOutpost(
     },
     deposits: deposits as readonly MineralDeposit[],
     extractor,
+    module,
   }
 
   return normalizeOutpostForResume(parsed, nowMs)
@@ -929,15 +995,20 @@ function counterstrikeStateIsConsistent(
   const expectedImpact = deriveSecondaryImpactSite(outpost)
   const expectedPenalty =
     counterstrike.acceptedOrder === 'HARDEN_OUTPOST' ? 0.15 : 0.3
+  const repaired =
+    counterstrike.productionDamagePenalty === 0 &&
+    counterstrike.outpostDamageState === 'INTACT' &&
+    !counterstrike.repairsRequired
   return (
-    counterstrike.productionDamagePenalty === expectedPenalty &&
+    (repaired ||
+      (counterstrike.productionDamagePenalty === expectedPenalty &&
+        counterstrike.outpostDamageState === 'DAMAGED' &&
+        counterstrike.repairsRequired)) &&
     counterstrike.selectedOrder === counterstrike.acceptedOrder &&
     counterstrike.interceptionSucceeded === false &&
-    counterstrike.outpostDamageState === 'DAMAGED' &&
     counterstrike.secondaryImpactSite !== null &&
     sameCanonicalSite(counterstrike.secondaryImpactSite, expectedImpact) &&
-    !counterstrike.orbitalDebrisRecorded &&
-    counterstrike.repairsRequired
+    !counterstrike.orbitalDebrisRecorded
   )
 }
 
@@ -1071,7 +1142,7 @@ function normalizePrototypeForResume(
 function toEnvelope(
   prototype: PrototypeSnapshot,
   savedAtMs: number,
-): PrototypeSaveEnvelopeV6 {
+): PrototypeSaveEnvelopeV7 {
   const safe = normalizePrototypeForResume(prototype, savedAtMs)
   const { site: _outpostSite, ...outpostData } = safe.outpost
   const { site: _rivalSite, ...rivalData } = safe.rival
@@ -1142,6 +1213,7 @@ export function deserializePrototypeSave(
       value.schemaVersion !== PRE_COUNTERSTRIKE_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_OPERATIONS_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_COMMAND_SAVE_SCHEMA_VERSION &&
+      value.schemaVersion !== PRE_MODULE_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== OUTPOST_SAVE_SCHEMA_VERSION) ||
     !isNonNegativeNumber(value.savedAtMs) ||
     !isNonNegativeNumber(nowMs)

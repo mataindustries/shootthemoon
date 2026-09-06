@@ -1,11 +1,15 @@
+import { useState } from 'react'
 import {
   findDeposit,
   type OperatingMode,
+  type OutpostModuleKind,
   type OutpostSnapshot,
 } from '../domain/outpost.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import {
   EXTRACTOR_COST,
+  OUTPOST_MODULE_COST,
+  canConstructModule,
   canConstructExtractor,
   canMineDeposit,
 } from '../simulation/outpostSimulation.ts'
@@ -46,6 +50,7 @@ interface CinematicHudProps {
   readonly onMine: () => void
   readonly onConstruct: () => void
   readonly onSetOperatingMode: (mode: OperatingMode) => void
+  readonly onConstructModule: (kind: OutpostModuleKind) => void
   readonly onResetPrototype: () => void
   readonly onToggleSound: () => void
 }
@@ -67,6 +72,7 @@ function OperationsPanel({
   counterstrikeOrder,
   rivalSignalHeld,
   onSetOperatingMode,
+  onConstructModule,
   onReturn,
 }: {
   readonly outpost: OutpostSnapshot
@@ -75,8 +81,10 @@ function OperationsPanel({
   readonly counterstrikeOrder: CounterstrikeOrder | null
   readonly rivalSignalHeld: boolean
   readonly onSetOperatingMode: (mode: OperatingMode) => void
+  readonly onConstructModule: (kind: OutpostModuleKind) => void
   readonly onReturn: () => void
 }) {
+  const [moduleSelectionOpen, setModuleSelectionOpen] = useState(false)
   const metrics = calculateOutpostOperations(
     outpost,
     damageState,
@@ -140,6 +148,59 @@ function OperationsPanel({
           </button>
         ))}
       </div>
+      {outpost.module === null && outpost.lunarOre >= OUTPOST_MODULE_COST ? (
+        moduleSelectionOpen ? (
+          <div className="module-selector" aria-label="Choose outpost module">
+            <div className="module-selector__heading">
+              <span>MODULE SLOT 01</span>
+              <button type="button" onClick={() => setModuleSelectionOpen(false)}>
+                CLOSE
+              </button>
+            </div>
+            {([
+              ['SOLAR_WING', 'SOLAR WING', '+25% ENERGY · EFFICIENT OVERDRIVE'],
+              ['STORAGE_SILO', 'STORAGE SILO', '400 ORE CAPACITY'],
+              ['REPAIR_GANTRY', 'REPAIR GANTRY', 'POWERED DAMAGE RECOVERY'],
+            ] as const).map(([kind, label, detail]) => {
+              const eligible = canConstructModule(outpost, kind, damageState)
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  disabled={!eligible}
+                  onClick={() => onConstructModule(kind)}
+                >
+                  <span><strong>{label}</strong><small>{detail}</small></span>
+                  <b>{kind === 'REPAIR_GANTRY' && !eligible ? 'DAMAGE REQUIRED' : '20 ORE'}</b>
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <button
+            className="build-module-action"
+            type="button"
+            onClick={() => setModuleSelectionOpen(true)}
+          >
+            <span>BUILD MODULE</span>
+            <b>1 SLOT · 20 ORE</b>
+          </button>
+        )
+      ) : outpost.module !== null ? (
+        <div className="module-status" data-module-status={outpost.module.status}>
+          <span>
+            {outpost.module.status === 'constructing'
+              ? 'MODULE CONSTRUCTION'
+              : 'OUTPOST TIER 2'}
+          </span>
+          <strong>{outpost.module.kind.replace('_', ' ')}</strong>
+          {outpost.module.kind === 'REPAIR_GANTRY' &&
+          outpost.module.status === 'active' &&
+          outpost.module.repairProgress < 1 ? (
+            <small>{Math.round(outpost.module.repairProgress * 100)}% RECOVERY · {formatMetric(metrics.repairConsumedKw)} KW</small>
+          ) : null}
+        </div>
+      ) : null}
       <button className="operations-return" type="button" onClick={onReturn}>
         RETURN TO ORBIT
       </button>
@@ -192,6 +253,12 @@ function phaseLabel(
   if (phase === 'landed' && outpost !== null) {
     if (outpost.extractor?.status === 'constructing') {
       return 'EXTRACTOR ASSEMBLY'
+    }
+    if (outpost.module?.status === 'constructing') {
+      return 'MODULE CONSTRUCTION'
+    }
+    if (outpost.module?.status === 'active') {
+      return 'OUTPOST TIER 2'
     }
 
     return outpost.stage === 'extractor-active'
@@ -296,6 +363,7 @@ export function CinematicHud({
   onMine,
   onConstruct,
   onSetOperatingMode,
+  onConstructModule,
   onResetPrototype,
   onToggleSound,
 }: CinematicHudProps) {
@@ -398,6 +466,7 @@ export function CinematicHud({
               counterstrikeOrder={counterstrikeOrder}
               rivalSignalHeld={rivalSignalHeld}
               onSetOperatingMode={onSetOperatingMode}
+              onConstructModule={onConstructModule}
               onReturn={onReturn}
             />
           ) : (

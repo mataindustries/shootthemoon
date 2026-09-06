@@ -60,6 +60,7 @@ import {
 } from './OrbitalInterceptEffects.tsx'
 import { CounterstrikeDamage } from './CounterstrikeDamage.tsx'
 import { OperationalRobotFleet } from './OperationalRobotFleet.tsx'
+import { OutpostModule } from './OutpostModule.tsx'
 import { calculateOutpostOperations } from '../simulation/outpostOperations.ts'
 
 const CLEAR_COLOR = VISUAL_PALETTE.space
@@ -182,7 +183,12 @@ export function SceneRoot({
     phase === 'landed' &&
     outpost !== null &&
     (isRobotTransient(outpost.robot.state) ||
-      outpost.extractor?.status === 'constructing')
+      outpost.extractor?.status === 'constructing' ||
+      outpost.module?.status === 'constructing' ||
+      (outpost.module?.kind === 'REPAIR_GANTRY' &&
+        outpost.module.status === 'active' &&
+        outpost.module.repairProgress < 1 &&
+        counterstrike?.outpostDamageState === 'DAMAGED'))
   const rivalAnimationActive = rivalPresentationNeedsContinuousFrames(
     rivalPresentation.phase,
   )
@@ -681,6 +687,12 @@ export function SceneRoot({
                 damageSequence={counterstrikeRun}
                 operations={operationsMetrics ?? undefined}
               />
+              <OutpostModule
+                outpost={outpost}
+                damageState={counterstrike?.outpostDamageState ?? 'INTACT'}
+                terrain={terrain}
+                segments={quality.patchSegments}
+              />
               {operationsMetrics !== null ? (
                 <OperationalRobotFleet
                   outpost={outpost}
@@ -731,6 +743,12 @@ export function SceneRoot({
             operations={operationsMetrics ?? undefined}
             commandOrder={counterstrikeRun.order}
           />
+          <OutpostModule
+            outpost={outpost}
+            damageState={counterstrike?.outpostDamageState ?? 'INTACT'}
+            terrain={counterstrikeTerrain}
+            segments={quality.patchSegments}
+          />
           {operationsMetrics !== null ? (
             <OperationalRobotFleet
               outpost={outpost}
@@ -777,6 +795,12 @@ export function SceneRoot({
                 compact
                 damageSequence={counterstrikeRun}
                 operations={operationsMetrics ?? undefined}
+              />
+              <OutpostModule
+                outpost={outpost}
+                damageState={counterstrike?.outpostDamageState ?? 'INTACT'}
+                terrain={counterstrikeTerrain}
+                segments={quality.patchSegments}
               />
             </>
           ) : null}

@@ -13,7 +13,7 @@ import {
   type WebGLRenderer,
 } from 'three'
 import type { LandingSite } from './domain/lunarCoordinates.ts'
-import type { OperatingMode } from './domain/outpost.ts'
+import type { OperatingMode, OutpostModuleKind } from './domain/outpost.ts'
 import type { CounterstrikeOrder } from './domain/counterstrike.ts'
 import { calculateOutpostOperations } from './simulation/outpostOperations.ts'
 import {
@@ -300,6 +300,11 @@ function App() {
       (outpost !== null &&
         (isRobotTransient(outpost.robot.state) ||
           outpost.extractor?.status === 'constructing')) ||
+      (outpost?.module?.status === 'constructing') ||
+      (outpost?.module?.kind === 'REPAIR_GANTRY' &&
+        outpost.module.status === 'active' &&
+        outpost.module.repairProgress < 1 &&
+        counterstrike?.outpostDamageState === 'DAMAGED') ||
       rivalPresentationNeedsContinuousFrames(rivalPresentation.phase) ||
       firstStrikeNeedsContinuousFrames(firstStrikePresentation.phase) ||
       counterstrikeNeedsContinuousFrames(counterstrikeRun.status))
@@ -785,12 +790,18 @@ function App() {
 
     const extractorNeedsTicks = outpost.extractor !== null
     const robotNeedsTicks = isRobotTransient(outpost.robot.state)
+    const moduleNeedsTicks =
+      outpost.module?.status === 'constructing' ||
+      (outpost.module?.kind === 'REPAIR_GANTRY' &&
+        outpost.module.status === 'active' &&
+        outpost.module.repairProgress < 1 &&
+        counterstrike?.outpostDamageState === 'DAMAGED')
 
-    if (!extractorNeedsTicks && !robotNeedsTicks) {
+    if (!extractorNeedsTicks && !robotNeedsTicks && !moduleNeedsTicks) {
       return
     }
 
-    const intervalMs = robotNeedsTicks || outpost.extractor?.status === 'constructing'
+    const intervalMs = robotNeedsTicks || outpost.extractor?.status === 'constructing' || moduleNeedsTicks
       ? 80
       : 400
     const timer = window.setInterval(() => {
@@ -809,6 +820,17 @@ function App() {
 
     return () => window.clearInterval(timer)
   }, [counterstrike?.outpostDamageState, entryOpen, outpost, state.phase])
+
+  useEffect(() => {
+    if (
+      outpost?.module?.kind === 'REPAIR_GANTRY' &&
+      outpost.module.status === 'active' &&
+      outpost.module.repairProgress >= 1 &&
+      counterstrike?.repairsRequired
+    ) {
+      dispatchCounterstrike({ type: 'completeRepairs', nowMs: Date.now() })
+    }
+  }, [counterstrike?.repairsRequired, outpost?.module])
 
   const beginRivalReveal = useCallback(() => {
     if (
@@ -1422,6 +1444,19 @@ function App() {
     [audio, counterstrike?.outpostDamageState],
   )
 
+  const handleConstructModule = useCallback(
+    (kind: OutpostModuleKind) => {
+      audio.play('capsule')
+      dispatchOutpost({
+        type: 'constructModule',
+        kind,
+        nowMs: Date.now(),
+        damageState: counterstrike?.outpostDamageState ?? 'INTACT',
+      })
+    },
+    [audio, counterstrike?.outpostDamageState],
+  )
+
   const handleArmFirstStrike = useCallback(() => {
     if (firstStrike?.status !== 'READY') {
       return
@@ -1592,6 +1627,9 @@ function App() {
       outpost,
       nowMs: Date.now(),
     })
+    if (counterstrikeRun.outcome === 'FAILURE') {
+      dispatchOutpost({ type: 'applyDamage', nowMs: Date.now() })
+    }
     setCounterstrikeRun((current) =>
       counterstrikeRunReducer(current, {
         type: 'restoreAccepted',
@@ -1717,6 +1755,12 @@ function App() {
             counterstrikeRun.status === 'warning',
         )
       : null
+  const repairProgress =
+    outpost?.module?.kind === 'REPAIR_GANTRY'
+      ? outpost.module.repairProgress
+      : 0
+  const effectiveProductionDamagePenalty =
+    (counterstrike?.productionDamagePenalty ?? 0) * (1 - repairProgress)
 
   return (
     <main
@@ -1792,7 +1836,7 @@ function App() {
         counterstrike?.outpostDamageState ?? 'INTACT'
       }
       data-production-damage-penalty={
-        counterstrike?.productionDamagePenalty ?? 0
+        effectiveProductionDamagePenalty
       }
       data-operation-defense-allocation={
         operationsMetrics?.defenseAllocationKw ?? 0
@@ -1805,6 +1849,10 @@ function App() {
       data-operation-energy-throttle={operationsMetrics?.energyThrottle ?? 0}
       data-operation-active-robots={operationsMetrics?.activeRobots ?? 0}
       data-operation-storage-capacity={outpost?.operations.storageCapacity ?? 0}
+      data-outpost-module={outpost?.module?.kind ?? 'none'}
+      data-module-status={outpost?.module?.status ?? 'none'}
+      data-module-repair-progress={repairProgress}
+      data-module-completion-at={outpost?.module?.completionTimestampMs ?? 'none'}
       data-secondary-impact-latitude={
         counterstrike?.secondaryImpactSite?.location.latitudeRad ?? 'none'
       }
@@ -1877,9 +1925,7 @@ function App() {
         counterstrikeState={counterstrikeRun.status}
         counterstrikeOutcome={counterstrikeRun.outcome}
         damageState={counterstrike?.outpostDamageState ?? 'INTACT'}
-        productionDamagePenalty={
-          counterstrike?.productionDamagePenalty ?? 0
-        }
+        productionDamagePenalty={effectiveProductionDamagePenalty}
         counterstrikeOrder={counterstrike?.acceptedOrder ?? null}
         soundAvailable={audio.available}
         soundEnabled={audio.enabled}
@@ -1891,6 +1937,7 @@ function App() {
         onMine={handleMine}
         onConstruct={handleConstruct}
         onSetOperatingMode={handleSetOperatingMode}
+        onConstructModule={handleConstructModule}
         onResetPrototype={handleResetPrototype}
       />
       <RivalHud

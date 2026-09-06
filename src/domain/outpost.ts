@@ -3,6 +3,7 @@ import type { LandingSite } from './lunarCoordinates.ts'
 export const OUTPOST_ID = 'first-outpost'
 export const MINER_ID = 'miner-01'
 export const EXTRACTOR_ID = 'extractor-01'
+export const MODULE_ID = 'module-slot-01'
 export const RESOURCE_NAME = 'LUNAR ORE'
 
 export type RobotState =
@@ -22,6 +23,23 @@ export type OutpostStage =
 export type ExtractorStatus = 'constructing' | 'active'
 
 export type OperatingMode = 'CONSERVE' | 'BALANCED' | 'OVERDRIVE'
+
+export type OutpostModuleKind =
+  | 'SOLAR_WING'
+  | 'STORAGE_SILO'
+  | 'REPAIR_GANTRY'
+
+export type OutpostModuleStatus = 'constructing' | 'active'
+
+export interface OutpostModule {
+  readonly id: typeof MODULE_ID
+  readonly kind: OutpostModuleKind
+  readonly status: OutpostModuleStatus
+  readonly constructionStartedAtMs: number
+  readonly completionTimestampMs: number
+  readonly repairProgress: number
+  readonly lastRepairAtMs: number
+}
 
 export interface OutpostOperationsState {
   readonly mode: OperatingMode
@@ -81,6 +99,7 @@ export interface OutpostSnapshot {
   readonly robot: MinerRobot
   readonly deposits: readonly MineralDeposit[]
   readonly extractor: Extractor | null
+  readonly module: OutpostModule | null
 }
 
 export const ROBOT_IDLE_POSITION: LocalSurfacePosition = Object.freeze({
