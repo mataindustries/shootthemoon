@@ -13,7 +13,10 @@ import {
   type RobotState,
 } from '../domain/outpost.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
-import type { OutpostDamageState } from '../domain/counterstrike.ts'
+import type {
+  CounterstrikeOrder,
+  OutpostDamageState,
+} from '../domain/counterstrike.ts'
 import {
   advanceOutpostOperations,
   createOutpostOperationsState,
@@ -68,6 +71,8 @@ export type OutpostAction =
       readonly type: 'operationsTick'
       readonly nowMs: number
       readonly damageState: OutpostDamageState
+      readonly commandOrder?: CounterstrikeOrder | null
+      readonly commandActive?: boolean
     }
   | { readonly type: 'resumeSurface'; readonly nowMs: number }
   | { readonly type: 'reset' }
@@ -568,7 +573,13 @@ export function outpostReducer(
     case 'operationsTick':
       return state === null
         ? null
-        : advanceOutpostOperations(state, action.nowMs, action.damageState)
+        : advanceOutpostOperations(
+            state,
+            action.nowMs,
+            action.damageState,
+            action.commandOrder,
+            action.commandActive,
+          )
     case 'setOperatingMode':
       return state === null
         ? null

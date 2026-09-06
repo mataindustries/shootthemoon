@@ -37,6 +37,10 @@ interface RunDetail {
   readonly judgement?: 'EARLY' | 'VALID' | 'LATE' | null
   readonly outcome?: 'SUCCESS' | 'FAILURE' | null
   readonly replay?: boolean
+  readonly order?:
+    | 'PRIORITIZE_INTERCEPTOR'
+    | 'HARDEN_OUTPOST'
+    | 'KEEP_EXTRACTING'
 }
 
 function watchBrowserErrors(page: Page): BrowserErrors {
@@ -324,10 +328,14 @@ test('Counterstrike success is touch-fair, persistent, idle, and within budget',
     'COUNTERSTRIKE AVAILABLE',
   )
   await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
-  await expect(main).toHaveAttribute('data-counterstrike-state', 'warning')
-  await setRun(page, { status: 'warning', progress: 0.48 })
+  await page.getByRole('button', { name: /PRIORITIZE INTERCEPTOR/ }).click()
+  await setRun(page, {
+    status: 'warning',
+    progress: 0.48,
+    order: 'PRIORITIZE_INTERCEPTOR',
+  })
   await expect(page.locator('.counterstrike-warning')).toContainText(
-    'COUNTERSTRIKE DETECTED',
+    'RIVAL LAUNCH DETECTED',
   )
   await capture(page, '01-counterstrike-warning.png', samples)
 
@@ -471,7 +479,7 @@ test('Counterstrike success is touch-fair, persistent, idle, and within budget',
     (key) => JSON.parse(localStorage.getItem(key) ?? '{}'),
     OUTPOST_STORAGE_KEY,
   )
-  expect(persisted.schemaVersion).toBe(5)
+  expect(persisted.schemaVersion).toBe(6)
   expect(persisted.counterstrike).toMatchObject({
     acceptedOutcome: 'SUCCESS',
     interceptionSucceeded: true,
@@ -520,6 +528,7 @@ test('Counterstrike failure preserves progress and replay replacement is deliber
   )
 
   await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
+  await page.getByRole('button', { name: /HARDEN OUTPOST/ }).click()
   await setRun(page, {
     status: 'tracking',
     progress: 0.24,
@@ -778,8 +787,7 @@ test('Counterstrike failure preserves progress and replay replacement is deliber
   })
 
   await page.getByRole('button', { name: 'REPLAY COUNTERSTRIKE' }).click()
-  await expect(main).toHaveAttribute('data-counterstrike-state', 'warning')
-  await expect(canvas).toHaveAttribute('data-counterstrike-threats', '1')
+  await page.getByRole('button', { name: /PRIORITIZE INTERCEPTOR/ }).click()
   await driveReplaySuccess(page)
   await expect(page.locator('.counterstrike-ending')).toContainText(
     'ACCEPT THIS ENDING?',
@@ -794,7 +802,7 @@ test('Counterstrike failure preserves progress and replay replacement is deliber
   await expect(main).toHaveAttribute('data-counterstrike-outcome', 'FAILURE')
 
   await page.getByRole('button', { name: 'REPLAY COUNTERSTRIKE' }).click()
-  await expect(canvas).toHaveAttribute('data-counterstrike-threats', '1')
+  await page.getByRole('button', { name: /PRIORITIZE INTERCEPTOR/ }).click()
   await driveReplaySuccess(page)
   await page.getByRole('button', { name: 'ACCEPT NEW OUTCOME' }).click()
   await expect(main).toHaveAttribute(
@@ -836,14 +844,13 @@ test('Counterstrike warning and timing pause across visibility loss', async ({
   const errors = watchBrowserErrors(page)
   await openScene(page, createCompletedStrikeSave())
   const main = page.locator('main')
+  await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
+  await page.getByRole('button', { name: /PRIORITIZE INTERCEPTOR/ }).click()
+  await expect(main).toHaveAttribute('data-counterstrike-state', 'warning')
   await page.evaluate(() => {
     const state = window as typeof window & {
       __counterstrikeVisibility?: DocumentVisibilityState
     }
-    const begin = Array.from(document.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('TRACK COUNTERSTRIKE'),
-    )
-    begin?.click()
     state.__counterstrikeVisibility = 'hidden'
     Object.defineProperty(document, 'visibilityState', {
       configurable: true,
@@ -948,6 +955,7 @@ test('records a paced successful Counterstrike', async ({ page }) => {
     if (fireWhenVisible()) observer.disconnect()
   })
   await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
+  await page.getByRole('button', { name: /PRIORITIZE INTERCEPTOR/ }).click()
   const startedAtMs = Date.now()
   // Video encoding can stall the Node-to-browser actionability round trip for
   // longer than the real 2.4-second window. The one-shot observer above allows
@@ -995,6 +1003,7 @@ test('records a paced survived Counterstrike', async ({ page }) => {
   await openScene(page, createCompletedStrikeSave(), false)
   const main = page.locator('main')
   await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
+  await page.getByRole('button', { name: /HARDEN OUTPOST/ }).click()
   const startedAtMs = Date.now()
   await expect(main).toHaveAttribute('data-counterstrike-state', 'resolved', {
     timeout: 45_000,

@@ -776,6 +776,83 @@ describe('First Strike schema-v3 persistence', () => {
     expect(restored?.firstStrike.status).toBe('COMPLETE')
   })
 
+  it('restores the command panel or safely restarts an issued warning', () => {
+    const prototype = completedStrikePrototype()
+    const detected = counterstrikeFactsReducer(prototype.counterstrike, {
+      type: 'detect',
+      nowMs: START_MS + 5_050,
+    })!
+    const commandRestore = deserializePrototypeSave(
+      serializePrototypeSave(
+        { ...prototype, counterstrike: detected },
+        START_MS + 5_060,
+      ),
+      START_MS + 5_070,
+    )!
+
+    expect(commandRestore.counterstrike).toMatchObject({
+      selectedOrder: null,
+      acceptedOrder: null,
+      productionDamagePenalty: 0,
+    })
+    expect(createCounterstrikeRunState(commandRestore.counterstrike, 100)).toMatchObject({
+      status: 'command',
+      order: null,
+    })
+
+    const issued = counterstrikeFactsReducer(detected, {
+      type: 'issueOrder',
+      order: 'HARDEN_OUTPOST',
+      nowMs: START_MS + 5_080,
+    })!
+    const warningRestore = deserializePrototypeSave(
+      serializePrototypeSave(
+        { ...prototype, counterstrike: issued },
+        START_MS + 5_090,
+      ),
+      START_MS + 5_100,
+    )!
+
+    expect(createCounterstrikeRunState(warningRestore.counterstrike, 200)).toMatchObject({
+      status: 'warning',
+      order: 'HARDEN_OUTPOST',
+      attemptsUsed: 0,
+    })
+  })
+
+  it('migrates schema-5 Counterstrike data with the original 30% failure penalty', () => {
+    const prototype = completedStrikePrototype()
+    const accepted = counterstrikeFactsReducer(prototype.counterstrike, {
+      type: 'acceptOutcome',
+      outcome: 'FAILURE',
+      order: 'KEEP_EXTRACTING',
+      outpost: prototype.outpost,
+      nowMs: START_MS + 5_100,
+    })!
+    const raw = JSON.parse(
+      serializePrototypeSave(
+        { ...prototype, counterstrike: accepted },
+        START_MS + 5_200,
+      ),
+    ) as { schemaVersion: number; counterstrike: Record<string, unknown> }
+    raw.schemaVersion = 5
+    delete raw.counterstrike.detectedAtMs
+    delete raw.counterstrike.selectedOrder
+    delete raw.counterstrike.orderIssuedAtMs
+    delete raw.counterstrike.acceptedOrder
+    delete raw.counterstrike.productionDamagePenalty
+
+    const restored = deserializePrototypeSave(
+      JSON.stringify(raw),
+      START_MS + 5_300,
+    )!
+    expect(restored.counterstrike).toMatchObject({
+      acceptedOutcome: 'FAILURE',
+      acceptedOrder: null,
+      productionDamagePenalty: 0.3,
+    })
+  })
+
   it.each(['SUCCESS', 'FAILURE'] as const)(
     'round trips the accepted %s ending without serializing transient run state',
     (outcome) => {
@@ -783,6 +860,7 @@ describe('First Strike schema-v3 persistence', () => {
       const accepted = counterstrikeFactsReducer(prototype.counterstrike, {
         type: 'acceptOutcome',
         outcome,
+        order: outcome === 'SUCCESS' ? 'PRIORITIZE_INTERCEPTOR' : 'HARDEN_OUTPOST',
         outpost: prototype.outpost,
         nowMs: START_MS + 5_100,
       })!
@@ -808,6 +886,8 @@ describe('First Strike schema-v3 persistence', () => {
   it('normalizes every accidentally supplied transient run state to the checkpoint', () => {
     const statuses: readonly CounterstrikeRunStatus[] = [
       'dormant',
+      'command',
+      'command-confirmed',
       'warning',
       'tracking',
       'intercept-ready',
@@ -847,6 +927,7 @@ describe('First Strike schema-v3 persistence', () => {
     const failure = counterstrikeFactsReducer(prototype.counterstrike, {
       type: 'acceptOutcome',
       outcome: 'FAILURE',
+      order: 'HARDEN_OUTPOST',
       outpost: prototype.outpost,
       nowMs: START_MS + 5_100,
     })!

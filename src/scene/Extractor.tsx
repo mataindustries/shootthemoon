@@ -13,6 +13,7 @@ import {
 } from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
+import type { CounterstrikeOrder } from '../domain/counterstrike.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import {
   LOCAL_METRES_TO_RENDER_UNITS,
@@ -42,6 +43,7 @@ interface ExtractorProps {
   readonly compact?: boolean
   readonly damageSequence?: CounterstrikeRunState | undefined
   readonly operations?: OutpostOperationsMetrics | undefined
+  readonly commandOrder?: CounterstrikeOrder | null
 }
 
 const EXTRACTOR_PAD_RADIUS_M = 1.08
@@ -157,6 +159,7 @@ export function Extractor({
   compact = false,
   damageSequence,
   operations,
+  commandOrder = null,
 }: ExtractorProps) {
   const extractor = outpost.extractor
   const rootRef = useRef<Group>(null)
@@ -230,6 +233,16 @@ export function Extractor({
         color: VISUAL_PALETTE.playerAmberPanel,
         emissive: VISUAL_PALETTE.playerAmberEmissive,
         emissiveIntensity: EMISSIVE_LIMITS.panel,
+        ...MATERIAL_RESPONSE.playerHeatDark,
+      }),
+    [],
+  )
+  const defenseMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: '#8cf6ff',
+        emissive: '#58deeb',
+        emissiveIntensity: 0.62,
         ...MATERIAL_RESPONSE.playerHeatDark,
       }),
     [],
@@ -531,6 +544,7 @@ export function Extractor({
       steelMaterial.dispose()
       heatMaterial.dispose()
       operationMaterial.dispose()
+      defenseMaterial.dispose()
       damagedPartsMaterial.dispose()
       constructionDustGeometry.dispose()
       constructionDustMaterial.dispose()
@@ -545,6 +559,7 @@ export function Extractor({
       damageSparkGeometry,
       damageSparkMaterial,
       damagedPartsMaterial,
+      defenseMaterial,
       heatMaterial,
       operationMaterial,
       serviceGeometry,
@@ -653,7 +668,13 @@ export function Extractor({
           ? 0
           : damageVisible
             ? 0.55 * productionActivity
-            : 0.9 + productionActivity * 2.1
+            : commandOrder === 'PRIORITIZE_INTERCEPTOR'
+              ? 0.42
+              : commandOrder === 'HARDEN_OUTPOST'
+                ? 0.24
+                : commandOrder === 'KEEP_EXTRACTING'
+                  ? 4.2
+                  : 0.9 + productionActivity * 2.1
       drumRef.current.rotation.x = elapsed * machinerySpeed + (damageVisible ? 0.58 : 0)
       pumpRef.current.rotation.z = damageVisible
         ? -0.5 + Math.sin(elapsed * Math.max(0.4, machinerySpeed)) * 0.08
@@ -681,11 +702,16 @@ export function Extractor({
         ? interruptionGate
           ? 0.05
           : 0.34
-        : Math.min(
-            EMISSIVE_LIMITS.activePanel,
-            EMISSIVE_LIMITS.panel +
-              Math.sin(elapsed * (1.4 + productionActivity * 3.2)) * 0.055,
-          )
+        : commandOrder === 'PRIORITIZE_INTERCEPTOR'
+          ? 0.025
+          : commandOrder === 'KEEP_EXTRACTING'
+            ? EMISSIVE_LIMITS.activePanel
+            : Math.min(
+                EMISSIVE_LIMITS.activePanel,
+                EMISSIVE_LIMITS.panel +
+                  Math.sin(elapsed * (1.4 + productionActivity * 3.2)) *
+                    0.055,
+              )
     }
   })
 
@@ -807,6 +833,39 @@ export function Extractor({
             </group>
           ) : null}
         </group>
+        {commandOrder === 'HARDEN_OUTPOST' ? (
+          <group name="outpost-lockdown-braces">
+            {[-1, 1].map((direction) => (
+              <group key={direction} rotation-y={direction * 0.72}>
+                <mesh
+                  geometry={boxGeometry}
+                  material={steelMaterial}
+                  position={[direction * 0.92, 1.05, 0]}
+                  rotation-z={direction * -0.48}
+                  scale={[0.13, 1.5, 0.16]}
+                  castShadow
+                />
+                <mesh
+                  geometry={boxGeometry}
+                  material={armorMaterial}
+                  position={[direction * 1.2, 0.28, 0]}
+                  scale={[0.48, 0.22, 0.5]}
+                  castShadow
+                />
+              </group>
+            ))}
+          </group>
+        ) : null}
+        {commandOrder === 'PRIORITIZE_INTERCEPTOR' ? (
+          <group name="energized-defense-indicators" position-y={2.62}>
+            <mesh material={defenseMaterial} rotation-x={Math.PI / 2}>
+              <torusGeometry args={[0.48, 0.055, 6, 20]} />
+            </mesh>
+            <mesh material={defenseMaterial} position-y={0.12}>
+              <cylinderGeometry args={[0.08, 0.12, 0.24, 8]} />
+            </mesh>
+          </group>
+        ) : null}
       </group>
     </group>
   )

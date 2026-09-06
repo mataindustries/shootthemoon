@@ -716,8 +716,12 @@ export function CameraRig({
       let pose: CameraPose = plan.trackingPose
       let journey: SafeOrbitalCameraPath | null = null
 
-      if (counterstrikeRun.status === 'warning') {
-        journey = plan.warningCamera
+      if (
+        counterstrikeRun.status === 'command' ||
+        counterstrikeRun.status === 'command-confirmed' ||
+        counterstrikeRun.status === 'warning'
+      ) {
+        pose = plan.damagePose
       } else if (counterstrikeRun.status === 'interceptor-launched') {
         journey = plan.interceptorCamera
       } else if (counterstrikeRun.status === 'success') {

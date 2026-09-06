@@ -8,6 +8,8 @@ import type { OperatingMode, OutpostSnapshot } from '../domain/outpost.ts'
 import { createInitialOutpost } from './outpostSimulation.ts'
 import {
   COUNTERSTRIKE_DAMAGE_MULTIPLIER,
+  HARDENED_COUNTERSTRIKE_DAMAGE_MULTIPLIER,
+  KEEP_EXTRACTING_PRODUCTION_MULTIPLIER,
   advanceOutpostOperations,
   analyzeLandingSite,
   calculateOutpostOperations,
@@ -148,6 +150,70 @@ describe('outpost operations model', () => {
       intact.productionPerMin * COUNTERSTRIKE_DAMAGE_MULTIPLIER,
       10,
     )
+  })
+
+  it('applies all three command allocations to live operations', () => {
+    const source = activeOutpost(strongSite, 'BALANCED')
+    const prioritized = calculateOutpostOperations(
+      source,
+      'INTACT',
+      'PRIORITIZE_INTERCEPTOR',
+      true,
+    )
+    const hardened = calculateOutpostOperations(
+      source,
+      'INTACT',
+      'HARDEN_OUTPOST',
+      true,
+    )
+    const extracting = calculateOutpostOperations(
+      source,
+      'INTACT',
+      'KEEP_EXTRACTING',
+      true,
+    )
+    const overdrive = calculateOutpostOperations(
+      activeOutpost(strongSite, 'OVERDRIVE'),
+    )
+
+    expect([prioritized.activeRobots, hardened.activeRobots, extracting.activeRobots])
+      .toEqual([1, 2, 3])
+    expect(prioritized.defenseAllocationKw).toBe(6)
+    expect(prioritized.interceptionReadiness).toBe('MAXIMUM')
+    expect(hardened.defenseAllocationKw).toBe(3)
+    expect(hardened.interceptionReadiness).toBe('FORTIFIED')
+    expect(extracting.defenseAllocationKw).toBe(0)
+    expect(extracting.commandProductionMultiplier).toBe(
+      KEEP_EXTRACTING_PRODUCTION_MULTIPLIER,
+    )
+    expect(extracting.productionPerMin).toBeCloseTo(
+      overdrive.productionPerMin * KEEP_EXTRACTING_PRODUCTION_MULTIPLIER,
+      10,
+    )
+  })
+
+  it('limits hardened persistent damage to 15% and keeps normal damage at 30%', () => {
+    const source = activeOutpost(strongSite)
+    const intact = calculateOutpostOperations(source)
+    const hardened = calculateOutpostOperations(
+      source,
+      'DAMAGED',
+      'HARDEN_OUTPOST',
+    )
+    const aggressive = calculateOutpostOperations(
+      source,
+      'DAMAGED',
+      'KEEP_EXTRACTING',
+    )
+
+    expect(hardened.damageMultiplier).toBe(
+      HARDENED_COUNTERSTRIKE_DAMAGE_MULTIPLIER,
+    )
+    expect(hardened.productionPerMin).toBeCloseTo(
+      intact.productionPerMin * 0.85,
+      10,
+    )
+    expect(aggressive.damageMultiplier).toBe(COUNTERSTRIKE_DAMAGE_MULTIPLIER)
   })
 
   it('accounts for elapsed production before changing modes', () => {

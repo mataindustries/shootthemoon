@@ -14,6 +14,7 @@ import {
 } from 'three'
 import type { LandingSite } from './domain/lunarCoordinates.ts'
 import type { OperatingMode } from './domain/outpost.ts'
+import type { CounterstrikeOrder } from './domain/counterstrike.ts'
 import { calculateOutpostOperations } from './simulation/outpostOperations.ts'
 import {
   INITIAL_MOON_CORE_STATE,
@@ -68,6 +69,7 @@ import {
   counterstrikeRunReducer,
   createCounterstrikeRunState,
   getCounterstrikeRunDurationMs,
+  getCounterstrikeTimingProfile,
   type CounterstrikeRunState,
   type CounterstrikeRunStatus,
   type InterceptionJudgement,
@@ -161,6 +163,8 @@ const FIRST_STRIKE_PRESENTATION_PHASES: readonly FirstStrikePresentationPhase[] 
 
 const COUNTERSTRIKE_RUN_STATUSES: readonly CounterstrikeRunStatus[] = [
   'dormant',
+  'command',
+  'command-confirmed',
   'warning',
   'tracking',
   'intercept-ready',
@@ -460,6 +464,7 @@ function App() {
           readonly judgement?: InterceptionJudgement | null
           readonly outcome?: 'SUCCESS' | 'FAILURE' | null
           readonly replay?: boolean
+          readonly order?: CounterstrikeOrder | null
         }>
       ).detail
       if (!isCounterstrikeRunStatus(detail.status)) return
@@ -486,7 +491,9 @@ function App() {
               : typeof detail.attemptElapsedMs === 'number'
                 ? nowMs - Math.max(0, detail.attemptElapsedMs)
                 : status === 'intercept-ready'
-                  ? nowMs - COUNTERSTRIKE_TIMING.trackingMs
+                  ? nowMs - getCounterstrikeTimingProfile(
+                      detail.order ?? current.order,
+                    ).trackingMs
                   : nowMs,
           attemptNumber,
           attemptsUsed: detail.attemptsUsed ?? current.attemptsUsed,
@@ -496,6 +503,7 @@ function App() {
               ? detail.attemptElapsedAtFireMs
               : current.attemptElapsedAtFireMs,
           outcome: detail.outcome ?? null,
+          order: detail.order ?? current.order,
           replay: detail.replay ?? current.replay,
           threatProgressStart:
             attemptNumber === 2 ? 0.66 : status === 'warning' ? 0 : 0.08,
@@ -1128,6 +1136,14 @@ function App() {
       setPreviewRivalStage(null)
       setRivalPresentation(createRivalPresentation())
       setFirstStrikePresentation(createFirstStrikePresentation())
+      dispatchOutpost({
+        type: 'operationsTick',
+        nowMs: Date.now(),
+        damageState: counterstrike.outpostDamageState,
+      })
+      if (!replay) {
+        dispatchCounterstrike({ type: 'detect', nowMs: Date.now() })
+      }
       setCounterstrikeRun((current) =>
         counterstrikeRunReducer(current, {
           type: 'begin',
@@ -1178,13 +1194,25 @@ function App() {
 
   const advanceCounterstrike = useCallback(() => {
     transitionGenerationRef.current += 1
+    if (
+      counterstrikeRun.status === 'warning' &&
+      counterstrikeRun.order !== null
+    ) {
+      dispatchOutpost({
+        type: 'operationsTick',
+        nowMs: Date.now(),
+        damageState: 'INTACT',
+        commandOrder: counterstrikeRun.order,
+        commandActive: true,
+      })
+    }
     setCounterstrikeRun((current) =>
       counterstrikeRunReducer(current, {
         type: 'advance',
         clockMs: performance.now(),
       }),
     )
-  }, [])
+  }, [counterstrikeRun.order, counterstrikeRun.status])
 
   useEffect(() => {
     advanceCounterstrikeRef.current = advanceCounterstrike
@@ -1228,7 +1256,8 @@ function App() {
       counterstrikeRun.outcome === null ||
       counterstrike === null ||
       counterstrike.acceptedOutcome !== null ||
-      outpost === null
+      outpost === null ||
+      counterstrikeRun.order === null
     ) {
       return
     }
@@ -1236,6 +1265,7 @@ function App() {
     dispatchCounterstrike({
       type: 'acceptOutcome',
       outcome: counterstrikeRun.outcome,
+      order: counterstrikeRun.order,
       outpost,
       nowMs: Date.now(),
     })
@@ -1497,6 +1527,26 @@ function App() {
     })
   }, [e2eHarnessActive])
 
+  const handleIssueCounterstrikeOrder = useCallback(
+    (order: CounterstrikeOrder) => {
+      if (counterstrikeRun.status !== 'command') return
+      const clockMs = performance.now()
+      if (!counterstrikeRun.replay) {
+        dispatchCounterstrike({ type: 'issueOrder', order, nowMs: Date.now() })
+      }
+      setCounterstrikeRun((current) =>
+        counterstrikeRunReducer(current, {
+          type: 'issueOrder',
+          order,
+          clockMs,
+        }),
+      )
+      audio.play('ui-confirm')
+      requestHaptic(24)
+    },
+    [audio, counterstrikeRun.replay, counterstrikeRun.status],
+  )
+
   const handleReplayCounterstrike = useCallback(() => {
     beginCounterstrike(true)
     audio.play('ui-confirm')
@@ -1529,7 +1579,8 @@ function App() {
       !counterstrikeRun.replay ||
       counterstrikeRun.outcome === null ||
       counterstrike === null ||
-      outpost === null
+      outpost === null ||
+      counterstrikeRun.order === null
     ) {
       return
     }
@@ -1537,6 +1588,7 @@ function App() {
     dispatchCounterstrike({
       type: 'acceptOutcome',
       outcome: counterstrikeRun.outcome,
+      order: counterstrikeRun.order,
       outpost,
       nowMs: Date.now(),
     })
@@ -1544,6 +1596,7 @@ function App() {
       counterstrikeRunReducer(current, {
         type: 'restoreAccepted',
         outcome: counterstrikeRun.outcome,
+        order: counterstrikeRun.order,
         clockMs: performance.now(),
       }),
     )
@@ -1564,6 +1617,7 @@ function App() {
       counterstrikeRunReducer(current, {
         type: 'restoreAccepted',
         outcome: counterstrike.acceptedOutcome,
+        order: counterstrike.acceptedOrder,
         clockMs: performance.now(),
       }),
     )
@@ -1655,6 +1709,12 @@ function App() {
       ? calculateOutpostOperations(
           outpost,
           counterstrike?.outpostDamageState ?? 'INTACT',
+          counterstrikeRun.status === 'resolved' ||
+            counterstrikeRun.status === 'dormant'
+            ? counterstrike?.acceptedOrder ?? counterstrikeRun.order
+            : counterstrikeRun.order,
+          counterstrikeRun.status === 'command-confirmed' ||
+            counterstrikeRun.status === 'warning',
         )
       : null
 
@@ -1714,6 +1774,13 @@ function App() {
         counterstrikeRun.attemptElapsedAtFireMs ?? 'none'
       }
       data-counterstrike-outcome={counterstrikeRun.outcome ?? 'none'}
+      data-counterstrike-order={counterstrikeRun.order ?? 'none'}
+      data-command-visual={
+        counterstrikeRun.status === 'command-confirmed' ||
+        counterstrikeRun.status === 'warning'
+          ? counterstrikeRun.order ?? 'none'
+          : 'settled'
+      }
       data-counterstrike-replay={counterstrikeRun.replay}
       data-counterstrike-accepted-outcome={
         counterstrike?.acceptedOutcome ?? 'none'
@@ -1723,6 +1790,12 @@ function App() {
       }
       data-outpost-damage-state={
         counterstrike?.outpostDamageState ?? 'INTACT'
+      }
+      data-production-damage-penalty={
+        counterstrike?.productionDamagePenalty ?? 0
+      }
+      data-operation-defense-allocation={
+        operationsMetrics?.defenseAllocationKw ?? 0
       }
       data-repairs-required={counterstrike?.repairsRequired ?? false}
       data-operating-mode={outpost?.operations.mode ?? 'none'}
@@ -1804,6 +1877,10 @@ function App() {
         counterstrikeState={counterstrikeRun.status}
         counterstrikeOutcome={counterstrikeRun.outcome}
         damageState={counterstrike?.outpostDamageState ?? 'INTACT'}
+        productionDamagePenalty={
+          counterstrike?.productionDamagePenalty ?? 0
+        }
+        counterstrikeOrder={counterstrike?.acceptedOrder ?? null}
         soundAvailable={audio.available}
         soundEnabled={audio.enabled}
         onToggleSound={audio.toggle}
@@ -1856,12 +1933,14 @@ function App() {
         snapshot={counterstrike}
         run={counterstrikeRun}
         rival={rival}
+        outpost={outpost}
         showReady={
           state.phase === 'orbit' &&
           firstStrikePresentation.phase === 'idle'
         }
         onBegin={handleBeginCounterstrike}
         onFire={handleFireInterceptor}
+        onIssueOrder={handleIssueCounterstrikeOrder}
         onReplay={handleReplayCounterstrike}
         onAcceptPreview={handleAcceptCounterstrikePreview}
         onKeepAccepted={handleKeepAcceptedCounterstrike}

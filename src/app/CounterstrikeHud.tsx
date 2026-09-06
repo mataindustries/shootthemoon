@@ -1,9 +1,14 @@
-import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
-import type { CounterstrikeSnapshot } from '../domain/counterstrike.ts'
+import { useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  CounterstrikeOrder,
+  CounterstrikeSnapshot,
+} from '../domain/counterstrike.ts'
+import type { OutpostSnapshot } from '../domain/outpost.ts'
 import type { RivalSignalSnapshot } from '../domain/rival.ts'
 import { getRivalIdentity } from '../content/rivalIdentity.ts'
 import {
   counterstrikeNeedsContinuousFrames,
+  getCounterstrikeTimingProfile,
   type CounterstrikeRunState,
 } from '../simulation/counterstrikeSimulation.ts'
 import {
@@ -14,18 +19,85 @@ import {
   moveInterceptorFireGesture,
   type InterceptorFireGestureState,
 } from '../interaction/interceptorFireGate.ts'
+import {
+  COUNTERSTRIKE_COMMAND_EFFECTS,
+  calculateOutpostOperations,
+  type OutpostOperationsMetrics,
+} from '../simulation/outpostOperations.ts'
 
 interface CounterstrikeHudProps {
   readonly snapshot: CounterstrikeSnapshot | null
   readonly run: CounterstrikeRunState
   readonly rival: RivalSignalSnapshot | null
+  readonly outpost: OutpostSnapshot | null
   readonly showReady: boolean
   readonly onBegin: () => void
   readonly onFire: () => void
+  readonly onIssueOrder: (order: CounterstrikeOrder) => void
   readonly onReplay: () => void
   readonly onAcceptPreview: () => void
   readonly onKeepAccepted: () => void
   readonly onInspectOutpost: () => void
+}
+
+const COMMANDS: readonly {
+  readonly order: CounterstrikeOrder
+  readonly title: string
+  readonly tradeoff: string
+}[] = [
+  {
+    order: 'PRIORITIZE_INTERCEPTOR',
+    title: 'PRIORITIZE INTERCEPTOR',
+    tradeoff: 'Divert mining power for a 40% wider fire window.',
+  },
+  {
+    order: 'HARDEN_OUTPOST',
+    title: 'HARDEN OUTPOST',
+    tradeoff: 'Brace machinery to halve production damage if hit.',
+  },
+  {
+    order: 'KEEP_EXTRACTING',
+    title: 'KEEP EXTRACTING',
+    tradeoff: 'Boost output now; accept the full impact penalty.',
+  },
+]
+
+function commandLabel(order: CounterstrikeOrder | null): string {
+  return (
+    COMMANDS.find((command) => command.order === order)?.title ??
+    'NO ORDER'
+  )
+}
+
+function commandOutcome(
+  order: CounterstrikeOrder | null,
+  success: boolean,
+): string {
+  if (order === 'PRIORITIZE_INTERCEPTOR') {
+    return success
+      ? 'Interceptor priority widened the fire window by 40%.'
+      : 'The wider window was lost; production now operates at −30%.'
+  }
+  if (order === 'HARDEN_OUTPOST') {
+    return success
+      ? 'Outpost lockdown held while the standard firing solution succeeded.'
+      : 'Bracing absorbed the strike; persistent production loss is only 15%.'
+  }
+  return success
+    ? 'Full extraction continued through the standard firing solution.'
+    : 'Boosted extraction banked ore, but production now operates at −30%.'
+}
+
+function CommandMetric({ metrics }: { readonly metrics: OutpostOperationsMetrics }) {
+  return (
+    <span className="counterstrike-command__metrics">
+      <b>{metrics.activeRobots} ROBOT{metrics.activeRobots === 1 ? '' : 'S'}</b>
+      <b>{metrics.miningAllocationKw.toFixed(0)} kW MINING</b>
+      <b>{metrics.defenseAllocationKw.toFixed(0)} kW DEFENSE</b>
+      <b>{metrics.interceptionReadiness} READY</b>
+      <b>{metrics.productionPerMin.toFixed(1)} ORE/MIN</b>
+    </span>
+  )
 }
 
 function pointerSample(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -124,14 +196,29 @@ export function CounterstrikeHud({
   snapshot,
   run,
   rival,
+  outpost,
   showReady,
   onBegin,
   onFire,
+  onIssueOrder,
   onReplay,
   onAcceptPreview,
   onKeepAccepted,
   onInspectOutpost,
 }: CounterstrikeHudProps) {
+  const commandMetrics = useMemo(
+    () =>
+      outpost === null
+        ? null
+        : Object.fromEntries(
+            COMMANDS.map(({ order }) => [
+              order,
+              calculateOutpostOperations(outpost, 'INTACT', order, true),
+            ]),
+          ) as Record<CounterstrikeOrder, OutpostOperationsMetrics>,
+    [outpost],
+  )
+
   if (snapshot === null || rival === null) {
     return null
   }
@@ -160,18 +247,61 @@ export function CounterstrikeHud({
   const active = counterstrikeNeedsContinuousFrames(run.status)
   const fireNow = run.status === 'intercept-ready'
   const finalAttempt = run.attemptNumber === 2
-
   return (
     <div
       className={`counterstrike-hud counterstrike-hud--${run.status}`}
       aria-live="assertive"
       data-counterstrike-active={active}
     >
+      {run.status === 'command' ? (
+        <section
+          className="counterstrike-command"
+          aria-label="Issue one Counterstrike order"
+        >
+          <header>
+            <span>RIVAL LAUNCH DETECTED</span>
+            <strong>ISSUE ONE ORDER</strong>
+          </header>
+          <div className="counterstrike-command__choices">
+            {COMMANDS.map((command, index) => {
+              const effect = COUNTERSTRIKE_COMMAND_EFFECTS[command.order]
+              const metrics = commandMetrics?.[command.order]
+              return (
+                <button
+                  key={command.order}
+                  type="button"
+                  data-command-order={command.order}
+                  onClick={() => onIssueOrder(command.order)}
+                >
+                  <span className="counterstrike-command__number">{index + 1}</span>
+                  <span className="counterstrike-command__copy">
+                    <strong>{command.title}</strong>
+                    <small>{command.tradeoff}</small>
+                    {metrics === undefined ? null : (
+                      <CommandMetric metrics={metrics} />
+                    )}
+                    <em>{effect.projectedConsequence}</em>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {run.status === 'command-confirmed' ? (
+        <section className="counterstrike-command-confirmed" role="status">
+          <span>ORDER ISSUED</span>
+          <strong>{commandLabel(run.order)}</strong>
+          <small>OUTPOST ALLOCATION LOCKED</small>
+        </section>
+      ) : null}
+
       {run.status === 'warning' ? (
         <section className="counterstrike-warning" role="alert">
           <span aria-hidden="true" />
-          <strong>COUNTERSTRIKE DETECTED</strong>
-          <small>NULL MERIDIAN · ORBITAL THREAT</small>
+          <strong>RIVAL LAUNCH DETECTED</strong>
+          <small>{commandLabel(run.order)} · ALLOCATION ACTIVE</small>
         </section>
       ) : null}
 
@@ -185,7 +315,10 @@ export function CounterstrikeHud({
         >
           <div className="counterstrike-targeting__status">
             <strong>{fireNow ? 'FIRE NOW' : 'TRACKING'}</strong>
-            <b>ATTEMPT {run.attemptNumber} / 2</b>
+            <b>
+              ATTEMPT {run.attemptNumber} / 2
+              {run.order === 'PRIORITIZE_INTERCEPTOR' ? ' · WIDE WINDOW' : ''}
+            </b>
           </div>
           <div
             className={`counterstrike-lock-meter${
@@ -193,7 +326,11 @@ export function CounterstrikeHud({
             }`}
             aria-hidden="true"
           >
-            <span />
+            <span
+              style={{
+                animationDuration: `${getCounterstrikeTimingProfile(run.order).trackingMs}ms`,
+              }}
+            />
           </div>
           <p>
             {fireNow
@@ -261,6 +398,10 @@ export function CounterstrikeHud({
           <h1>{success ? 'COUNTERSTRIKE DEFEATED' : 'COUNTERSTRIKE SURVIVED'}</h1>
           <h2>{success ? 'OUTPOST SECURE' : 'OUTPOST DAMAGED'}</h2>
           {!success ? <b>REPAIRS REQUIRED</b> : null}
+          <p className="counterstrike-ending__order-effect">
+            <b>{commandLabel(run.order)}</b>
+            <span>{commandOutcome(run.order, success)}</span>
+          </p>
           <blockquote>
             “{success
               ? identity.counterstrikeDefeatedTransmission

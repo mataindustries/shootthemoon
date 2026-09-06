@@ -10,7 +10,10 @@ import {
   canMineDeposit,
 } from '../simulation/outpostSimulation.ts'
 import type { ExperiencePhase } from '../simulation/moonCoreState.ts'
-import type { CounterstrikeOutcome } from '../domain/counterstrike.ts'
+import type {
+  CounterstrikeOrder,
+  CounterstrikeOutcome,
+} from '../domain/counterstrike.ts'
 import type { OutpostDamageState } from '../domain/counterstrike.ts'
 import type { CounterstrikeRunStatus } from '../simulation/counterstrikeSimulation.ts'
 import {
@@ -32,6 +35,8 @@ interface CinematicHudProps {
   readonly counterstrikeState: CounterstrikeRunStatus
   readonly counterstrikeOutcome: CounterstrikeOutcome | null
   readonly damageState: OutpostDamageState
+  readonly productionDamagePenalty: number
+  readonly counterstrikeOrder: CounterstrikeOrder | null
   readonly soundAvailable: boolean
   readonly soundEnabled: boolean
   readonly onClaim: () => void
@@ -58,17 +63,25 @@ function formatMetric(value: number, digits = 1): string {
 function OperationsPanel({
   outpost,
   damageState,
+  productionDamagePenalty,
+  counterstrikeOrder,
   rivalSignalHeld,
   onSetOperatingMode,
   onReturn,
 }: {
   readonly outpost: OutpostSnapshot
   readonly damageState: OutpostDamageState
+  readonly productionDamagePenalty: number
+  readonly counterstrikeOrder: CounterstrikeOrder | null
   readonly rivalSignalHeld: boolean
   readonly onSetOperatingMode: (mode: OperatingMode) => void
   readonly onReturn: () => void
 }) {
-  const metrics = calculateOutpostOperations(outpost, damageState)
+  const metrics = calculateOutpostOperations(
+    outpost,
+    damageState,
+    counterstrikeOrder,
+  )
 
   return (
     <section
@@ -90,7 +103,7 @@ function OperationsPanel({
       />
       {damageState === 'DAMAGED' ? (
         <p className="operations-damage" role="status">
-          OUTPOST DAMAGED · −30% PRODUCTION
+          OUTPOST DAMAGED · −{Math.round(productionDamagePenalty * 100)}% PRODUCTION
         </p>
       ) : null}
       <div className="operations-metrics">
@@ -272,6 +285,8 @@ export function CinematicHud({
   counterstrikeState,
   counterstrikeOutcome,
   damageState,
+  productionDamagePenalty,
+  counterstrikeOrder,
   soundAvailable,
   soundEnabled,
   onClaim,
@@ -379,6 +394,8 @@ export function CinematicHud({
             <OperationsPanel
               outpost={outpost}
               damageState={damageState}
+              productionDamagePenalty={productionDamagePenalty}
+              counterstrikeOrder={counterstrikeOrder}
               rivalSignalHeld={rivalSignalHeld}
               onSetOperatingMode={onSetOperatingMode}
               onReturn={onReturn}

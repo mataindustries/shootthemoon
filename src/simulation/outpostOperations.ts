@@ -16,7 +16,10 @@ import {
   sampleTerrainHeightM,
   type SurfaceTerrainProfile,
 } from '../render/surfaceTerrain.ts'
-import type { OutpostDamageState } from '../domain/counterstrike.ts'
+import type {
+  CounterstrikeOrder,
+  OutpostDamageState,
+} from '../domain/counterstrike.ts'
 
 export const DEFAULT_STORAGE_CAPACITY = 240
 export const AVAILABLE_OPERATION_ROBOTS = 3
@@ -25,6 +28,42 @@ export const BASE_SYSTEM_DEMAND_KW = 2
 export const ROBOT_DEMAND_KW = 5
 export const ROBOT_BASE_PRODUCTION_PER_MIN = 3.6
 export const COUNTERSTRIKE_DAMAGE_MULTIPLIER = 0.7
+export const HARDENED_COUNTERSTRIKE_DAMAGE_MULTIPLIER = 0.85
+export const KEEP_EXTRACTING_PRODUCTION_MULTIPLIER = 1.25
+
+export interface CounterstrikeOperationsEffect {
+  readonly activeRobots: 1 | 2 | 3
+  readonly defenseAllocationKw: number
+  readonly productionMultiplier: number
+  readonly readiness: 'MAXIMUM' | 'FORTIFIED' | 'STANDARD'
+  readonly projectedConsequence: string
+}
+
+export const COUNTERSTRIKE_COMMAND_EFFECTS: Readonly<
+  Record<CounterstrikeOrder, CounterstrikeOperationsEffect>
+> = Object.freeze({
+  PRIORITIZE_INTERCEPTOR: Object.freeze({
+    activeRobots: 1,
+    defenseAllocationKw: 6,
+    productionMultiplier: 1,
+    readiness: 'MAXIMUM',
+    projectedConsequence: '40% WIDER FIRE WINDOW',
+  }),
+  HARDEN_OUTPOST: Object.freeze({
+    activeRobots: 2,
+    defenseAllocationKw: 3,
+    productionMultiplier: 1,
+    readiness: 'FORTIFIED',
+    projectedConsequence: '15% LOSS IF HIT',
+  }),
+  KEEP_EXTRACTING: Object.freeze({
+    activeRobots: 3,
+    defenseAllocationKw: 0,
+    productionMultiplier: KEEP_EXTRACTING_PRODUCTION_MULTIPLIER,
+    readiness: 'STANDARD',
+    projectedConsequence: '25% BOOST · 30% LOSS IF HIT',
+  }),
+})
 
 /** Matches LightingRig's fixed MCMF sun offset (4.6, 2.6, 3.4). */
 export const CANONICAL_SUN_DIRECTION: Vec3 = Object.freeze(
@@ -71,6 +110,10 @@ export interface OutpostOperationsMetrics
   readonly storageCapacity: number
   readonly operatingEfficiency: number
   readonly damageMultiplier: number
+  readonly defenseAllocationKw: number
+  readonly miningAllocationKw: number
+  readonly commandProductionMultiplier: number
+  readonly interceptionReadiness: CounterstrikeOperationsEffect['readiness']
   readonly status: OperationStatus
 }
 
@@ -260,6 +303,8 @@ export function createOutpostOperationsState(
 export function calculateOutpostOperations(
   outpost: OutpostSnapshot,
   damageState: OutpostDamageState = 'INTACT',
+  commandOrder: CounterstrikeOrder | null = null,
+  commandActive = false,
 ): OutpostOperationsMetrics {
   const selectedDepositId = outpost.extractor?.depositId ?? null
   const deposit = chooseDeposit(
@@ -271,23 +316,37 @@ export function calculateOutpostOperations(
     dot(surfaceUnitVector(outpost.site.location), CANONICAL_SUN_DIRECTION),
   )
   const energyGeneratedKw = solarExposure * SOLAR_ARRAY_PEAK_KW
-  const requestedRobots = MODE_ROBOTS[outpost.operations.mode]
+  const commandEffect =
+    commandActive && commandOrder !== null
+      ? COUNTERSTRIKE_COMMAND_EFFECTS[commandOrder]
+      : null
+  const requestedRobots =
+    commandEffect?.activeRobots ?? MODE_ROBOTS[outpost.operations.mode]
   const extractorActive = outpost.extractor?.status === 'active'
   const storageFull =
     outpost.lunarOre >= outpost.operations.storageCapacity - 1e-9
   const activeRobots = extractorActive && !storageFull ? requestedRobots : 0
   const robotDemandKw = activeRobots * ROBOT_DEMAND_KW
+  const defenseAllocationKw = extractorActive
+    ? commandEffect?.defenseAllocationKw ?? 0
+    : 0
   const energyDemandKw = extractorActive
-    ? BASE_SYSTEM_DEMAND_KW + robotDemandKw
+    ? BASE_SYSTEM_DEMAND_KW + defenseAllocationKw + robotDemandKw
     : 0
   const robotEnergyAvailableKw = Math.max(
     0,
-    energyGeneratedKw - BASE_SYSTEM_DEMAND_KW,
+    energyGeneratedKw - BASE_SYSTEM_DEMAND_KW - defenseAllocationKw,
   )
   const energyThrottle =
     robotDemandKw <= 0 ? (storageFull ? 0 : 1) : clamp01(robotEnergyAvailableKw / robotDemandKw)
   const damageMultiplier =
-    damageState === 'DAMAGED' ? COUNTERSTRIKE_DAMAGE_MULTIPLIER : 1
+    damageState === 'DAMAGED'
+      ? commandOrder === 'HARDEN_OUTPOST'
+        ? HARDENED_COUNTERSTRIKE_DAMAGE_MULTIPLIER
+        : COUNTERSTRIKE_DAMAGE_MULTIPLIER
+      : 1
+  const commandProductionMultiplier =
+    commandEffect?.productionMultiplier ?? 1
   const operatingEfficiency =
     activeRobots === 0
       ? 0
@@ -298,7 +357,10 @@ export function calculateOutpostOperations(
             damageMultiplier,
         )
   const productionPerMin =
-    ROBOT_BASE_PRODUCTION_PER_MIN * activeRobots * operatingEfficiency
+    ROBOT_BASE_PRODUCTION_PER_MIN *
+    activeRobots *
+    operatingEfficiency *
+    commandProductionMultiplier
   const status: OperationStatus = storageFull
     ? 'STORAGE FULL'
     : energyThrottle < 0.999
@@ -324,6 +386,10 @@ export function calculateOutpostOperations(
     storageCapacity: outpost.operations.storageCapacity,
     operatingEfficiency,
     damageMultiplier,
+    defenseAllocationKw,
+    miningAllocationKw: Math.min(robotDemandKw, robotEnergyAvailableKw),
+    commandProductionMultiplier,
+    interceptionReadiness: commandEffect?.readiness ?? 'STANDARD',
     status,
   })
 }
@@ -332,10 +398,17 @@ export function advanceOutpostOperations(
   outpost: OutpostSnapshot,
   nowMs: number,
   damageState: OutpostDamageState = 'INTACT',
+  commandOrder: CounterstrikeOrder | null = null,
+  commandActive = false,
 ): OutpostSnapshot {
   if (nowMs <= outpost.operations.lastUpdatedAtMs) return outpost
 
-  const metrics = calculateOutpostOperations(outpost, damageState)
+  const metrics = calculateOutpostOperations(
+    outpost,
+    damageState,
+    commandOrder,
+    commandActive,
+  )
   const elapsedMinutes = (nowMs - outpost.operations.lastUpdatedAtMs) / 60_000
   const deliveredOre = Math.min(
     metrics.productionPerMin * elapsedMinutes,

@@ -2061,6 +2061,156 @@ button {
   touch-action: manipulation;
 }
 
+.counterstrike-command {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: min(calc(100% - 28px), 27rem);
+  max-height: calc(100dvh - 104px);
+  overflow: auto;
+  gap: 0.66rem;
+  padding: 0.82rem;
+  border: 1px solid rgb(116 229 239 / 34%);
+  border-top: 2px solid #74e7ef;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(145deg, rgb(6 25 32 / 97%), rgb(4 8 13 / 97%));
+  box-shadow: 0 28px 90px rgb(0 0 0 / 74%);
+  pointer-events: auto;
+}
+
+.counterstrike-command header {
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.12rem 0.18rem 0.3rem;
+}
+
+.counterstrike-command header span,
+.counterstrike-command header strong {
+  font-weight: 820;
+  letter-spacing: 0.18em;
+}
+
+.counterstrike-command header span {
+  color: #f49a67;
+  font-size: 0.52rem;
+}
+
+.counterstrike-command header strong {
+  color: #efffff;
+  font-size: 0.92rem;
+}
+
+.counterstrike-command__choices {
+  display: grid;
+  gap: 0.48rem;
+}
+
+.counterstrike-command__choices button {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  min-height: 7rem;
+  align-items: center;
+  gap: 0.58rem;
+  padding: 0.68rem 0.72rem;
+  border: 1px solid rgb(114 222 232 / 25%);
+  color: #eaffff;
+  background: linear-gradient(105deg, rgb(11 46 55 / 95%), rgb(5 17 23 / 96%));
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.counterstrike-command__choices button:nth-child(2) {
+  border-color: rgb(110 208 222 / 32%);
+  background: linear-gradient(105deg, rgb(12 39 49 / 96%), rgb(6 15 21 / 96%));
+}
+
+.counterstrike-command__choices button:nth-child(3) {
+  border-color: rgb(244 141 82 / 36%);
+  background: linear-gradient(105deg, rgb(61 27 15 / 95%), rgb(18 12 11 / 96%));
+}
+
+.counterstrike-command__choices button:hover,
+.counterstrike-command__choices button:focus-visible {
+  border-color: #eaffff;
+  outline: none;
+}
+
+.counterstrike-command__number {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgb(133 230 239 / 42%);
+  color: #a9f2f7;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.counterstrike-command__copy {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.counterstrike-command__copy > strong {
+  color: #efffff;
+  font-size: 0.69rem;
+  letter-spacing: 0.12em;
+}
+
+.counterstrike-command__copy > small {
+  color: rgb(205 235 238 / 67%);
+  font-size: 0.55rem;
+  line-height: 1.35;
+}
+
+.counterstrike-command__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.55rem;
+  color: #8ce9f0;
+  font-size: 0.48rem;
+  letter-spacing: 0.08em;
+}
+
+.counterstrike-command__copy > em {
+  color: #f2a06e;
+  font-size: 0.47rem;
+  font-style: normal;
+  font-weight: 780;
+  letter-spacing: 0.12em;
+}
+
+.counterstrike-command-confirmed {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: min(calc(100% - 36px), 23rem);
+  justify-items: center;
+  gap: 0.34rem;
+  padding: 1.1rem;
+  border-block: 1px solid rgb(111 230 239 / 32%);
+  transform: translate(-50%, -50%);
+  background: rgb(5 22 29 / 92%);
+  text-align: center;
+}
+
+.counterstrike-command-confirmed span,
+.counterstrike-command-confirmed small {
+  color: rgb(166 230 236 / 61%);
+  font-size: 0.5rem;
+  font-weight: 760;
+  letter-spacing: 0.16em;
+}
+
+.counterstrike-command-confirmed strong {
+  color: #edffff;
+  font-size: 0.86rem;
+  letter-spacing: 0.15em;
+}
+
 .counterstrike-warning {
   position: absolute;
   top: 19%;
@@ -2459,6 +2609,24 @@ button {
   line-height: 1.45;
 }
 
+.counterstrike-ending__order-effect {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid rgb(119 225 234 / 18%);
+  color: rgb(215 241 243 / 75%);
+  background: rgb(5 14 18 / 42%);
+  font-size: 0.57rem;
+  line-height: 1.4;
+}
+
+.counterstrike-ending__order-effect b {
+  color: #92ebf1;
+  font-size: 0.5rem;
+  letter-spacing: 0.13em;
+}
+
 .counterstrike-ending cite {
   color: rgb(141 220 227 / 55%);
   font-size: 0.47rem;
@@ -2538,6 +2706,25 @@ button {
 }
 
 @media (orientation: landscape) and (max-height: 560px) {
+  .counterstrike-command {
+    top: 52%;
+    width: min(calc(100% - 28px), 46rem);
+    max-height: calc(100dvh - 42px);
+  }
+
+  .counterstrike-command__choices {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .counterstrike-command__choices button {
+    grid-template-columns: 1fr;
+    min-height: 9.5rem;
+  }
+
+  .counterstrike-command__number {
+    display: none;
+  }
+
   .counterstrike-ready,
   .counterstrike-targeting {
     right: 18px;
@@ -2607,6 +2794,7 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .counterstrike-warning,
+  .counterstrike-command,
   .counterstrike-lock-meter span,
   .counterstrike-fire.is-fire-now {
     animation-duration: 0.01ms;

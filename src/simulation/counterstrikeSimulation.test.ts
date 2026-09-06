@@ -23,6 +23,7 @@ import {
   createCounterstrikeRunState,
   createInitialCounterstrike,
   getCounterstrikeAttemptElapsedMs,
+  getCounterstrikeTimingProfile,
   judgeInterceptionTiming,
 } from './counterstrikeSimulation.ts'
 
@@ -74,15 +75,27 @@ function beginTracking() {
     clockMs: 1_000,
     replay: false,
   })
+  run = counterstrikeRunReducer(run, {
+    type: 'issueOrder',
+    order: 'KEEP_EXTRACTING',
+    clockMs: 1_100,
+  })
+  run = counterstrikeRunReducer(run, {
+    type: 'advance',
+    clockMs: 1_100 + COUNTERSTRIKE_TIMING.commandConfirmationMs,
+  })
   return counterstrikeRunReducer(run, {
     type: 'advance',
-    clockMs: 1_000 + COUNTERSTRIKE_TIMING.warningMs,
+    clockMs:
+      1_100 +
+      COUNTERSTRIKE_TIMING.commandConfirmationMs +
+      COUNTERSTRIKE_TIMING.warningMs,
   })
 }
 
 describe('Vesper Counterstrike timing and state machine', () => {
   it('keeps the longest unattended escalation within 20–35 seconds', () => {
-    expect(COUNTERSTRIKE_MAXIMUM_AUTOMATIC_DURATION_MS).toBe(31_000)
+    expect(COUNTERSTRIKE_MAXIMUM_AUTOMATIC_DURATION_MS).toBe(33_010)
     expect(COUNTERSTRIKE_MAXIMUM_AUTOMATIC_DURATION_MS).toBeGreaterThan(20_000)
     expect(COUNTERSTRIKE_MAXIMUM_AUTOMATIC_DURATION_MS).toBeLessThan(35_000)
     expect(
@@ -105,6 +118,21 @@ describe('Vesper Counterstrike timing and state machine', () => {
     ).toBe(COUNTERSTRIKE_TIMING.validWindowMs)
     expect(COUNTERSTRIKE_TIMING.readyMs).toBe(
       COUNTERSTRIKE_TIMING.validWindowMs,
+    )
+  })
+
+  it('widens only the prioritized interceptor window by exactly 40%', () => {
+    const normal = getCounterstrikeTimingProfile('KEEP_EXTRACTING')
+    const hardened = getCounterstrikeTimingProfile('HARDEN_OUTPOST')
+    const prioritized = getCounterstrikeTimingProfile(
+      'PRIORITIZE_INTERCEPTOR',
+    )
+
+    expect(hardened).toEqual(normal)
+    expect(prioritized.validWindowMs).toBe(normal.validWindowMs * 1.4)
+    expect(judgeInterceptionTiming(5_500, 'KEEP_EXTRACTING')).toBe('EARLY')
+    expect(judgeInterceptionTiming(5_500, 'PRIORITIZE_INTERCEPTOR')).toBe(
+      'VALID',
     )
   })
 
@@ -200,12 +228,14 @@ describe('Vesper Counterstrike timing and state machine', () => {
     expect(elapsedAfter).toBe(2_400)
   })
 
-  it('replay starts at warning and restores the deliberately accepted ending', () => {
+  it('replay starts at command and restores the deliberately accepted ending', () => {
     const accepted = {
       ...createInitialCounterstrike(START_MS),
       available: true,
       availableAtMs: START_MS,
       acceptedOutcome: 'SUCCESS' as const,
+      selectedOrder: 'PRIORITIZE_INTERCEPTOR' as const,
+      acceptedOrder: 'PRIORITIZE_INTERCEPTOR' as const,
       interceptionSucceeded: true,
       replayEligible: true,
       orbitalDebrisRecorded: true,
@@ -218,17 +248,19 @@ describe('Vesper Counterstrike timing and state machine', () => {
       clockMs: 1_100,
       replay: true,
     })
-    expect(run).toMatchObject({ status: 'warning', replay: true, outcome: null })
+    expect(run).toMatchObject({ status: 'command', replay: true, outcome: null })
 
     run = counterstrikeRunReducer(run, {
       type: 'restoreAccepted',
       outcome: accepted.acceptedOutcome,
+      order: accepted.acceptedOrder,
       clockMs: 2_000,
     })
     expect(run).toMatchObject({
       status: 'resolved',
       replay: false,
       outcome: 'SUCCESS',
+      order: 'PRIORITIZE_INTERCEPTOR',
       attemptsUsed: 0,
     })
   })
@@ -262,12 +294,14 @@ describe('Counterstrike accepted facts and canonical damage', () => {
     const success = counterstrikeFactsReducer(unlocked, {
       type: 'acceptOutcome',
       outcome: 'SUCCESS',
+      order: 'PRIORITIZE_INTERCEPTOR',
       outpost,
       nowMs: START_MS + 100,
     })!
     const failure = counterstrikeFactsReducer(success, {
       type: 'acceptOutcome',
       outcome: 'FAILURE',
+      order: 'HARDEN_OUTPOST',
       outpost,
       nowMs: START_MS + 200,
     })!
@@ -282,6 +316,8 @@ describe('Counterstrike accepted facts and canonical damage', () => {
     })
     expect(failure).toMatchObject({
       acceptedOutcome: 'FAILURE',
+      acceptedOrder: 'HARDEN_OUTPOST',
+      productionDamagePenalty: 0.15,
       interceptionSucceeded: false,
       outpostDamageState: 'DAMAGED',
       orbitalDebrisRecorded: false,
