@@ -680,6 +680,110 @@ canvas {
   border-left-color: #c84c38;
 }
 
+.build-module-action {
+  display: flex;
+  min-height: 3.35rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.8rem;
+  border: 1px solid rgb(255 177 103 / 72%);
+  color: #fff4ea;
+  background: linear-gradient(100deg, rgb(151 57 20 / 98%), rgb(78 25 10 / 96%));
+  box-shadow: 0 0 28px rgb(224 90 35 / 18%);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 780;
+  letter-spacing: 0.14em;
+  touch-action: manipulation;
+}
+
+.build-module-action b {
+  color: rgb(255 214 184 / 72%);
+  font-size: 0.54rem;
+  letter-spacing: 0.1em;
+}
+
+.module-selector {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.42rem;
+  border: 1px solid rgb(255 164 99 / 28%);
+  background: rgb(9 10 13 / 96%);
+}
+
+.module-selector__heading {
+  display: flex;
+  min-height: 1.8rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 0.35rem;
+}
+
+.module-selector__heading button {
+  min-width: 3.5rem;
+  min-height: 1.8rem;
+  border: 0;
+  color: rgb(228 234 240 / 58%);
+  background: transparent;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+}
+
+.module-selector > button {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgb(194 207 219 / 16%);
+  color: #f1f3f5;
+  background: rgb(24 27 31 / 92%);
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.module-selector > button > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.module-selector > button strong {
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+}
+
+.module-selector > button b {
+  color: #eaa276;
+  font-size: 0.5rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.module-selector > button:disabled {
+  opacity: 0.38;
+}
+
+.module-status {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.12rem 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgb(232 143 82 / 24%);
+  border-left: 2px solid #dc713a;
+  background: rgb(27 18 13 / 76%);
+}
+
+.module-status strong {
+  color: #f2c19e;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.module-status small {
+  grid-column: 1 / -1;
+}
+
 .operations-panel__heading {
   display: flex;
   align-items: center;

@@ -24,6 +24,10 @@ import type {
 export const DEFAULT_STORAGE_CAPACITY = 240
 export const AVAILABLE_OPERATION_ROBOTS = 3
 export const SOLAR_ARRAY_PEAK_KW = 18
+export const SOLAR_WING_GENERATION_MULTIPLIER = 1.25
+export const SOLAR_WING_OVERDRIVE_DEMAND_MULTIPLIER = 0.8
+export const REPAIR_GANTRY_DEMAND_KW = 4
+export const REPAIR_GANTRY_RECOVERY_DURATION_MS = 12_000
 export const BASE_SYSTEM_DEMAND_KW = 2
 export const ROBOT_DEMAND_KW = 5
 export const ROBOT_BASE_PRODUCTION_PER_MIN = 3.6
@@ -102,6 +106,8 @@ export interface OutpostOperationsMetrics
   readonly energyGeneratedKw: number
   readonly energyDemandKw: number
   readonly energyConsumedKw: number
+  readonly repairDemandKw: number
+  readonly repairConsumedKw: number
   readonly energyThrottle: number
   readonly activeRobots: number
   readonly availableRobots: number
@@ -315,7 +321,17 @@ export function calculateOutpostOperations(
   const solarExposure = clamp01(
     dot(surfaceUnitVector(outpost.site.location), CANONICAL_SUN_DIRECTION),
   )
-  const energyGeneratedKw = solarExposure * SOLAR_ARRAY_PEAK_KW
+  const moduleActive = outpost.module?.status === 'active'
+  const solarWingActive = moduleActive && outpost.module?.kind === 'SOLAR_WING'
+  const repairActive =
+    moduleActive &&
+    outpost.module?.kind === 'REPAIR_GANTRY' &&
+    damageState === 'DAMAGED' &&
+    outpost.module.repairProgress < 1
+  const energyGeneratedKw =
+    solarExposure *
+    SOLAR_ARRAY_PEAK_KW *
+    (solarWingActive ? SOLAR_WING_GENERATION_MULTIPLIER : 1)
   const commandEffect =
     commandActive && commandOrder !== null
       ? COUNTERSTRIKE_COMMAND_EFFECTS[commandOrder]
@@ -326,25 +342,37 @@ export function calculateOutpostOperations(
   const storageFull =
     outpost.lunarOre >= outpost.operations.storageCapacity - 1e-9
   const activeRobots = extractorActive && !storageFull ? requestedRobots : 0
-  const robotDemandKw = activeRobots * ROBOT_DEMAND_KW
+  const overdriveDemandMultiplier =
+    solarWingActive && outpost.operations.mode === 'OVERDRIVE'
+      ? SOLAR_WING_OVERDRIVE_DEMAND_MULTIPLIER
+      : 1
+  const robotDemandKw =
+    activeRobots * ROBOT_DEMAND_KW * overdriveDemandMultiplier
+  const repairDemandKw = repairActive ? REPAIR_GANTRY_DEMAND_KW : 0
   const defenseAllocationKw = extractorActive
     ? commandEffect?.defenseAllocationKw ?? 0
     : 0
   const energyDemandKw = extractorActive
-    ? BASE_SYSTEM_DEMAND_KW + defenseAllocationKw + robotDemandKw
+    ? BASE_SYSTEM_DEMAND_KW + defenseAllocationKw + robotDemandKw + repairDemandKw
     : 0
   const robotEnergyAvailableKw = Math.max(
     0,
-    energyGeneratedKw - BASE_SYSTEM_DEMAND_KW - defenseAllocationKw,
+    energyGeneratedKw - BASE_SYSTEM_DEMAND_KW - defenseAllocationKw - repairDemandKw,
   )
   const energyThrottle =
     robotDemandKw <= 0 ? (storageFull ? 0 : 1) : clamp01(robotEnergyAvailableKw / robotDemandKw)
-  const damageMultiplier =
+  const baseDamageMultiplier =
     damageState === 'DAMAGED'
       ? commandOrder === 'HARDEN_OUTPOST'
         ? HARDENED_COUNTERSTRIKE_DAMAGE_MULTIPLIER
         : COUNTERSTRIKE_DAMAGE_MULTIPLIER
       : 1
+  const damageMultiplier =
+    baseDamageMultiplier +
+    (1 - baseDamageMultiplier) *
+      (outpost.module?.kind === 'REPAIR_GANTRY'
+        ? outpost.module.repairProgress
+        : 0)
   const commandProductionMultiplier =
     commandEffect?.productionMultiplier ?? 1
   const operatingEfficiency =
@@ -378,6 +406,19 @@ export function calculateOutpostOperations(
     energyGeneratedKw,
     energyDemandKw,
     energyConsumedKw: Math.min(energyGeneratedKw, energyDemandKw),
+    repairDemandKw,
+    repairConsumedKw:
+      repairDemandKw === 0
+        ? 0
+        : Math.min(
+            repairDemandKw,
+            Math.max(
+              0,
+              energyGeneratedKw -
+                BASE_SYSTEM_DEMAND_KW -
+                defenseAllocationKw,
+            ),
+          ),
     energyThrottle,
     activeRobots,
     availableRobots: AVAILABLE_OPERATION_ROBOTS,
@@ -414,12 +455,32 @@ export function advanceOutpostOperations(
     metrics.productionPerMin * elapsedMinutes,
     Math.max(0, outpost.operations.storageCapacity - outpost.lunarOre),
   )
+  const repairProgress =
+    outpost.module?.kind === 'REPAIR_GANTRY' &&
+    outpost.module.status === 'active' &&
+    damageState === 'DAMAGED'
+      ? Math.min(
+          1,
+          outpost.module.repairProgress +
+            ((nowMs - outpost.operations.lastUpdatedAtMs) /
+              REPAIR_GANTRY_RECOVERY_DURATION_MS) *
+              (metrics.repairConsumedKw / REPAIR_GANTRY_DEMAND_KW),
+        )
+      : outpost.module?.repairProgress
 
   return {
     ...outpost,
     updatedAtMs: nowMs,
     lunarOre: outpost.lunarOre + deliveredOre,
     operations: { ...outpost.operations, lastUpdatedAtMs: nowMs },
+    module:
+      outpost.module === null
+        ? null
+        : {
+            ...outpost.module,
+            repairProgress: repairProgress ?? outpost.module.repairProgress,
+            lastRepairAtMs: nowMs,
+          },
     extractor:
       outpost.extractor === null
         ? null
