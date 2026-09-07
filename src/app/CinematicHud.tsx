@@ -74,6 +74,8 @@ function OperationsPanel({
   onSetOperatingMode,
   onConstructModule,
   onReturn,
+  selectedDepositId,
+  onMine,
 }: {
   readonly outpost: OutpostSnapshot
   readonly damageState: OutpostDamageState
@@ -83,6 +85,8 @@ function OperationsPanel({
   readonly onSetOperatingMode: (mode: OperatingMode) => void
   readonly onConstructModule: (kind: OutpostModuleKind) => void
   readonly onReturn: () => void
+  readonly selectedDepositId: string | null
+  readonly onMine: () => void
 }) {
   const [moduleSelectionOpen, setModuleSelectionOpen] = useState(false)
   const metrics = calculateOutpostOperations(
@@ -106,7 +110,7 @@ function OperationsPanel({
       </div>
       <ContextPrompt
         outpost={outpost}
-        selectedDepositId={null}
+        selectedDepositId={selectedDepositId}
         rivalSignalHeld={rivalSignalHeld}
       />
       {damageState === 'DAMAGED' ? (
@@ -200,6 +204,17 @@ function OperationsPanel({
             <small>{Math.round(outpost.module.repairProgress * 100)}% RECOVERY · {formatMetric(metrics.repairConsumedKw)} KW</small>
           ) : null}
         </div>
+      ) : null}
+      {selectedDepositId !== null ? (
+        <button
+          className="operations-return"
+          type="button"
+          disabled={!canMineDeposit(outpost, selectedDepositId)}
+          onClick={onMine}
+          data-deposit-id={selectedDepositId}
+        >
+          {selectedDepositId.replace('deposit-', '').toUpperCase()} · {outpost.extractor?.depositId === selectedDepositId ? 'EXTRACTOR ACTIVE' : 'MINE DEPOSIT'}
+        </button>
       ) : null}
       <button className="operations-return" type="button" onClick={onReturn}>
         RETURN TO ORBIT
@@ -297,7 +312,7 @@ function robotStatus(outpost: OutpostSnapshot): string {
     case 'traveling':
       return 'MINER EN ROUTE'
     case 'mining':
-      return 'DRILLING LUNAR ORE'
+      return 'LASER EXTRACTING ORE'
     case 'returning':
       return `RETURNING · ${outpost.robot.carriedOre} ORE`
     case 'unloading':
@@ -468,6 +483,8 @@ export function CinematicHud({
               onSetOperatingMode={onSetOperatingMode}
               onConstructModule={onConstructModule}
               onReturn={onReturn}
+              selectedDepositId={selectedDepositId}
+              onMine={onMine}
             />
           ) : (
           <section className="command-deck" aria-label="Outpost commands">
