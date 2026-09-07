@@ -48,7 +48,7 @@ interface MiningEffectsProps {
   readonly segments: number
 }
 
-const DRILL_ARM_INSTANCE_INDEX = 13
+const LASER_ARM_INSTANCE_INDEX = 13
 const ROBOT_MODEL_SCALE_M = 1.14
 const ROBOT_LANDED_CLEARANCE_M = 0.48
 const WHEEL_CENTER_Y_MODEL = -0.19
@@ -317,8 +317,8 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
     material.color.set(
       mining ? VISUAL_PALETTE.playerHotMetal : VISUAL_PALETTE.lunarSunlit,
     )
-    material.opacity = mining ? 0.72 : 0.24
-    material.size = mining ? 0.000076 : 0.000066
+    material.opacity = mining ? (nowMs % 1100 < 220 ? 0.48 : 0) : 0.24
+    material.size = mining ? 0.000026 : 0.000066
 
     const positions = geometry.getAttribute('position') as BufferAttribute
     const array = positions.array as Float32Array
@@ -379,8 +379,8 @@ export function MinerRobot({
   const treadRef = useRef<InstancedMesh>(null)
   const structureRef = useRef<InstancedMesh>(null)
   const lightRef = useRef<InstancedMesh>(null)
-  const drillArmRef = useRef<Group>(null)
-  const drillBitRef = useRef<Mesh>(null)
+  const laserArmRef = useRef<Group>(null)
+  const laserHeadRef = useRef<Mesh>(null)
   const cargoRef = useRef<Group>(null)
   const wheelDummyRef = useRef(new Object3D())
   const structureDummyRef = useRef(new Object3D())
@@ -545,16 +545,16 @@ export function MinerRobot({
     const upperMachinery = upperMachineryRef.current
     const wheels = wheelRef.current
     const structure = structureRef.current
-    const drillArm = drillArmRef.current
-    const drillBit = drillBitRef.current
+    const laserArm = laserArmRef.current
+    const laserHead = laserHeadRef.current
 
     if (
       robot === null ||
       upperMachinery === null ||
       wheels === null ||
       structure === null ||
-      drillArm === null ||
-      drillBit === null
+      laserArm === null ||
+      laserHead === null
     ) {
       return
     }
@@ -626,21 +626,20 @@ export function MinerRobot({
     wheels.instanceMatrix.needsUpdate = true
 
     const mining = outpost.robot.state === 'mining'
-    drillArm.rotation.x = mining ? -0.19 + Math.sin(elapsed * 14) * 0.055 : -0.04
-    drillArm.position.z = mining ? 0.78 + Math.sin(elapsed * 11) * 0.05 : 0.72
-    drillBit.rotation.z = mining ? elapsed * 28 : 0
+    laserArm.rotation.x = mining ? 0.44 : -0.04
+    laserArm.position.z = mining ? 0.5 : 0.72
 
     const structureDummy = structureDummyRef.current
-    const armAngle = drillArm.rotation.x
+    const armAngle = laserArm.rotation.x
     structureDummy.position.set(
       0,
-      drillArm.position.y - Math.sin(armAngle) * 0.34,
-      drillArm.position.z + Math.cos(armAngle) * 0.34,
+      laserArm.position.y - Math.sin(armAngle) * 0.2,
+      laserArm.position.z + Math.cos(armAngle) * 0.2,
     )
     structureDummy.rotation.set(armAngle, 0, 0)
-    structureDummy.scale.set(0.22, 0.2, 0.74)
+    structureDummy.scale.set(0.22, 0.2, 0.44)
     structureDummy.updateMatrix()
-    structure.setMatrixAt(DRILL_ARM_INSTANCE_INDEX, structureDummy.matrix)
+    structure.setMatrixAt(LASER_ARM_INSTANCE_INDEX, structureDummy.matrix)
     structure.instanceMatrix.needsUpdate = true
 
     lightMaterial.emissiveIntensity = Math.min(
@@ -691,22 +690,36 @@ export function MinerRobot({
             visible={!compact}
           />
           <group
-            ref={drillArmRef}
-            position={[0, 0.28, 0.72]}
+            ref={laserArmRef}
+            position={[0, 0.65, 0.72]}
             visible={!compact}
           >
             <mesh
-              ref={drillBitRef}
-              position-z={0.86}
+              ref={laserHeadRef}
+              position-z={0.4}
               rotation-x={Math.PI / 2}
               castShadow
             >
-              <coneGeometry args={[0.23, 0.7, 10, 3]} />
+              <cylinderGeometry args={[0.18, 0.22, 0.3, 10]} />
               <meshStandardMaterial
                 color={VISUAL_PALETTE.neutralMachinery}
                 {...MATERIAL_RESPONSE.neutralMachinery}
               />
             </mesh>
+            <mesh position-z={0.565} rotation-x={Math.PI / 2}>
+              <cylinderGeometry args={[0.1, 0.1, 0.035, 12]} />
+              <meshStandardMaterial color="#8fbbb9" metalness={0.6} roughness={0.25} />
+            </mesh>
+            <group name="laser-extraction" visible={outpost.robot.state === 'mining'}>
+              <mesh position-z={0.78} rotation-x={Math.PI / 2}>
+                <cylinderGeometry args={[0.018, 0.012, 0.4, 6]} />
+                <meshBasicMaterial color="#b5e5df" transparent opacity={0.65} depthWrite={false} />
+              </mesh>
+              <mesh position-z={0.98}>
+                <sphereGeometry args={[0.065, 8, 6]} />
+                <meshBasicMaterial color="#ffcb91" transparent opacity={0.7} depthWrite={false} />
+              </mesh>
+            </group>
           </group>
           <group ref={cargoRef} position={[0, 0.77, -0.62]} visible={false}>
             <mesh castShadow scale={[1.3, 0.72, 1]}>

@@ -879,6 +879,17 @@ canvas {
   font-size: 0.52rem;
 }
 
+.operations-return[data-deposit-id] {
+  min-height: 44px;
+  border-color: rgb(255 159 101 / 45%);
+  color: #f2c19e;
+}
+
+.operations-return[data-deposit-id]:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .operations-controls button:focus-visible,
 .operations-return:focus-visible {
   border-color: #ffb184;

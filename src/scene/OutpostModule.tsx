@@ -10,10 +10,11 @@ import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { MODULE_CONSTRUCTION_DURATION_MS } from '../simulation/outpostSimulation.ts'
 import { simulationNowMs } from '../simulation/simulationTime.ts'
 import { VISUAL_PALETTE } from '../render/visualSystem.ts'
+import { MODULE_MODEL_SCALE, SOLAR_PANEL, SOLAR_WING_SLOT } from './solarWingLayout.ts'
 
 const SLOT_X_M = -1.8
 const SLOT_Z_M = -1.45
-const MODEL_SCALE = 0.00032
+const MODEL_SCALE = MODULE_MODEL_SCALE
 
 interface OutpostModuleProps {
   readonly outpost: OutpostSnapshot
@@ -34,9 +35,9 @@ function SolarWing() {
         <meshStandardMaterial color={VISUAL_PALETTE.playerSteel} roughness={0.44} metalness={0.8} />
       </mesh>
       {[-1, 1].map((side) => (
-        <group key={side} position-x={side * 1.75} position-y={1.02} rotation-z={side * -0.08}>
+        <group key={side} position-x={side * SOLAR_PANEL.offsetX} position-y={1.02} rotation-z={side * -SOLAR_PANEL.tilt}>
           <mesh castShadow receiveShadow>
-            <boxGeometry args={[3.15, 0.08, 1.35]} />
+            <boxGeometry args={[SOLAR_PANEL.width, SOLAR_PANEL.height, SOLAR_PANEL.depth]} />
             <meshStandardMaterial color="#132536" roughness={0.32} metalness={0.7} />
           </mesh>
           {[-1.05, -0.35, 0.35, 1.05].map((x) => (
@@ -191,14 +192,19 @@ export function OutpostModule({
   segments,
 }: OutpostModuleProps) {
   const module = outpost.module
+  // The wing spans 17.7 metres. Run that span beside the capsule, never
+  // toward its hull. Both use the same site frame, independent of camera.
+  const solar = module?.kind === 'SOLAR_WING'
+  const slotXM = solar ? SOLAR_WING_SLOT.xM : SLOT_X_M
+  const slotZM = solar ? SOLAR_WING_SLOT.zM : SLOT_Z_M
   const rootRef = useRef<Group>(null)
   const transform = useMemo(
     () => landingSiteToRenderTransform(outpost.site),
     [outpost.site],
   )
   const ground = useMemo(
-    () => sampleRenderedSurface(terrain, segments, SLOT_X_M, SLOT_Z_M),
-    [segments, terrain],
+    () => sampleRenderedSurface(terrain, segments, slotXM, slotZM),
+    [segments, terrain, slotXM, slotZM],
   )
 
   useFrame(() => {
@@ -216,7 +222,7 @@ export function OutpostModule({
     const eased = progress * progress * (3 - 2 * progress)
     root.scale.setScalar(MODEL_SCALE * (0.15 + eased * 0.85))
     root.position.y = ground.y + MODEL_SCALE * (-0.75 + eased * 0.75)
-    root.rotation.y = (1 - eased) * -0.18
+    root.rotation.y = (solar ? SOLAR_WING_SLOT.headingRad : 0) + (1 - eased) * -0.18
   })
 
   if (module === null) return null
@@ -228,21 +234,34 @@ export function OutpostModule({
 
   return (
     <group position={transform.position} quaternion={transform.orientation}>
+      {solar ? (
+        <group position={[-3.7 * LOCAL_METRES_TO_RENDER_UNITS, ground.y + 0.00014, 0]}>
+          <mesh castShadow name="solar-wing-coupling">
+            <boxGeometry args={[4.6 * LOCAL_METRES_TO_RENDER_UNITS, 0.000035, 0.000045]} />
+            <meshStandardMaterial color={VISUAL_PALETTE.playerSteel} roughness={0.5} metalness={0.8} />
+          </mesh>
+          <mesh position-y={0.000021}>
+            <boxGeometry args={[4.6 * LOCAL_METRES_TO_RENDER_UNITS, 0.000008, 0.000012]} />
+            <meshBasicMaterial color={VISUAL_PALETTE.playerAmberPanel} />
+          </mesh>
+        </group>
+      ) : null}
       <group
         ref={rootRef}
         position={[
-          SLOT_X_M * LOCAL_METRES_TO_RENDER_UNITS,
+          slotXM * LOCAL_METRES_TO_RENDER_UNITS,
           ground.y,
-          SLOT_Z_M * LOCAL_METRES_TO_RENDER_UNITS,
+          slotZM * LOCAL_METRES_TO_RENDER_UNITS,
         ]}
         scale={MODEL_SCALE}
+        rotation-y={solar ? SOLAR_WING_SLOT.headingRad : 0}
       >
         {module.kind === 'SOLAR_WING' ? <SolarWing /> : null}
         {module.kind === 'STORAGE_SILO' ? <StorageSilo /> : null}
         {module.kind === 'REPAIR_GANTRY' ? <RepairGantry repairing={repairing} /> : null}
         {module.status === 'constructing' ? (
           <mesh position-y={0.08} rotation-x={-Math.PI / 2}>
-            <ringGeometry args={[1.7, 1.85, 28]} />
+            <ringGeometry args={solar ? [0.9, 1.05, 28] : [1.7, 1.85, 28]} />
             <meshBasicMaterial color={VISUAL_PALETTE.playerHotMetal} transparent opacity={0.52} depthWrite={false} />
           </mesh>
         ) : null}
