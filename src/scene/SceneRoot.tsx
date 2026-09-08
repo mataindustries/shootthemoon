@@ -200,7 +200,7 @@ export function SceneRoot({
   )
   const counterstrikePresentationActive =
     counterstrikeRun.status !== 'dormant'
-  const commandSurfaceVisible =
+  const counterstrikeLaunchVisible =
     counterstrikeRun.status === 'command' ||
     counterstrikeRun.status === 'command-confirmed' ||
     counterstrikeRun.status === 'warning'
@@ -429,6 +429,9 @@ export function SceneRoot({
               : playerSurfaceHeight
         }
       />
+      {counterstrikeLaunchVisible ? (
+        <ambientLight color="#b6c5d6" intensity={0.9} />
+      ) : null}
       <Starfield count={quality.starCount} />
 
       <Suspense fallback={<MoonFallback />}>
@@ -474,7 +477,6 @@ export function SceneRoot({
       rival !== null &&
       secondaryImpactSite !== null &&
       counterstrikePresentationActive &&
-      !commandSurfaceVisible &&
       counterstrikeRun.status !== 'resolved' &&
       counterstrikeRun.status !== 'success' ? (
         <CounterstrikeMissileSystem
@@ -712,50 +714,6 @@ export function SceneRoot({
                 />
               ) : null}
             </>
-          ) : null}
-        </>
-      ) : null}
-
-      {commandSurfaceVisible &&
-      counterstrikeTerrain !== null &&
-      outpost !== null ? (
-        <>
-          <SurfacePatch
-            site={outpost.site}
-            phase="landed"
-            segments={quality.patchSegments}
-            terrain={counterstrikeTerrain}
-            maximumOpacity={0.86}
-          />
-          <InvasionCapsule
-            site={outpost.site}
-            phase="landed"
-            outpost={outpost}
-            terrain={counterstrikeTerrain}
-            segments={quality.patchSegments}
-            compact
-          />
-          <Extractor
-            outpost={outpost}
-            terrain={counterstrikeTerrain}
-            segments={quality.patchSegments}
-            compact
-            operations={operationsMetrics ?? undefined}
-            commandOrder={counterstrikeRun.order}
-          />
-          <OutpostModule
-            outpost={outpost}
-            damageState={counterstrike?.outpostDamageState ?? 'INTACT'}
-            terrain={counterstrikeTerrain}
-            segments={quality.patchSegments}
-          />
-          {operationsMetrics !== null ? (
-            <OperationalRobotFleet
-              outpost={outpost}
-              operations={operationsMetrics}
-              terrain={counterstrikeTerrain}
-              segments={quality.patchSegments}
-            />
           ) : null}
         </>
       ) : null}

@@ -60,10 +60,8 @@ import {
 } from '../simulation/counterstrikeSimulation.ts'
 import {
   COUNTERSTRIKE_CAMERA_SAFETY,
-  COUNTERSTRIKE_IMPACT_CAMERA_TIMING,
   createCounterstrikeCameraPlan,
   sampleCounterstrikeImpactCamera,
-  type CounterstrikeImpactCameraBeat,
   type CounterstrikeCameraPlan,
 } from './counterstrikeCameraPlan.ts'
 import {
@@ -480,8 +478,8 @@ function applyCounterstrikeProjection(
   camera.far = close ? 8 : 80
   camera.fov = close
     ? isNarrowPortrait(camera)
-      ? 48
-      : 39
+      ? 51
+      : 41
     : isNarrowPortrait(camera)
       ? 56
       : 40
@@ -490,23 +488,11 @@ function applyCounterstrikeProjection(
 
 function applyCounterstrikeImpactProjection(
   camera: PerspectiveCamera,
-  beat: CounterstrikeImpactCameraBeat,
 ): void {
   camera.near = 0.00018
   camera.far = 8
   const portrait = isNarrowPortrait(camera)
-  const nextFov =
-    beat === 'wide'
-      ? portrait
-        ? 58
-        : 46
-      : beat === 'medium' || beat === 'contact'
-        ? portrait
-          ? 51
-          : 41
-        : portrait
-          ? 48
-          : 39
+  const nextFov = portrait ? 51 : 41
   if (camera.fov !== nextFov) {
     camera.fov = nextFov
     camera.updateProjectionMatrix()
@@ -550,6 +536,10 @@ function updateCameraDataset(
   ).toFixed(6)
   canvas.dataset.cameraAzimuth = controls.getAzimuthalAngle().toFixed(6)
   canvas.dataset.cameraPolar = controls.getPolarAngle().toFixed(6)
+  canvas.dataset.cameraFov = camera.fov.toFixed(6)
+  canvas.dataset.cameraUpX = camera.up.x.toFixed(6)
+  canvas.dataset.cameraUpY = camera.up.y.toFixed(6)
+  canvas.dataset.cameraUpZ = camera.up.z.toFixed(6)
   canvas.dataset.cameraX = camera.position.x.toFixed(6)
   canvas.dataset.cameraY = camera.position.y.toFixed(6)
   canvas.dataset.cameraZ = camera.position.z.toFixed(6)
@@ -596,8 +586,6 @@ export function CameraRig({
   const temporaryPositionRef = useRef(new Vector3())
   const temporaryTargetRef = useRef(new Vector3())
   const temporaryUpRef = useRef(new Vector3())
-  const counterstrikeImpactViewRef = useRef(new Vector3())
-  const counterstrikeImpactSideRef = useRef(new Vector3())
   const closeProjectionAppliedRef = useRef(false)
   const surfaceFocusKindRef = useRef<SurfaceFocusKind | null>(null)
   const savedSurfaceViewRef = useRef<SavedSurfaceView | null>(null)
@@ -721,7 +709,7 @@ export function CameraRig({
         counterstrikeRun.status === 'command-confirmed' ||
         counterstrikeRun.status === 'warning'
       ) {
-        pose = plan.damagePose
+        pose = plan.launchPose
       } else if (counterstrikeRun.status === 'interceptor-launched') {
         journey = plan.interceptorCamera
       } else if (counterstrikeRun.status === 'success') {
@@ -745,7 +733,7 @@ export function CameraRig({
         gl.domElement.dataset.counterstrikeCameraBeat = beat
         gl.domElement.dataset.cameraPathMinimumRadius =
           COUNTERSTRIKE_CAMERA_SAFETY.damageMinimumRadius.toFixed(6)
-        applyCounterstrikeImpactProjection(camera, beat)
+        applyCounterstrikeImpactProjection(camera)
       } else if (counterstrikeRun.status === 'resolved') {
         pose =
           counterstrikeRun.outcome === 'FAILURE'
@@ -1372,28 +1360,8 @@ export function CameraRig({
           temporaryTargetRef.current,
           temporaryUpRef.current,
         )
-        const impulseProgress =
-          (runProgress - COUNTERSTRIKE_IMPACT_CAMERA_TIMING.contactProgress) /
-          0.075
-        if (impulseProgress >= 0 && impulseProgress <= 1) {
-          const view = counterstrikeImpactViewRef.current
-            .copy(temporaryPositionRef.current)
-            .sub(temporaryTargetRef.current)
-            .normalize()
-          const side = counterstrikeImpactSideRef.current
-            .crossVectors(temporaryUpRef.current, view)
-            .normalize()
-          const impulse =
-            Math.sin(impulseProgress * Math.PI * 5) *
-            (1 - impulseProgress) *
-            0.00016
-          temporaryPositionRef.current
-            .addScaledVector(side, impulse)
-            .addScaledVector(temporaryUpRef.current, Math.abs(impulse) * 0.22)
-          temporaryTargetRef.current.addScaledVector(side, -impulse * 0.16)
-        }
         gl.domElement.dataset.counterstrikeCameraBeat = beat
-        applyCounterstrikeImpactProjection(camera, beat)
+        applyCounterstrikeImpactProjection(camera)
       } else {
         const journey = counterstrikeJourneyRef.current
         if (journey === null) {

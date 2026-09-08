@@ -21,6 +21,7 @@ import {
   LOCAL_SURFACE_RENDER_OFFSET,
 } from '../render/localSurface.ts'
 
+const SUN_DIRECTION = new Vector3(4.6, 2.6, 3.4).normalize()
 const WORLD_UP = new Vector3(0, 1, 0)
 const COUNTERSTRIKE_CAMERA_ARC = new Vector3(-0.42, 0.76, 0.5).normalize()
 
@@ -33,6 +34,7 @@ export const COUNTERSTRIKE_CAMERA_SAFETY = Object.freeze({
 
 export interface CounterstrikeCameraPlan {
   readonly route: CounterstrikeRoute
+  readonly launchPose: CameraPose
   readonly trackingPose: CameraPose
   readonly interceptPose: CameraPose
   readonly successPose: CameraPose
@@ -97,24 +99,12 @@ export function sampleCounterstrikeImpactCamera(
   const clamped = MathUtils.clamp(progress, 0, 1)
   const timing = COUNTERSTRIKE_IMPACT_CAMERA_TIMING
 
-  if (clamped < timing.wideHoldEndProgress) {
-    plan.impactWideCamera.sample(
-      Math.min(1, clamped / timing.wideArrivalProgress),
-      position,
-      target,
-      up,
-    )
-  } else if (clamped < timing.mediumHoldEndProgress) {
-    plan.impactMediumCamera.sample(
-      rangeProgress(
-        clamped,
-        timing.wideHoldEndProgress,
-        timing.mediumArrivalProgress,
-      ),
-      position,
-      target,
-      up,
-    )
+  // Establish the terminal shot immediately, then keep projectile and target
+  // in the same composition through contact and its short aftermath.
+  if (clamped < timing.mediumHoldEndProgress) {
+    position.copy(plan.impactWidePose.position)
+    target.copy(plan.impactWidePose.target)
+    up.copy(plan.impactWidePose.up)
   } else {
     plan.damageRevealCamera.sample(
       rangeProgress(
@@ -154,6 +144,19 @@ export function createCounterstrikeCameraPlan(
     .multiplyScalar(0.66)
     .addScaledVector(source, 0.34)
   if (viewDirection.lengthSq() < 1e-10) viewDirection.copy(player.up)
+
+  // Frame the launch vehicle against the lunar surface using the route's
+  // own basis, independent of whichever orbit/surface view preceded it.
+  const launchTarget = route.getRenderPoint(0.04)
+  const launchSide = source.clone().cross(route.endDirection).normalize()
+  if (launchSide.dot(SUN_DIRECTION) < 0) launchSide.negate()
+  const launchPose: CameraPose = {
+    position: launchTarget.clone()
+      .addScaledVector(source, 0.2)
+      .addScaledVector(launchSide, 0.42),
+    target: launchTarget.clone().addScaledVector(source, -0.055),
+    up: source.clone(),
+  }
 
   const trackingPose: CameraPose = {
     position: viewDirection
@@ -205,7 +208,9 @@ export function createCounterstrikeCameraPlan(
   if (damageAxis.lengthSq() < 1e-10) damageAxis.copy(player.east)
   damageAxis.normalize()
   const damageSide = damageAxis.clone().cross(player.up).normalize()
-  const viewSide = damageSide.clone().multiplyScalar(narrow ? 1 : -1)
+  const viewSide = damageSide.clone().multiplyScalar(
+    damageSide.dot(SUN_DIRECTION) >= 0 ? 1 : -1,
+  )
   const metres = LOCAL_METRES_TO_RENDER_UNITS
   const surfaceFocus = (routeProgress: number, heightM: number) =>
     playerSurfacePosition
@@ -240,20 +245,16 @@ export function createCounterstrikeCameraPlan(
       .normalize()
     return { position, target, up }
   }
-  const impactWidePose: CameraPose = {
-    ...surfacePose(0.5, narrow ? 70 : 52, narrow ? 48 : 42, 2),
-  }
-  const impactMediumPose: CameraPose = {
-    ...surfacePose(0.8, narrow ? 50 : 44, 38, narrow ? 12 : 14),
-  }
+  const impactWidePose = surfacePose(0.65, narrow ? 70 : 52, 48, 10)
+  // Retain the beat markers without introducing a second shot before impact.
+  const impactMediumPose = impactWidePose
   const damagePose: CameraPose = {
-    ...surfacePose(
-      0.62,
-      narrow ? 75 : 55,
-      38,
-      narrow ? 10 : 14,
-      narrow ? MathUtils.degToRad(15) : 0,
-    ),
+    position: impactWidePose.position.clone()
+      .sub(impactWidePose.target)
+      .multiplyScalar(1.3)
+      .add(impactWidePose.target),
+    target: impactWidePose.target.clone(),
+    up: impactWidePose.up.clone(),
   }
   const firstStrikeFinalPose = createStrikeCameraPlan(
     playerSite,
@@ -305,6 +306,7 @@ export function createCounterstrikeCameraPlan(
 
   return {
     route,
+    launchPose,
     trackingPose,
     interceptPose,
     successPose,

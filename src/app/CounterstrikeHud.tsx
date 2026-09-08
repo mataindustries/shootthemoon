@@ -1,9 +1,9 @@
-import { useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { createOrderCountdown, ORDER_COUNTDOWN_MS } from './orderCountdown.ts'
 import type {
   CounterstrikeOrder,
   CounterstrikeSnapshot,
 } from '../domain/counterstrike.ts'
-import type { OutpostSnapshot } from '../domain/outpost.ts'
 import type { RivalSignalSnapshot } from '../domain/rival.ts'
 import { getRivalIdentity } from '../content/rivalIdentity.ts'
 import {
@@ -19,17 +19,11 @@ import {
   moveInterceptorFireGesture,
   type InterceptorFireGestureState,
 } from '../interaction/interceptorFireGate.ts'
-import {
-  COUNTERSTRIKE_COMMAND_EFFECTS,
-  calculateOutpostOperations,
-  type OutpostOperationsMetrics,
-} from '../simulation/outpostOperations.ts'
 
 interface CounterstrikeHudProps {
   readonly snapshot: CounterstrikeSnapshot | null
   readonly run: CounterstrikeRunState
   readonly rival: RivalSignalSnapshot | null
-  readonly outpost: OutpostSnapshot | null
   readonly showReady: boolean
   readonly onBegin: () => void
   readonly onFire: () => void
@@ -48,17 +42,17 @@ const COMMANDS: readonly {
   {
     order: 'PRIORITIZE_INTERCEPTOR',
     title: 'PRIORITIZE INTERCEPTOR',
-    tradeoff: 'Divert mining power for a 40% wider fire window.',
+    tradeoff: 'Less mining · 40% wider fire window',
   },
   {
     order: 'HARDEN_OUTPOST',
     title: 'HARDEN OUTPOST',
-    tradeoff: 'Brace machinery to halve production damage if hit.',
+    tradeoff: 'Less mining · Half damage if hit',
   },
   {
     order: 'KEEP_EXTRACTING',
     title: 'KEEP EXTRACTING',
-    tradeoff: 'Boost output now; accept the full impact penalty.',
+    tradeoff: '25% more ore · Full damage if hit',
   },
 ]
 
@@ -88,15 +82,61 @@ function commandOutcome(
     : 'Boosted extraction banked ore, but production now operates at −30%.'
 }
 
-function CommandMetric({ metrics }: { readonly metrics: OutpostOperationsMetrics }) {
+function CommandPanel({ onIssueOrder }: {
+  readonly onIssueOrder: (order: CounterstrikeOrder) => void
+}) {
+  const [remainingMs, setRemainingMs] = useState(ORDER_COUNTDOWN_MS)
+  const issuedRef = useRef(false)
+  const expire = useEffectEvent(() => {
+    if (issuedRef.current) return
+    issuedRef.current = true
+    onIssueOrder('HARDEN_OUTPOST')
+  })
+
+  useEffect(() => {
+    const countdown = createOrderCountdown(performance.now(), document.hidden)
+    const tick = () => {
+      const remaining = countdown.sample(performance.now(), document.hidden)
+      setRemainingMs(remaining)
+      if (remaining === 0 && !document.hidden) expire()
+    }
+    const interval = window.setInterval(tick, 50)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [])
+
   return (
-    <span className="counterstrike-command__metrics">
-      <b>{metrics.activeRobots} ROBOT{metrics.activeRobots === 1 ? '' : 'S'}</b>
-      <b>{metrics.miningAllocationKw.toFixed(0)} kW MINING</b>
-      <b>{metrics.defenseAllocationKw.toFixed(0)} kW DEFENSE</b>
-      <b>{metrics.interceptionReadiness} READY</b>
-      <b>{metrics.productionPerMin.toFixed(1)} ORE/MIN</b>
-    </span>
+    <section className="counterstrike-command" aria-label="Issue one Counterstrike order">
+      <header>
+        <span>RIVAL LAUNCH DETECTED</span>
+        <strong>ISSUE ONE ORDER</strong>
+      </header>
+      <div className="counterstrike-command__countdown" role="timer" aria-live="off"
+        aria-label={`${Math.ceil(remainingMs / 1000)} seconds until Harden Outpost`}>
+        <strong>{Math.ceil(remainingMs / 1000)}s</strong>
+        <span>THEN AUTO: HARDEN OUTPOST</span>
+        <progress max={ORDER_COUNTDOWN_MS} value={remainingMs} aria-hidden="true" />
+      </div>
+      <div className="counterstrike-command__choices">
+        {COMMANDS.map((command, index) => (
+          <button key={command.order} type="button" data-command-order={command.order}
+            onClick={() => {
+              if (issuedRef.current) return
+              issuedRef.current = true
+              onIssueOrder(command.order)
+            }}>
+            <span className="counterstrike-command__number">{index + 1}</span>
+            <span className="counterstrike-command__copy">
+              <strong>{command.title}</strong>
+              <small>{command.tradeoff}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -196,7 +236,6 @@ export function CounterstrikeHud({
   snapshot,
   run,
   rival,
-  outpost,
   showReady,
   onBegin,
   onFire,
@@ -206,19 +245,6 @@ export function CounterstrikeHud({
   onKeepAccepted,
   onInspectOutpost,
 }: CounterstrikeHudProps) {
-  const commandMetrics = useMemo(
-    () =>
-      outpost === null
-        ? null
-        : Object.fromEntries(
-            COMMANDS.map(({ order }) => [
-              order,
-              calculateOutpostOperations(outpost, 'INTACT', order, true),
-            ]),
-          ) as Record<CounterstrikeOrder, OutpostOperationsMetrics>,
-    [outpost],
-  )
-
   if (snapshot === null || rival === null) {
     return null
   }
@@ -254,39 +280,7 @@ export function CounterstrikeHud({
       data-counterstrike-active={active}
     >
       {run.status === 'command' ? (
-        <section
-          className="counterstrike-command"
-          aria-label="Issue one Counterstrike order"
-        >
-          <header>
-            <span>RIVAL LAUNCH DETECTED</span>
-            <strong>ISSUE ONE ORDER</strong>
-          </header>
-          <div className="counterstrike-command__choices">
-            {COMMANDS.map((command, index) => {
-              const effect = COUNTERSTRIKE_COMMAND_EFFECTS[command.order]
-              const metrics = commandMetrics?.[command.order]
-              return (
-                <button
-                  key={command.order}
-                  type="button"
-                  data-command-order={command.order}
-                  onClick={() => onIssueOrder(command.order)}
-                >
-                  <span className="counterstrike-command__number">{index + 1}</span>
-                  <span className="counterstrike-command__copy">
-                    <strong>{command.title}</strong>
-                    <small>{command.tradeoff}</small>
-                    {metrics === undefined ? null : (
-                      <CommandMetric metrics={metrics} />
-                    )}
-                    <em>{effect.projectedConsequence}</em>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </section>
+        <CommandPanel onIssueOrder={onIssueOrder} />
       ) : null}
 
       {run.status === 'command-confirmed' ? (
