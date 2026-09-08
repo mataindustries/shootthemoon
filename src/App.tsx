@@ -1980,7 +1980,6 @@ function App() {
         snapshot={counterstrike}
         run={counterstrikeRun}
         rival={rival}
-        outpost={outpost}
         showReady={
           state.phase === 'orbit' &&
           firstStrikePresentation.phase === 'idle'

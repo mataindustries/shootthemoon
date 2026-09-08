@@ -21,7 +21,7 @@ interface RunDetail {
     | 'KEEP_EXTRACTING'
 }
 
-async function openCommand(page: Page): Promise<void> {
+async function openCommand(page: Page, freezeClock = false): Promise<void> {
   await page.addInitScript(
     ({ key, value }) => localStorage.setItem(key, value),
     { key: OUTPOST_STORAGE_KEY, value: createCompletedStrikeSave() },
@@ -30,6 +30,10 @@ async function openCommand(page: Page): Promise<void> {
   await expect(page.locator('main')).toHaveAttribute('data-scene-ready', 'true')
   const entry = page.getByRole('button', { name: /^(BEGIN INVASION|CONTINUE)$/ })
   if (await entry.isVisible()) await entry.click()
+  if (freezeClock) {
+    await page.clock.install()
+    await page.clock.pauseAt(new Date())
+  }
   await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
   await expect(page.locator('main')).toHaveAttribute(
     'data-counterstrike-state',
@@ -92,14 +96,12 @@ test('Prioritize Interceptor widens the window and resolves a successful interce
   for (const button of await commandButtons.all()) {
     const bounds = await button.boundingBox()
     expect(bounds).not.toBeNull()
-    expect(bounds!.height).toBeGreaterThanOrEqual(96)
+    expect(bounds!.height).toBeGreaterThanOrEqual(48)
+    expect(bounds!.height).toBeLessThanOrEqual(76)
   }
   await expect(
     page.getByRole('button', { name: /KEEP EXTRACTING/ }),
-  ).toContainText('3 ROBOTS')
-  await expect(
-    page.getByRole('button', { name: /KEEP EXTRACTING/ }),
-  ).toContainText('25% BOOST')
+  ).toContainText('25% more ore · Full damage if hit')
   await page.screenshot({
     path: `${SCREENSHOT_DIRECTORY}/portrait-command-panel.png`,
   })
@@ -141,7 +143,7 @@ test('Prioritize Interceptor widens the window and resolves a successful interce
     (key) => JSON.parse(localStorage.getItem(key) ?? '{}'),
     OUTPOST_STORAGE_KEY,
   )
-  expect(persisted.schemaVersion).toBe(6)
+  expect(persisted.schemaVersion).toBe(7)
   expect(persisted.counterstrike).toMatchObject({
     selectedOrder: 'PRIORITIZE_INTERCEPTOR',
     acceptedOrder: 'PRIORITIZE_INTERCEPTOR',
@@ -193,4 +195,62 @@ test('Harden Outpost limits persistent damage after a failed intercept', async (
   await expect(page.locator('.operations-damage')).toContainText(
     '−15% PRODUCTION',
   )
+})
+
+
+for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }]) {
+  test(`compact orders fit ${viewport.width}×${viewport.height} and expire after five visible seconds`, async ({ page }) => {
+    await page.setViewportSize(viewport)
+    await openCommand(page, true)
+    const panel = page.getByRole('region', { name: 'Issue one Counterstrike order' })
+    const timer = panel.getByRole('timer')
+    await expect(timer).toHaveText(/5s/)
+    const bounds = await panel.boundingBox()
+    expect(bounds!.y).toBeGreaterThanOrEqual(0)
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height)
+    expect(await panel.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true)
+    for (const consequence of await panel.locator('small').all()) {
+      expect(await consequence.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        return element.scrollWidth <= element.clientWidth && rect.height < 20
+      })).toBe(true)
+    }
+    await page.clock.runFor(2_000)
+    await expect(timer).toHaveText(/3s/)
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true })
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await page.clock.runFor(10_000)
+    await expect(timer).toHaveText(/3s/)
+    await expect(page.locator('main')).toHaveAttribute('data-counterstrike-state', 'command')
+    await page.evaluate(() => {
+      delete (document as unknown as Record<string, unknown>).hidden
+      delete (document as unknown as Record<string, unknown>).visibilityState
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await page.clock.runFor(2_950)
+    await expect(page.locator('main')).toHaveAttribute('data-counterstrike-state', 'command')
+    await page.clock.runFor(50)
+    await expect(page.locator('main')).toHaveAttribute('data-counterstrike-state', 'command-confirmed')
+    await expect(page.locator('main')).toHaveAttribute('data-counterstrike-order', 'HARDEN_OUTPOST')
+    const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), OUTPOST_STORAGE_KEY)
+    expect(saved.counterstrike.selectedOrder).toBe('HARDEN_OUTPOST')
+  })
+}
+
+test('manual order cancels the default and replay gets a fresh countdown', async ({ page }) => {
+  await openCommand(page, true)
+  await page.clock.runFor(4_950)
+  await page.getByRole('button', { name: /KEEP EXTRACTING/ }).click()
+  await page.clock.runFor(100)
+  await expect(page.locator('main')).toHaveAttribute('data-counterstrike-order', 'KEEP_EXTRACTING')
+  await setRun(page, { status: 'resolved', outcome: 'SUCCESS', order: 'KEEP_EXTRACTING' })
+  await setRun(page, { status: 'command', replay: true })
+  await expect(page.getByRole('timer')).toHaveText(/5s/)
+  await page.clock.runFor(5_000)
+  await expect(page.locator('main')).toHaveAttribute('data-counterstrike-order', 'HARDEN_OUTPOST')
+  const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), OUTPOST_STORAGE_KEY)
+  expect(saved.counterstrike.selectedOrder).toBe('KEEP_EXTRACTING')
 })
