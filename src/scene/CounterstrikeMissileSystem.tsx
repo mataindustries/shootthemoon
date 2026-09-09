@@ -1,3 +1,4 @@
+import { RocketContrail, RocketNoseLight, RocketRim } from './RocketContrast.tsx'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
@@ -491,24 +492,42 @@ export function CounterstrikeMissileSystem({
       </group>
       <group ref={hostileRef} name="null-meridian-counterstrike-missile">
         <group ref={hostileModelRef}>
-          <mesh geometry={threatBodyGeometry} material={rivalArmorMaterial} />
+          <RocketNoseLight y={5.2} rival />
+          {Array.from({ length: 3 }, (_, index) => {
+            const angle = index * Math.PI * 2 / 3
+            return <group key={index}
+              position={[Math.sin(angle) * 0.56, -2.15, Math.cos(angle) * 0.56]}
+              rotation={[0, angle, 0]}>
+              <RocketRim geometry={threatFinGeometry} />
+            </group>
+          })}
+          <RocketContrail y={-3.2} length={8} rival />
+          <mesh geometry={threatBodyGeometry} material={rivalArmorMaterial}>
+            <RocketRim geometry={threatBodyGeometry} />
+          </mesh>
           <mesh
             geometry={threatNoseGeometry}
             material={rivalPanelMaterial}
             position-y={4.05}
-          />
+          >
+            <RocketRim geometry={threatNoseGeometry} />
+          </mesh>
           <mesh
             geometry={threatForkGeometry}
             material={rivalArmorMaterial}
             position={[-0.44, 2.9, 0]}
             rotation-z={-0.16}
-          />
+          >
+            <RocketRim geometry={threatForkGeometry} />
+          </mesh>
           <mesh
             geometry={threatForkGeometry}
             material={rivalArmorMaterial}
             position={[0.44, 2.9, 0]}
             rotation-z={0.16}
-          />
+          >
+            <RocketRim geometry={threatForkGeometry} />
+          </mesh>
           <mesh
             geometry={threatCoreGeometry}
             material={rivalPanelMaterial}
@@ -521,13 +540,21 @@ export function CounterstrikeMissileSystem({
         </group>
       </group>
       <group ref={interceptorRef} name="player-orbital-interceptor" visible={false}>
-        <mesh geometry={interceptorBodyGeometry} material={playerMaterial} />
+        <RocketNoseLight y={3.1} />
+        <RocketContrail y={-2.9} length={6} />
+        <mesh geometry={interceptorBodyGeometry} material={playerMaterial}>
+          <RocketRim geometry={interceptorBodyGeometry} />
+        </mesh>
         <mesh
           geometry={interceptorNoseGeometry}
           material={playerAccentMaterial}
           position-y={2.42}
-        />
-        <mesh geometry={interceptorFinGeometry} material={playerMaterial} position-y={-1.35} />
+        >
+          <RocketRim geometry={interceptorNoseGeometry} />
+        </mesh>
+        <mesh geometry={interceptorFinGeometry} material={playerMaterial} position-y={-1.35}>
+          <RocketRim geometry={interceptorFinGeometry} />
+        </mesh>
         <group ref={interceptorFlameRef} position-y={-2.65} rotation-z={Math.PI}>
           <mesh geometry={flameGeometry} material={flameMaterial} />
         </group>

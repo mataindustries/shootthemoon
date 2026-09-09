@@ -30,6 +30,7 @@ export const VISUAL_PALETTE = Object.freeze({
   neutralMachinery: '#42494d',
   contactDark: '#0a0c0e',
   warningStripe: '#c0793d',
+  rocketRim: '#efb85f',
 
   damageChar: '#17191b',
   damageFloor: '#303136',
