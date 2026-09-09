@@ -255,10 +255,37 @@ export function calculateMinerGrounding(
   }
 }
 
+export function calculateMiningLaser(
+  terrain: SurfaceTerrainProfile,
+  segments: number,
+  xM: number,
+  zM: number,
+  headingRad: number,
+) {
+  const grounding = calculateMinerGrounding(terrain, segments, xM, zM, headingRad)
+  const emitter = new Vector3(0, 0, 0.582)
+    .applyAxisAngle(new Vector3(1, 0, 0), 0.44)
+    .add(new Vector3(0, 0.65, 0.5))
+    .multiplyScalar(ROBOT_MODEL_SCALE_M * LOCAL_METRES_TO_RENDER_UNITS)
+    .applyQuaternion(grounding.orientation)
+    .add(new Vector3(grounding.position.x, grounding.position.y, grounding.position.z))
+  const ground = sampleRenderedSurface(terrain, segments,
+    xM + Math.sin(headingRad) * 1.92, zM + Math.cos(headingRad) * 1.92)
+  const contact = new Vector3(ground.x, ground.y + 0.015 * LOCAL_METRES_TO_RENDER_UNITS, ground.z)
+  return { emitter, contact }
+}
+
 function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
+  // Mining holds the rover still. Solve terrain attachment once per job,
+  // leaving only the small pulse and twelve particle positions to animate.
+  const laser = useMemo(() => {
+    if (outpost.robot.state !== 'mining') return null
+    const pose = getRobotKinematics(outpost, outpost.robot.stateStartedAtMs)
+    return calculateMiningLaser(terrain, segments, pose.position.xM, pose.position.zM, pose.headingRad)
+  }, [terrain, segments, outpost.robot.state, outpost.robot.stateStartedAtMs, outpost.robot.targetDepositId])
   const geometry = useMemo(() => {
     const result = new BufferGeometry()
-    result.setAttribute('position', new BufferAttribute(new Float32Array(24 * 3), 3))
+    result.setAttribute('position', new BufferAttribute(new Float32Array(12 * 3), 3))
     return result
   }, [])
   const material = useMemo(
@@ -274,6 +301,10 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
     [],
   )
   const groupRef = useRef<Group>(null)
+  const beamRef = useRef<Mesh>(null)
+  const heatRef = useRef<Mesh>(null)
+  const beamDirection = useMemo(() => new Vector3(), [])
+  const beamUp = useMemo(() => new Vector3(0, 1, 0), [])
 
   useEffect(
     () => () => {
@@ -283,7 +314,8 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
     [geometry, material],
   )
 
-  useFrame(() => {
+  useFrame((state) => {
+    state.gl.domElement.dataset.miningLaser = outpost.robot.state === 'mining' ? 'contact' : 'off'
     if (groupRef.current === null) {
       return
     }
@@ -302,29 +334,36 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
     const contactZM =
       kinematics.position.zM +
       (mining ? Math.cos(kinematics.headingRad) * 1.92 : 0)
-    const contact = sampleRenderedSurface(
+    const contact = laser?.contact ?? sampleRenderedSurface(
       terrain,
       segments,
       contactXM,
       contactZM,
     )
-    groupRef.current.position.set(
-      contact.x,
-      contact.y + (mining ? 0.12 : 0.06) * LOCAL_METRES_TO_RENDER_UNITS,
-      contact.z,
-    )
+    groupRef.current.position.set(contact.x, contact.y + 0.015 * LOCAL_METRES_TO_RENDER_UNITS, contact.z)
+    if (mining && laser !== null && beamRef.current !== null) {
+      groupRef.current.position.copy(laser.contact)
+      beamDirection.copy(laser.emitter).sub(laser.contact)
+      beamRef.current.position.copy(beamDirection).multiplyScalar(0.5)
+      beamRef.current.scale.set(0.022 * LOCAL_METRES_TO_RENDER_UNITS, beamDirection.length(), 0.022 * LOCAL_METRES_TO_RENDER_UNITS)
+      beamRef.current.quaternion.setFromUnitVectors(beamUp, beamDirection.normalize())
+      if (heatRef.current !== null) {
+        const pulse = 0.94 + Math.sin(nowMs * 0.009) * 0.06
+        heatRef.current.scale.set(0.24 * pulse, 0.045, 0.18 * pulse)
+      }
+    }
 
     material.color.set(
       mining ? VISUAL_PALETTE.playerHotMetal : VISUAL_PALETTE.lunarSunlit,
     )
-    material.opacity = mining ? (nowMs % 1100 < 220 ? 0.48 : 0) : 0.24
+    material.opacity = mining ? 0.36 : 0.24
     material.size = mining ? 0.000026 : 0.000066
 
     const positions = geometry.getAttribute('position') as BufferAttribute
     const array = positions.array as Float32Array
     const elapsed = (nowMs - outpost.robot.stateStartedAtMs) / 1_000
 
-    for (let index = 0; index < 24; index += 1) {
+    for (let index = 0; index < 12; index += 1) {
       const offset = index * 3
       const age = (elapsed * (1.35 + (index % 5) * 0.11) + index * 0.071) % 1
       if (mining) {
@@ -362,7 +401,25 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
         outpost.robot.state === 'returning'
       }
     >
-      <points geometry={geometry} material={material} />
+      <points geometry={geometry} material={material} renderOrder={2} />
+      <group name="laser-extraction" visible={outpost.robot.state === 'mining'}>
+        {/* SurfacePatch is translucent at order 1. Effects follow it while
+            still depth-testing against opaque machinery and the Moon. */}
+        <mesh ref={beamRef} name="mining-laser-beam" renderOrder={2}>
+          <cylinderGeometry args={[1, 0.65, 1, 6]} />
+          <meshBasicMaterial color={VISUAL_PALETTE.playerLaserCore} transparent opacity={0.62} depthWrite={false} />
+        </mesh>
+        <group scale={LOCAL_METRES_TO_RENDER_UNITS}>
+          <mesh scale={[0.065, 0.045, 0.065]} name="mining-contact-glow" renderOrder={2}>
+            <sphereGeometry args={[1, 8, 6]} />
+            <meshBasicMaterial color={VISUAL_PALETTE.playerLaserCore} transparent opacity={0.72} depthWrite={false} />
+          </mesh>
+          <mesh ref={heatRef} scale={[0.24, 0.045, 0.18]} renderOrder={2}>
+            <sphereGeometry args={[1, 10, 6]} />
+            <meshBasicMaterial color={VISUAL_PALETTE.playerAmberEmissive} transparent opacity={0.22} depthWrite={false} />
+          </mesh>
+        </group>
+      </group>
     </group>
   )
 }
@@ -710,16 +767,7 @@ export function MinerRobot({
               <cylinderGeometry args={[0.1, 0.1, 0.035, 12]} />
               <meshStandardMaterial color="#8fbbb9" metalness={0.6} roughness={0.25} />
             </mesh>
-            <group name="laser-extraction" visible={outpost.robot.state === 'mining'}>
-              <mesh position-z={0.78} rotation-x={Math.PI / 2}>
-                <cylinderGeometry args={[0.018, 0.012, 0.4, 6]} />
-                <meshBasicMaterial color="#b5e5df" transparent opacity={0.65} depthWrite={false} />
-              </mesh>
-              <mesh position-z={0.98}>
-                <sphereGeometry args={[0.065, 8, 6]} />
-                <meshBasicMaterial color="#ffcb91" transparent opacity={0.7} depthWrite={false} />
-              </mesh>
-            </group>
+
           </group>
           <group ref={cargoRef} position={[0, 0.77, -0.62]} visible={false}>
             <mesh castShadow scale={[1.3, 0.72, 1]}>

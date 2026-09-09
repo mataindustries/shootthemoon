@@ -1,3 +1,4 @@
+import { createPlayerCompositeMaterial } from '../render/playerComposite.ts'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import {
   BoxGeometry,
@@ -341,11 +342,7 @@ function CapsuleModel({
   const boxGeometry = useMemo(() => new BoxGeometry(1, 1, 1), [])
   const beltGeometry = useMemo(() => new TorusGeometry(0.5, 0.04, 6, 16), [])
   const armorMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerArmor,
-        ...MATERIAL_RESPONSE.playerArmor,
-      }),
+    () => createPlayerCompositeMaterial(),
     [],
   )
   const steelMaterial = useMemo(
@@ -616,7 +613,7 @@ export function InvasionCapsule({
 
   return (
     <group position={transform.position} quaternion={transform.orientation}>
-      <group ref={capsuleRef}>
+      <group ref={capsuleRef} name="player-lander">
         <CapsuleModel
           outpost={outpost}
           padOffsetsModel={grounding.padOffsetsModel}

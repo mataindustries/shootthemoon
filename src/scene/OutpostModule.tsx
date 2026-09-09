@@ -1,5 +1,6 @@
-import { useMemo, useRef } from 'react'
-import { Group, MathUtils, Points, PointsMaterial } from 'three'
+import { E2E_HARNESS_BUILD_ENABLED, shouldEnableE2eHarness } from '../testing/e2eHarness.ts'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { Group, InstancedMesh, MathUtils, Object3D, Points, PointsMaterial, Vector3 } from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import type { OutpostDamageState } from '../domain/counterstrike.ts'
@@ -10,10 +11,10 @@ import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { MODULE_CONSTRUCTION_DURATION_MS } from '../simulation/outpostSimulation.ts'
 import { simulationNowMs } from '../simulation/simulationTime.ts'
 import { VISUAL_PALETTE } from '../render/visualSystem.ts'
-import { MODULE_MODEL_SCALE, SOLAR_PANEL, SOLAR_WING_SLOT } from './solarWingLayout.ts'
+import { createPlayerCompositeMaterial } from '../render/playerComposite.ts'
+import { MODULE_SOCKETS } from './moduleLayout.ts'
+import { MODULE_MODEL_SCALE, SOLAR_PANEL } from './solarWingLayout.ts'
 
-const SLOT_X_M = -1.8
-const SLOT_Z_M = -1.45
 const MODEL_SCALE = MODULE_MODEL_SCALE
 
 interface OutpostModuleProps {
@@ -61,6 +62,25 @@ function SolarWing() {
 }
 
 function StorageSilo() {
+  const composite = useMemo(createPlayerCompositeMaterial, [])
+  const bandsRef = useRef<InstancedMesh>(null)
+  const ventsRef = useRef<InstancedMesh>(null)
+  useLayoutEffect(() => {
+    const dummy = new Object3D()
+    for (let index = 0; index < 3; index++) {
+      dummy.position.set(0, [0.55, 1.18, 1.8][index]!, 0)
+      dummy.rotation.set(Math.PI / 2, 0, 0)
+      dummy.updateMatrix()
+      bandsRef.current?.setMatrixAt(index, dummy.matrix)
+      dummy.position.set(0, [1.08, 1.26, 1.44][index]!, 1.025)
+      dummy.rotation.set(-0.25, 0, 0)
+      dummy.updateMatrix()
+      ventsRef.current?.setMatrixAt(index, dummy.matrix)
+    }
+    if (bandsRef.current) bandsRef.current.instanceMatrix.needsUpdate = true
+    if (ventsRef.current) ventsRef.current.instanceMatrix.needsUpdate = true
+  }, [])
+  useEffect(() => () => composite.dispose(), [composite])
   return (
     <group name="storage-silo-structure">
       <mesh position-y={0.18} castShadow receiveShadow>
@@ -69,20 +89,26 @@ function StorageSilo() {
       </mesh>
       <mesh position-y={1.2} castShadow receiveShadow>
         <cylinderGeometry args={[0.92, 1.08, 1.85, 12]} />
-        <meshStandardMaterial color={VISUAL_PALETTE.playerArmor} roughness={0.62} metalness={0.72} />
+        <primitive object={composite} attach="material" />
       </mesh>
-      {[0.55, 1.18, 1.8].map((y) => (
-        <mesh key={y} position-y={y} rotation-x={Math.PI / 2} castShadow>
-          <torusGeometry args={[1.01, 0.09, 7, 18]} />
-          <meshStandardMaterial color={VISUAL_PALETTE.playerSteel} roughness={0.45} metalness={0.82} />
-        </mesh>
-      ))}
+      <instancedMesh ref={bandsRef} args={[undefined, undefined, 3]} castShadow>
+        <torusGeometry args={[1.01, 0.09, 7, 18]} />
+        <meshStandardMaterial color={VISUAL_PALETTE.playerSteel} roughness={0.45} metalness={0.46} />
+      </instancedMesh>
       <mesh position-y={2.2} castShadow>
         <coneGeometry args={[0.86, 0.48, 12]} />
-        <meshStandardMaterial color={VISUAL_PALETTE.playerArmor} roughness={0.58} metalness={0.7} />
+        <primitive object={composite} attach="material" />
       </mesh>
-      <mesh position={[0, 1.22, 0.93]}>
-        <boxGeometry args={[0.82, 0.46, 0.08]} />
+      <mesh position={[0, 1.28, 0.98]}>
+        <boxGeometry args={[0.72, 0.6, 0.06]} />
+        <meshStandardMaterial color={VISUAL_PALETTE.contactDark} roughness={0.85} />
+      </mesh>
+      <instancedMesh ref={ventsRef} args={[undefined, undefined, 3]} castShadow>
+        <boxGeometry args={[0.68, 0.065, 0.12]} />
+        <meshStandardMaterial color={VISUAL_PALETTE.playerSteel} roughness={0.5} metalness={0.46} />
+      </instancedMesh>
+      <mesh position={[0, 1.78, 1.02]}>
+        <boxGeometry args={[0.62, 0.065, 0.08]} />
         <meshStandardMaterial color={VISUAL_PALETTE.playerAmberPanel} emissive={VISUAL_PALETTE.playerAmberEmissive} emissiveIntensity={0.42} />
       </mesh>
     </group>
@@ -195,8 +221,9 @@ export function OutpostModule({
   // The wing spans 17.7 metres. Run that span beside the capsule, never
   // toward its hull. Both use the same site frame, independent of camera.
   const solar = module?.kind === 'SOLAR_WING'
-  const slotXM = solar ? SOLAR_WING_SLOT.xM : SLOT_X_M
-  const slotZM = solar ? SOLAR_WING_SLOT.zM : SLOT_Z_M
+  const socket = MODULE_SOCKETS[module?.kind ?? 'SOLAR_WING']
+  const slotXM = socket.xM
+  const slotZM = socket.zM
   const rootRef = useRef<Group>(null)
   const transform = useMemo(
     () => landingSiteToRenderTransform(outpost.site),
@@ -207,7 +234,9 @@ export function OutpostModule({
     [segments, terrain, slotXM, slotZM],
   )
 
-  useFrame(() => {
+  const projected = useMemo(() => new Vector3(), [])
+  const isE2e = useMemo(() => shouldEnableE2eHarness(E2E_HARNESS_BUILD_ENABLED, window.location.search), [])
+  useFrame((state) => {
     const root = rootRef.current
     if (root === null || module === null) return
     const progress =
@@ -221,8 +250,20 @@ export function OutpostModule({
           )
     const eased = progress * progress * (3 - 2 * progress)
     root.scale.setScalar(MODEL_SCALE * (0.15 + eased * 0.85))
-    root.position.y = ground.y + MODEL_SCALE * (-0.75 + eased * 0.75)
-    root.rotation.y = (solar ? SOLAR_WING_SLOT.headingRad : 0) + (1 - eased) * -0.18
+    root.position.y = ground.y + socket.heightM * LOCAL_METRES_TO_RENDER_UNITS + MODEL_SCALE * (-0.75 + eased * 0.75)
+    root.rotation.y = socket.headingRad + (1 - eased) * -0.18
+    if (!isE2e) return
+    root.updateWorldMatrix(true, false)
+    const bounds = [Infinity, Infinity, -Infinity, -Infinity]
+    for (const x of [-1, 1]) for (const y of [0, 2.45]) for (const z of [-1, 1]) {
+      projected.set(x * 1.32, y, z * 1.32).applyMatrix4(root.matrixWorld).project(state.camera)
+      bounds[0] = Math.min(bounds[0]!, (projected.x + 1) * state.size.width / 2)
+      bounds[1] = Math.min(bounds[1]!, (1 - projected.y) * state.size.height / 2)
+      bounds[2] = Math.max(bounds[2]!, (projected.x + 1) * state.size.width / 2)
+      bounds[3] = Math.max(bounds[3]!, (1 - projected.y) * state.size.height / 2)
+    }
+    state.gl.domElement.dataset.moduleBounds = JSON.stringify(bounds)
+    state.gl.domElement.dataset.moduleSocket = JSON.stringify([slotXM, socket.heightM, slotZM, socket.headingRad])
   })
 
   if (module === null) return null
@@ -234,6 +275,15 @@ export function OutpostModule({
 
   return (
     <group position={transform.position} quaternion={transform.orientation}>
+      {!solar ? (
+        <group position={[slotXM * LOCAL_METRES_TO_RENDER_UNITS / 2, ground.y + 0.0001, slotZM * LOCAL_METRES_TO_RENDER_UNITS / 2]}
+          rotation-y={Math.atan2(slotXM, slotZM)} name="module-structural-coupler">
+          <mesh castShadow>
+            <boxGeometry args={[0.00008, 0.00006, (Math.hypot(slotXM, slotZM) - 2) * LOCAL_METRES_TO_RENDER_UNITS]} />
+            <meshStandardMaterial color={VISUAL_PALETTE.playerSteel} roughness={0.56} metalness={0.46} />
+          </mesh>
+        </group>
+      ) : null}
       {solar ? (
         <group position={[-3.7 * LOCAL_METRES_TO_RENDER_UNITS, ground.y + 0.00014, 0]}>
           <mesh castShadow name="solar-wing-coupling">
@@ -248,13 +298,14 @@ export function OutpostModule({
       ) : null}
       <group
         ref={rootRef}
+        name="construction-module-socket"
         position={[
           slotXM * LOCAL_METRES_TO_RENDER_UNITS,
-          ground.y,
+          ground.y + socket.heightM * LOCAL_METRES_TO_RENDER_UNITS,
           slotZM * LOCAL_METRES_TO_RENDER_UNITS,
         ]}
         scale={MODEL_SCALE}
-        rotation-y={solar ? SOLAR_WING_SLOT.headingRad : 0}
+        rotation-y={socket.headingRad}
       >
         {module.kind === 'SOLAR_WING' ? <SolarWing /> : null}
         {module.kind === 'STORAGE_SILO' ? <StorageSilo /> : null}

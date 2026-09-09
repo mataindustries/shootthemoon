@@ -2920,3 +2920,14 @@ button {
     animation-iteration-count: 1;
   }
 }
+
+/* Keep a useful scene/touch area on short portrait phones; every operation
+   remains reachable within the scrolling panel. */
+@media (orientation: portrait) and (max-height: 700px) {
+  .operations-panel {
+    max-height: 34dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
