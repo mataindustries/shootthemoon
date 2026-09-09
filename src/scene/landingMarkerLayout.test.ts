@@ -27,11 +27,11 @@ describe('landing marker layout', () => {
     expect(offset.normalize().dot(transform.up)).toBeCloseTo(1, 12)
   })
 
-  it('increases apparent diameter by exactly fifty percent at every scale limit', () => {
-    expect(LANDING_MARKER_DIAMETER_FACTOR).toBe(1.5)
-    expect(getLandingMarkerScale(0)).toBeCloseTo(0.0003 * 1.5, 12)
-    expect(getLandingMarkerScale(1)).toBeCloseTo(0.013 * 1.5, 12)
-    expect(getLandingMarkerScale(100)).toBeCloseTo(0.026 * 1.5, 12)
+  it('keeps a readable enlarged diameter at every scale limit', () => {
+    expect(LANDING_MARKER_DIAMETER_FACTOR).toBe(4)
+    expect(getLandingMarkerScale(0)).toBeCloseTo(0.0003 * 4, 12)
+    expect(getLandingMarkerScale(1)).toBeCloseTo(0.013 * 4, 12)
+    expect(getLandingMarkerScale(100)).toBeCloseTo(0.026 * 4, 12)
   })
 
   it('keeps the thick outer ring fully clear of the lunar surface', () => {

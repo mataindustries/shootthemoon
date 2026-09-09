@@ -6,6 +6,7 @@ import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { useLowFrequencyDemandAnimation } from '../render/useDemandAnimation.ts'
 import {
   LANDING_MARKER_OUTER_RING_Y,
+  LANDING_MARKER_OUTER_RING_TUBE_RADIUS,
   getLandingMarkerOuterPulse,
   getLandingMarkerPosition,
   getLandingMarkerScale,
@@ -44,13 +45,17 @@ export function LandingMarker({ site, active }: LandingMarkerProps) {
       position={position}
       quaternion={transform.orientation}
     >
+      <mesh position-y={0.008} renderOrder={2} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[0.18, 0.85, 32]} />
+        <meshBasicMaterial color="#10151c" depthWrite={false} side={2} toneMapped={false} />
+      </mesh>
       <group ref={outerRingRef}>
         <mesh
           position-y={LANDING_MARKER_OUTER_RING_Y}
           renderOrder={3}
           rotation-x={Math.PI / 2}
         >
-          <torusGeometry args={[0.72, 0.045, 6, 30]} />
+          <torusGeometry args={[0.72, LANDING_MARKER_OUTER_RING_TUBE_RADIUS, 6, 30]} />
           <meshBasicMaterial
             color="#ff5128"
             depthTest
@@ -67,10 +72,10 @@ export function LandingMarker({ site, active }: LandingMarkerProps) {
       <mesh position-y={0.014} renderOrder={4} rotation-x={Math.PI / 2}>
         <ringGeometry args={[0.25, 0.36, 6]} />
         <meshBasicMaterial
-          color="#ff7540"
+          color="#fff4dc"
           depthTest
           depthWrite={false}
-          opacity={0.88}
+          opacity={1}
           polygonOffset
           polygonOffsetFactor={-2}
           polygonOffsetUnits={-4}

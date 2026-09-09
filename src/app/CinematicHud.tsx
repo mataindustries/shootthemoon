@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { depositLabel, outpostGuidance } from './outpostGuidance.ts'
 import {
   findDeposit,
   type OperatingMode,
@@ -113,6 +114,9 @@ function OperationsPanel({
         selectedDepositId={selectedDepositId}
         rivalSignalHeld={rivalSignalHeld}
       />
+      <p className="active-deposit">
+        EXTRACTOR · {depositLabel(outpost.extractor!.depositId)} · AUTOMATIC MINING
+      </p>
       {damageState === 'DAMAGED' ? (
         <p className="operations-damage" role="status">
           OUTPOST DAMAGED · −{Math.round(productionDamagePenalty * 100)}% PRODUCTION
@@ -329,21 +333,9 @@ function ContextPrompt({
   readonly selectedDepositId: string | null
   readonly rivalSignalHeld: boolean
 }) {
-  let message: string | null = null
-
-  if (rivalSignalHeld) {
-    message = 'SIGNAL HELD · RETURN TO ORBIT'
-  } else if (outpost.robot.state === 'stored') {
-    message = 'OPEN THE CAPSULE'
-  } else if (
-    outpost.robot.state === 'idle' &&
-    outpost.stage === 'miner-deployed' &&
-    outpost.extractor === null &&
-    selectedDepositId === null &&
-    outpost.lunarOre < EXTRACTOR_COST
-  ) {
-    message = 'TAP AN ORE SIGNAL'
-  }
+  const message = rivalSignalHeld
+    ? 'SIGNAL HELD · RETURN TO ORBIT'
+    : outpostGuidance(outpost, selectedDepositId)
 
   return message === null ? null : (
     <div className="context-prompt" role="status">
@@ -461,17 +453,14 @@ export function CinematicHud({
             </div>
             <div className="robot-status" data-robot-status={outpost.robot.state}>
               <span className="signal-dot" aria-hidden="true" />
-              <span>{robotStatus(outpost)}</span>
+              <span>
+                {robotStatus(outpost)}
+                {outpost.robot.targetDepositId !== null
+                  ? ` · ${depositLabel(outpost.robot.targetDepositId)}`
+                  : ''}
+              </span>
             </div>
           </section>
-
-          {!operationsActive ? (
-            <ContextPrompt
-              outpost={outpost}
-              selectedDepositId={selectedDepositId}
-              rivalSignalHeld={rivalSignalHeld}
-            />
-          ) : null}
 
           {operationsActive ? (
             <OperationsPanel
@@ -488,13 +477,18 @@ export function CinematicHud({
             />
           ) : (
           <section className="command-deck" aria-label="Outpost commands">
+            <ContextPrompt
+              outpost={outpost}
+              selectedDepositId={selectedDepositId}
+              rivalSignalHeld={rivalSignalHeld}
+            />
             {selectedDeposit !== null ? (
               <div
                 className="deposit-readout"
                 data-deposit-id={selectedDeposit.id}
               >
                 <div>
-                  <span>SELECTED</span>
+                  <span>SELECTED · {depositLabel(selectedDeposit.id)}</span>
                   <strong>{selectedDeposit.resource}</strong>
                 </div>
                 <div>
@@ -546,9 +540,10 @@ export function CinematicHud({
           )}
         </>
       ) : site === null ? (
-        <div className="orbit-instruction">
+        <div className={"orbit-instruction" + (outpost === null ? " orbit-instruction--first-run" : "")}>
           {outpost === null ? (
             <>
+              <strong className="first-run-objective">Select a site → claim → build → mine</strong>
               <span>DRAG TO ORBIT</span>
               <i aria-hidden="true" />
               <span>PINCH TO ZOOM</span>
@@ -580,7 +575,7 @@ export function CinematicHud({
         >
           <div className="site-panel__eyebrow">
             <span className="signal-dot" aria-hidden="true" />
-            {targetingOutpost ? 'ESTABLISHED OUTPOST' : 'CANDIDATE SITE'}
+            {targetingOutpost ? 'ESTABLISHED OUTPOST' : 'SELECTED LANDING SITE'}
           </div>
           <div className="coordinate-grid">
             <div>
