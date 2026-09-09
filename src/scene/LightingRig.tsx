@@ -12,10 +12,8 @@ import {
   type FirstStrikePresentationState,
 } from '../app/firstStrikePresentation.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
-import type { LocalSurfacePosition } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import {
-  LOCAL_METRES_TO_RENDER_UNITS,
   LOCAL_SURFACE_RENDER_OFFSET,
 } from '../render/localSurface.ts'
 import { VISUAL_PALETTE } from '../render/visualSystem.ts'
@@ -26,10 +24,6 @@ const WORLD_EAST = new Vector3(1, 0, 0)
 const WORLD_SOUTH = new Vector3(0, 0, 1)
 const LAUNCH_LIGHT_CLEARANCE = 0.00152
 const IMPACT_LIGHT_CLEARANCE = 0.00814
-const COUNTERSTRIKE_READ_LIGHT_DISTANCE =
-  7.5 * LOCAL_METRES_TO_RENDER_UNITS
-const COUNTERSTRIKE_READ_LIGHT_UP = 3.2 * LOCAL_METRES_TO_RENDER_UNITS
-const COUNTERSTRIKE_READ_LIGHT_INTENSITY = 0.00018
 
 interface LightingRigProps {
   readonly landingSite: LandingSite | null
@@ -41,7 +35,6 @@ interface LightingRigProps {
   readonly residualScarLight: boolean
   readonly surfaceHeight?: number | undefined
   readonly closeReadLightColor?: string | undefined
-  readonly closeReadLightLocalPosition?: LocalSurfacePosition | undefined
 }
 
 export function LightingRig({
@@ -54,9 +47,9 @@ export function LightingRig({
   residualScarLight,
   surfaceHeight = LOCAL_SURFACE_RENDER_OFFSET,
   closeReadLightColor,
-  closeReadLightLocalPosition,
 }: LightingRigProps) {
   const lightRef = useRef<DirectionalLight>(null)
+  const rakeRef = useRef<DirectionalLight>(null)
   const eventLightRef = useRef<PointLight>(null)
   const targetRef = useRef<Object3D>(null)
   const castsSurfaceShadow = enableSurfaceShadows
@@ -102,6 +95,22 @@ export function LightingRig({
   const shadowExtent = scarShadowView ? 0.105 : 0.022
 
   useFrame(() => {
+    const rake = rakeRef.current
+    if (rake !== null) {
+      const scar =
+        (scarShadowView && firstStrikePresentation.phase !== 'impact-flash') ||
+        residualScarLight ||
+        firstStrikePresentation.phase === 'orbital-pullback' ||
+        firstStrikePresentation.phase === 'ending'
+      const playerSurface = !cinematicReadability && closeViewShadows && !scar
+      rake.intensity = counterstrikeReadLight ? 0.85 : scar ? 2.4 : playerSurface ? 1.6 : 0
+      // Fixed in the site's tangent frame, independent of camera motion.
+      rake.position.copy(targetPosition)
+        .addScaledVector(activeEast, playerSurface ? 0.08 : -0.14)
+        .addScaledVector(activeSouth, playerSurface ? 0.14 : 0.055)
+        .addScaledVector(activeUp, playerSurface ? 0.08 : 0.035)
+      if (targetRef.current !== null) rake.target = targetRef.current
+    }
     const eventLight = eventLightRef.current
     if (eventLight === null) return
 
@@ -116,33 +125,18 @@ export function LightingRig({
         : '#ffe0c4',
     )
 
+    if (counterstrikeReadLight) {
+      eventLight.intensity = 0
+      return
+    }
+
     if (closeReadLight) {
-      const counterstrikeReadLightEast =
-        (closeReadLightLocalPosition?.xM ?? 0) *
-        LOCAL_METRES_TO_RENDER_UNITS
-      const counterstrikeReadLightSouth =
-        (closeReadLightLocalPosition?.zM ?? 0) *
-        LOCAL_METRES_TO_RENDER_UNITS
-      eventLight.distance = counterstrikeReadLight
-        ? COUNTERSTRIKE_READ_LIGHT_DISTANCE
-        : 0.065
-      eventLight.position
-        .copy(targetPosition)
-        .addScaledVector(
-          activeUp,
-          counterstrikeReadLight ? COUNTERSTRIKE_READ_LIGHT_UP : 0.016,
-        )
-        .addScaledVector(
-          activeEast,
-          counterstrikeReadLight ? counterstrikeReadLightEast : 0.014,
-        )
-        .addScaledVector(
-          activeSouth,
-          counterstrikeReadLight ? counterstrikeReadLightSouth : 0.012,
-        )
-      eventLight.intensity = counterstrikeReadLight
-        ? COUNTERSTRIKE_READ_LIGHT_INTENSITY
-        : 0.034
+      eventLight.distance = 0.065
+      eventLight.position.copy(targetPosition)
+        .addScaledVector(activeUp, 0.016)
+        .addScaledVector(activeEast, 0.014)
+        .addScaledVector(activeSouth, 0.012)
+      eventLight.intensity = 0.034
       return
     }
 
@@ -179,38 +173,7 @@ export function LightingRig({
       firstStrikePresentation.phase === 'ending' ||
       residualScarLight
     ) {
-      eventLight.distance =
-        firstStrikePresentation.phase === 'orbital-pullback' ||
-        firstStrikePresentation.phase === 'ending' ||
-        firstStrikePresentation.phase === 'scar-explore' ||
-        residualScarLight
-          ? 0.085
-          : 0.18
-      eventLight.position
-        .copy(targetPosition)
-        .addScaledVector(activeUp, 0.035)
-        .addScaledVector(activeEast, 0.038)
-        .addScaledVector(activeSouth, -0.022)
-
-      switch (firstStrikePresentation.phase) {
-        case 'ejecta':
-          eventLight.intensity = 0.05 - progress * 0.02
-          break
-        case 'crater-reveal':
-          eventLight.intensity = 0.065 - progress * 0.025
-          break
-        case 'orbital-pullback':
-          eventLight.intensity = 0.024 - progress * 0.012
-          break
-        case 'scar-explore':
-          eventLight.intensity = 0.05
-          break
-        case 'ending':
-          eventLight.intensity = 0.014
-          break
-        default:
-          eventLight.intensity = 0.016
-      }
+      eventLight.intensity = 0
       return
     }
 
@@ -254,6 +217,7 @@ export function LightingRig({
         intensity={castsSurfaceShadow ? 2.55 : 2.85}
         position={lightPosition}
       />
+      <directionalLight ref={rakeRef} color="#b5b9bd" intensity={0} />
       <pointLight
         ref={eventLightRef}
         color="#ffe0c4"

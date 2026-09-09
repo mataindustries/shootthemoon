@@ -59,8 +59,10 @@ function deterministicVariation(index: number, salt: number): number {
   return Math.sin(index * 12.9898 + salt * 78.233) * 0.5 + 0.5
 }
 
-function createCraterGeometry(): BufferGeometry {
-  const positions: number[] = [0, -1.36, 0]
+export function createCounterstrikeCraterGeometry(
+  terrain: SurfaceTerrainProfile, segments: number, offset: { xM: number; zM: number },
+): BufferGeometry {
+  const positions: number[] = [0, 0.025, 0]
   const colors: number[] = []
   const indices: number[] = []
   const floorColor = new Color(VISUAL_PALETTE.damageFloor).multiplyScalar(0.56)
@@ -84,11 +86,15 @@ function createCraterGeometry(): BufferGeometry {
             : 7.7 + irregularity * 0.72
       const height =
         ring === 0
-          ? -0.82 + irregularity * 0.12
+          ? 0.08 + Math.abs(irregularity) * 0.1
           : ring === 1
-            ? 0.48 + irregularity * 0.36
-            : 0.02 + irregularity * 0.08
-      positions.push(Math.cos(angle) * radius, height, Math.sin(angle) * radius)
+            ? (index % 7 === 0 ? 0.48 : 1.38) + irregularity * 0.46
+            : 0.025 + Math.abs(irregularity) * 0.08
+      const x = Math.cos(angle) * radius
+      const z = Math.sin(angle) * radius
+      const center = sampleRenderedSurface(terrain, segments, offset.xM, offset.zM)
+      const surface = sampleRenderedSurface(terrain, segments, offset.xM + x * DAMAGE_MODEL_SCALE, offset.zM + z * DAMAGE_MODEL_SCALE)
+      positions.push(x, height + (surface.y - center.y) / (LOCAL_METRES_TO_RENDER_UNITS * DAMAGE_MODEL_SCALE), z)
       const color = ringColors[ring]!
       colors.push(color.r, color.g, color.b)
     }
@@ -171,7 +177,7 @@ export function CounterstrikeDamage({
     () => sampleRenderedSurface(terrain, segments, offset.xM, offset.zM),
     [offset.xM, offset.zM, segments, terrain],
   )
-  const craterGeometry = useMemo(createCraterGeometry, [])
+  const craterGeometry = useMemo(() => createCounterstrikeCraterGeometry(terrain, segments, offset), [terrain, segments, offset.xM, offset.zM])
   const rockGeometry = useMemo(() => new IcosahedronGeometry(1, 0), [])
   const debrisGeometry = useMemo(() => new BoxGeometry(1, 1, 1), [])
   const flashGeometry = useMemo(() => new SphereGeometry(1, 12, 8), [])
@@ -183,6 +189,7 @@ export function CounterstrikeDamage({
         emissive: VISUAL_PALETTE.damageEmber,
         emissiveIntensity: 0.04,
         vertexColors: true,
+        flatShading: true,
         ...MATERIAL_RESPONSE.contact,
       }),
     [],
@@ -487,7 +494,7 @@ export function CounterstrikeDamage({
             name="counterstrike-permanent-damage-field"
             visible={!transientImpact}
           >
-            <mesh geometry={craterGeometry} material={craterMaterial} />
+            <mesh geometry={craterGeometry} material={craterMaterial} receiveShadow />
             <instancedMesh
               ref={ejectaChunksRef}
               args={[rockGeometry, ejectaMaterial, EJECTA_CHUNK_COUNT]}

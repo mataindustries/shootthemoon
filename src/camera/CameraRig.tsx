@@ -62,6 +62,7 @@ import {
   COUNTERSTRIKE_CAMERA_SAFETY,
   createCounterstrikeCameraPlan,
   sampleCounterstrikeImpactCamera,
+  sampleCounterstrikeInterceptionCamera,
   type CounterstrikeCameraPlan,
 } from './counterstrikeCameraPlan.ts'
 import {
@@ -229,14 +230,17 @@ function localPointToWorld(
     .add(transform.position)
 }
 
-function getSurfaceCameraPose(
+export function getSurfaceCameraPose(
   site: LandingSite,
   terrain: SurfaceTerrainProfile | null,
   terrainSegments: number,
+  hasSilo = false,
 ): SurfaceCameraPose {
   const transform = landingSiteToRenderTransform(site)
+  // The higher silo view separates roofs from deposit hit areas and leaves
+  // the foreground structure above the operations panel on portrait phones.
   const targetXM = 1.6
-  const targetZM = -7.5
+  const targetZM = hasSilo ? 11.5 : -7.5
   const targetGround =
     terrain === null
       ? LOCAL_SURFACE_RENDER_OFFSET
@@ -247,16 +251,16 @@ function getSurfaceCameraPose(
           targetZM,
         ).y
 
-  return {
-    position: localPointToWorld(site, 0.00115, 0.00255, 0.0043),
-    target: localPointToWorld(
-      site,
-      targetXM * LOCAL_METRES_TO_RENDER_UNITS,
-      targetGround + 1.05 * LOCAL_METRES_TO_RENDER_UNITS,
-      targetZM * LOCAL_METRES_TO_RENDER_UNITS,
-    ),
-    up: transform.up.clone(),
-  }
+  const target = localPointToWorld(
+    site,
+    targetXM * LOCAL_METRES_TO_RENDER_UNITS,
+    targetGround + 1.05 * LOCAL_METRES_TO_RENDER_UNITS,
+    targetZM * LOCAL_METRES_TO_RENDER_UNITS,
+  )
+  const position = localPointToWorld(
+    site, 0.00115, hasSilo ? 0.0056 : 0.00255, hasSilo ? 0.0078 : 0.0043,
+  )
+  return { position, target, up: transform.up.clone() }
 }
 
 function getSurfaceFocusKind(
@@ -324,15 +328,22 @@ function getSurfaceFocusPose(
     focusPosition.xM,
     focusPosition.zM,
   )
+  // A side view relative to the rover heading exposes the muzzle and contact
+  // instead of looking through the rover from its rear.
   const offsetX =
-    kind === 'mining' ? 0.00128 : extractorFocus ? 0.00028 : 0.00124
+    kind === 'mining'
+      ? Math.cos(kinematics.headingRad) * 0.00128 + Math.sin(kinematics.headingRad) * 0.00025
+      : extractorFocus ? 0.00028 : 0.00124
   const offsetY =
     kind === 'mining' ? 0.00085 : extractorFocus ? 0.00068 : 0.00134
   const offsetZ =
-    kind === 'mining' ? 0.00056 : extractorFocus ? 0.00122 : 0.00248
+    kind === 'mining'
+      ? -Math.sin(kinematics.headingRad) * 0.00128 + Math.cos(kinematics.headingRad) * 0.00025
+      : extractorFocus ? 0.00122 : 0.00248
   const targetY =
     ground.y +
-    (extractorFocus ? 1.25 : 0.9) * LOCAL_METRES_TO_RENDER_UNITS
+    // Keep the drill contact above the operations panel while mining.
+    (kind === 'mining' ? -1.4 : extractorFocus ? 1.25 : 0.9) * LOCAL_METRES_TO_RENDER_UNITS
 
   return {
     position: localPointToWorld(
@@ -578,7 +589,6 @@ export function CameraRig({
     useRef<ConfiguredCounterstrikePresentation | null>(null)
   const strikeJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
   const strikePlanRef = useRef<StrikeCameraPlan | null>(null)
-  const counterstrikeJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
   const counterstrikePlanRef = useRef<CounterstrikeCameraPlan | null>(null)
   const savedRivalJourneyStartRef = useRef<SavedRivalJourneyStart | null>(
     null,
@@ -652,7 +662,7 @@ export function CameraRig({
     }
 
     const viewportKey = `${viewportSize.width}x${viewportSize.height}`
-    const counterstrikeKey = `${counterstrikeRun.status}:${counterstrikeRun.attemptNumber}:${counterstrikeRun.outcome ?? 'none'}:${counterstrikeRun.replay}`
+    const counterstrikeKey = `${counterstrikeRun.status}:${counterstrikeRun.attemptNumber}:${counterstrikeRun.interceptRouteProgress ?? 'none'}:${counterstrikeRun.outcome ?? 'none'}:${counterstrikeRun.replay}`
 
     if (counterstrikeRun.status !== 'dormant') {
       if (
@@ -677,7 +687,6 @@ export function CameraRig({
       rivalJourneyRef.current = null
       strikeJourneyRef.current = null
       strikePlanRef.current = null
-      counterstrikeJourneyRef.current = null
       counterstrikePlanRef.current = null
       controls.enabled = false
       clearOrbitControlsTransientState(controls)
@@ -699,10 +708,10 @@ export function CameraRig({
         rivalSite,
         counterstrikeSecondaryImpactSite,
         camera.aspect,
+        counterstrikeRun.interceptRouteProgress ?? 0.7,
       )
       counterstrikePlanRef.current = plan
       let pose: CameraPose = plan.trackingPose
-      let journey: SafeOrbitalCameraPath | null = null
 
       if (
         counterstrikeRun.status === 'command' ||
@@ -710,10 +719,8 @@ export function CameraRig({
         counterstrikeRun.status === 'warning'
       ) {
         pose = plan.launchPose
-      } else if (counterstrikeRun.status === 'interceptor-launched') {
-        journey = plan.interceptorCamera
-      } else if (counterstrikeRun.status === 'success') {
-        journey = plan.successCamera
+      } else if (counterstrikeRun.status === 'interceptor-launched' || counterstrikeRun.status === 'success') {
+        pose = plan.interceptPose
       } else if (counterstrikeRun.status === 'impact') {
         const beat = sampleCounterstrikeImpactCamera(
           plan,
@@ -748,28 +755,8 @@ export function CameraRig({
         delete gl.domElement.dataset.counterstrikeCameraBeat
       }
 
-      counterstrikeJourneyRef.current = journey
       if (counterstrikeRun.status !== 'impact') {
         applyCounterstrikeProjection(camera, counterstrikeRun)
-      }
-
-      if (journey !== null) {
-        gl.domElement.dataset.cameraPathMinimumRadius =
-          journey.minimumRadius.toFixed(6)
-        journey.sample(
-          getCounterstrikeCameraProgress(
-            counterstrikeRun,
-            performance.now(),
-          ),
-          temporaryPositionRef.current,
-          temporaryTargetRef.current,
-          temporaryUpRef.current,
-        )
-        pose = {
-          position: temporaryPositionRef.current,
-          target: temporaryTargetRef.current,
-          up: temporaryUpRef.current,
-        }
       }
 
       camera.position.copy(pose.position)
@@ -784,7 +771,6 @@ export function CameraRig({
     const exitedCounterstrike =
       configuredCounterstrikePresentationRef.current !== null
     configuredCounterstrikePresentationRef.current = null
-    counterstrikeJourneyRef.current = null
     counterstrikePlanRef.current = null
     if (exitedCounterstrike) {
       delete gl.domElement.dataset.counterstrikeCameraBeat
@@ -1072,6 +1058,7 @@ export function CameraRig({
         landingSite,
         terrain,
         terrainSegments,
+        outpost?.module?.kind === 'STORAGE_SILO',
       )
       const start = camera.position.clone()
       const end = surfacePose.position
@@ -1143,7 +1130,7 @@ export function CameraRig({
       controls.enabled = true
       controls.enablePan = false
       controls.minDistance = 0.00265
-      controls.maxDistance = 0.0074
+      controls.maxDistance = outpost?.module?.kind === 'STORAGE_SILO' ? 0.012 : 0.0074
       controls.minPolarAngle = 0.48
       controls.maxPolarAngle = 1.43
       controls.rotateSpeed = 0.44
@@ -1154,6 +1141,7 @@ export function CameraRig({
           landingSite,
           terrain,
           terrainSegments,
+          outpost?.module?.kind === 'STORAGE_SILO',
         )
         synchronizeOrbitControls(camera, controls, surfacePose)
       }
@@ -1220,6 +1208,7 @@ export function CameraRig({
     invalidate,
     landingSite,
     orbitalFocusSite,
+    outpost?.module?.kind,
     phase,
     rivalPresentation,
     rivalSite,
@@ -1347,7 +1336,14 @@ export function CameraRig({
         performance.now(),
       )
 
-      if (counterstrikeRun.status === 'impact') {
+      if (counterstrikeRun.status === 'interceptor-launched' || counterstrikeRun.status === 'success') {
+        const plan = counterstrikePlanRef.current
+        if (plan === null) return
+        gl.domElement.dataset.counterstrikeCameraBeat = sampleCounterstrikeInterceptionCamera(
+          plan, counterstrikeRun.status, runProgress, temporaryPositionRef.current,
+          temporaryTargetRef.current, temporaryUpRef.current,
+        )
+      } else if (counterstrikeRun.status === 'impact') {
         const plan = counterstrikePlanRef.current
         if (plan === null) {
           updateCameraDataset(camera, controls)
@@ -1363,17 +1359,8 @@ export function CameraRig({
         gl.domElement.dataset.counterstrikeCameraBeat = beat
         applyCounterstrikeImpactProjection(camera)
       } else {
-        const journey = counterstrikeJourneyRef.current
-        if (journey === null) {
-          updateCameraDataset(camera, controls)
-          return
-        }
-        journey.sample(
-          runProgress,
-          temporaryPositionRef.current,
-          temporaryTargetRef.current,
-          temporaryUpRef.current,
-        )
+        updateCameraDataset(camera, controls)
+        return
       }
       camera.position.copy(temporaryPositionRef.current)
       camera.up.copy(temporaryUpRef.current)

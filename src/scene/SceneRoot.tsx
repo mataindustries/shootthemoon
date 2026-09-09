@@ -410,11 +410,6 @@ export function SceneRoot({
             ? VISUAL_PALETTE.damageEmber
             : undefined
         }
-        closeReadLightLocalPosition={
-          counterstrikeFailureVisible
-            ? outpost?.extractor?.position
-            : undefined
-        }
         firstStrikePresentation={firstStrikePresentation}
         residualScarLight={completedScarOrbit}
         surfaceHeight={
@@ -452,11 +447,12 @@ export function SceneRoot({
       {outpost !== null &&
       (phase === 'orbit' || phase === 'selected') &&
       !strikePresentationActive &&
-      !counterstrikePresentationActive &&
+      (!counterstrikePresentationActive || counterstrikeRun.status === 'interceptor-launched' || counterstrikeRun.status === 'success') &&
       !rivalCloseFocus ? (
         <OutpostSignal
           outpost={outpost}
           focused={phase === 'selected'}
+          interactive={!counterstrikePresentationActive}
           onFocus={onFocusOutpost}
         />
       ) : null}

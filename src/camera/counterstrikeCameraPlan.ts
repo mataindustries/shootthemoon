@@ -12,6 +12,7 @@ import {
 } from './orbitalCameraPath.ts'
 import {
   createCounterstrikeRoute,
+  createInterceptorRoute,
   type CounterstrikeRoute,
 } from './counterstrikeRoute.ts'
 import { createStrikeCameraPlan } from './strikeCameraPlan.ts'
@@ -126,6 +127,8 @@ export function createCounterstrikeCameraPlan(
   rivalSite: LandingSite,
   secondaryImpactSite: LandingSite,
   aspect: number,
+  interceptRouteProgress = 0.7,
+  threatProgressStart = Math.max(0.12, interceptRouteProgress - 0.07),
 ): CounterstrikeCameraPlan {
   if (!Number.isFinite(aspect) || aspect <= 0) {
     throw new RangeError('Counterstrike camera aspect must be positive and finite.')
@@ -166,30 +169,42 @@ export function createCounterstrikeCameraPlan(
     target: new Vector3(0, 0, 0),
     up: WORLD_UP.clone(),
   }
-  const interceptPoint = route.getRenderPoint(0.7)
-  const interceptDirection = route.getDirection(0.7)
-  const interceptSide = interceptDirection
-    .clone()
-    .cross(COUNTERSTRIKE_CAMERA_ARC)
-  if (interceptSide.lengthSq() < 1e-10) {
-    interceptSide.set(0, 1, 0).cross(interceptDirection)
+  const interceptPoint = route.getRenderPoint(interceptRouteProgress)
+  const interceptorRoute = createInterceptorRoute(playerSite, route, interceptRouteProgress)
+  // One explicit side view covers the entire actual engagement. Its vertical
+  // axis follows the route, using portrait height instead of wasting width.
+  const interceptDirection = player.up.clone().add(route.getDirection(interceptRouteProgress)).normalize()
+  const interceptSide = player.up.clone().cross(route.getDirection(interceptRouteProgress)).normalize()
+  const view = interceptDirection.clone().addScaledVector(interceptSide, 0.22).normalize()
+  const up = interceptPoint.clone().sub(player.position)
+    .addScaledVector(view, -interceptPoint.clone().sub(player.position).dot(view)).normalize()
+  if (!narrow) up.cross(view).normalize()
+  const right = up.clone().cross(view).normalize()
+  const points = [player.position.clone(), interceptPoint.clone()]
+  for (let index = 0; index <= 48; index++) {
+    const t = index / 48
+    points.push(interceptorRoute.getRenderPoint(t))
+    points.push(route.getRenderPoint(MathUtils.lerp(threatProgressStart, interceptRouteProgress, t)))
   }
-  interceptSide.normalize()
+  const target = player.position.clone().lerp(interceptPoint, 0.5)
+  const tanY = Math.tan(MathUtils.degToRad(narrow ? 56 : 40) / 2)
+  let distance = 0.25
+  for (const point of points) {
+    const offset = point.clone().sub(target)
+    // Include the exaggerated missile silhouettes and initial debris flash.
+    distance = Math.max(distance, offset.dot(view) + Math.max(
+      (Math.abs(offset.dot(right)) + 0.055) / (tanY * aspect * 0.76),
+      (Math.abs(offset.dot(up)) + 0.055) / (tanY * 0.68),
+    ))
+  }
   const interceptPose: CameraPose = {
-    position: interceptPoint
-      .clone()
-      .addScaledVector(interceptDirection, narrow ? 0.32 : 0.24)
-      .addScaledVector(interceptSide, narrow ? 0.52 : 0.4),
-    target: interceptPoint.clone(),
-    up: WORLD_UP.clone(),
+    position: target.clone().addScaledVector(view, distance), target, up,
   }
-  const successDirection = interceptPoint.clone().normalize()
   const successPose: CameraPose = {
-    position: successDirection
-      .multiplyScalar(narrow ? 3.9 : 3.15)
-      .addScaledVector(interceptSide, narrow ? 0.32 : 0.24),
-    target: new Vector3(0, 0, 0),
-    up: WORLD_UP.clone(),
+    position: interceptPose.position.clone().sub(interceptPose.target)
+      .multiplyScalar(2.8).add(interceptPose.target),
+    target: interceptPose.target.clone(),
+    up: interceptPose.up.clone(),
   }
   const playerSurfacePosition = player.position
     .clone()
@@ -269,11 +284,11 @@ export function createCounterstrikeCameraPlan(
     arcHeight: 0.08,
   })
   const interceptorCamera = createSafeOrbitalCameraPath({
-    start: trackingPose,
+    start: interceptPose,
     end: interceptPose,
     minimumRadius: COUNTERSTRIKE_CAMERA_SAFETY.interceptMinimumRadius,
     preferredArcDirection: COUNTERSTRIKE_CAMERA_ARC,
-    arcHeight: 0.06,
+    arcHeight: 0,
   })
   const successCamera = createSafeOrbitalCameraPath({
     start: interceptPose,
@@ -320,4 +335,28 @@ export function createCounterstrikeCameraPlan(
     impactMediumCamera,
     damageRevealCamera,
   }
+}
+
+// Presentation-only hold; the success simulation and effect clocks are unchanged.
+export const COUNTERSTRIKE_INTERCEPTION_HOLD_MS = 1_000
+export function sampleCounterstrikeInterceptionCamera(
+  plan: CounterstrikeCameraPlan,
+  status: 'interceptor-launched' | 'success',
+  progress: number,
+  position: Vector3,
+  target: Vector3,
+  up: Vector3,
+): 'interception-flight' | 'interception-hold' | 'interception-pullback' {
+  const hold = COUNTERSTRIKE_INTERCEPTION_HOLD_MS / COUNTERSTRIKE_TIMING.successMs
+  if (status === 'interceptor-launched' || progress <= hold) {
+    position.copy(plan.interceptPose.position)
+    target.copy(plan.interceptPose.target)
+    up.copy(plan.interceptPose.up)
+    return status === 'success' ? 'interception-hold' : 'interception-flight'
+  }
+  const t = MathUtils.smoothstep(rangeProgress(progress, hold, 1), 0, 1)
+  position.lerpVectors(plan.interceptPose.position, plan.successPose.position, t)
+  target.copy(plan.interceptPose.target)
+  up.copy(plan.interceptPose.up)
+  return 'interception-pullback'
 }

@@ -28,6 +28,9 @@ interface RenderMetrics {
 }
 
 interface RunDetail {
+  readonly threatProgressStart?: number
+  readonly threatProgressEnd?: number
+  readonly interceptRouteProgress?: number
   readonly status: string
   readonly progress?: number
   readonly attemptNumber?: 0 | 1 | 2
@@ -1023,4 +1026,70 @@ test('records a paced survived Counterstrike', async ({ page }) => {
     await page.close()
     await video.saveAs(`${RECORDING_DIRECTORY}/counterstrike-failure.webm`)
   }
+})
+
+test('focused hero interception frames both missiles and outpost through direct contact', async ({ page }) => {
+  test.setTimeout(240_000)
+  const errors = watchBrowserErrors(page)
+  await openScene(page, createCompletedStrikeSave())
+  const canvas = page.locator('canvas')
+  for (const attemptNumber of [1, 2] as const) {
+    await setRun(page, { status: 'intercept-ready', progress: 0.3, attemptNumber, attemptsUsed: attemptNumber === 1 ? 0 : 1 })
+    await setFireElapsed(page, 7_000)
+    await page.getByRole('button', { name: /FIRE INTERCEPTOR/ }).tap()
+    await expect(page.locator('main')).toHaveAttribute('data-counterstrike-state', 'interceptor-launched')
+    await expect(page.locator('main')).toHaveAttribute('data-counterstrike-judgement', 'VALID')
+    const endpoint = attemptNumber === 1 ? 0.54 : 0.88
+    for (const progress of [0, 0.25, 0.5, 0.8, 0.99]) {
+      await setRun(page, {
+        status: 'interceptor-launched', attemptNumber, attemptsUsed: attemptNumber,
+        judgement: 'VALID', progress,
+        threatProgressStart: endpoint - 0.045, threatProgressEnd: endpoint,
+        interceptRouteProgress: endpoint,
+      })
+      await expect(canvas).toHaveAttribute('data-counterstrike-camera-beat', 'interception-flight')
+      await expect(canvas).toHaveAttribute('data-counterstrike-route-progress', (endpoint - 0.045 + progress * 0.045).toFixed(6))
+      const points = JSON.parse((await canvas.getAttribute('data-hero-framing'))!) as Record<string, number[]>
+      for (const name of ['null-meridian-counterstrike-missile', 'player-orbital-interceptor', 'orbital-outpost-signal']) {
+        expect(points[name], name).toBeDefined()
+        expect(Math.abs(points[name]![0]!)).toBeLessThan(0.85)
+        expect(Math.abs(points[name]![1]!)).toBeLessThan(0.8)
+        expect(points[name]![2]!).toBeLessThan(1)
+      }
+    }
+    const position = await canvas.getAttribute('data-camera-x')
+    for (const progress of [0, 0.075, 0.15]) {
+      await setRun(page, { status: 'success', judgement: 'VALID', outcome: 'SUCCESS', progress,
+        interceptRouteProgress: endpoint })
+      await expect(canvas).toHaveAttribute('data-counterstrike-camera-beat', 'interception-hold')
+      expect(Number(await canvas.getAttribute('data-camera-x'))).toBeCloseTo(Number(position), 6)
+      const points = JSON.parse((await canvas.getAttribute('data-hero-framing'))!) as Record<string, number[]>
+      expect(Math.abs(points['counterstrike-orbital-breakup']![0]!)).toBeLessThan(0.85)
+      expect(Math.abs(points['counterstrike-orbital-breakup']![1]!)).toBeLessThan(0.8)
+    }
+    await mkdir('artifacts/screenshots/hero-polish', { recursive: true })
+    await page.screenshot({ path: `artifacts/screenshots/hero-polish/interception-${attemptNumber}.png` })
+    await setRun(page, { status: 'success', outcome: 'SUCCESS', progress: 0.5, interceptRouteProgress: endpoint })
+    await expect(canvas).toHaveAttribute('data-counterstrike-camera-beat', 'interception-pullback')
+  }
+  expect(errors.console).toEqual([])
+  expect(errors.page).toEqual([])
+})
+
+test('focused hero scars retain depth and readable debris without circular fill', async ({ page }) => {
+  test.setTimeout(120_000)
+  const errors = watchBrowserErrors(page)
+  await openScene(page, createCompletedStrikeSave())
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('first-strike:set-presentation', {
+    detail: { phase: 'scar-explore', progress: 1, replay: true },
+  })))
+  await mkdir('artifacts/screenshots/hero-polish', { recursive: true })
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'artifacts/screenshots/hero-polish/lunar-scar.png' })
+  await setRun(page, { status: 'impact', progress: 0.7, outcome: 'FAILURE', attemptsUsed: 2 })
+  await expect(page.locator('canvas')).toHaveAttribute('data-counterstrike-camera-beat', 'damage-hold')
+  await page.screenshot({ path: 'artifacts/screenshots/hero-polish/outpost-scar.png' })
+  expect(Number(await page.locator('canvas').getAttribute('data-draw-calls'))).toBeLessThanOrEqual(80)
+  expect(errors.console).toEqual([])
+  expect(errors.page).toEqual([])
 })

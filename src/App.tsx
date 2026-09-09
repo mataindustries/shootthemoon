@@ -461,6 +461,9 @@ function App() {
       const detail = (
         event as CustomEvent<{
           readonly status: unknown
+          readonly threatProgressStart?: number
+          readonly threatProgressEnd?: number
+          readonly interceptRouteProgress?: number
           readonly progress?: number
           readonly attemptNumber?: 0 | 1 | 2
           readonly attemptsUsed?: 0 | 1 | 2
@@ -510,9 +513,9 @@ function App() {
           outcome: detail.outcome ?? null,
           order: detail.order ?? current.order,
           replay: detail.replay ?? current.replay,
-          threatProgressStart:
-            attemptNumber === 2 ? 0.66 : status === 'warning' ? 0 : 0.08,
-          threatProgressEnd:
+          threatProgressStart: detail.threatProgressStart ?? (
+            attemptNumber === 2 ? 0.66 : status === 'warning' ? 0 : 0.08),
+          threatProgressEnd: detail.threatProgressEnd ?? (
             status === 'warning'
               ? 0.08
               : attemptNumber === 2
@@ -521,13 +524,13 @@ function App() {
                   : 0.78
                 : status === 'intercept-ready'
                   ? 0.58
-                  : 0.4,
-          interceptRouteProgress:
+                  : 0.4),
+          interceptRouteProgress: detail.interceptRouteProgress ?? (
             status === 'success' ||
             status === 'resolved' ||
             status === 'interceptor-launched'
               ? current.interceptRouteProgress ?? 0.7
-              : null,
+              : null),
         }
         const durationMs = getCounterstrikeRunDurationMs(base)
         const progress = Math.max(0, Math.min(1, detail.progress ?? 0))

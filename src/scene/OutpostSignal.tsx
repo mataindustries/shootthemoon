@@ -18,6 +18,7 @@ const TAP_DISTANCE_PX = 10
 
 interface OutpostSignalProps {
   readonly outpost: OutpostSnapshot
+  readonly interactive?: boolean
   readonly focused: boolean
   readonly onFocus: () => void
 }
@@ -25,6 +26,7 @@ interface OutpostSignalProps {
 export function OutpostSignal({
   outpost,
   focused,
+  interactive = true,
   onFocus,
 }: OutpostSignalProps) {
   const groupRef = useRef<Group>(null)
@@ -92,7 +94,7 @@ export function OutpostSignal({
     const facesCamera =
       position.dot(event.camera.position) > position.lengthSq() - 0.0004
 
-    if (!facesCamera || event.delta > TAP_DISTANCE_PX) {
+    if (!interactive || !facesCamera || event.delta > TAP_DISTANCE_PX) {
       return
     }
 

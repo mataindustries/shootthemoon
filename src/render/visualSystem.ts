@@ -11,6 +11,8 @@ export const VISUAL_PALETTE = Object.freeze({
   lunarSunlit: '#aaa8a1',
 
   playerArmor: '#13171a',
+  playerComposite: '#59636b',
+  playerLaserCore: '#e7c9a0',
   playerSteel: '#30363a',
   playerHeatDark: '#382720',
   playerAmberPanel: '#7d351b',
@@ -39,6 +41,7 @@ export const VISUAL_PALETTE = Object.freeze({
 
 export const MATERIAL_RESPONSE = Object.freeze({
   lunar: Object.freeze({ metalness: 0, roughness: 0.98 }),
+  playerComposite: Object.freeze({ metalness: 0.28, roughness: 0.54 }),
   playerArmor: Object.freeze({ metalness: 0.38, roughness: 0.68 }),
   playerSteel: Object.freeze({ metalness: 0.46, roughness: 0.56 }),
   playerHeatDark: Object.freeze({ metalness: 0.34, roughness: 0.74 }),

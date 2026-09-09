@@ -28,7 +28,7 @@ export const PERMANENT_SCAR_CLEARANCE = 0.000012
 export const PERMANENT_SCAR_VERTICAL_SCALE = 0.012
 export const PERMANENT_SCAR_FLOOR_HEIGHT =
   PERMANENT_SCAR_CLEARANCE + 0.00002
-export const PERMANENT_SCAR_DEPTH = 0.000388
+export const PERMANENT_SCAR_DEPTH = 0.00052
 const CRATER_SECTORS = 42
 const WRECKAGE_COUNT = 7
 const RUBBLE_COUNT = 16
@@ -54,9 +54,9 @@ const CRATER_RINGS: readonly CraterRing[] = Object.freeze([
   { radius: 0.22, lift: 0.00003, color: VISUAL_PALETTE.damageFloor, irregularity: 0.08 },
   { radius: 0.45, lift: 0.000045, color: VISUAL_PALETTE.damageChar, irregularity: 0.075 },
   { radius: 0.64, lift: 0.0003, color: VISUAL_PALETTE.damageHeat, irregularity: 0.08 },
-  { radius: 0.8, lift: 0.0017, color: VISUAL_PALETTE.damageRim, irregularity: 0.1 },
-  { radius: 0.98, lift: 0.00055, color: VISUAL_PALETTE.damageRim, irregularity: 0.085 },
-  { radius: 1.14, lift: 0.000018, color: VISUAL_PALETTE.damageChar, irregularity: 0.1 },
+  { radius: 0.8, lift: 0.00265, color: VISUAL_PALETTE.damageRim, irregularity: 0.1 },
+  { radius: 0.98, lift: 0.00072, color: VISUAL_PALETTE.damageRim, irregularity: 0.085 },
+  { radius: 1.14, lift: 0.000018, color: VISUAL_PALETTE.damageChar, irregularity: 0.18 },
 ])
 
 /** Height of the unit Moon beneath a point in the site's tangent frame. */
@@ -153,7 +153,7 @@ export function createCraterGeometry(
       const z = Math.sin(angle) * radius * PERMANENT_SCAR_RADIUS
       const liftNoise =
         heightNoise[ringIndex]![wrapped]! *
-        (ringIndex === 3 ? 0.000075 : 0.000018)
+        (ringIndex === 3 ? 0.00032 : 0.000018)
       const lift = Math.max(
         PERMANENT_SCAR_CLEARANCE,
         ring.lift * breakFactor + liftNoise,
@@ -162,7 +162,7 @@ export function createCraterGeometry(
       appendColor(
         colors,
         baseColor,
-        1 + heightNoise[ringIndex]![wrapped]! * 0.1,
+        1 + heightNoise[ringIndex]![wrapped]! * 0.18,
       )
     }
   })
@@ -374,12 +374,13 @@ export function PermanentLunarScar({
   const craterMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: '#b8b3ad',
+        color: '#ffffff',
         ...MATERIAL_RESPONSE.lunar,
         polygonOffset: true,
         polygonOffsetFactor: -1,
         polygonOffsetUnits: -1,
         side: DoubleSide,
+        flatShading: true,
         vertexColors: true,
       }),
     [],
@@ -484,7 +485,7 @@ export function PermanentLunarScar({
       dummy.rotation.set(random() * Math.PI, random() * Math.PI, random() * Math.PI)
       dummy.scale.set(
         size * 1.4 * PERMANENT_SCAR_RADIUS,
-        size * 0.72 * PERMANENT_SCAR_VERTICAL_SCALE,
+        size * 1.4 * PERMANENT_SCAR_VERTICAL_SCALE,
         size * PERMANENT_SCAR_RADIUS,
       )
       dummy.updateMatrix()
@@ -506,7 +507,7 @@ export function PermanentLunarScar({
         scarSurfaceHeight(
           x,
           z,
-          (collapsed ? 0.075 : 0.1 + rimRandom() * 0.045) *
+          (collapsed ? 0.075 : 0.17 + rimRandom() * 0.06) *
             PERMANENT_SCAR_VERTICAL_SCALE,
         ),
         z,
@@ -518,7 +519,7 @@ export function PermanentLunarScar({
       )
       dummy.scale.set(
         (0.05 + rimRandom() * 0.055) * PERMANENT_SCAR_RADIUS,
-        (collapsed ? 0.035 : 0.08 + rimRandom() * 0.06) *
+        (collapsed ? 0.035 : 0.12 + rimRandom() * 0.08) *
           PERMANENT_SCAR_VERTICAL_SCALE,
         (0.1 + rimRandom() * 0.11) * PERMANENT_SCAR_RADIUS,
       )

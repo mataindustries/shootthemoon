@@ -6,7 +6,8 @@ import { createInitialOutpost } from '../simulation/outpostSimulation.ts'
 import { COUNTERSTRIKE_TIMING } from '../simulation/counterstrikeSimulation.ts'
 import { landingSiteToLocalSurfaceRenderPoint, landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
-import { createCounterstrikeCameraPlan, sampleCounterstrikeImpactCamera, COUNTERSTRIKE_IMPACT_CAMERA_TIMING } from './counterstrikeCameraPlan.ts'
+import { createInterceptorRoute } from './counterstrikeRoute.ts'
+import { COUNTERSTRIKE_INTERCEPTION_HOLD_MS, sampleCounterstrikeInterceptionCamera, createCounterstrikeCameraPlan, sampleCounterstrikeImpactCamera, COUNTERSTRIKE_IMPACT_CAMERA_TIMING } from './counterstrikeCameraPlan.ts'
 import type { CameraPose } from './orbitalCameraPath.ts'
 
 function cameraFor(pose: CameraPose, aspect: number, fov: number) {
@@ -75,5 +76,44 @@ describe.each([320 / 568, 390 / 844, 844 / 390])('Counterstrike composition at a
     expect(pose.position.toArray()).toEqual(plan.impactWidePose.position.toArray())
     expect(plan.damagePose.position.distanceTo(plan.damagePose.target)).toBeGreaterThan(plan.impactWidePose.position.distanceTo(plan.impactWidePose.target))
     expect(plan.damagePose.target.toArray()).toEqual(plan.impactWidePose.target.toArray())
+  })
+})
+
+
+describe.each([320 / 568, 390 / 844, 844 / 390])('direct interception framing at %f', aspect => {
+  it.each(sites)('holds both vehicles and outpost at site %f, %f', (lat, lon) => {
+    const player = createLandingSite(createLunarLocation(lat!, lon!))
+    const rival = createLandingSite(createLunarLocation(-0.61, 2.08))
+    const impact = deriveSecondaryImpactSite(createInitialOutpost(player, 0))
+    for (const endpoint of [0.445, 0.58, 0.66, 0.825, 0.94]) {
+      const plan = createCounterstrikeCameraPlan(player, rival, impact, aspect, endpoint)
+      const interceptor = createInterceptorRoute(player, plan.route, endpoint)
+      const pose = { position: new Vector3(), target: new Vector3(), up: new Vector3() }
+      for (let index = 0; index <= 100; index++) {
+        const progress = index / 100
+        sampleCounterstrikeInterceptionCamera(plan, 'interceptor-launched', progress, pose.position, pose.target, pose.up)
+        const camera = cameraFor(pose, aspect, aspect < 0.72 ? 56 : 40)
+        const vehicles = [interceptor.getRenderPoint(progress * progress * (3 - 2 * progress)),
+          plan.route.getRenderPoint(endpoint - 0.07 + progress * 0.07)]
+        for (const point of [...vehicles, landingSiteToRenderTransform(player).position]) {
+          expectInFrame(point, camera)
+          const ray = point.clone().sub(pose.position)
+          const nearest = pose.position.clone().addScaledVector(ray,
+            Math.max(0, Math.min(1, -pose.position.dot(ray) / ray.lengthSq())))
+          expect(nearest.length()).toBeGreaterThanOrEqual(1 - 1e-7)
+        }
+        // Both orbital silhouettes have several visible pixels even on 320px phones.
+        const screenSize = 0.025 / (camera.position.distanceTo(vehicles[0]!) * Math.tan(camera.fov * Math.PI / 360)) * 568 / 2
+        expect(screenSize).toBeGreaterThan(4)
+      }
+      const hold = COUNTERSTRIKE_INTERCEPTION_HOLD_MS / COUNTERSTRIKE_TIMING.successMs
+      for (const progress of [0, hold / 2, hold]) {
+        expect(sampleCounterstrikeInterceptionCamera(plan, 'success', progress, pose.position, pose.target, pose.up)).toBe('interception-hold')
+        expect(pose.position.toArray()).toEqual(plan.interceptPose.position.toArray())
+        expectInFrame(plan.route.getRenderPoint(endpoint), cameraFor(pose, aspect, aspect < 0.72 ? 56 : 40))
+      }
+      expect(sampleCounterstrikeInterceptionCamera(plan, 'success', hold + 0.1, pose.position, pose.target, pose.up)).toBe('interception-pullback')
+      expect(pose.position.distanceTo(pose.target)).toBeGreaterThan(plan.interceptPose.position.distanceTo(plan.interceptPose.target))
+    }
   })
 })
