@@ -874,7 +874,7 @@ canvas {
 }
 
 .operations-return {
-  min-height: 2.1rem;
+  min-height: 2.75rem;
   background: transparent;
   font-size: 0.52rem;
 }
@@ -2931,3 +2931,22 @@ button {
     scrollbar-width: thin;
   }
 }
+
+/* First-run guidance stays in the existing command area, clear of the scene. */
+.command-deck .context-prompt {
+  position: static;
+  padding: 0.55rem 0.7rem;
+  margin: 0;
+  background: rgb(4 8 14 / 90%);
+  color: #e7dbd3;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  justify-content: flex-start;
+}
+.command-deck .context-prompt span { flex-shrink: 0; }
+.orbit-instruction--first-run { flex-wrap: wrap; justify-content: center; }
+.first-run-objective { flex-basis: 100%; color: #f3c29e; text-align: center; letter-spacing: 0.03em; font-size: 0.8rem; }
+.active-deposit { margin: 0; color: #f3c29e; font-size: 0.65rem; line-height: 1.4; }
+.reset-button, .sound-toggle { color: #aebbc9; }
+.phase-label { color: #aebbc9; }
