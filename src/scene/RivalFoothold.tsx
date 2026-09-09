@@ -1,3 +1,4 @@
+import { RivalStructuralPanels } from './RivalStructuralPanels.tsx'
 import {
   useEffect,
   useLayoutEffect,
@@ -676,6 +677,7 @@ export function RivalFoothold({
     <group position={attachment.position} quaternion={attachment.orientation}>
       <group rotation-y={rival.surfaceHeadingRad} scale={visualScale}>
         <group ref={arrivalRef} scale={initialArrivalScale}>
+          <RivalStructuralPanels material={frameMaterial} shadowed={shadowed} />
           <mesh
             castShadow={shadowed}
             geometry={foundationGeometry}

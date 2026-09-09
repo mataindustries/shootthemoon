@@ -1,3 +1,4 @@
+import { RocketContrail, RocketNoseLight, RocketRim } from './RocketContrast.tsx'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
@@ -389,26 +390,43 @@ export function StrikeWarhead({
   return (
     <group ref={warheadRef} visible={firstStrikeShowsWarhead(presentation.phase)}>
       <group ref={modelRef}>
-        <mesh geometry={bodyGeometry} material={bodyMaterial} castShadow />
+        <RocketNoseLight y={6.85} />
+        {Array.from({ length: 4 }, (_, index) => {
+          const angle = index * Math.PI * 2 / 4
+          return <group key={index}
+            position={[Math.sin(angle) * 0.9, -2.56, Math.cos(angle) * 0.9]}
+            rotation={[0, angle, index % 2 === 0 ? 0.05 : -0.05]}>
+            <RocketRim geometry={finGeometry} />
+          </group>
+        })}
+        <mesh geometry={bodyGeometry} material={bodyMaterial} castShadow>
+          <RocketRim geometry={bodyGeometry} />
+        </mesh>
         <mesh
           geometry={shoulderGeometry}
           material={armorMaterial}
           position-y={3.68}
           castShadow
-        />
+        >
+          <RocketRim geometry={shoulderGeometry} />
+        </mesh>
         <mesh
           geometry={noseGeometry}
           material={heatMaterial}
           position-y={5.58}
           castShadow
-        />
+        >
+          <RocketRim geometry={noseGeometry} />
+        </mesh>
         <mesh geometry={bandGeometry} material={accentMaterial} position-y={-2.08} />
         <mesh
           geometry={bellGeometry}
           material={heatMaterial}
           position-y={-3.73}
           castShadow
-        />
+        >
+          <RocketRim geometry={bellGeometry} />
+        </mesh>
         <mesh geometry={coreGeometry} material={engineMaterial} position-y={-4.43} />
         <instancedMesh
           ref={finsRef}
@@ -420,6 +438,9 @@ export function StrikeWarhead({
           args={[panelGeometry, accentMaterial, PANEL_COUNT]}
         />
         <group ref={flameRef} position-y={-5.04} rotation-z={Math.PI}>
+          <group rotation-z={Math.PI}>
+            <RocketContrail y={-1} length={8} />
+          </group>
           <mesh geometry={outerFlameGeometry} material={outerFlameMaterial} />
           <mesh geometry={innerFlameGeometry} material={innerFlameMaterial} />
         </group>
