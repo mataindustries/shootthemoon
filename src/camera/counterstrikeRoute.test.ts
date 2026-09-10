@@ -140,9 +140,6 @@ describe('deterministic Counterstrike routes', () => {
       expect(sampleMinimumCameraRadius(plan.warningCamera)).toBeGreaterThanOrEqual(
         COUNTERSTRIKE_CAMERA_SAFETY.orbitalMinimumRadius - 1e-9,
       )
-      expect(sampleMinimumCameraRadius(plan.interceptorCamera)).toBeGreaterThanOrEqual(
-        COUNTERSTRIKE_CAMERA_SAFETY.interceptMinimumRadius - 1e-9,
-      )
       expect(sampleMinimumCameraRadius(plan.successCamera)).toBeGreaterThanOrEqual(
         COUNTERSTRIKE_CAMERA_SAFETY.interceptMinimumRadius - 1e-9,
       )

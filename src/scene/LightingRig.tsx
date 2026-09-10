@@ -1,3 +1,5 @@
+import { getCounterstrikeRunProgress, type CounterstrikeRunState } from '../simulation/counterstrikeSimulation.ts'
+import { sampleInterceptEnergy } from './interceptPresentation.ts'
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
@@ -26,6 +28,8 @@ const LAUNCH_LIGHT_CLEARANCE = 0.00152
 const IMPACT_LIGHT_CLEARANCE = 0.00814
 
 interface LightingRigProps {
+  readonly counterstrikeRun?: CounterstrikeRunState
+  readonly orbitalInterceptPosition?: Vector3 | null
   readonly landingSite: LandingSite | null
   readonly strategicFocusSite?: LandingSite | null
   readonly cinematicReadability?: boolean
@@ -38,6 +42,8 @@ interface LightingRigProps {
 }
 
 export function LightingRig({
+  counterstrikeRun,
+  orbitalInterceptPosition,
   landingSite,
   strategicFocusSite = null,
   cinematicReadability = false,
@@ -113,6 +119,15 @@ export function LightingRig({
     }
     const eventLight = eventLightRef.current
     if (eventLight === null) return
+
+    if (counterstrikeRun?.status === 'success' && orbitalInterceptPosition != null) {
+      const energy = sampleInterceptEnergy(getCounterstrikeRunProgress(counterstrikeRun, performance.now()))
+      eventLight.color.set('#ffc280')
+      eventLight.position.copy(orbitalInterceptPosition)
+      eventLight.distance = 1.2
+      eventLight.intensity = energy.surfacePulse * 0.8
+      return
+    }
 
     const closeReadLight =
       counterstrikeReadLight ||

@@ -1,3 +1,4 @@
+import { createCounterstrikeRoute } from '../camera/counterstrikeRoute.ts'
 import { Suspense, useMemo } from 'react'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
@@ -147,6 +148,12 @@ export function SceneRoot({
     // Economic ticks do not move this anchor. A new object here would reset
     // CameraRig's surface pose and interrupt every drag/zoom during production.
     [outpost?.site, outpost?.extractor?.position],
+  )
+  const orbitalInterceptPosition = useMemo(() =>
+    outpost === null || rival === null || secondaryImpactSite === null ? null :
+      createCounterstrikeRoute(outpost.site, rival.site, secondaryImpactSite)
+        .getRenderPoint(counterstrikeRun.interceptRouteProgress ?? 0.7),
+    [outpost?.site, rival?.site, secondaryImpactSite, counterstrikeRun.interceptRouteProgress],
   )
   const rivalTerrainSegments = Math.min(quality.patchSegments, 32)
   const playerSurfaceHeight =
@@ -377,6 +384,8 @@ export function SceneRoot({
         counterstrikeSecondaryImpactSite={secondaryImpactSite}
       />
       <LightingRig
+        counterstrikeRun={counterstrikeRun}
+        orbitalInterceptPosition={orbitalInterceptPosition}
         landingSite={landingSite}
         strategicFocusSite={
           counterstrikePresentationActive
@@ -447,7 +456,7 @@ export function SceneRoot({
       {outpost !== null &&
       (phase === 'orbit' || phase === 'selected') &&
       !strikePresentationActive &&
-      (!counterstrikePresentationActive || counterstrikeRun.status === 'interceptor-launched' || counterstrikeRun.status === 'success') &&
+      (!counterstrikePresentationActive || counterstrikeRun.status === 'interceptor-launched' || counterstrikeRun.status === 'success' || counterstrikeSuccessVisible) &&
       !rivalCloseFocus ? (
         <OutpostSignal
           outpost={outpost}
@@ -476,6 +485,7 @@ export function SceneRoot({
       counterstrikeRun.status !== 'resolved' &&
       counterstrikeRun.status !== 'success' ? (
         <CounterstrikeMissileSystem
+          key={counterstrikeRun.status === 'impact' ? 'terminal' : 'orbital'}
           playerSite={outpost.site}
           rivalSite={rival.site}
           secondaryImpactSite={secondaryImpactSite}

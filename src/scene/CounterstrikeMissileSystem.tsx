@@ -1,7 +1,11 @@
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { InterceptorFrame } from './InterceptorFrame.tsx'
 import { RocketContrail, RocketNoseLight, RocketRim } from './RocketContrast.tsx'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
+  BackSide,
+  EdgesGeometry,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
@@ -137,6 +141,24 @@ export function CounterstrikeMissileSystem({
   const threatNoseGeometry = useMemo(() => new ConeGeometry(0.44, 2.4, 9), [])
   const threatForkGeometry = useMemo(() => new BoxGeometry(0.18, 2.2, 0.46), [])
   const threatFinGeometry = useMemo(() => new BoxGeometry(0.12, 1.8, 1.28), [])
+  // Preserve the three fin silhouettes with two draws instead of six. These
+  // remain ordinary meshes, sharing the existing rim shader variants.
+  const finRims = useMemo(() => {
+    const outlines = []
+    const edges = []
+    for (let index = 0; index < THREAT_FIN_COUNT; index++) {
+      const angle = index * Math.PI * 2 / THREAT_FIN_COUNT
+      const x = Math.sin(angle) * 0.56
+      const z = Math.cos(angle) * 0.56
+      outlines.push(threatFinGeometry.clone().scale(1.08, 1.08, 1.08)
+        .rotateY(angle).translate(x, -2.15, z))
+      edges.push(new EdgesGeometry(threatFinGeometry, 35)
+        .rotateY(angle).translate(x, -2.15, z))
+    }
+    const combined = { outline: mergeGeometries(outlines)!, edges: mergeGeometries(edges)! }
+    for (const geometry of [...outlines, ...edges]) geometry.dispose()
+    return combined
+  }, [threatFinGeometry])
   const threatCoreGeometry = useMemo(
     () => new CylinderGeometry(0.26, 0.3, 0.3, 8),
     [],
@@ -253,6 +275,8 @@ export function CounterstrikeMissileSystem({
 
   useEffect(
     () => () => {
+      finRims.outline.dispose()
+      finRims.edges.dispose()
       corridorGeometry.dispose()
       threatBodyGeometry.dispose()
       threatNoseGeometry.dispose()
@@ -272,12 +296,14 @@ export function CounterstrikeMissileSystem({
       flameMaterial.dispose()
       corridorMaterial.dispose()
       reticleMaterial.dispose()
+      delete gl.domElement.dataset.interceptorFrame
       delete gl.domElement.dataset.counterstrikeThreats
       delete gl.domElement.dataset.counterstrikeInterceptors
       delete gl.domElement.dataset.counterstrikeRouteProgress
       delete gl.domElement.dataset.counterstrikeThreatRadius
       delete gl.domElement.dataset.counterstrikeReticle
     }, [
+      finRims,
       corridorGeometry,
       corridorMaterial,
       flameGeometry,
@@ -317,6 +343,7 @@ export function CounterstrikeMissileSystem({
       return
     }
 
+    if (run.status !== 'interceptor-launched') gl.domElement.dataset.interceptorFrame = 'hidden'
     const clockMs = performance.now()
     const phaseProgress = getCounterstrikeRunProgress(run, clockMs)
     const threatProgress = getCounterstrikeThreatProgress(run, clockMs)
@@ -477,6 +504,7 @@ export function CounterstrikeMissileSystem({
 
   return (
     <group name="counterstrike-orbital-system">
+      {run.status === 'interceptor-launched' ? <InterceptorFrame run={run} /> : null}
       <lineSegments
         geometry={corridorGeometry}
         material={corridorMaterial}
@@ -493,14 +521,12 @@ export function CounterstrikeMissileSystem({
       <group ref={hostileRef} name="null-meridian-counterstrike-missile">
         <group ref={hostileModelRef}>
           <RocketNoseLight y={5.2} rival />
-          {Array.from({ length: 3 }, (_, index) => {
-            const angle = index * Math.PI * 2 / 3
-            return <group key={index}
-              position={[Math.sin(angle) * 0.56, -2.15, Math.cos(angle) * 0.56]}
-              rotation={[0, angle, 0]}>
-              <RocketRim geometry={threatFinGeometry} />
-            </group>
-          })}
+          <mesh geometry={finRims.outline} raycast={() => {}}>
+            <meshBasicMaterial color={VISUAL_PALETTE.rocketRim} side={BackSide} toneMapped />
+          </mesh>
+          <lineSegments geometry={finRims.edges} raycast={() => {}}>
+            <lineBasicMaterial color={VISUAL_PALETTE.rocketRim} toneMapped />
+          </lineSegments>
           <RocketContrail y={-3.2} length={8} rival />
           <mesh geometry={threatBodyGeometry} material={rivalArmorMaterial}>
             <RocketRim geometry={threatBodyGeometry} />

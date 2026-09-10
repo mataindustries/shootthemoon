@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
-import { OUTPOST_STORAGE_KEY } from '../src/persistence/outpostSave.ts'
+import { OUTPOST_SAVE_SCHEMA_VERSION, OUTPOST_STORAGE_KEY } from '../src/persistence/outpostSave.ts'
 import {
   createAcceptedCounterstrikeSave,
   createCompletedStrikeSave,
@@ -268,6 +268,7 @@ async function driveReplaySuccess(page: Page): Promise<void> {
     '7000',
   )
   await advanceRun(page, 'success')
+  await expect(page.locator('canvas')).toHaveAttribute('data-counterstrike-camera-beat', 'interception-hold')
   await advanceRun(page, 'resolved')
   await expect(page.locator('main')).toHaveAttribute(
     'data-counterstrike-replay',
@@ -482,7 +483,7 @@ test('Counterstrike success is touch-fair, persistent, idle, and within budget',
     (key) => JSON.parse(localStorage.getItem(key) ?? '{}'),
     OUTPOST_STORAGE_KEY,
   )
-  expect(persisted.schemaVersion).toBe(6)
+  expect(persisted.schemaVersion).toBe(OUTPOST_SAVE_SCHEMA_VERSION)
   expect(persisted.counterstrike).toMatchObject({
     acceptedOutcome: 'SUCCESS',
     interceptionSucceeded: true,
@@ -522,7 +523,11 @@ test('Counterstrike failure preserves progress and replay replacement is deliber
   test.setTimeout(240_000)
   const errors = watchBrowserErrors(page)
   const samples: Array<{ name: string; metrics: RenderMetrics }> = []
-  await openScene(page, createCompletedStrikeSave())
+  // Isolate presentation/save invariants from the existing entry-time mining
+  // tick. Simulation durations still use the independent performance clock.
+  const fixtureNowMs = Date.now()
+  await page.clock.setFixedTime(fixtureNowMs)
+  await openScene(page, createCompletedStrikeSave(fixtureNowMs))
   const main = page.locator('main')
   const canvas = page.locator('.scene-canvas canvas')
   const before = await page.evaluate(
@@ -1028,53 +1033,103 @@ test('records a paced survived Counterstrike', async ({ page }) => {
   }
 })
 
-test('focused hero interception frames both missiles and outpost through direct contact', async ({ page }) => {
-  test.setTimeout(240_000)
-  const errors = watchBrowserErrors(page)
-  await openScene(page, createCompletedStrikeSave())
-  const canvas = page.locator('canvas')
-  for (const attemptNumber of [1, 2] as const) {
+async function readCinematicFrame(page: Page) {
+  return page.locator('canvas').evaluate((canvas) => ({
+    beat: canvas.dataset.counterstrikeCameraBeat,
+    frame: canvas.dataset.interceptorFrame,
+    routeProgress: canvas.dataset.counterstrikeRouteProgress,
+    cameraX: Number(canvas.dataset.cameraX),
+    points: JSON.parse(canvas.dataset.heroFraming ?? '{}') as Record<string, number[]>,
+    energy: JSON.parse(canvas.dataset.counterstrikeEnergy ?? '{}') as Record<string, number>,
+    metrics: {
+      drawCalls: Number(canvas.dataset.drawCalls),
+      triangles: Number(canvas.dataset.triangles),
+      points: Number(canvas.dataset.points),
+      geometries: Number(canvas.dataset.geometries),
+      textures: Number(canvas.dataset.textures),
+      programs: Number(canvas.dataset.programs),
+      cameraClearance: Number(canvas.dataset.cameraClearance),
+      cameraDistance: Number(canvas.dataset.cameraDistance),
+    },
+  }))
+}
+
+for (const attemptNumber of [1, 2] as const) {
+  test(`focused Counterstrike cinematic attempt ${attemptNumber}: collision hold and safe portrait aftermath`, async ({ page }) => {
+    test.setTimeout(180_000)
+    const errors = watchBrowserErrors(page)
+    await openScene(page, createCompletedStrikeSave())
+    const canvas = page.locator('canvas')
+    const samples: RenderMetrics[] = []
     await setRun(page, { status: 'intercept-ready', progress: 0.3, attemptNumber, attemptsUsed: attemptNumber === 1 ? 0 : 1 })
     await setFireElapsed(page, 7_000)
     await page.getByRole('button', { name: /FIRE INTERCEPTOR/ }).tap()
     await expect(page.locator('main')).toHaveAttribute('data-counterstrike-state', 'interceptor-launched')
     await expect(page.locator('main')).toHaveAttribute('data-counterstrike-judgement', 'VALID')
     const endpoint = attemptNumber === 1 ? 0.54 : 0.88
-    for (const progress of [0, 0.25, 0.5, 0.8, 0.99]) {
+    for (const progress of [0, 0.15, 0.5, 0.95, 0.99]) {
       await setRun(page, {
         status: 'interceptor-launched', attemptNumber, attemptsUsed: attemptNumber,
         judgement: 'VALID', progress,
         threatProgressStart: endpoint - 0.045, threatProgressEnd: endpoint,
         interceptRouteProgress: endpoint,
       })
-      await expect(canvas).toHaveAttribute('data-counterstrike-camera-beat', 'interception-flight')
       await expect(canvas).toHaveAttribute('data-counterstrike-route-progress', (endpoint - 0.045 + progress * 0.045).toFixed(6))
-      const points = JSON.parse((await canvas.getAttribute('data-hero-framing'))!) as Record<string, number[]>
-      for (const name of ['null-meridian-counterstrike-missile', 'player-orbital-interceptor', 'orbital-outpost-signal']) {
-        expect(points[name], name).toBeDefined()
-        expect(Math.abs(points[name]![0]!)).toBeLessThan(0.85)
-        expect(Math.abs(points[name]![1]!)).toBeLessThan(0.8)
-        expect(points[name]![2]!).toBeLessThan(1)
+      const frame = await readCinematicFrame(page)
+      expect(frame.beat).toBe(progress < 0.25 ? 'interceptor-chase' : 'interception-approach')
+      expect(frame.frame).toBe(progress < 0.38 ? 'visible' : 'hidden')
+      for (const name of ['null-meridian-counterstrike-missile', 'player-orbital-interceptor']) {
+        expect(frame.points[name], name).toBeDefined()
+        expect(Math.abs(frame.points[name]![0]!)).toBeLessThan(0.85)
+        expect(Math.abs(frame.points[name]![1]!)).toBeLessThan(0.8)
+        expect(frame.points[name]![2]!).toBeLessThan(1)
+        expect(frame.points[name]![2]!).toBeGreaterThan(-1)
+      }
+      samples.push(frame.metrics)
+      if (progress === 0 || progress === 0.99) {
+        await page.screenshot({ path: `${SCREENSHOT_DIRECTORY}/cinematic-${attemptNumber}-${progress}.png` })
       }
     }
-    const position = await canvas.getAttribute('data-camera-x')
-    for (const progress of [0, 0.075, 0.15]) {
-      await setRun(page, { status: 'success', judgement: 'VALID', outcome: 'SUCCESS', progress,
-        interceptRouteProgress: endpoint })
-      await expect(canvas).toHaveAttribute('data-counterstrike-camera-beat', 'interception-hold')
-      expect(Number(await canvas.getAttribute('data-camera-x'))).toBeCloseTo(Number(position), 6)
-      const points = JSON.parse((await canvas.getAttribute('data-hero-framing'))!) as Record<string, number[]>
-      expect(Math.abs(points['counterstrike-orbital-breakup']![0]!)).toBeLessThan(0.85)
-      expect(Math.abs(points['counterstrike-orbital-breakup']![1]!)).toBeLessThan(0.8)
+    // Cross the production reducer's direct-hit boundary, with a fresh hold.
+    await advanceRun(page, 'success')
+    await expect(canvas).toHaveAttribute('data-counterstrike-camera-beat', 'interception-hold')
+    const position = (await readCinematicFrame(page)).cameraX
+    for (const progress of [0, 0.02, 1_000 / COUNTERSTRIKE_TIMING.successMs]) {
+      await setRun(page, { status: 'success', judgement: 'VALID', outcome: 'SUCCESS', progress, interceptRouteProgress: endpoint })
+      const frame = await readCinematicFrame(page)
+      expect(frame.beat).toBe('interception-hold')
+      expect(frame.cameraX).toBeCloseTo(position, 6)
+      expect(Math.abs(frame.points['counterstrike-orbital-breakup']![0]!)).toBeLessThan(0.85)
+      expect(Math.abs(frame.points['counterstrike-orbital-breakup']![1]!)).toBeLessThan(0.8)
+      expect(frame.energy.core! > 0).toBe(progress < 180 / COUNTERSTRIKE_TIMING.successMs)
+      expect(frame.energy.shellOpacity! > 0).toBe(progress < 760 / COUNTERSTRIKE_TIMING.successMs)
+      expect(frame.energy.surfacePulse! > 0).toBe(progress < 420 / COUNTERSTRIKE_TIMING.successMs)
+      samples.push(frame.metrics)
+      if (progress === 0.02) {
+        await page.screenshot({ path: `${SCREENSHOT_DIRECTORY}/cinematic-impact-${attemptNumber}-${progress}.png` })
+      }
     }
-    await mkdir('artifacts/screenshots/hero-polish', { recursive: true })
-    await page.screenshot({ path: `artifacts/screenshots/hero-polish/interception-${attemptNumber}.png` })
-    await setRun(page, { status: 'success', outcome: 'SUCCESS', progress: 0.5, interceptRouteProgress: endpoint })
-    await expect(canvas).toHaveAttribute('data-counterstrike-camera-beat', 'interception-pullback')
-  }
-  expect(errors.console).toEqual([])
-  expect(errors.page).toEqual([])
-})
+    for (const progress of [0.3, 0.99]) {
+      await setRun(page, { status: 'success', outcome: 'SUCCESS', progress, interceptRouteProgress: endpoint })
+      const frame = await readCinematicFrame(page)
+      expect(frame.beat).toBe('interception-pullback')
+      expect(frame.metrics.cameraClearance).toBeGreaterThan(0.075)
+      samples.push(frame.metrics)
+    }
+    await advanceRun(page, 'resolved')
+    await expect(page.locator('main')).toHaveAttribute('data-render-mode', 'demand')
+    const frame = await readCinematicFrame(page)
+    expect(Math.abs(frame.points['orbital-outpost-signal']![0]!)).toBeLessThan(0.85)
+    expect(Math.abs(frame.points['orbital-outpost-signal']![1]!)).toBeLessThan(0.8)
+    console.log(`COUNTERSTRIKE_CINEMATIC_${attemptNumber}_METRICS ` + JSON.stringify(samples))
+    expect(Math.max(...samples.map(sample => sample.drawCalls))).toBeLessThanOrEqual(45)
+    expect(Math.max(...samples.map(sample => sample.triangles))).toBeLessThanOrEqual(120_000)
+    expect(Math.max(...samples.map(sample => sample.textures))).toBeLessThanOrEqual(6)
+    expect(Math.max(...samples.map(sample => sample.programs))).toBeLessThanOrEqual(24)
+    await expectCleanWebGl(page)
+    expect(errors).toEqual({ console: [], page: [] })
+  })
+}
 
 test('focused hero scars retain depth and readable debris without circular fill', async ({ page }) => {
   test.setTimeout(120_000)
