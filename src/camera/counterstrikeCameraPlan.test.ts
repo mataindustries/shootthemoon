@@ -3,7 +3,7 @@ import { PerspectiveCamera, Vector3 } from 'three'
 import { createLandingSite, createLunarLocation } from '../domain/lunarCoordinates.ts'
 import { deriveSecondaryImpactSite } from '../domain/counterstrike.ts'
 import { createInitialOutpost } from '../simulation/outpostSimulation.ts'
-import { COUNTERSTRIKE_TIMING } from '../simulation/counterstrikeSimulation.ts'
+import { counterstrikeRunReducer, createCounterstrikeRunState, getCounterstrikeRunProgress, COUNTERSTRIKE_TIMING } from '../simulation/counterstrikeSimulation.ts'
 import { landingSiteToLocalSurfaceRenderPoint, landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
 import { createInterceptorRoute } from './counterstrikeRoute.ts'
@@ -81,26 +81,35 @@ describe.each([320 / 568, 390 / 844, 844 / 390])('Counterstrike composition at a
 
 
 describe.each([320 / 568, 390 / 844, 844 / 390])('direct interception framing at %f', aspect => {
-  it.each(sites)('holds both vehicles and outpost at site %f, %f', (lat, lon) => {
+  it.each(sites)('frames both vehicles along the chase and approach at site %f, %f', (lat, lon) => {
     const player = createLandingSite(createLunarLocation(lat!, lon!))
     const rival = createLandingSite(createLunarLocation(-0.61, 2.08))
     const impact = deriveSecondaryImpactSite(createInitialOutpost(player, 0))
     for (const endpoint of [0.445, 0.58, 0.66, 0.825, 0.94]) {
       const plan = createCounterstrikeCameraPlan(player, rival, impact, aspect, endpoint)
       const interceptor = createInterceptorRoute(player, plan.route, endpoint)
+      expect(plan.interceptorRail[0]!.position.distanceTo(interceptor.getRenderPoint(0))).toBeLessThan(0.65)
       const pose = { position: new Vector3(), target: new Vector3(), up: new Vector3() }
       for (let index = 0; index <= 100; index++) {
         const progress = index / 100
         sampleCounterstrikeInterceptionCamera(plan, 'interceptor-launched', progress, pose.position, pose.target, pose.up)
+        expect(pose.position.length()).toBeGreaterThanOrEqual(1.075)
         const camera = cameraFor(pose, aspect, aspect < 0.72 ? 56 : 40)
         const vehicles = [interceptor.getRenderPoint(progress * progress * (3 - 2 * progress)),
           plan.route.getRenderPoint(endpoint - 0.07 + progress * 0.07)]
-        for (const point of [...vehicles, landingSiteToRenderTransform(player).position]) {
+        for (const point of vehicles) {
           expectInFrame(point, camera)
+          if (progress >= 0.8) {
+            // Include the complete physical silhouettes at direct contact.
+            for (const axis of [new Vector3(0.032, 0, 0), new Vector3(0, 0.032, 0), new Vector3(0, 0, 0.032)]) {
+              expectInFrame(point.clone().add(axis), camera)
+              expectInFrame(point.clone().sub(axis), camera)
+            }
+          }
           const ray = point.clone().sub(pose.position)
           const nearest = pose.position.clone().addScaledVector(ray,
             Math.max(0, Math.min(1, -pose.position.dot(ray) / ray.lengthSq())))
-          expect(nearest.length()).toBeGreaterThanOrEqual(1 - 1e-7)
+          expect(nearest.length(), `endpoint ${endpoint} progress ${progress}`).toBeGreaterThanOrEqual(1 - 1e-7)
         }
         // Both orbital silhouettes have several visible pixels even on 320px phones.
         const screenSize = 0.025 / (camera.position.distanceTo(vehicles[0]!) * Math.tan(camera.fov * Math.PI / 360)) * 568 / 2
@@ -114,6 +123,40 @@ describe.each([320 / 568, 390 / 844, 844 / 390])('direct interception framing at
       }
       expect(sampleCounterstrikeInterceptionCamera(plan, 'success', hold + 0.1, pose.position, pose.target, pose.up)).toBe('interception-pullback')
       expect(pose.position.distanceTo(pose.target)).toBeGreaterThan(plan.interceptPose.position.distanceTo(plan.interceptPose.target))
+      for (let index = 0; index <= 100; index++) {
+        sampleCounterstrikeInterceptionCamera(plan, 'success', index / 100, pose.position, pose.target, pose.up)
+        expect(pose.position.length()).toBeGreaterThanOrEqual(1.075 - 1e-8)
+        expectInFrame(plan.route.getRenderPoint(endpoint), cameraFor(pose, aspect, aspect < 0.72 ? 56 : 40))
+      }
+      expectInFrame(landingSiteToRenderTransform(player).position, cameraFor(pose, aspect, aspect < 0.72 ? 56 : 40))
     }
   })
+})
+
+// This crosses the real state-machine boundary, rather than injecting success.
+it.each([1, 2] as const)('direct hit on attempt %i always starts a full impact hold, including delayed frames', attemptNumber => {
+  const player = createLandingSite(createLunarLocation(0.248, -0.684))
+  const rival = createLandingSite(createLunarLocation(-0.61, 2.08))
+  const impact = deriveSecondaryImpactSite(createInitialOutpost(player, 0))
+  for (const replay of [false, true]) {
+    for (const delay of [0, 33, 1_200, 30_000]) {
+      const launched = { ...createCounterstrikeRunState(null, 0),
+        status: 'interceptor-launched' as const, judgement: 'VALID' as const,
+        phaseStartedAtMs: 100, attemptNumber, attemptsUsed: attemptNumber, replay,
+        interceptRouteProgress: 0.58, threatProgressStart: 0.51, threatProgressEnd: 0.58 }
+      const now = 100 + COUNTERSTRIKE_TIMING.launchedValidMs + delay
+      const success = counterstrikeRunReducer(launched, { type: 'advance', clockMs: now })
+      expect(success.status).toBe('success')
+      expect(success.outcome).toBe('SUCCESS')
+      const plan = createCounterstrikeCameraPlan(player, rival, impact, 390 / 844, 0.58, success.threatProgressStart)
+      const pose = { position: new Vector3(), target: new Vector3(), up: new Vector3() }
+      for (const elapsed of [0, 500, 1_000]) {
+        expect(sampleCounterstrikeInterceptionCamera(plan, 'success', getCounterstrikeRunProgress(success, now + elapsed),
+          pose.position, pose.target, pose.up)).toBe('interception-hold')
+      }
+      expect(sampleCounterstrikeInterceptionCamera(plan, 'success', getCounterstrikeRunProgress(success, now + 1_001),
+        pose.position, pose.target, pose.up)).toBe('interception-pullback')
+      expect(launched.status).toBe('interceptor-launched')
+    }
+  }
 })

@@ -662,7 +662,7 @@ export function CameraRig({
     }
 
     const viewportKey = `${viewportSize.width}x${viewportSize.height}`
-    const counterstrikeKey = `${counterstrikeRun.status}:${counterstrikeRun.attemptNumber}:${counterstrikeRun.interceptRouteProgress ?? 'none'}:${counterstrikeRun.outcome ?? 'none'}:${counterstrikeRun.replay}`
+    const counterstrikeKey = `${counterstrikeRun.status}:${counterstrikeRun.attemptNumber}:${counterstrikeRun.interceptRouteProgress ?? 'none'}:${counterstrikeRun.threatProgressStart}:${counterstrikeRun.outcome ?? 'none'}:${counterstrikeRun.replay}`
 
     if (counterstrikeRun.status !== 'dormant') {
       if (
@@ -709,6 +709,7 @@ export function CameraRig({
         counterstrikeSecondaryImpactSite,
         camera.aspect,
         counterstrikeRun.interceptRouteProgress ?? 0.7,
+        counterstrikeRun.threatProgressStart,
       )
       counterstrikePlanRef.current = plan
       let pose: CameraPose = plan.trackingPose

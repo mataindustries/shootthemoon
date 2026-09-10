@@ -43,7 +43,7 @@ export interface CounterstrikeCameraPlan {
   readonly impactMediumPose: CameraPose
   readonly damagePose: CameraPose
   readonly warningCamera: SafeOrbitalCameraPath
-  readonly interceptorCamera: SafeOrbitalCameraPath
+  readonly interceptorRail: readonly CameraPose[]
   readonly successCamera: SafeOrbitalCameraPath
   readonly impactWideCamera: SafeOrbitalCameraPath
   readonly impactMediumCamera: SafeOrbitalCameraPath
@@ -171,40 +171,68 @@ export function createCounterstrikeCameraPlan(
   }
   const interceptPoint = route.getRenderPoint(interceptRouteProgress)
   const interceptorRoute = createInterceptorRoute(playerSite, route, interceptRouteProgress)
-  // One explicit side view covers the entire actual engagement. Its vertical
-  // axis follows the route, using portrait height instead of wasting width.
-  const interceptDirection = player.up.clone().add(route.getDirection(interceptRouteProgress)).normalize()
-  const interceptSide = player.up.clone().cross(route.getDirection(interceptRouteProgress)).normalize()
-  const view = interceptDirection.clone().addScaledVector(interceptSide, 0.22).normalize()
-  const up = interceptPoint.clone().sub(player.position)
-    .addScaledVector(view, -interceptPoint.clone().sub(player.position).dot(view)).normalize()
-  if (!narrow) up.cross(view).normalize()
-  const right = up.clone().cross(view).normalize()
-  const points = [player.position.clone(), interceptPoint.clone()]
-  for (let index = 0; index <= 48; index++) {
-    const t = index / 48
-    points.push(interceptorRoute.getRenderPoint(t))
-    points.push(route.getRenderPoint(MathUtils.lerp(threatProgressStart, interceptRouteProgress, t)))
-  }
-  const target = player.position.clone().lerp(interceptPoint, 0.5)
+  // Author a rail in the engagement's own basis. No orbit-control position or
+  // velocity enters this shot. Precompute framing so sampling allocates nothing.
+  const flightAxis = interceptPoint.clone().sub(interceptorRoute.getRenderPoint(0.97)).normalize()
+  const radial = interceptPoint.clone().normalize()
+  const side = player.up.clone().cross(radial).normalize()
+  const arrivalView = radial.clone().multiplyScalar(0.8).addScaledVector(side, 0.6).normalize()
   const tanY = Math.tan(MathUtils.degToRad(narrow ? 56 : 40) / 2)
-  let distance = 0.25
-  for (const point of points) {
-    const offset = point.clone().sub(target)
-    // Include the exaggerated missile silhouettes and initial debris flash.
-    distance = Math.max(distance, offset.dot(view) + Math.max(
-      (Math.abs(offset.dot(right)) + 0.055) / (tanY * aspect * 0.76),
-      (Math.abs(offset.dot(up)) + 0.055) / (tanY * 0.68),
-    ))
+  const interceptorRail: CameraPose[] = []
+  for (let index = 0; index <= 160; index++) {
+    const t = index / 160
+    const travel = t * t * (3 - 2 * t)
+    const interceptor = interceptorRoute.getRenderPoint(travel)
+    const threat = route.getRenderPoint(MathUtils.lerp(threatProgressStart, interceptRouteProgress, t))
+    const forward = threat.clone().sub(interceptor)
+    if (forward.lengthSq() < 1e-10) forward.copy(flightAxis)
+    forward.normalize()
+    const localUp = interceptor.clone().normalize()
+    const tangent = forward.clone().addScaledVector(localUp, -forward.dot(localUp)).normalize()
+    const chaseHeight = MathUtils.lerp(0.27, 0.075, MathUtils.smoothstep(interceptRouteProgress, 0.445, 0.825))
+    const chasePosition = interceptor.clone().addScaledVector(tangent, -0.2)
+      .addScaledVector(localUp, chaseHeight).addScaledVector(side, 0.012)
+    // Bisect the two sightlines rather than their world-space separation. This
+    // keeps the nearby vehicle large while allowing the distant threat above it.
+    const aim = interceptor.clone().sub(chasePosition).normalize()
+      .add(threat.clone().sub(chasePosition).normalize()).normalize()
+    const chaseTarget = chasePosition.clone().addScaledVector(aim, chasePosition.distanceTo(interceptor))
+    const railBlend = MathUtils.smootherstep(t, 0.12, 0.86)
+    const view = aim.negate().lerp(arrivalView, railBlend).normalize()
+    const target = chaseTarget.lerp(interceptor.clone().lerp(threat, 0.5), railBlend)
+    const up = localUp.lerp(flightAxis, railBlend)
+      .addScaledVector(view, -localUp.dot(view)).normalize()
+      .applyAxisAngle(view, Math.sin(t * Math.PI) * 0.035)
+    const right = up.clone().cross(view).normalize()
+    let distance = MathUtils.lerp(chasePosition.distanceTo(interceptor), 0.19, railBlend)
+    for (const point of [interceptor, threat]) {
+      const offset = point.clone().sub(target)
+      const margin = MathUtils.lerp(0.024, 0.045, railBlend)
+      distance = Math.max(distance, offset.dot(view) + Math.max(
+        (Math.abs(offset.dot(right)) + margin) / (tanY * aspect * 0.74),
+        (Math.abs(offset.dot(up)) + margin) / (tanY * 0.65),
+      ))
+    }
+    const position = target.clone().addScaledVector(view, distance)
+    // Back away along the sightline until the camera is clear of the Moon.
+    // The target is above the surface, so the positive sphere exit is safe.
+    const minimum = COUNTERSTRIKE_CAMERA_SAFETY.interceptMinimumRadius + 0.002
+    if (position.length() < minimum) {
+      const dot = target.dot(view)
+      distance = -dot + Math.sqrt(dot * dot + minimum * minimum - target.lengthSq())
+      position.copy(target).addScaledVector(view, distance)
+    }
+    interceptorRail.push({ position, target, up })
   }
-  const interceptPose: CameraPose = {
-    position: target.clone().addScaledVector(view, distance), target, up,
-  }
+  const interceptPose = interceptorRail[interceptorRail.length - 1]!
+  // Return to a readable lunar/outpost orbit, with collision and outpost both
+  // inside the final composition; this is also the restored success view.
+  const successTarget = player.position.clone().lerp(interceptPoint, 0.45)
   const successPose: CameraPose = {
-    position: interceptPose.position.clone().sub(interceptPose.target)
-      .multiplyScalar(2.8).add(interceptPose.target),
-    target: interceptPose.target.clone(),
-    up: interceptPose.up.clone(),
+    position: player.up.clone().add(radial).normalize().multiplyScalar(narrow ? 3.5 : 3.2)
+      .addScaledVector(side, 0.3),
+    target: successTarget,
+    up: flightAxis.clone(),
   }
   const playerSurfacePosition = player.position
     .clone()
@@ -283,13 +311,6 @@ export function createCounterstrikeCameraPlan(
     preferredArcDirection: COUNTERSTRIKE_CAMERA_ARC,
     arcHeight: 0.08,
   })
-  const interceptorCamera = createSafeOrbitalCameraPath({
-    start: interceptPose,
-    end: interceptPose,
-    minimumRadius: COUNTERSTRIKE_CAMERA_SAFETY.interceptMinimumRadius,
-    preferredArcDirection: COUNTERSTRIKE_CAMERA_ARC,
-    arcHeight: 0,
-  })
   const successCamera = createSafeOrbitalCameraPath({
     start: interceptPose,
     end: successPose,
@@ -329,7 +350,7 @@ export function createCounterstrikeCameraPlan(
     impactMediumPose,
     damagePose,
     warningCamera,
-    interceptorCamera,
+    interceptorRail,
     successCamera,
     impactWideCamera,
     impactMediumCamera,
@@ -346,17 +367,25 @@ export function sampleCounterstrikeInterceptionCamera(
   position: Vector3,
   target: Vector3,
   up: Vector3,
-): 'interception-flight' | 'interception-hold' | 'interception-pullback' {
+): 'interceptor-chase' | 'interception-approach' | 'interception-hold' | 'interception-pullback' {
+  const clamped = MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1)
+  if (status === 'interceptor-launched') {
+    const index = clamped * (plan.interceptorRail.length - 1)
+    const first = plan.interceptorRail[Math.floor(index)]!
+    const second = plan.interceptorRail[Math.min(Math.floor(index) + 1, plan.interceptorRail.length - 1)]!
+    const t = index - Math.floor(index)
+    position.lerpVectors(first.position, second.position, t)
+    target.lerpVectors(first.target, second.target, t)
+    up.lerpVectors(first.up, second.up, t).normalize()
+    return clamped < 0.25 ? 'interceptor-chase' : 'interception-approach'
+  }
   const hold = COUNTERSTRIKE_INTERCEPTION_HOLD_MS / COUNTERSTRIKE_TIMING.successMs
-  if (status === 'interceptor-launched' || progress <= hold) {
+  if (clamped <= hold) {
     position.copy(plan.interceptPose.position)
     target.copy(plan.interceptPose.target)
     up.copy(plan.interceptPose.up)
-    return status === 'success' ? 'interception-hold' : 'interception-flight'
+    return 'interception-hold'
   }
-  const t = MathUtils.smoothstep(rangeProgress(progress, hold, 1), 0, 1)
-  position.lerpVectors(plan.interceptPose.position, plan.successPose.position, t)
-  target.copy(plan.interceptPose.target)
-  up.copy(plan.interceptPose.up)
+  plan.successCamera.sample(rangeProgress(clamped, hold, 1), position, target, up)
   return 'interception-pullback'
 }
