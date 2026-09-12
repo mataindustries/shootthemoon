@@ -1,3 +1,6 @@
+import { TerritoryMonument, SurfaceDetail } from './TerritoryMonument.tsx'
+import { territoryMonumentSite } from './monumentPresentation.ts'
+import { monumentIsActive } from '../domain/territoryMonument.ts'
 import { OrbitalPlatform } from './OrbitalPlatform.tsx'
 import { createCounterstrikeRoute } from '../camera/counterstrikeRoute.ts'
 import { Suspense, useMemo } from 'react'
@@ -68,6 +71,9 @@ import { calculateOutpostOperations } from '../simulation/outpostOperations.ts'
 const CLEAR_COLOR = VISUAL_PALETTE.space
 
 interface SceneRootProps {
+  readonly monumentView: boolean
+  readonly monumentRevealAtMs: number | null
+  readonly onFocusMonument: () => void
   readonly active: boolean
   readonly phase: ExperiencePhase
   readonly landingSite: LandingSite | null
@@ -99,6 +105,9 @@ function MoonFallback() {
 }
 
 export function SceneRoot({
+  monumentView,
+  monumentRevealAtMs,
+  onFocusMonument,
   active,
   phase,
   landingSite,
@@ -119,6 +128,7 @@ export function SceneRoot({
   onFocusOutpost,
   onFocusRival,
 }: SceneRootProps) {
+  const monumentSite = outpost === null ? null : territoryMonumentSite(outpost, firstStrike)
   const showLandingScene =
     landingSite !== null &&
     (phase === 'approach' || phase === 'landed' || phase === 'returning')
@@ -348,12 +358,13 @@ export function SceneRoot({
     firstStrikePresentation.phase === 'scar-explore'
   useDemandAnimation(
     active &&
-      (outpostAnimationActive ||
+      ((monumentView && (monumentRevealAtMs !== null || (monumentIsActive(outpost?.monument ?? null) && outpost?.monument?.status !== 'command'))) ||
+        outpostAnimationActive ||
         rivalAnimationActive ||
         strikeAnimationActive ||
         counterstrikeAnimationActive),
   )
-  useLowFrequencyDemandAnimation(active && orbitalSignalHeartbeat)
+  useLowFrequencyDemandAnimation(active && (orbitalSignalHeartbeat || (outpost?.monument?.status === 'complete' && (phase === 'orbit' || monumentView))), 400)
 
   return (
     <CinematicClockProvider
@@ -363,12 +374,16 @@ export function SceneRoot({
     >
       <color attach="background" args={[CLEAR_COLOR]} />
       <CameraRig
+        monumentFocusSite={monumentView ? monumentSite : null}
+        monumentCompleted={outpost?.monument?.status === 'complete'}
+        monumentRevealAtMs={monumentRevealAtMs}
         phase={phase}
         landingSite={landingSite}
         orbitalFocusSite={
-          counterstrikePresentationActive || counterstrike?.acceptedOutcome != null
+          counterstrikePresentationActive || strikePresentationActive
             ? outpost?.site ?? null
-            : strikePresentationActive
+            : outpost?.monument?.status === 'complete' ? monumentSite
+            : counterstrike?.acceptedOutcome != null
             ? outpost?.site ?? null
             : firstStrike?.status === 'COMPLETE' && firstStrike.scar !== null
             ? firstStrike.scar.site
@@ -378,7 +393,7 @@ export function SceneRoot({
         terrain={terrain}
         terrainSegments={quality.patchSegments}
         rivalSite={rival?.site ?? null}
-        dualOrbitPreferred={rival?.stage !== null}
+        dualOrbitPreferred={outpost?.monument?.status !== 'complete' && rival?.stage !== null}
         rivalPresentation={rivalPresentation}
         firstStrikePresentation={firstStrikePresentation}
         counterstrikeRun={counterstrikeRun}
@@ -437,6 +452,12 @@ export function SceneRoot({
       {counterstrikeLaunchVisible ? (
         <ambientLight color="#b6c5d6" intensity={0.9} />
       ) : null}
+      {outpost?.monument && monumentSite !== null && !strikePresentationActive && !counterstrikePresentationActive ? <TerritoryMonument
+        monument={outpost.monument} site={monumentSite} onFocus={onFocusMonument}
+      /> : null}
+      {outpost?.monument?.kind === 'CRATER_CROWN' && outpost.monument.anchor === 'outpost' && counterstrikeTerrain !== null && (monumentView || phase === 'orbit') ? <SurfacePatch
+        site={outpost.site} phase="landed" terrain={counterstrikeTerrain} segments={quality.patchSegments} maximumOpacity={.8}
+      /> : null}
       <Starfield count={quality.starCount} />
 
       <Suspense fallback={<MoonFallback />}>
@@ -459,7 +480,7 @@ export function SceneRoot({
       !strikePresentationActive &&
       (!counterstrikePresentationActive || counterstrikeRun.status === 'interceptor-launched' || counterstrikeRun.status === 'success' || counterstrikeSuccessVisible) &&
       !rivalCloseFocus ? (
-        <OutpostSignal
+        outpost.monument?.status === 'complete' || monumentView ? null : <OutpostSignal
           outpost={outpost}
           focused={phase === 'selected'}
           interactive={!counterstrikePresentationActive}
@@ -467,7 +488,7 @@ export function SceneRoot({
         />
       ) : null}
 
-      {rivalSignalVisible && rival !== null ? (
+      {rivalSignalVisible && rival !== null && !monumentView && outpost?.monument?.status !== 'complete' ? (
         <RivalSignal
           rival={rival}
           presentation={rivalPresentation}
@@ -519,7 +540,7 @@ export function SceneRoot({
       ) : null}
 
       {rivalFootholdVisible && rival !== null && rivalTerrain !== null ? (
-        <RivalFoothold
+        <SurfaceDetail name="rival-base-detail"><RivalFoothold
           rival={rival}
           presentation={rivalPresentation}
           focused={rivalFocused}
@@ -535,7 +556,7 @@ export function SceneRoot({
           }
           damaged={rivalDamagedForPresentation}
           groundingMode={rivalDamagedForPresentation ? 'scarred' : 'terrain'}
-        />
+        /></SurfaceDetail>
       ) : null}
 
       {rivalSurfaceContextVisible && rival !== null && rivalTerrain !== null ? (
@@ -564,7 +585,7 @@ export function SceneRoot({
       !counterstrikeFailureVisible &&
       (phase === 'orbit' ||
         phase === 'selected' ||
-        firstStrikePresentation.phase !== 'idle') ? (
+        firstStrikePresentation.phase !== 'idle' || monumentView) ? (
         <PermanentLunarScar
           scar={firstStrike.scar}
           terrain={scarTerrain}
@@ -642,8 +663,8 @@ export function SceneRoot({
         />
       ) : null}
 
-      {showLandingScene && terrain !== null ? (
-        <>
+      {showLandingScene && terrain !== null && !monumentView ? (
+        <SurfaceDetail name="player-base-detail">
           <SurfacePatch
             site={landingSite}
             phase={phase}
@@ -723,7 +744,7 @@ export function SceneRoot({
               ) : null}
             </>
           ) : null}
-        </>
+        </SurfaceDetail>
       ) : null}
 
       {counterstrikeFailureVisible &&

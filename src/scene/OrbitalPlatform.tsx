@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
+import { monumentModifiers } from '../domain/territoryMonument.ts'
 import { SIEGE_WAVE_TIMES, siegeIsActive } from '../domain/orbitalSiege.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_METRES_TO_RENDER_UNITS as M } from '../render/localSurface.ts'
@@ -20,7 +21,7 @@ export function OrbitalPlatform({ outpost, terrain, segments }: {
   const damaged = siege.platformHealth < 40
   const progress = siege.progress
   const nextWave = SIEGE_WAVE_TIMES[siege.wavesResolved]
-  const approach = nextWave === undefined ? 0 : Math.max(0, 1 - (nextWave - siege.elapsedMs) / 4000)
+  const approach = nextWave === undefined ? 0 : Math.max(0, 1 - (nextWave - siege.elapsedMs) / (4000 * monumentModifiers(outpost.monument).detection))
   const drones = siege.status === 'waves' && approach > 0
   const color = damaged ? '#ff7044' : siege.status === 'operational' ? '#80f0e4' : '#e9b576'
   return <group position={transform.position} quaternion={transform.orientation}>

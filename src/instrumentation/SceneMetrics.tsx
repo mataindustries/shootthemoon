@@ -32,6 +32,17 @@ export function SceneMetrics() {
       canvas.dataset.frameCount = String(frameCountRef.current)
       canvas.dataset.bufferWidth = String(Math.round(size.x))
       canvas.dataset.bufferHeight = String(Math.round(size.y))
+      const visible = (name: string) => {
+        const object = state.scene.getObjectByName(name)
+        let shown = object?.visible ?? false
+        object?.traverseAncestors(parent => { shown = shown && parent.visible })
+        return shown
+      }
+      canvas.dataset.baseDetailsVisible = String(visible('player-base-detail') || visible('rival-base-detail'))
+      canvas.dataset.monumentVisible = String(visible('territory-monument'))
+      canvas.dataset.claimSignalVisible = String(visible('territory-claim-signal'))
+      canvas.dataset.scarVisible = String(visible('permanent-lunar-scar'))
+      canvas.dataset.octogonalsVisible = String(visible('octogonal-approach'))
       if (shouldEnableE2eHarness(E2E_HARNESS_BUILD_ENABLED, window.location.search)) {
         const objects: Record<string, number[]> = {}
         for (const name of ['null-meridian-counterstrike-missile', 'player-orbital-interceptor', 'counterstrike-orbital-breakup', 'player-lander', 'orbital-outpost-signal', 'mining-laser-beam', 'mining-contact-glow']) {

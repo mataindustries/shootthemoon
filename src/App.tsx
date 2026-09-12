@@ -1,3 +1,5 @@
+import { TerritoryMonumentHud, type MonumentAction } from './app/TerritoryMonumentHud.tsx'
+import { MONUMENT_KINDS, MONUMENT_REVEAL_MS, monumentIsActive, monumentModifiers, monumentsUnlocked, type MonumentKind, type MonumentOrder } from './domain/territoryMonument.ts'
 import { deriveSecondaryImpactSite } from './domain/counterstrike.ts'
 import { planInterceptorContact } from './simulation/interceptorCollision.ts'
 import { siegeIsActive } from './domain/orbitalSiege.ts'
@@ -262,6 +264,9 @@ function App() {
     useState<FirstStrikePresentationState>(() =>
       createFirstStrikePresentation(),
     )
+  const [monumentOpen, setMonumentOpen] = useState(false)
+  const [monumentRevealAtMs, setMonumentRevealAtMs] = useState<number | null>(null)
+  const monumentOfferedRef = useRef(false)
   const [strikeConfirmationOpen, setStrikeConfirmationOpen] = useState(false)
   const [entryOpen, setEntryOpen] = useState(true)
   const [previewRivalStage, setPreviewRivalStage] =
@@ -296,9 +301,13 @@ function App() {
     calculateDpr(window.innerWidth, window.innerHeight, quality.maxDpr),
   )
   entryOpenRef.current = entryOpen
+  const monumentSafe = rivalPresentation.phase === 'idle' && firstStrikePresentation.phase === 'idle' && (counterstrikeRun.status === 'dormant' || (counterstrikeRun.status === 'resolved' && !counterstrikeRun.replay && counterstrike?.acceptedOutcome != null)) && (state.phase === 'landed' || state.phase === 'orbit')
+  const monumentView = monumentOpen && monumentSafe && !entryOpen
+  const monumentAvailable = outpost !== null && monumentsUnlocked(outpost, firstStrike)
   const continuousRendering =
     !entryOpen &&
-    (state.phase === 'approach' ||
+    ((monumentView && (monumentRevealAtMs !== null || (monumentIsActive(outpost?.monument ?? null) && outpost?.monument?.status !== 'command'))) ||
+      state.phase === 'approach' ||
       state.phase === 'returning' ||
       (outpost !== null &&
         (isRobotTransient(outpost.robot.state) ||
@@ -367,6 +376,7 @@ function App() {
         )
       }
 
+      setMonumentRevealAtMs(current => current === null || hiddenAtMs === null ? current : current + performance.now() - hiddenAtMs)
       dispatchOutpost({ type: 'resumeSurface', nowMs: Date.now() })
       setRivalClockRunning(true)
     }
@@ -792,13 +802,14 @@ function App() {
   }, [state.phase])
 
   useEffect(() => {
-    if (entryOpen || state.phase !== 'landed' || outpost === null) {
+    if (entryOpen || (state.phase !== 'landed' && !monumentView) || outpost === null) {
       return
     }
 
     const extractorNeedsTicks = outpost.extractor !== null
     const robotNeedsTicks = isRobotTransient(outpost.robot.state)
     const moduleNeedsTicks =
+      (monumentView && monumentIsActive(outpost.monument)) ||
       siegeIsActive(outpost.orbitalSiege) ||
       outpost.module?.status === 'constructing' ||
       (outpost.module?.kind === 'REPAIR_GANTRY' &&
@@ -816,7 +827,11 @@ function App() {
     const timer = window.setInterval(() => {
       if (!document.hidden && !simulationPausedRef.current && !transitionsPausedRef.current) {
         const nowMs = Date.now()
-        if (siegeIsActive(outpost.orbitalSiege) &&
+        if (monumentIsActive(outpost.monument) && !monumentView) {
+          dispatchOutpost({ type: 'resumeSurface', nowMs })
+          return
+        }
+        if ((siegeIsActive(outpost.orbitalSiege) || monumentIsActive(outpost.monument)) &&
             (rivalPresentation.phase !== 'idle' || firstStrikePresentation.phase !== 'idle' ||
              (counterstrikeRun.status !== 'dormant' && counterstrikeRun.status !== 'resolved'))) {
           dispatchOutpost({ type: 'resumeSurface', nowMs })
@@ -827,6 +842,7 @@ function App() {
           dispatchOutpost({
             type: 'operationsTick',
             advanceSiege: true,
+            advanceMonument: monumentView,
             nowMs,
             damageState: counterstrike?.outpostDamageState ?? 'INTACT',
           })
@@ -835,7 +851,7 @@ function App() {
     }, intervalMs)
 
     return () => window.clearInterval(timer)
-  }, [counterstrike?.outpostDamageState, counterstrikeRun.status, rivalPresentation.phase, firstStrikePresentation.phase, entryOpen, outpost, state.phase])
+  }, [counterstrike?.outpostDamageState, counterstrikeRun.status, rivalPresentation.phase, firstStrikePresentation.phase, entryOpen, outpost, state.phase, monumentView])
 
   useEffect(() => {
     if (
@@ -1037,9 +1053,7 @@ function App() {
   }, [advanceRivalPresentation])
 
   useEffect(() => {
-    const durationMs = getRivalPresentationDurationMs(
-      rivalPresentation.phase,
-    )
+    const durationMs = getRivalPresentationDurationMs(rivalPresentation.phase, rivalPresentation.scanSpeed)
 
     if (
       entryOpen ||
@@ -1308,6 +1322,57 @@ function App() {
     })
   }, [counterstrike, counterstrikeRun, outpost])
 
+  useEffect(() => {
+    if (!entryOpen && monumentSafe && monumentAvailable && !monumentOfferedRef.current && !siegeIsActive(outpost?.orbitalSiege ?? null)) {
+      monumentOfferedRef.current = true
+      setCounterstrikeRun(current => current.status === 'resolved' ? counterstrikeRunReducer(current, { type: 'reset', clockMs: performance.now() }) : current)
+      setMonumentOpen(true)
+      dispatchOutpost({ type: 'resumeSurface', nowMs: Date.now() })
+    }
+  }, [entryOpen, monumentSafe, monumentAvailable, outpost?.orbitalSiege?.status])
+
+  useEffect(() => {
+    if (monumentView && outpost?.monument?.status === 'complete' && !outpost.monument.revealSeen && monumentRevealAtMs === null) {
+      setMonumentRevealAtMs(performance.now())
+    }
+  }, [monumentView, outpost?.monument?.status, outpost?.monument?.revealSeen, monumentRevealAtMs])
+
+  useEffect(() => {
+    if (!monumentView || !rivalClockRunning || monumentRevealAtMs === null) return
+    const timer = window.setTimeout(() => {
+      if (document.hidden) return
+      dispatchOutpost({ type: 'monumentRevealSeen' })
+      setMonumentRevealAtMs(null)
+    }, Math.max(0, MONUMENT_REVEAL_MS - (performance.now() - monumentRevealAtMs)))
+    return () => window.clearTimeout(timer)
+  }, [monumentView, rivalClockRunning, monumentRevealAtMs])
+
+  const openMonument = useCallback(() => {
+    setCounterstrikeRun(current => current.status === 'resolved' ? counterstrikeRunReducer(current, { type: 'reset', clockMs: performance.now() }) : current)
+    dispatchOutpost({ type: 'resumeSurface', nowMs: Date.now() })
+    setMonumentOpen(true)
+  }, [])
+
+  const handleMonumentAction = (action: MonumentAction) => {
+    if (!monumentView || outpost === null) return
+    const nowMs = Date.now()
+    if (action === 'repair' && outpost.monument !== null) {
+      dispatchOutpost({ type: 'startMonument', kind: outpost.monument.kind, firstStrike, nowMs, repair: true })
+    } else if (MONUMENT_KINDS.includes(action as MonumentKind)) {
+      dispatchOutpost({ type: 'startMonument', kind: action as MonumentKind, firstStrike, nowMs })
+    } else {
+      dispatchOutpost({ type: 'issueMonumentOrder', order: action as MonumentOrder, nowMs, damageState: counterstrike?.outpostDamageState ?? 'INTACT' })
+    }
+  }
+
+  const closeMonument = () => {
+    setMonumentOpen(false)
+    setMonumentRevealAtMs(null)
+    dispatchOutpost({ type: 'monumentRevealSeen' })
+    dispatchOutpost({ type: 'resumeSurface', nowMs: Date.now() })
+    if (outpost?.monument?.status === 'complete' && state.phase === 'landed') dispatch({ type: 'returnToOrbit' })
+  }
+
   const handleSelect = useCallback((landingSite: LandingSite) => {
     if (outpost === null) {
       dispatch({ type: 'select', landingSite })
@@ -1390,8 +1455,8 @@ function App() {
     }
 
     transitionGenerationRef.current += 1
-    setRivalPresentation(createRivalPresentation('scanning'))
-  }, [rival, rivalPresentation.phase])
+    setRivalPresentation(createRivalPresentation('scanning', performance.now(), { scanSpeed: monumentModifiers(outpost?.monument ?? null).detection }))
+  }, [rival, rivalPresentation.phase, outpost?.monument])
 
   const handleReturnFromRival = useCallback(() => {
     const phase = rival?.scanCompleted ? 'contested' : 'dual-sites'
@@ -1711,6 +1776,9 @@ function App() {
     firstStrikeManualControlRef.current = false
     counterstrikeManualControlRef.current = false
     counterstrikeFireElapsedOverrideRef.current = null
+    monumentOfferedRef.current = false
+    setMonumentOpen(false)
+    setMonumentRevealAtMs(null)
     resetPrototypeSave(window.localStorage)
     setSelectedDepositId(null)
     setPreviewRivalStage(null)
@@ -1774,7 +1842,7 @@ function App() {
       ? outpost.module.repairProgress
       : 0
   const effectiveProductionDamagePenalty =
-    (counterstrike?.productionDamagePenalty ?? 0) * (1 - repairProgress)
+    (counterstrike?.productionDamagePenalty ?? 0) * (1 - repairProgress) * monumentModifiers(outpost?.monument ?? null).damagePenalty
 
   return (
     <main
@@ -1864,6 +1932,14 @@ function App() {
       data-operation-energy-throttle={operationsMetrics?.energyThrottle ?? 0}
       data-operation-active-robots={operationsMetrics?.activeRobots ?? 0}
       data-operation-storage-capacity={outpost?.operations.storageCapacity ?? 0}
+      data-monument-view={monumentView}
+      data-monument-kind={outpost?.monument?.kind ?? 'none'}
+      data-monument-status={outpost?.monument?.status ?? 'none'}
+      data-monument-waves={outpost?.monument?.wavesResolved ?? 0}
+      data-monument-health={outpost?.monument?.health ?? 100}
+      data-monument-work={outpost?.monument?.workMs ?? 0}
+      data-monument-reveal={monumentRevealAtMs !== null}
+      data-territory-claimed={outpost?.monument?.status === 'complete'}
       data-siege-status={outpost?.orbitalSiege?.status ?? 'none'}
       data-siege-waves={outpost?.orbitalSiege?.wavesResolved ?? 0}
       data-siege-health={outpost?.orbitalSiege?.platformHealth ?? 100}
@@ -1910,6 +1986,9 @@ function App() {
         <WebGlContextRecovery />
         <SceneRoot
           active={!entryOpen}
+          monumentView={monumentView}
+          monumentRevealAtMs={monumentView ? monumentRevealAtMs : null}
+          onFocusMonument={openMonument}
           phase={state.phase}
           landingSite={state.landingSite}
           outpost={outpost}
@@ -1930,6 +2009,7 @@ function App() {
           onFocusRival={handleFocusRival}
         />
       </Canvas>
+      {!monumentView ? <>
       <CinematicHud
         phase={state.phase}
         site={state.landingSite}
@@ -2019,6 +2099,13 @@ function App() {
         onKeepAccepted={handleKeepAcceptedCounterstrike}
         onInspectOutpost={handleInspectOutpostOperations}
       />
+      </> : null}
+      {!entryOpen && monumentSafe && monumentAvailable && !monumentView ? <button className="monument-entry" type="button" onClick={openMonument}>TERRITORY MONUMENTS</button> : null}
+      {monumentView && outpost !== null && operationsMetrics !== null ? <TerritoryMonumentHud
+        outpost={outpost} firstStrike={firstStrike} metrics={operationsMetrics}
+        reveal={monumentRevealAtMs !== null} onAction={handleMonumentAction} onClose={closeMonument}
+        onReplay={() => setMonumentRevealAtMs(performance.now())} onReset={handleResetPrototype}
+      /> : null}
       {entryOpen ? (
         <LaunchGate
           continuing={

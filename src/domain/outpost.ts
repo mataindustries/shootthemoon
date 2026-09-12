@@ -1,4 +1,5 @@
 import type { OrbitalSiegeSnapshot } from './orbitalSiege.ts'
+import type { TerritoryMonumentSnapshot } from './territoryMonument.ts'
 import type { LandingSite } from './lunarCoordinates.ts'
 
 export const OUTPOST_ID = 'first-outpost'
@@ -101,6 +102,7 @@ export interface OutpostSnapshot {
   readonly deposits: readonly MineralDeposit[]
   readonly extractor: Extractor | null
   readonly orbitalSiege: OrbitalSiegeSnapshot | null
+  readonly monument: TerritoryMonumentSnapshot | null
   readonly module: OutpostModule | null
 }
 

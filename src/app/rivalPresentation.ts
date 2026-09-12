@@ -17,6 +17,7 @@ export interface RivalPresentationState {
   readonly startedAtMs: number
   readonly progressOverride: number | null
   readonly replay: boolean
+  readonly scanSpeed?: number
 }
 
 export const RIVAL_PRESENTATION_DURATIONS_MS: Readonly<
@@ -55,6 +56,7 @@ export function createRivalPresentation(
   options: {
     readonly progressOverride?: number | null
     readonly replay?: boolean
+    readonly scanSpeed?: number
   } = {},
 ): RivalPresentationState {
   return {
@@ -62,13 +64,16 @@ export function createRivalPresentation(
     startedAtMs,
     progressOverride: options.progressOverride ?? null,
     replay: options.replay ?? false,
+    scanSpeed: options.scanSpeed ?? 1,
   }
 }
 
 export function getRivalPresentationDurationMs(
   phase: RivalPresentationPhase,
+  scanSpeed = 1,
 ): number | null {
-  return RIVAL_PRESENTATION_DURATIONS_MS[phase] ?? null
+  const duration = RIVAL_PRESENTATION_DURATIONS_MS[phase]
+  return duration === undefined ? null : duration / (phase === 'scanning' ? scanSpeed : 1)
 }
 
 export function getRivalPresentationProgress(
@@ -79,7 +84,7 @@ export function getRivalPresentationProgress(
     return Math.max(0, Math.min(1, presentation.progressOverride))
   }
 
-  const durationMs = getRivalPresentationDurationMs(presentation.phase)
+  const durationMs = getRivalPresentationDurationMs(presentation.phase, presentation.scanSpeed)
 
   if (durationMs === null) {
     return presentation.phase === 'idle' ? 0 : 1
