@@ -1,4 +1,6 @@
-import { useEffect, useRef } from 'react'
+export { getSurfaceCameraPose } from './touchdownCameraPlan.ts'
+import { getSurfaceCameraPose, createTouchdownCameraTransition, sampleTouchdownCamera, type TouchdownCameraTransition } from './touchdownCameraPlan.ts'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
   CubicBezierCurve3,
@@ -25,7 +27,6 @@ import {
 } from '../render/renderCoordinates.ts'
 import {
   LOCAL_METRES_TO_RENDER_UNITS,
-  LOCAL_SURFACE_RENDER_OFFSET,
 } from '../render/localSurface.ts'
 import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
@@ -146,6 +147,7 @@ interface OrbitControlsCoordinateFrame {
 
 interface ConfiguredRivalPresentation {
   readonly phase: RivalPresentationState['phase']
+  readonly startedAtMs: number
   readonly replay: boolean
   readonly viewportKey: string
 }
@@ -160,11 +162,6 @@ interface ConfiguredCounterstrikePresentation {
   readonly viewportKey: string
 }
 
-interface SavedRivalJourneyStart {
-  readonly phase: RivalPresentationState['phase']
-  readonly startedAtMs: number
-  readonly pose: CameraPose
-}
 
 function smoothstep(value: number): number {
   const clamped = MathUtils.clamp(value, 0, 1)
@@ -230,38 +227,6 @@ function localPointToWorld(
     .add(transform.position)
 }
 
-export function getSurfaceCameraPose(
-  site: LandingSite,
-  terrain: SurfaceTerrainProfile | null,
-  terrainSegments: number,
-  hasSilo = false,
-): SurfaceCameraPose {
-  const transform = landingSiteToRenderTransform(site)
-  // The higher silo view separates roofs from deposit hit areas and leaves
-  // the foreground structure above the operations panel on portrait phones.
-  const targetXM = 1.6
-  const targetZM = hasSilo ? 11.5 : -7.5
-  const targetGround =
-    terrain === null
-      ? LOCAL_SURFACE_RENDER_OFFSET
-      : sampleRenderedSurface(
-          terrain,
-          terrainSegments,
-          targetXM,
-          targetZM,
-        ).y
-
-  const target = localPointToWorld(
-    site,
-    targetXM * LOCAL_METRES_TO_RENDER_UNITS,
-    targetGround + 1.05 * LOCAL_METRES_TO_RENDER_UNITS,
-    targetZM * LOCAL_METRES_TO_RENDER_UNITS,
-  )
-  const position = localPointToWorld(
-    site, 0.00115, hasSilo ? 0.0056 : 0.00255, hasSilo ? 0.0078 : 0.0043,
-  )
-  return { position, target, up: transform.up.clone() }
-}
 
 function getSurfaceFocusKind(
   outpost: OutpostSnapshot,
@@ -388,6 +353,9 @@ function clearOrbitControlsTransientState(controls: OrbitControls): void {
   transient._scale = 1
   transient._performCursorZoom = false
   transient.state = -1
+  for (const pointer of transient._pointers) {
+    if (controls.domElement?.hasPointerCapture(pointer)) controls.domElement.releasePointerCapture(pointer)
+  }
   transient._pointers.length = 0
   transient._pointerPositions = {}
   transient._controlActive = false
@@ -512,7 +480,7 @@ function applyCounterstrikeImpactProjection(
 
 function configureRivalSurfaceControls(controls: OrbitControls): void {
   controls.enablePan = false
-  controls.minDistance = 0.018
+  controls.minDistance = 0.007
   controls.maxDistance = 0.065
   controls.minPolarAngle = 0.32
   controls.maxPolarAngle = 1.48
@@ -540,6 +508,7 @@ function updateCameraDataset(
     return
   }
 
+  canvas.dataset.cameraInputLocked = String(!controls.enabled)
   canvas.dataset.cameraDistance = controls.getDistance().toFixed(6)
   canvas.dataset.cameraRadius = camera.position.length().toFixed(6)
   canvas.dataset.cameraClearance = (
@@ -590,18 +559,16 @@ export function CameraRig({
   const strikeJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
   const strikePlanRef = useRef<StrikeCameraPlan | null>(null)
   const counterstrikePlanRef = useRef<CounterstrikeCameraPlan | null>(null)
-  const savedRivalJourneyStartRef = useRef<SavedRivalJourneyStart | null>(
-    null,
-  )
   const temporaryPositionRef = useRef(new Vector3())
   const temporaryTargetRef = useRef(new Vector3())
   const temporaryUpRef = useRef(new Vector3())
-  const closeProjectionAppliedRef = useRef(false)
+  const touchdownRef = useRef<TouchdownCameraTransition | null>(null)
+  const baseTransitionKeyRef = useRef<string | null>(null)
   const surfaceFocusKindRef = useRef<SurfaceFocusKind | null>(null)
   const savedSurfaceViewRef = useRef<SavedSurfaceView | null>(null)
   const returningToSurfaceViewRef = useRef(false)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     camera.position.copy(
       orbitalFocusSite === null
         ? getOrbitHome(camera)
@@ -654,7 +621,7 @@ export function CameraRig({
     }
   }, [camera, gl, invalidate])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const controls = controlsRef.current
 
     if (controls === null) {
@@ -684,6 +651,11 @@ export function CameraRig({
       configuredStrikePresentationRef.current = null
       configuredRivalPresentationRef.current = null
       journeyRef.current = null
+      touchdownRef.current = null
+      baseTransitionKeyRef.current = null
+      surfaceFocusKindRef.current = null
+      savedSurfaceViewRef.current = null
+      returningToSurfaceViewRef.current = false
       rivalJourneyRef.current = null
       strikeJourneyRef.current = null
       strikePlanRef.current = null
@@ -709,7 +681,8 @@ export function CameraRig({
         counterstrikeSecondaryImpactSite,
         camera.aspect,
         counterstrikeRun.interceptRouteProgress ?? 0.7,
-        counterstrikeRun.threatProgressStart,
+        counterstrikeRun.contact?.launchThreatProgress ?? counterstrikeRun.threatProgressStart,
+        counterstrikeRun.contact,
       )
       counterstrikePlanRef.current = plan
       let pose: CameraPose = plan.trackingPose
@@ -721,7 +694,10 @@ export function CameraRig({
       ) {
         pose = plan.launchPose
       } else if (counterstrikeRun.status === 'interceptor-launched' || counterstrikeRun.status === 'success') {
-        pose = plan.interceptPose
+        sampleCounterstrikeInterceptionCamera(plan, counterstrikeRun.status,
+          getCounterstrikeRunProgress(counterstrikeRun, performance.now()),
+          temporaryPositionRef.current, temporaryTargetRef.current, temporaryUpRef.current)
+        pose = { position: temporaryPositionRef.current, target: temporaryTargetRef.current, up: temporaryUpRef.current }
       } else if (counterstrikeRun.status === 'impact') {
         const beat = sampleCounterstrikeImpactCamera(
           plan,
@@ -795,6 +771,11 @@ export function CameraRig({
       }
       configuredRivalPresentationRef.current = null
       journeyRef.current = null
+      touchdownRef.current = null
+      baseTransitionKeyRef.current = null
+      surfaceFocusKindRef.current = null
+      savedSurfaceViewRef.current = null
+      returningToSurfaceViewRef.current = false
       rivalJourneyRef.current = null
       strikeJourneyRef.current = null
       clearOrbitControlsTransientState(controls)
@@ -840,6 +821,11 @@ export function CameraRig({
       }
       configuredRivalPresentationRef.current = null
       journeyRef.current = null
+      touchdownRef.current = null
+      baseTransitionKeyRef.current = null
+      surfaceFocusKindRef.current = null
+      savedSurfaceViewRef.current = null
+      returningToSurfaceViewRef.current = false
       rivalJourneyRef.current = null
       strikeJourneyRef.current = null
       strikePlanRef.current = null
@@ -922,6 +908,7 @@ export function CameraRig({
     if (rivalPhase !== 'idle') {
       if (
         configuredRivalPresentationRef.current?.phase === rivalPhase &&
+        configuredRivalPresentationRef.current.startedAtMs === rivalPresentation.startedAtMs &&
         configuredRivalPresentationRef.current.replay ===
           rivalPresentation.replay &&
         configuredRivalPresentationRef.current.viewportKey === viewportKey
@@ -934,22 +921,22 @@ export function CameraRig({
 
       configuredRivalPresentationRef.current = {
         phase: rivalPhase,
+        startedAtMs: rivalPresentation.startedAtMs,
         replay: rivalPresentation.replay,
         viewportKey,
       }
       journeyRef.current = null
+      touchdownRef.current = null
+      baseTransitionKeyRef.current = null
+      surfaceFocusKindRef.current = null
+      savedSurfaceViewRef.current = null
+      returningToSurfaceViewRef.current = false
       rivalJourneyRef.current = null
       controls.enabled = false
       clearOrbitControlsTransientState(controls)
       gl.domElement.dataset.cameraInteracting = 'false'
       gl.domElement.dataset.cameraMode = `rival-${rivalPhase}`
       delete gl.domElement.dataset.cameraPathMinimumRadius
-
-      if (rivalPhase === 'warning') {
-        updateCameraDataset(camera, controls)
-        invalidate()
-        return
-      }
 
       if (rivalSite === null || orbitalFocusSite === null) {
         invalidate()
@@ -961,6 +948,17 @@ export function CameraRig({
         rivalSite,
         camera.aspect,
       )
+
+      if (rivalPhase === 'warning') {
+        camera.position.copy(plan.playerWidePose.position)
+        camera.up.copy(plan.playerWidePose.up)
+        controls.target.copy(plan.playerWidePose.target)
+        camera.lookAt(plan.playerWidePose.target)
+        applyRivalProjection(camera, plan, rivalPhase)
+        updateCameraDataset(camera, controls)
+        invalidate()
+        return
+      }
 
       if (rivalPhase === 'rival-focused') {
         configureRivalSurfaceControls(controls)
@@ -985,29 +983,13 @@ export function CameraRig({
       }
 
       if (rivalPhase === 'scanning' || rivalPhase === 'scan-response') {
+        configureRivalSurfaceControls(controls)
+        synchronizeOrbitControls(camera, controls, plan.rivalSurfacePose)
+        controls.enabled = false
         applyRivalProjection(camera, plan, rivalPhase)
         updateCameraDataset(camera, controls)
         invalidate()
         return
-      }
-
-      const getSavedJourneyStart = (): CameraPose => {
-        const saved = savedRivalJourneyStartRef.current
-
-        if (
-          saved?.phase === rivalPhase &&
-          saved.startedAtMs === rivalPresentation.startedAtMs
-        ) {
-          return saved.pose
-        }
-
-        const pose = currentCameraPose(camera, controls)
-        savedRivalJourneyStartRef.current = {
-          phase: rivalPhase,
-          startedAtMs: rivalPresentation.startedAtMs,
-          pose,
-        }
-        return pose
       }
 
       const rivalJourney =
@@ -1018,11 +1000,11 @@ export function CameraRig({
             : rivalPhase === 'impact'
               ? plan.impact
               : rivalPhase === 'rival-focus'
-                ? createRivalFocusCameraPath(getSavedJourneyStart(), plan)
+                ? createRivalFocusCameraPath(plan.dualSitePose, plan)
                 : rivalPhase === 'contested' ||
                     (rivalPhase === 'dual-sites' && dualOrbitPreferred)
                   ? createRivalReturnToOrbitCameraPath(
-                      getSavedJourneyStart(),
+                      plan.rivalSurfacePose,
                       plan,
                     )
                   : plan.dualSites
@@ -1049,47 +1031,38 @@ export function CameraRig({
     const exitedRivalPresentation =
       configuredRivalPresentationRef.current !== null
     configuredRivalPresentationRef.current = null
-    savedRivalJourneyStartRef.current = null
     rivalJourneyRef.current = null
     delete gl.domElement.dataset.cameraPathMinimumRadius
 
+    const baseKey = `${phase}:${landingSite?.location.latitudeRad}:${landingSite?.location.longitudeRad}`
     if (phase === 'approach' && landingSite !== null) {
-      const transform = landingSiteToRenderTransform(landingSite)
-      const surfacePose = getSurfaceCameraPose(
-        landingSite,
-        terrain,
-        terrainSegments,
-        outpost?.module?.kind === 'STORAGE_SILO',
-      )
-      const start = camera.position.clone()
-      const end = surfacePose.position
-      const controlOne = start
-        .clone()
-        .lerp(transform.up.clone().multiplyScalar(2.15), 0.46)
-        .addScaledVector(transform.east, 0.08)
-      const controlTwo = transform.up
-        .clone()
-        .multiplyScalar(1.13)
-        .addScaledVector(transform.east, 0.036)
-        .addScaledVector(transform.south, 0.072)
-
-      journeyRef.current = {
-        path: new CubicBezierCurve3(start, controlOne, controlTwo, end),
-        startTarget: controls.target.clone(),
-        endTarget: surfacePose.target,
-        startUp: camera.up.clone(),
-        endUp: surfacePose.up,
-      }
-      closeProjectionAppliedRef.current = false
       controls.enabled = false
-      camera.near = 0.0005
+      clearOrbitControlsTransientState(controls)
+      surfaceFocusKindRef.current = null
+      savedSurfaceViewRef.current = null
+      returningToSurfaceViewRef.current = false
+      journeyRef.current = null
+      if (baseTransitionKeyRef.current !== baseKey || touchdownRef.current === null) {
+        touchdownRef.current = createTouchdownCameraTransition(currentCameraPose(camera, controls),
+          getSurfaceCameraPose(landingSite, terrain, terrainSegments, outpost?.module?.kind === 'STORAGE_SILO'),
+          camera.fov, isNarrowPortrait(camera) ? 54 : 42)
+        baseTransitionKeyRef.current = baseKey
+      }
+      camera.near = 0.000012
       camera.far = 40
       camera.updateProjectionMatrix()
+      gl.domElement.dataset.cameraMode = 'touchdown-transition'
+      updateCameraDataset(camera, controls)
       invalidate()
       return
     }
 
     if (phase === 'returning') {
+      controls.enabled = false
+      clearOrbitControlsTransientState(controls)
+      touchdownRef.current = null
+      if (baseTransitionKeyRef.current === baseKey && journeyRef.current !== null) return
+      baseTransitionKeyRef.current = baseKey
       const orbitHome =
         dualOrbitPreferred &&
         orbitalFocusSite !== null &&
@@ -1128,7 +1101,8 @@ export function CameraRig({
       surfaceFocusKindRef.current = null
       savedSurfaceViewRef.current = null
       returningToSurfaceViewRef.current = false
-      controls.enabled = true
+      controls.enabled = false
+      clearOrbitControlsTransientState(controls)
       controls.enablePan = false
       controls.minDistance = 0.00265
       controls.maxDistance = outpost?.module?.kind === 'STORAGE_SILO' ? 0.012 : 0.0074
@@ -1138,7 +1112,7 @@ export function CameraRig({
       controls.zoomSpeed = 0.62
 
       if (landingSite !== null) {
-        const surfacePose = getSurfaceCameraPose(
+        const surfacePose = touchdownRef.current?.path.end ?? getSurfaceCameraPose(
           landingSite,
           terrain,
           terrainSegments,
@@ -1147,7 +1121,11 @@ export function CameraRig({
         synchronizeOrbitControls(camera, controls, surfacePose)
       }
 
+      touchdownRef.current = null
+      journeyRef.current = null
+      baseTransitionKeyRef.current = null
       applySurfaceProjection(camera)
+      controls.enabled = true
       gl.domElement.dataset.cameraMode = 'surface-player'
       updateCameraDataset(camera, controls)
       invalidate()
@@ -1176,7 +1154,8 @@ export function CameraRig({
     }
 
     journeyRef.current = null
-    closeProjectionAppliedRef.current = false
+    touchdownRef.current = null
+    baseTransitionKeyRef.current = null
     surfaceFocusKindRef.current = null
     savedSurfaceViewRef.current = null
     returningToSurfaceViewRef.current = false
@@ -1214,6 +1193,7 @@ export function CameraRig({
     rivalPresentation,
     rivalSite,
     terrain,
+    terrainSegments,
     viewportSize.height,
     viewportSize.width,
   ])
@@ -1293,7 +1273,7 @@ export function CameraRig({
     const setOrbitView = (event: Event) => {
       const controls = controlsRef.current
 
-      if (controls === null || phase === 'approach' || phase === 'returning') {
+      if (controls === null || !controls.enabled || phase === 'approach' || phase === 'returning') {
         return
       }
 
@@ -1572,6 +1552,20 @@ export function CameraRig({
       return
     }
 
+    if (phase === 'approach' && touchdownRef.current !== null) {
+      controls.enabled = false
+      camera.fov = sampleTouchdownCamera(touchdownRef.current, progressRef.current,
+        temporaryPositionRef.current, temporaryTargetRef.current, temporaryUpRef.current)
+      camera.position.copy(temporaryPositionRef.current)
+      camera.up.copy(temporaryUpRef.current)
+      controls.target.copy(temporaryTargetRef.current)
+      camera.lookAt(temporaryTargetRef.current)
+      camera.updateProjectionMatrix()
+      updateCameraDataset(camera, controls)
+      state.invalidate()
+      return
+    }
+
     const journey = journeyRef.current
 
     if (
@@ -1601,15 +1595,6 @@ export function CameraRig({
     camera.up.copy(temporaryUpRef.current)
     camera.lookAt(temporaryTargetRef.current)
     controls.target.copy(temporaryTargetRef.current)
-
-    if (
-      phase === 'approach' &&
-      progress >= 0.68 &&
-      !closeProjectionAppliedRef.current
-    ) {
-      closeProjectionAppliedRef.current = true
-      applySurfaceProjection(camera)
-    }
 
     updateCameraDataset(camera, controls)
     state.invalidate()

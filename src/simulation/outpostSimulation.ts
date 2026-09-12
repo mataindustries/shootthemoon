@@ -1,3 +1,5 @@
+import { siegeIsActive, type SiegeOrder } from '../domain/orbitalSiege.ts'
+import { advanceOrbitalSiege, startOrbitalSiege, issueSiegeOrder } from './orbitalSiegeSimulation.ts'
 import {
   DEPOSIT_BLUEPRINTS,
   EXTRACTOR_ID,
@@ -78,6 +80,7 @@ export type OutpostAction =
       readonly damageState: OutpostDamageState
       readonly commandOrder?: CounterstrikeOrder | null
       readonly commandActive?: boolean
+      readonly advanceSiege?: boolean
     }
   | {
       readonly type: 'constructModule'
@@ -85,6 +88,8 @@ export type OutpostAction =
       readonly nowMs: number
       readonly damageState: OutpostDamageState
     }
+  | { readonly type: 'startOrbitalSiege'; readonly nowMs: number; readonly repair?: boolean }
+  | { readonly type: 'issueSiegeOrder'; readonly order: SiegeOrder; readonly nowMs: number; readonly damageState: OutpostDamageState }
   | { readonly type: 'applyDamage'; readonly nowMs: number }
   | { readonly type: 'resumeSurface'; readonly nowMs: number }
   | { readonly type: 'reset' }
@@ -210,6 +215,7 @@ export function createInitialOutpost(
     deposits,
     extractor: null,
     module: null,
+    orbitalSiege: null,
   }
 }
 
@@ -219,6 +225,7 @@ export function canConstructModule(
   damageState: OutpostDamageState = 'INTACT',
 ): boolean {
   return (
+    !siegeIsActive(outpost.orbitalSiege) &&
     outpost.module === null &&
     outpost.extractor?.status === 'active' &&
     outpost.lunarOre >= OUTPOST_MODULE_COST &&
@@ -322,6 +329,7 @@ export function canMineDeposit(
   const deposit = findDeposit(outpost, depositId)
 
   return (
+    !siegeIsActive(outpost.orbitalSiege) &&
     outpost.robot.state === 'idle' &&
     outpost.stage !== 'capsule-landed' &&
     deposit !== null &&
@@ -360,6 +368,7 @@ export function canConstructExtractor(
 
   return (
     outpost.extractor === null &&
+    !siegeIsActive(outpost.orbitalSiege) &&
     outpost.robot.state === 'idle' &&
     outpost.stage === 'miner-deployed' &&
     outpost.lunarOre >= EXTRACTOR_COST &&
@@ -658,13 +667,17 @@ export function outpostReducer(
     case 'operationsTick':
       return state === null
         ? null
-        : advanceOutpostOperations(
+        : (action.advanceSiege ? advanceOrbitalSiege : advanceOutpostOperations)(
             state,
             action.nowMs,
             action.damageState,
             action.commandOrder,
             action.commandActive,
           )
+    case 'startOrbitalSiege':
+      return state === null ? null : startOrbitalSiege(state, action.nowMs, action.repair)
+    case 'issueSiegeOrder':
+      return state === null ? null : issueSiegeOrder(advanceOrbitalSiege(state, action.nowMs, action.damageState), action.order)
     case 'constructModule':
       return state === null
         ? null
@@ -691,6 +704,7 @@ export function outpostReducer(
             },
           }
     case 'setOperatingMode':
+      if (state !== null && siegeIsActive(state.orbitalSiege)) return state
       return state === null
         ? null
         : setOperatingMode(

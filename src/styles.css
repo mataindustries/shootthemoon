@@ -2950,3 +2950,32 @@ button {
 .active-deposit { margin: 0; color: #f3c29e; font-size: 0.65rem; line-height: 1.4; }
 .reset-button, .sound-toggle { color: #aebbc9; }
 .phase-label { color: #aebbc9; }
+
+/* Orbital Siege stays inside the existing outpost command surface. */
+.siege-panel { display: grid; gap: 7px; border-top: 1px solid #667982; padding-top: 9px; }
+.siege-panel header { display: grid; gap: 4px; }
+.siege-panel header strong { color: #b6f0f1; font-size: 12px; letter-spacing: .07em; }
+.siege-panel p, .siege-panel small { margin: 0; font-size: 11px; line-height: 1.5; color: #d0dce2; }
+.siege-panel button { min-height: 44px; border: 1px solid #73868e; background: #132a33; color: #f3fafc; font-size: 11px; cursor: pointer; }
+.siege-panel button:disabled { opacity: .5; cursor: default; }
+.siege-panel progress { width: 100%; height: 7px; accent-color: #88e1e7; }
+.siege-progress { display: flex; justify-content: space-between; font-size: 10px; }
+.siege-panel .siege-damage { color: #ffb39a; }
+.siege-command.counterstrike-command { position: static; transform: none; width: auto; max-height: none; padding: 8px; gap: 8px; }
+.siege-command .counterstrike-command__copy small { font-size: 11px; }
+.app-shell[data-siege-status="command"] .operations-panel { max-height: calc(100dvh - 110px); overflow-y: auto; }
+.app-shell[data-siege-status="command"] .operations-panel > .context-prompt,
+.app-shell[data-siege-status="command"] .operations-panel > .active-deposit { display: none; }
+@media (max-height: 750px) {
+  .operations-panel:has(.siege-panel) { max-height: calc(100dvh - 110px); overflow-y: auto; }
+}
+.siege-panel small { letter-spacing: .02em; font-weight: 500; }
+.siege-command .counterstrike-command__copy > small { white-space: normal; line-height: 1.4; }
+.siege-command .counterstrike-command__countdown { font-size: 12px; }
+.siege-panel[data-siege-status="command"] > header,
+.siege-panel[data-siege-status="command"] > .siege-progress,
+.siege-panel[data-siege-status="command"] > progress,
+.siege-panel[data-siege-status="command"] > p { display: none; }
+.siege-outpost-controls summary { min-height: 44px; padding: 14px 8px; color: #cddde3; font-size: 11px; cursor: pointer; }
+.siege-outpost-controls[open] > .operations-controls { margin-bottom: 8px; }
+.app-shell[data-siege-status="none"] .siege-outpost-controls > summary { display: none; }

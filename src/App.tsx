@@ -1,3 +1,6 @@
+import { deriveSecondaryImpactSite } from './domain/counterstrike.ts'
+import { planInterceptorContact } from './simulation/interceptorCollision.ts'
+import { siegeIsActive } from './domain/orbitalSiege.ts'
 import {
   useCallback,
   useEffect,
@@ -300,6 +303,7 @@ function App() {
       (outpost !== null &&
         (isRobotTransient(outpost.robot.state) ||
           outpost.extractor?.status === 'constructing')) ||
+      (outpost !== null && state.phase === 'landed' && siegeIsActive(outpost.orbitalSiege)) ||
       (outpost?.module?.status === 'constructing') ||
       (outpost?.module?.kind === 'REPAIR_GANTRY' &&
         outpost.module.status === 'active' &&
@@ -363,6 +367,7 @@ function App() {
         )
       }
 
+      dispatchOutpost({ type: 'resumeSurface', nowMs: Date.now() })
       setRivalClockRunning(true)
     }
 
@@ -638,7 +643,7 @@ function App() {
         setCounterstrikeFireElapsedForTest,
       )
     }
-  }, [e2eHarnessActive])
+  }, [e2eHarnessActive, outpost, rival])
 
   useEffect(() => {
     const nextRobotState = outpost?.robot.state ?? null
@@ -794,6 +799,7 @@ function App() {
     const extractorNeedsTicks = outpost.extractor !== null
     const robotNeedsTicks = isRobotTransient(outpost.robot.state)
     const moduleNeedsTicks =
+      siegeIsActive(outpost.orbitalSiege) ||
       outpost.module?.status === 'constructing' ||
       (outpost.module?.kind === 'REPAIR_GANTRY' &&
         outpost.module.status === 'active' &&
@@ -808,12 +814,19 @@ function App() {
       ? 80
       : 400
     const timer = window.setInterval(() => {
-      if (!simulationPausedRef.current && !transitionsPausedRef.current) {
+      if (!document.hidden && !simulationPausedRef.current && !transitionsPausedRef.current) {
         const nowMs = Date.now()
+        if (siegeIsActive(outpost.orbitalSiege) &&
+            (rivalPresentation.phase !== 'idle' || firstStrikePresentation.phase !== 'idle' ||
+             (counterstrikeRun.status !== 'dormant' && counterstrikeRun.status !== 'resolved'))) {
+          dispatchOutpost({ type: 'resumeSurface', nowMs })
+          return
+        }
         dispatchOutpost({ type: 'tick', nowMs })
         if (outpost.extractor?.status === 'active') {
           dispatchOutpost({
             type: 'operationsTick',
+            advanceSiege: true,
             nowMs,
             damageState: counterstrike?.outpostDamageState ?? 'INTACT',
           })
@@ -822,7 +835,7 @@ function App() {
     }, intervalMs)
 
     return () => window.clearInterval(timer)
-  }, [counterstrike?.outpostDamageState, entryOpen, outpost, state.phase])
+  }, [counterstrike?.outpostDamageState, counterstrikeRun.status, rivalPresentation.phase, firstStrikePresentation.phase, entryOpen, outpost, state.phase])
 
   useEffect(() => {
     if (
@@ -1232,10 +1245,9 @@ function App() {
       })
     }
     setCounterstrikeRun((current) =>
-      counterstrikeRunReducer(current, {
-        type: 'advance',
-        clockMs: performance.now(),
-      }),
+      counterstrikeRunReducer(current, current.status === 'interceptor-launched' && current.contact !== null
+        ? { type: 'contact', launchAtMs: current.phaseStartedAtMs, clockMs: performance.now() }
+        : { type: 'advance', clockMs: performance.now() }),
     )
   }, [counterstrikeRun.order, counterstrikeRun.status])
 
@@ -1264,7 +1276,7 @@ function App() {
       ) {
         advanceCounterstrike()
       }
-    }, Math.max(0, durationMs - elapsedMs))
+    }, Math.max(0, Math.ceil(durationMs - elapsedMs)))
 
     return () => window.clearTimeout(timer)
   }, [
@@ -1558,12 +1570,11 @@ function App() {
         elapsedOverride !== null && current.attemptStartedAtMs !== null
           ? current.attemptStartedAtMs + elapsedOverride
           : performance.now()
-      return counterstrikeRunReducer(current, {
-        type: 'fire',
-        clockMs,
-      })
+      const fired = counterstrikeRunReducer(current, { type: 'fire', clockMs })
+      if (fired === current || outpost === null || rival === null) return fired
+      return { ...fired, contact: planInterceptorContact(outpost.site, rival.site, deriveSecondaryImpactSite(outpost), fired) }
     })
-  }, [e2eHarnessActive])
+  }, [e2eHarnessActive, outpost, rival])
 
   const handleIssueCounterstrikeOrder = useCallback(
     (order: CounterstrikeOrder) => {
@@ -1813,6 +1824,7 @@ function App() {
         firstStrike?.finalVesperTransmissionCompleted ?? false
       }
       data-counterstrike-available={counterstrike?.available ?? false}
+      data-counterstrike-contact-progress={counterstrikeRun.contact?.flightProgress ?? 'none'}
       data-counterstrike-state={counterstrikeRun.status}
       data-counterstrike-attempt-number={counterstrikeRun.attemptNumber}
       data-counterstrike-attempts={counterstrikeRun.attemptsUsed}
@@ -1852,6 +1864,10 @@ function App() {
       data-operation-energy-throttle={operationsMetrics?.energyThrottle ?? 0}
       data-operation-active-robots={operationsMetrics?.activeRobots ?? 0}
       data-operation-storage-capacity={outpost?.operations.storageCapacity ?? 0}
+      data-siege-status={outpost?.orbitalSiege?.status ?? 'none'}
+      data-siege-waves={outpost?.orbitalSiege?.wavesResolved ?? 0}
+      data-siege-health={outpost?.orbitalSiege?.platformHealth ?? 100}
+      data-siege-damage={outpost?.orbitalSiege?.outpostDamage ?? 0}
       data-outpost-module={outpost?.module?.kind ?? 'none'}
       data-module-status={outpost?.module?.status ?? 'none'}
       data-module-repair-progress={repairProgress}
@@ -1941,6 +1957,14 @@ function App() {
         onConstruct={handleConstruct}
         onSetOperatingMode={handleSetOperatingMode}
         onConstructModule={handleConstructModule}
+        onSiegeAction={(action) => {
+          const nowMs = Date.now()
+          if (action === 'build' || action === 'repair') {
+            dispatchOutpost({ type: 'startOrbitalSiege', nowMs, repair: action === 'repair' })
+          } else {
+            dispatchOutpost({ type: 'issueSiegeOrder', nowMs, order: action, damageState: counterstrike?.outpostDamageState ?? 'INTACT' })
+          }
+        }}
         onResetPrototype={handleResetPrototype}
       />
       <RivalHud

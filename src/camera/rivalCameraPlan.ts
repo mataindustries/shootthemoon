@@ -117,12 +117,12 @@ function getRivalApproachPose(
   }
 }
 
-export function getRivalSurfaceCameraPose(site: LandingSite): CameraPose {
+export function getRivalSurfaceCameraPose(site: LandingSite, aspect = 16 / 9): CameraPose {
   const transform = landingSiteToRenderTransform(site)
 
   return {
-    position: localPointToWorld(site, 0.0065, 0.0095, 0.0195),
-    target: localPointToWorld(site, 0, 0.00065, 0),
+    position: localPointToWorld(site, 0.0045, 0.0065, aspect < 0.72 ? 0.0135 : 0.01),
+    target: localPointToWorld(site, 0, 0.002, 0),
     up: transform.up.clone(),
   }
 }
@@ -207,7 +207,7 @@ export function createRivalRevealCameraPlan(
     0.032,
   )
   const rivalApproachPose = getRivalApproachPose(rivalSite, framing)
-  const rivalSurfacePose = getRivalSurfaceCameraPose(rivalSite)
+  const rivalSurfacePose = getRivalSurfaceCameraPose(rivalSite, aspect)
   const dualSitePose = getDualSitePose(playerSite, rivalSite, framing)
   const illuminatedWaypoint = createIlluminatedArcWaypoint(
     playerWidePose.position,
