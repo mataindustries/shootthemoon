@@ -1,3 +1,4 @@
+import type { OrbitalSiegeSnapshot } from './orbitalSiege.ts'
 import type { LandingSite } from './lunarCoordinates.ts'
 
 export const OUTPOST_ID = 'first-outpost'
@@ -99,6 +100,7 @@ export interface OutpostSnapshot {
   readonly robot: MinerRobot
   readonly deposits: readonly MineralDeposit[]
   readonly extractor: Extractor | null
+  readonly orbitalSiege: OrbitalSiegeSnapshot | null
   readonly module: OutpostModule | null
 }
 

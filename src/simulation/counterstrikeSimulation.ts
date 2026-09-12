@@ -1,3 +1,4 @@
+import type { InterceptorContact } from './interceptorCollision.ts'
 import type { FirstStrikeSnapshot } from '../domain/firstStrike.ts'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import {
@@ -36,6 +37,7 @@ export interface CounterstrikeRunState {
   readonly replay: boolean
   readonly threatProgressStart: number
   readonly threatProgressEnd: number
+  readonly contact: InterceptorContact | null
   readonly interceptRouteProgress: number | null
 }
 
@@ -135,6 +137,7 @@ export type CounterstrikeRunAction =
       readonly clockMs: number
     }
   | { readonly type: 'advance'; readonly clockMs: number }
+  | { readonly type: 'contact'; readonly launchAtMs: number; readonly clockMs: number }
   | { readonly type: 'fire'; readonly clockMs: number }
   | { readonly type: 'shiftClock'; readonly durationMs: number }
   | {
@@ -354,6 +357,7 @@ export function createCounterstrikeRunState(
     replay: false,
     threatProgressStart: 0,
     threatProgressEnd: 0,
+    contact: null,
     interceptRouteProgress: null,
   }
 }
@@ -388,7 +392,7 @@ export function getCounterstrikeRunDurationMs(
       return getCounterstrikeTimingProfile(run.order).readyMs
     case 'interceptor-launched':
       return run.judgement === 'VALID'
-        ? COUNTERSTRIKE_TIMING.launchedValidMs
+        ? COUNTERSTRIKE_TIMING.launchedValidMs * (run.contact?.flightProgress ?? 1)
         : COUNTERSTRIKE_TIMING.launchedMissMs
     case 'success':
       return COUNTERSTRIKE_TIMING.successMs
@@ -427,11 +431,17 @@ export function getCounterstrikeAttemptElapsedMs(
     : Math.max(0, clockMs - run.attemptStartedAtMs)
 }
 
+export function getInterceptorFlightProgress(run: CounterstrikeRunState, clockMs: number): number {
+  const duration = run.judgement === 'VALID' ? COUNTERSTRIKE_TIMING.launchedValidMs : COUNTERSTRIKE_TIMING.launchedMissMs
+  return Math.max(0, Math.min(1, (clockMs - run.phaseStartedAtMs) / duration))
+}
+
 export function getCounterstrikeThreatProgress(
   run: CounterstrikeRunState,
   clockMs: number,
 ): number {
-  const progress = getCounterstrikeRunProgress(run, clockMs)
+  const progress = run.status === 'interceptor-launched'
+    ? getInterceptorFlightProgress(run, clockMs) : getCounterstrikeRunProgress(run, clockMs)
   return (
     run.threatProgressStart +
     (run.threatProgressEnd - run.threatProgressStart) * progress
@@ -458,6 +468,7 @@ function beginTrackingAttempt(
     attemptElapsedAtFireMs: null,
     threatProgressStart: run.threatProgressEnd,
     threatProgressEnd: phaseThreatTarget(attemptNumber, false),
+    contact: null,
     interceptRouteProgress: null,
   }
 }
@@ -508,6 +519,7 @@ function advanceRun(
       }
     }
     case 'interceptor-launched':
+      if (run.contact !== null) return run // Only the authoritative contact event may resolve this flight.
       return {
         ...run,
         status: run.judgement === 'VALID' ? 'success' : 'missed',
@@ -606,7 +618,8 @@ export function counterstrikeRunReducer(
         replay: action.replay,
         threatProgressStart: 0,
         threatProgressEnd: 0.08,
-        interceptRouteProgress: null,
+        contact: null,
+    interceptRouteProgress: null,
       }
     case 'issueOrder':
       assertTimestamp(action.clockMs, 'Counterstrike clock')
@@ -620,6 +633,15 @@ export function counterstrikeRunReducer(
     case 'advance':
       assertTimestamp(action.clockMs, 'Counterstrike clock')
       return advanceRun(run, action.clockMs)
+    case 'contact': {
+      assertTimestamp(action.clockMs, 'Contact clock')
+      if (run.status !== 'interceptor-launched' || run.judgement !== 'VALID' || run.contact === null ||
+          action.launchAtMs !== run.phaseStartedAtMs) return run
+      const contactAtMs = run.phaseStartedAtMs + COUNTERSTRIKE_TIMING.launchedValidMs * run.contact.flightProgress
+      if (action.clockMs < contactAtMs) return run
+      return { ...run, status: 'success', outcome: 'SUCCESS', phaseStartedAtMs: contactAtMs,
+        threatProgressStart: run.contact.threatProgress, threatProgressEnd: run.contact.threatProgress }
+    }
     case 'fire':
       assertTimestamp(action.clockMs, 'Counterstrike clock')
       return fireInterceptor(run, action.clockMs)

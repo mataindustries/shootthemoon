@@ -29,6 +29,7 @@ import {
   getCounterstrikeAttemptElapsedMs,
   getCounterstrikeTimingProfile,
   getCounterstrikeRunProgress,
+  getInterceptorFlightProgress,
   getCounterstrikeThreatProgress,
 } from '../simulation/counterstrikeSimulation.ts'
 import {
@@ -350,7 +351,11 @@ export function CounterstrikeMissileSystem({
     const impactContactProgress =
       COUNTERSTRIKE_TIMING.impactContactMs /
       COUNTERSTRIKE_TIMING.impactMs
+    const flightProgress = getInterceptorFlightProgress(run, clockMs)
+    const contactReached = run.status === 'interceptor-launched' && run.contact !== null &&
+      flightProgress >= run.contact.flightProgress
     const threatVisible =
+      !contactReached &&
       run.status !== 'success' &&
       run.status !== 'resolved' &&
       !(run.status === 'impact' && phaseProgress >= impactContactProgress)
@@ -451,10 +456,10 @@ export function CounterstrikeMissileSystem({
     corridorMaterial.opacity = inValidWindow ? 0.46 : late ? 0.34 : 0.24
 
     const interceptorVisible =
-      run.status === 'interceptor-launched' && interceptorRoute !== null
+      !contactReached && run.status === 'interceptor-launched' && interceptorRoute !== null
     interceptor.visible = interceptorVisible
     if (interceptorVisible && interceptorRoute !== null) {
-      const interceptorProgress = smoothstep(phaseProgress)
+      const interceptorProgress = smoothstep(flightProgress)
       interceptorRoute.getRenderPoint(interceptorProgress, currentPosition.current)
       interceptorRoute.getRenderPoint(
         Math.max(0, interceptorProgress - 0.004),
@@ -482,6 +487,7 @@ export function CounterstrikeMissileSystem({
       flameMaterial.opacity = 0.5 + flicker * 0.2
     }
 
+    gl.domElement.dataset.counterstrikeContact = contactReached ? 'contact' : 'flight'
     gl.domElement.dataset.counterstrikeThreats = threatVisible ? '1' : '0'
     gl.domElement.dataset.counterstrikeInterceptors = interceptorVisible ? '1' : '0'
     gl.domElement.dataset.counterstrikeRouteProgress = threatProgress.toFixed(6)
@@ -518,7 +524,7 @@ export function CounterstrikeMissileSystem({
           args={[reticleTickGeometry, reticleMaterial, RETICLE_TICK_COUNT]}
         />
       </group>
-      <group ref={hostileRef} name="null-meridian-counterstrike-missile">
+      <group ref={hostileRef} visible={false} name="null-meridian-counterstrike-missile">
         <group ref={hostileModelRef}>
           <RocketNoseLight y={5.2} rival />
           <mesh geometry={finRims.outline} raycast={() => {}}>

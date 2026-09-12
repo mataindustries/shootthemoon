@@ -1,3 +1,4 @@
+import { OrbitalPlatform } from './OrbitalPlatform.tsx'
 import { createCounterstrikeRoute } from '../camera/counterstrikeRoute.ts'
 import { Suspense, useMemo } from 'react'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
@@ -691,10 +692,11 @@ export function SceneRoot({
                 terrain={terrain}
                 segments={quality.patchSegments}
                 signalInterrupted={rivalPresentation.phase === 'warning'}
-                damaged={counterstrikeFailureVisible || persistentOutpostDamage}
+                damaged={counterstrikeFailureVisible || persistentOutpostDamage || (outpost.orbitalSiege?.outpostDamage ?? 0) > 0}
                 damageSequence={counterstrikeRun}
                 operations={operationsMetrics ?? undefined}
               />
+              <OrbitalPlatform outpost={outpost} terrain={terrain} segments={quality.patchSegments} />
               <OutpostModule
                 outpost={outpost}
                 damageState={counterstrike?.outpostDamageState ?? 'INTACT'}

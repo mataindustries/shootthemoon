@@ -1,3 +1,5 @@
+import { OrbitalSiegeHud, type SiegeAction } from './OrbitalSiegeHud.tsx'
+import { siegeIsActive } from '../domain/orbitalSiege.ts'
 import { useState } from 'react'
 import { depositLabel, outpostGuidance } from './outpostGuidance.ts'
 import {
@@ -51,6 +53,7 @@ interface CinematicHudProps {
   readonly onMine: () => void
   readonly onConstruct: () => void
   readonly onSetOperatingMode: (mode: OperatingMode) => void
+  readonly onSiegeAction: (action: SiegeAction) => void
   readonly onConstructModule: (kind: OutpostModuleKind) => void
   readonly onResetPrototype: () => void
   readonly onToggleSound: () => void
@@ -74,6 +77,7 @@ function OperationsPanel({
   rivalSignalHeld,
   onSetOperatingMode,
   onConstructModule,
+  onSiegeAction,
   onReturn,
   selectedDepositId,
   onMine,
@@ -84,6 +88,7 @@ function OperationsPanel({
   readonly counterstrikeOrder: CounterstrikeOrder | null
   readonly rivalSignalHeld: boolean
   readonly onSetOperatingMode: (mode: OperatingMode) => void
+  readonly onSiegeAction: (action: SiegeAction) => void
   readonly onConstructModule: (kind: OutpostModuleKind) => void
   readonly onReturn: () => void
   readonly selectedDepositId: string | null
@@ -144,6 +149,9 @@ function OperationsPanel({
           <small>LUNAR ORE</small>
         </div>
       </div>
+      <OrbitalSiegeHud outpost={outpost} metrics={metrics} onAction={onSiegeAction} />
+      {!siegeIsActive(outpost.orbitalSiege) ? <details className="siege-outpost-controls" open={outpost.orbitalSiege === null ? true : undefined}>
+      <summary>OUTPOST CONTROLS</summary>
       <div className="operations-controls" aria-label="Operating mode">
         {OPERATING_MODES.map((mode) => (
           <button
@@ -209,6 +217,7 @@ function OperationsPanel({
           ) : null}
         </div>
       ) : null}
+      </details> : null}
       {selectedDepositId !== null ? (
         <button
           className="operations-return"
@@ -371,6 +380,7 @@ export function CinematicHud({
   onConstruct,
   onSetOperatingMode,
   onConstructModule,
+  onSiegeAction,
   onResetPrototype,
   onToggleSound,
 }: CinematicHudProps) {
@@ -471,6 +481,7 @@ export function CinematicHud({
               rivalSignalHeld={rivalSignalHeld}
               onSetOperatingMode={onSetOperatingMode}
               onConstructModule={onConstructModule}
+              onSiegeAction={onSiegeAction}
               onReturn={onReturn}
               selectedDepositId={selectedDepositId}
               onMine={onMine}

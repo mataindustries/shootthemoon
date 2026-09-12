@@ -1,3 +1,4 @@
+import { parseOrbitalSiege } from '../domain/orbitalSiege.ts'
 import {
   DEPOSIT_BLUEPRINTS,
   EXTRACTOR_ID,
@@ -60,7 +61,7 @@ import {
 import { createOutpostOperationsState } from '../simulation/outpostOperations.ts'
 import { STORAGE_SILO_CAPACITY } from '../simulation/outpostSimulation.ts'
 
-export const OUTPOST_SAVE_SCHEMA_VERSION = 7
+export const OUTPOST_SAVE_SCHEMA_VERSION = 8
 export const OUTPOST_STORAGE_KEY = 'shoot-the-moon:first-outpost:v1'
 
 const PRE_RIVAL_SAVE_SCHEMA_VERSION = 1
@@ -69,6 +70,7 @@ const PRE_COUNTERSTRIKE_SAVE_SCHEMA_VERSION = 3
 const PRE_OPERATIONS_SAVE_SCHEMA_VERSION = 4
 const PRE_COMMAND_SAVE_SCHEMA_VERSION = 5
 const PRE_MODULE_SAVE_SCHEMA_VERSION = 6
+const PRE_SIEGE_SAVE_SCHEMA_VERSION = 7
 const VALUE_EPSILON = 1e-9
 
 export interface StorageLike {
@@ -111,7 +113,7 @@ interface CounterstrikeSaveData
   } | null
 }
 
-interface PrototypeSaveEnvelopeV7 {
+interface PrototypeSaveEnvelopeV8 {
   readonly schemaVersion: typeof OUTPOST_SAVE_SCHEMA_VERSION
   readonly savedAtMs: number
   readonly canonicalLanding: CanonicalLandingSave
@@ -566,6 +568,9 @@ function parseOutpost(
   const module = parseModule(value.module, schemaVersion)
   if (module === undefined) return null
 
+  const orbitalSiege = schemaVersion <= PRE_SIEGE_SAVE_SCHEMA_VERSION ? null : parseOrbitalSiege(value.orbitalSiege)
+  if (orbitalSiege === undefined) return null
+
   const operations = parseOperations(
     value.operations,
     value.lunarOre,
@@ -590,6 +595,7 @@ function parseOutpost(
       targetDepositId: value.robot.targetDepositId,
       carriedOre: value.robot.carriedOre,
     },
+    orbitalSiege,
     deposits: deposits as readonly MineralDeposit[],
     extractor,
     module,
@@ -1142,7 +1148,7 @@ function normalizePrototypeForResume(
 function toEnvelope(
   prototype: PrototypeSnapshot,
   savedAtMs: number,
-): PrototypeSaveEnvelopeV7 {
+): PrototypeSaveEnvelopeV8 {
   const safe = normalizePrototypeForResume(prototype, savedAtMs)
   const { site: _outpostSite, ...outpostData } = safe.outpost
   const { site: _rivalSite, ...rivalData } = safe.rival
@@ -1214,6 +1220,7 @@ export function deserializePrototypeSave(
       value.schemaVersion !== PRE_OPERATIONS_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_COMMAND_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_MODULE_SAVE_SCHEMA_VERSION &&
+      value.schemaVersion !== PRE_SIEGE_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== OUTPOST_SAVE_SCHEMA_VERSION) ||
     !isNonNegativeNumber(value.savedAtMs) ||
     !isNonNegativeNumber(nowMs)

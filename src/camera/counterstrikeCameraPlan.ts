@@ -1,3 +1,4 @@
+import type { InterceptorContact } from '../simulation/interceptorCollision.ts'
 import { MathUtils, Vector3 } from 'three'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import {
@@ -129,6 +130,7 @@ export function createCounterstrikeCameraPlan(
   aspect: number,
   interceptRouteProgress = 0.7,
   threatProgressStart = Math.max(0.12, interceptRouteProgress - 0.07),
+  contact: InterceptorContact | null = null,
 ): CounterstrikeCameraPlan {
   if (!Number.isFinite(aspect) || aspect <= 0) {
     throw new RangeError('Counterstrike camera aspect must be positive and finite.')
@@ -180,7 +182,7 @@ export function createCounterstrikeCameraPlan(
   const tanY = Math.tan(MathUtils.degToRad(narrow ? 56 : 40) / 2)
   const interceptorRail: CameraPose[] = []
   for (let index = 0; index <= 160; index++) {
-    const t = index / 160
+    const t = (index / 160) * (contact?.flightProgress ?? 1)
     const travel = t * t * (3 - 2 * t)
     const interceptor = interceptorRoute.getRenderPoint(travel)
     const threat = route.getRenderPoint(MathUtils.lerp(threatProgressStart, interceptRouteProgress, t))

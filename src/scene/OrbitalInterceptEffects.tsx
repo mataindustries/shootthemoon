@@ -89,8 +89,8 @@ export function OrbitalInterceptEffects({
   )
   const interceptProgress = run.interceptRouteProgress ?? 0.7
   const interceptPoint = useMemo(
-    () => route.getRenderPoint(interceptProgress),
-    [interceptProgress, route],
+    () => run.contact === null ? route.getRenderPoint(interceptProgress) : new Vector3(run.contact.point.x, run.contact.point.y, run.contact.point.z),
+    [interceptProgress, route, run.contact],
   )
   const ringNormal = useMemo(() => interceptPoint.clone().normalize(), [interceptPoint])
   const ringAxis = useMemo(() => new Vector3(0, 0, 1), [])
@@ -236,6 +236,10 @@ export function OrbitalInterceptEffects({
       debris === null || trails === null
     ) return
 
+    gl.domElement.dataset.counterstrikeThreats = '0'
+    gl.domElement.dataset.counterstrikeInterceptors = '0'
+    gl.domElement.dataset.counterstrikeContact = 'contact'
+    gl.domElement.dataset.counterstrikeContactPoint = interceptPoint.toArray().join(',')
     const progress = getCounterstrikeRunProgress(run, performance.now())
     const expansion = 0.018 + progress * 0.11
     root.position.copy(interceptPoint)
