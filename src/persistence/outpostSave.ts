@@ -1,3 +1,4 @@
+import { parseTerritoryMonument } from '../domain/territoryMonument.ts'
 import { parseOrbitalSiege } from '../domain/orbitalSiege.ts'
 import {
   DEPOSIT_BLUEPRINTS,
@@ -61,7 +62,7 @@ import {
 import { createOutpostOperationsState } from '../simulation/outpostOperations.ts'
 import { STORAGE_SILO_CAPACITY } from '../simulation/outpostSimulation.ts'
 
-export const OUTPOST_SAVE_SCHEMA_VERSION = 8
+export const OUTPOST_SAVE_SCHEMA_VERSION = 9
 export const OUTPOST_STORAGE_KEY = 'shoot-the-moon:first-outpost:v1'
 
 const PRE_RIVAL_SAVE_SCHEMA_VERSION = 1
@@ -71,6 +72,7 @@ const PRE_OPERATIONS_SAVE_SCHEMA_VERSION = 4
 const PRE_COMMAND_SAVE_SCHEMA_VERSION = 5
 const PRE_MODULE_SAVE_SCHEMA_VERSION = 6
 const PRE_SIEGE_SAVE_SCHEMA_VERSION = 7
+const PRE_MONUMENT_SAVE_SCHEMA_VERSION = 8
 const VALUE_EPSILON = 1e-9
 
 export interface StorageLike {
@@ -113,7 +115,7 @@ interface CounterstrikeSaveData
   } | null
 }
 
-interface PrototypeSaveEnvelopeV8 {
+interface PrototypeSaveEnvelopeV9 {
   readonly schemaVersion: typeof OUTPOST_SAVE_SCHEMA_VERSION
   readonly savedAtMs: number
   readonly canonicalLanding: CanonicalLandingSave
@@ -570,6 +572,12 @@ function parseOutpost(
 
   const orbitalSiege = schemaVersion <= PRE_SIEGE_SAVE_SCHEMA_VERSION ? null : parseOrbitalSiege(value.orbitalSiege)
   if (orbitalSiege === undefined) return null
+  const monument = schemaVersion <= PRE_MONUMENT_SAVE_SCHEMA_VERSION ? null : parseTerritoryMonument(value.monument)
+  if (monument === undefined) return null
+  if (monument !== null && (extractor?.status !== 'active' ||
+    (['constructing', 'command', 'wave', 'activating', 'repairing'].includes(monument.status) &&
+      (value.robot.state !== 'idle' || module?.status === 'constructing' ||
+        (orbitalSiege !== null && orbitalSiege.status !== 'operational' && orbitalSiege.status !== 'damaged'))))) return null
 
   const operations = parseOperations(
     value.operations,
@@ -596,6 +604,7 @@ function parseOutpost(
       carriedOre: value.robot.carriedOre,
     },
     orbitalSiege,
+    monument,
     deposits: deposits as readonly MineralDeposit[],
     extractor,
     module,
@@ -1148,7 +1157,7 @@ function normalizePrototypeForResume(
 function toEnvelope(
   prototype: PrototypeSnapshot,
   savedAtMs: number,
-): PrototypeSaveEnvelopeV8 {
+): PrototypeSaveEnvelopeV9 {
   const safe = normalizePrototypeForResume(prototype, savedAtMs)
   const { site: _outpostSite, ...outpostData } = safe.outpost
   const { site: _rivalSite, ...rivalData } = safe.rival
@@ -1221,6 +1230,7 @@ export function deserializePrototypeSave(
       value.schemaVersion !== PRE_COMMAND_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_MODULE_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== PRE_SIEGE_SAVE_SCHEMA_VERSION &&
+      value.schemaVersion !== PRE_MONUMENT_SAVE_SCHEMA_VERSION &&
       value.schemaVersion !== OUTPOST_SAVE_SCHEMA_VERSION) ||
     !isNonNegativeNumber(value.savedAtMs) ||
     !isNonNegativeNumber(nowMs)
@@ -1307,6 +1317,7 @@ export function deserializePrototypeSave(
     value.schemaVersion,
   )
   if (counterstrike === null) return null
+  if (outpost.monument?.anchor === 'impact-scar' && firstStrike.scar === null) return null
 
   return normalizePrototypeForResume(
     { outpost, rival, firstStrike, counterstrike },

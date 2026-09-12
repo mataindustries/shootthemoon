@@ -615,7 +615,7 @@ export function PermanentLunarScar({
   })
 
   return (
-    <group position={position} quaternion={transform.orientation}>
+    <group position={position} quaternion={transform.orientation} name="permanent-lunar-scar">
       <group>
         <mesh
           geometry={ejectaGeometry}

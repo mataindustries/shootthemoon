@@ -4,10 +4,18 @@ import {
   createRivalPresentation,
   getNextAutomaticRivalPhase,
   getRivalPresentationProgress,
+  getRivalPresentationDurationMs,
   rivalPresentationNeedsContinuousFrames,
 } from './rivalPresentation.ts'
 
 describe('rival presentation timeline', () => {
+  it('Signal Array detection advances the scan clock and visible sweep together', () => {
+    const scan = createRivalPresentation('scanning', 1000, { scanSpeed: 1.5 })
+    expect(getRivalPresentationDurationMs('scanning', scan.scanSpeed)).toBeCloseTo(4000 / 1.5)
+    expect(getRivalPresentationProgress(scan, 1000 + 2000 / 1.5)).toBeCloseTo(.5)
+    expect(getRivalPresentationProgress(scan, 1000 + 4000 / 1.5)).toBeCloseTo(1)
+    expect(getRivalPresentationDurationMs('warning', 1.5)).toBe(2600)
+  })
   it('samples bounded absolute-time progress', () => {
     const presentation = createRivalPresentation('warning', 1_000)
 

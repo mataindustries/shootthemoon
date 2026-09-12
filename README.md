@@ -1,4 +1,15 @@
-# Shoot the Moon — First Strike
+# Shoot the Moon — Territory Monuments
+
+Territory Monuments adds one saved endgame claim after successful Orbital Siege
+or the existing completed First Strike endpoint. Choose Helios Spire, Crater
+Crown, Bastion Obelisk, or Signal Array using stored outpost ore, generated solar
+power, and the same three operation robots. Three finite Octogonal attacks each
+wait for a Command Phase allocation. A breach leaves a repairable monument and
+production damage; completion reveals the claim from orbit. Prior campaign
+outcomes and paid Orbital Siege replays remain available.
+
+The focused verification and physical-device handoff are recorded in
+[artifacts/territory-monuments-device-test.md](./artifacts/territory-monuments-device-test.md).
 
 Release-candidate visual implementation is integrated; final production
 verification and physical Android acceptance are still pending.
@@ -28,7 +39,8 @@ ignition and impact.
 
 The scope remains deliberately narrow: this is one authored single-player
 prototype ending, with no networking, accounts, multiplayer infrastructure,
-additional weapons, territory system, or larger economy. Camera and missile
+additional weapons, or larger economy. Territory Monuments extends it with one
+permanent territory claim. Camera and missile
 paths remain separate, both are sampled for radial lunar clearance, and static
 completed scenes return to demand rendering.
 

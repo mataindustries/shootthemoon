@@ -2979,3 +2979,50 @@ button {
 .siege-outpost-controls summary { min-height: 44px; padding: 14px 8px; color: #cddde3; font-size: 11px; cursor: pointer; }
 .siege-outpost-controls[open] > .operations-controls { margin-bottom: 8px; }
 .app-shell[data-siege-status="none"] .siege-outpost-controls > summary { display: none; }
+
+.monument-entry { position: fixed; z-index: 14; top: max(88px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); min-height: 44px; padding: 10px 18px; border: 1px solid #bba078; background: #171e27; color: #f1d8b1; font: 600 11px/1.4 inherit; letter-spacing: .08em; cursor: pointer; }
+.app-shell[data-monument-view="true"] > .cinematic-hud,
+.app-shell[data-monument-view="true"] > .hud,
+.app-shell[data-monument-view="true"] > .rival-hud,
+.app-shell[data-monument-view="true"] > .first-strike-hud,
+.app-shell[data-monument-view="true"] > .counterstrike-hud { display: none; }
+.monument-panel { position: fixed; z-index: 20; bottom: max(12px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(480px, calc(100% - 24px)); max-height: 61dvh; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 15px; border: 1px solid #8c795d; border-radius: 8px; background: rgba(12, 18, 25, .97); color: #e5ded1; display: grid; gap: 9px; box-shadow: 0 8px 32px #0009; }
+.monument-panel h1 { font-size: 17px; line-height: 1.25; letter-spacing: .07em; margin: 4px 0 0; color: #f3d7ad; }
+.monument-panel p { margin: 0; font-size: 11px; line-height: 1.5; }
+.monument-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.monument-heading span { font-size: 10px; letter-spacing: .14em; color: #b5ac9e; }
+.monument-panel button { min-height: 44px; border: 1px solid #8c795d; border-radius: 4px; background: #202a34; color: #f2e3ca; font: inherit; font-size: 11px; cursor: pointer; }
+.monument-heading > button { min-width: 44px; font-size: 22px; }
+.monument-panel button:disabled { opacity: .55; cursor: default; }
+.monument-panel button:focus-visible { outline: 2px solid #f2cd8b; outline-offset: 2px; }
+.monument-resources { color: #e7cda9; font-variant-numeric: tabular-nums; }
+.monument-choices { display: grid; gap: 8px; }
+.monument-choices > button { display: flex; text-align: left; gap: 10px; padding: 10px; align-items: center; }
+.monument-choices > button > span { min-width: 0; display: grid; gap: 4px; }
+.monument-panel small { display: block; font-size: 11px; line-height: 1.4; }
+.monument-cost { color: #edc38b; }
+.monument-glyph { flex-shrink: 0; width: 38px; height: 44px; fill: #bfa17433; stroke: #ebc68c; stroke-width: 2; stroke-linejoin: bevel; }
+.monument-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; }
+.monument-panel progress { width: 100%; height: 7px; accent-color: #d7b785; }
+.monument-command { display: grid; gap: 8px; border-top: 1px solid #70617e; padding-top: 9px; }
+.monument-transmission { display: flex; align-items: center; gap: 10px; font-size: 11px; }
+.monument-transmission small { color: #bdabc9; font-size: 9px; }
+.octogonal-seal { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%); background: #9b762f; color: #17141d; font-size: 20px; font-weight: 800; }
+.monument-panel .monument-radio { color: #cab5e0; font-style: italic; }
+.monument-panel .monument-damage { color: #ffb398; }
+.monument-panel .counterstrike-command__choices button { padding: 8px; min-height: 52px; }
+.monument-panel .counterstrike-command__copy small { white-space: normal; font-size: 11px; letter-spacing: 0; }
+.monument-panel footer { display: flex; gap: 8px; border-top: 1px solid #544c42; padding-top: 8px; }
+.monument-panel footer > button { flex: 1; font-size: 10px; }
+.monument-panel--reveal { max-height: 24dvh; background: rgba(12,18,25,.88); }
+@media (max-height: 540px) and (orientation: landscape) { .monument-panel { left: auto; right: 12px; transform: none; width: 340px; max-height: calc(100dvh - 24px); } }
+.monument-entry { top: auto; bottom: max(24px, env(safe-area-inset-bottom)); font-family: inherit; font-weight: 600; font-size: 11px; line-height: 1.4; }
+.app-shell[data-phase="landed"] .monument-entry { top: 96px; bottom: auto; }
+.monument-panel { max-height: 65dvh; }
+.monument-panel[data-status="command"] > .monument-stats,
+.monument-panel[data-status="command"] > progress,
+.monument-panel[data-status="command"] > .monument-resources,
+.monument-panel[data-status="command"] > footer { display: none; }
+.monument-panel[data-status="command"] { gap: 6px; }
+.monument-panel[data-status="command"] .monument-command { gap: 6px; }
+.monument-panel--reveal { max-height: 24dvh; }

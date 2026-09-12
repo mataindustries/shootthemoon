@@ -26,6 +26,9 @@ export const VISUAL_PALETTE = Object.freeze({
   rivalCyanPanel: '#2e747a',
   rivalCyanEmissive: '#55c5cc',
   rivalHighlight: '#c5dedf',
+  monumentIvory: '#dcc19a',
+  octogonalOchre: '#9b762f',
+  octogonalViolet: '#aa7ed8',
 
   neutralMachinery: '#42494d',
   contactDark: '#0a0c0e',

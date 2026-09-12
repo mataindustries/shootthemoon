@@ -1,4 +1,5 @@
 import { siegeAllocation } from '../domain/orbitalSiege.ts'
+import { monumentAllocation, monumentIsActive, monumentModifiers } from '../domain/territoryMonument.ts'
 import {
   DEPOSIT_BLUEPRINTS,
   type MineralDeposit,
@@ -108,6 +109,7 @@ export interface OutpostOperationsMetrics
   readonly energyDemandKw: number
   readonly energyConsumedKw: number
   readonly platformAllocationKw: number
+  readonly monumentAllocationKw: number
   readonly constructionRobots: number
   readonly defenseRobots: number
   readonly availableDefense: number
@@ -319,8 +321,11 @@ export function calculateOutpostOperations(
   commandActive = false,
 ): OutpostOperationsMetrics {
   const siege = outpost.orbitalSiege
+  const monument = outpost.monument
+  const modifiers = monumentModifiers(monument)
+  const monumentActive = !commandActive && monumentIsActive(monument)
   // Counterstrike owns its Command Phase while the surface siege is paused.
-  const allocation = siegeAllocation(commandActive ? null : siege)
+  const allocation = monumentActive && monument !== null ? monumentAllocation(monument) : siegeAllocation(commandActive ? null : siege)
   const selectedDepositId = outpost.extractor?.depositId ?? null
   const deposit = chooseDeposit(
     outpost.site,
@@ -341,7 +346,8 @@ export function calculateOutpostOperations(
     solarExposure *
     SOLAR_ARRAY_PEAK_KW *
     (solarWingActive ? SOLAR_WING_GENERATION_MULTIPLIER : 1) *
-    (1 - (siege?.energyLoss ?? 0))
+    (1 - (siege?.energyLoss ?? 0)) * (1 - (monument?.energyLoss ?? 0)) * modifiers.energy
+  const constructionAllocationKw = Math.min(allocation.powerKw, Math.max(0, energyGeneratedKw - BASE_SYSTEM_DEMAND_KW))
   const commandEffect =
     commandActive && commandOrder !== null
       ? COUNTERSTRIKE_COMMAND_EFFECTS[commandOrder]
@@ -364,14 +370,14 @@ export function calculateOutpostOperations(
     ? allocation.active ? allocation.defenseKw : commandEffect?.defenseAllocationKw ?? 0
     : 0
   const defenseAllocationKw = allocation.active
-    ? Math.min(defenseDemandKw, Math.max(0, energyGeneratedKw - BASE_SYSTEM_DEMAND_KW - allocation.powerKw))
+    ? Math.min(defenseDemandKw, Math.max(0, energyGeneratedKw - BASE_SYSTEM_DEMAND_KW - constructionAllocationKw))
     : defenseDemandKw
   const energyDemandKw = extractorActive
     ? BASE_SYSTEM_DEMAND_KW + defenseDemandKw + robotDemandKw + repairDemandKw + allocation.powerKw
     : 0
   const robotEnergyAvailableKw = Math.max(
     0,
-    energyGeneratedKw - BASE_SYSTEM_DEMAND_KW - defenseAllocationKw - repairDemandKw - allocation.powerKw,
+    energyGeneratedKw - BASE_SYSTEM_DEMAND_KW - defenseAllocationKw - repairDemandKw - constructionAllocationKw,
   )
   const energyThrottle =
     robotDemandKw <= 0 ? (storageFull ? 0 : 1) : clamp01(robotEnergyAvailableKw / robotDemandKw)
@@ -387,16 +393,18 @@ export function calculateOutpostOperations(
       (outpost.module?.kind === 'REPAIR_GANTRY'
         ? outpost.module.repairProgress
         : 0)
-  const damageMultiplier = counterstrikeDamageMultiplier * (1 - (siege?.outpostDamage ?? 0) / 100)
+  const rawDamageMultiplier = counterstrikeDamageMultiplier * (1 - (siege?.outpostDamage ?? 0) / 100) * (1 - (monument?.productionPenalty ?? 0))
+  const damageMultiplier = 1 - (1 - rawDamageMultiplier) * modifiers.damagePenalty
   const commandProductionMultiplier =
     (commandEffect?.productionMultiplier ?? 1) *
-    (allocation.active ? 0.75 : siege?.status === 'operational' ? 1.2 : 1)
+    (allocation.active && !monumentActive ? 0.75 : siege?.status === 'operational' ? 1.2 : 1) * modifiers.extraction
+  const logisticsEfficiency = 1 - (1 - deposit.logisticsEfficiency) * modifiers.logisticsLoss
   const operatingEfficiency =
     activeRobots === 0
       ? 0
       : clamp01(
           deposit.extractionFactor *
-            deposit.logisticsEfficiency *
+            logisticsEfficiency *
             energyThrottle *
             damageMultiplier,
         )
@@ -407,7 +415,7 @@ export function calculateOutpostOperations(
     commandProductionMultiplier
   const status: OperationStatus = storageFull
     ? 'STORAGE FULL'
-    : energyThrottle < 0.999 || defenseAllocationKw < defenseDemandKw
+    : energyThrottle < 0.999 || defenseAllocationKw < defenseDemandKw || constructionAllocationKw < allocation.powerKw
       ? 'LOW ENERGY'
       : 'NOMINAL'
 
@@ -422,7 +430,8 @@ export function calculateOutpostOperations(
     energyGeneratedKw,
     energyDemandKw,
     energyConsumedKw: Math.min(energyGeneratedKw, energyDemandKw),
-    platformAllocationKw: allocation.powerKw,
+    platformAllocationKw: monumentActive ? 0 : allocation.powerKw,
+    monumentAllocationKw: monumentActive ? constructionAllocationKw : 0,
     constructionRobots: allocation.builders,
     defenseRobots: allocation.defenders,
     availableDefense: allocation.active ? allocation.readiness : AVAILABLE_OPERATION_ROBOTS - activeRobots,
@@ -436,7 +445,7 @@ export function calculateOutpostOperations(
               0,
               energyGeneratedKw -
                 BASE_SYSTEM_DEMAND_KW -
-                defenseAllocationKw - allocation.powerKw,
+                defenseAllocationKw - constructionAllocationKw,
             ),
           ),
     energyThrottle,
@@ -485,7 +494,7 @@ export function advanceOutpostOperations(
           outpost.module.repairProgress +
             ((nowMs - outpost.operations.lastUpdatedAtMs) /
               REPAIR_GANTRY_RECOVERY_DURATION_MS) *
-              (metrics.repairConsumedKw / REPAIR_GANTRY_DEMAND_KW),
+              (metrics.repairConsumedKw / REPAIR_GANTRY_DEMAND_KW) * monumentModifiers(outpost.monument).repairSpeed,
         )
       : outpost.module?.repairProgress
 

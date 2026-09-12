@@ -1,4 +1,5 @@
 import type { OutpostSnapshot } from '../domain/outpost.ts'
+import { monumentIsActive, monumentModifiers } from '../domain/territoryMonument.ts'
 import type { CounterstrikeOrder, OutpostDamageState } from '../domain/counterstrike.ts'
 import {
   PLATFORM_ORE_COST, PLATFORM_REPAIR_COST, PLATFORM_POWER_KW, PLATFORM_BUILD_MS,
@@ -10,7 +11,7 @@ import { advanceOutpostOperations, calculateOutpostOperations } from './outpostO
 export function canStartOrbitalSiege(outpost: OutpostSnapshot, repair = false): boolean {
   const siege = outpost.orbitalSiege
   return outpost.extractor?.status === 'active' && outpost.robot.state === 'idle' &&
-    outpost.module?.status !== 'constructing' && !siegeIsActive(siege) &&
+    outpost.module?.status !== 'constructing' && !siegeIsActive(siege) && !monumentIsActive(outpost.monument) &&
     (!repair || siege?.status === 'damaged' || (siege?.outpostDamage ?? 0) > 0) &&
     outpost.lunarOre >= (repair ? PLATFORM_REPAIR_COST : PLATFORM_ORE_COST) &&
     calculateOutpostOperations(outpost).energyGeneratedKw >= (repair ? 4 : PLATFORM_POWER_KW) + 2
@@ -50,10 +51,11 @@ export function advanceOrbitalSiege(
     const boundaries = repairing ? [PLATFORM_REPAIR_MS] :
       [SIEGE_ALERT_MS, SIEGE_COMMAND_END_MS, ...SIEGE_WAVE_TIMES]
     const next = boundaries.find((time) => time > siege.elapsedMs)!
-    const delta = Math.min(nowMs - cursor, next - siege.elapsedMs)
+    const speed = repairing ? monumentModifiers(outpost.monument).repairSpeed : 1
+    const delta = Math.min(nowMs - cursor, (next - siege.elapsedMs) / speed)
     outpost = advanceOutpostOperations(outpost, cursor + delta, damage, commandOrder, commandActive)
     cursor += delta
-    const elapsedMs = siege.elapsedMs + delta
+    const elapsedMs = siege.elapsedMs + delta * speed
     let updated = { ...siege, elapsedMs, progress: Math.min(1, elapsedMs / (repairing ? PLATFORM_REPAIR_MS : PLATFORM_BUILD_MS)) }
     if (repairing) {
       if (elapsedMs >= PLATFORM_REPAIR_MS) updated = { ...updated, status: 'operational', platformHealth: 100,
@@ -68,8 +70,9 @@ export function advanceOrbitalSiege(
         const effect = SIEGE_ORDERS[updated.order!]
         const metrics = calculateOutpostOperations(outpost, damage, commandOrder, commandActive)
         const powered = effect.power === 0 ? 1 : metrics.defenseAllocationKw / effect.power
-        const platformHit = Math.round(effect.platformHit + (28 - effect.platformHit) * (1 - powered))
-        const outpostHit = Math.round(effect.outpostHit + (12 - effect.outpostHit) * (1 - powered))
+        const protection = monumentModifiers(outpost.monument).damage
+        const platformHit = Math.round((effect.platformHit + (28 - effect.platformHit) * (1 - powered)) * protection)
+        const outpostHit = Math.round((effect.outpostHit + (12 - effect.outpostHit) * (1 - powered)) * protection)
         updated.platformHealth = Math.max(0, updated.platformHealth - platformHit)
         updated.outpostDamage = Math.min(60, updated.outpostDamage + outpostHit)
         updated.wavesResolved += 1

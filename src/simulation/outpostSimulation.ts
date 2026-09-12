@@ -1,4 +1,7 @@
 import { siegeIsActive, type SiegeOrder } from '../domain/orbitalSiege.ts'
+import { monumentIsActive, type MonumentKind, type MonumentOrder } from '../domain/territoryMonument.ts'
+import type { FirstStrikeSnapshot } from '../domain/firstStrike.ts'
+import { advanceTerritoryMonument, issueMonumentOrder, startMonument } from './territoryMonumentSimulation.ts'
 import { advanceOrbitalSiege, startOrbitalSiege, issueSiegeOrder } from './orbitalSiegeSimulation.ts'
 import {
   DEPOSIT_BLUEPRINTS,
@@ -81,6 +84,7 @@ export type OutpostAction =
       readonly commandOrder?: CounterstrikeOrder | null
       readonly commandActive?: boolean
       readonly advanceSiege?: boolean
+      readonly advanceMonument?: boolean
     }
   | {
       readonly type: 'constructModule'
@@ -89,6 +93,9 @@ export type OutpostAction =
       readonly damageState: OutpostDamageState
     }
   | { readonly type: 'startOrbitalSiege'; readonly nowMs: number; readonly repair?: boolean }
+  | { readonly type: 'startMonument'; readonly kind: MonumentKind; readonly firstStrike: FirstStrikeSnapshot | null; readonly nowMs: number; readonly repair?: boolean }
+  | { readonly type: 'issueMonumentOrder'; readonly order: MonumentOrder; readonly nowMs: number; readonly damageState: OutpostDamageState }
+  | { readonly type: 'monumentRevealSeen' }
   | { readonly type: 'issueSiegeOrder'; readonly order: SiegeOrder; readonly nowMs: number; readonly damageState: OutpostDamageState }
   | { readonly type: 'applyDamage'; readonly nowMs: number }
   | { readonly type: 'resumeSurface'; readonly nowMs: number }
@@ -216,6 +223,7 @@ export function createInitialOutpost(
     extractor: null,
     module: null,
     orbitalSiege: null,
+    monument: null,
   }
 }
 
@@ -225,7 +233,7 @@ export function canConstructModule(
   damageState: OutpostDamageState = 'INTACT',
 ): boolean {
   return (
-    !siegeIsActive(outpost.orbitalSiege) &&
+    !siegeIsActive(outpost.orbitalSiege) && !monumentIsActive(outpost.monument) &&
     outpost.module === null &&
     outpost.extractor?.status === 'active' &&
     outpost.lunarOre >= OUTPOST_MODULE_COST &&
@@ -329,7 +337,7 @@ export function canMineDeposit(
   const deposit = findDeposit(outpost, depositId)
 
   return (
-    !siegeIsActive(outpost.orbitalSiege) &&
+    !siegeIsActive(outpost.orbitalSiege) && !monumentIsActive(outpost.monument) &&
     outpost.robot.state === 'idle' &&
     outpost.stage !== 'capsule-landed' &&
     deposit !== null &&
@@ -368,7 +376,7 @@ export function canConstructExtractor(
 
   return (
     outpost.extractor === null &&
-    !siegeIsActive(outpost.orbitalSiege) &&
+    !siegeIsActive(outpost.orbitalSiege) && !monumentIsActive(outpost.monument) &&
     outpost.robot.state === 'idle' &&
     outpost.stage === 'miner-deployed' &&
     outpost.lunarOre >= EXTRACTOR_COST &&
@@ -667,7 +675,7 @@ export function outpostReducer(
     case 'operationsTick':
       return state === null
         ? null
-        : (action.advanceSiege ? advanceOrbitalSiege : advanceOutpostOperations)(
+        : (action.advanceMonument && monumentIsActive(state.monument) ? advanceTerritoryMonument : action.advanceSiege ? advanceOrbitalSiege : advanceOutpostOperations)(
             state,
             action.nowMs,
             action.damageState,
@@ -676,6 +684,13 @@ export function outpostReducer(
           )
     case 'startOrbitalSiege':
       return state === null ? null : startOrbitalSiege(state, action.nowMs, action.repair)
+    case 'startMonument':
+      return state === null ? null : startMonument(state, action.kind, action.firstStrike, action.nowMs, action.repair)
+    case 'issueMonumentOrder':
+      return state === null ? null : issueMonumentOrder(advanceTerritoryMonument(state, action.nowMs, action.damageState), action.order)
+    case 'monumentRevealSeen':
+      return state?.monument?.status !== 'complete' || state.monument.revealSeen ? state :
+        { ...state, monument: { ...state.monument, revealSeen: true } }
     case 'issueSiegeOrder':
       return state === null ? null : issueSiegeOrder(advanceOrbitalSiege(state, action.nowMs, action.damageState), action.order)
     case 'constructModule':
@@ -704,7 +719,7 @@ export function outpostReducer(
             },
           }
     case 'setOperatingMode':
-      if (state !== null && siegeIsActive(state.orbitalSiege)) return state
+      if (state !== null && (siegeIsActive(state.orbitalSiege) || monumentIsActive(state.monument))) return state
       return state === null
         ? null
         : setOperatingMode(

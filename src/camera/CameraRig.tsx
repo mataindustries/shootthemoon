@@ -1,3 +1,5 @@
+import { sampleMonumentCamera } from '../scene/monumentPresentation.ts'
+import { MONUMENT_REVEAL_MS } from '../domain/territoryMonument.ts'
 export { getSurfaceCameraPose } from './touchdownCameraPlan.ts'
 import { getSurfaceCameraPose, createTouchdownCameraTransition, sampleTouchdownCamera, type TouchdownCameraTransition } from './touchdownCameraPlan.ts'
 import { useEffect, useLayoutEffect, useRef } from 'react'
@@ -98,6 +100,9 @@ interface TestOrbitEventDetail {
 }
 
 interface CameraRigProps {
+  readonly monumentFocusSite: LandingSite | null
+  readonly monumentRevealAtMs: number | null
+  readonly monumentCompleted: boolean
   readonly phase: ExperiencePhase
   readonly landingSite: LandingSite | null
   readonly orbitalFocusSite: LandingSite | null
@@ -529,6 +534,9 @@ function updateCameraDataset(
 }
 
 export function CameraRig({
+  monumentFocusSite,
+  monumentRevealAtMs,
+  monumentCompleted,
   phase,
   landingSite,
   orbitalFocusSite,
@@ -547,6 +555,7 @@ export function CameraRig({
   const invalidate = useThree((state) => state.invalidate)
   const viewportSize = useThree((state) => state.size)
   const progressRef = useCinematicProgress()
+  const monumentReducedMotionRef = useRef(window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const controlsRef = useRef<OrbitControls | null>(null)
   const journeyRef = useRef<Journey | null>(null)
   const rivalJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
@@ -625,6 +634,22 @@ export function CameraRig({
     const controls = controlsRef.current
 
     if (controls === null) {
+      return
+    }
+
+    if (monumentFocusSite !== null) {
+      controls.enabled = false
+      clearOrbitControlsTransientState(controls)
+      baseTransitionKeyRef.current = null
+      camera.near = .001
+      camera.far = 80
+      camera.fov = 42
+      camera.updateProjectionMatrix()
+      const progress = monumentRevealAtMs === null ? monumentCompleted ? 1 : 0 : monumentReducedMotionRef.current ? 1 : (performance.now() - monumentRevealAtMs) / MONUMENT_REVEAL_MS
+      synchronizeOrbitControls(camera, controls, sampleMonumentCamera(monumentFocusSite, progress, camera.aspect))
+      gl.domElement.dataset.cameraMode = monumentRevealAtMs === null ? 'territory-monument' : 'territory-reveal'
+      updateCameraDataset(camera, controls)
+      invalidate()
       return
     }
 
@@ -1180,6 +1205,9 @@ export function CameraRig({
     invalidate()
   }, [
     camera,
+    monumentFocusSite,
+    monumentRevealAtMs,
+    monumentCompleted,
     counterstrikeRun,
     counterstrikeSecondaryImpactSite,
     dualOrbitPreferred,
@@ -1201,7 +1229,7 @@ export function CameraRig({
   useEffect(() => {
     const controls = controlsRef.current
 
-    if (controls === null) {
+    if (controls === null || monumentFocusSite !== null) {
       return
     }
 
@@ -1253,6 +1281,7 @@ export function CameraRig({
     camera,
     counterstrikeRun,
     invalidate,
+    monumentFocusSite,
     phase,
     firstStrikePresentation.phase,
     rivalPresentation.phase,
@@ -1310,6 +1339,17 @@ export function CameraRig({
       return
     }
 
+    if (monumentFocusSite !== null) {
+      controls.enabled = false
+      const progress = monumentRevealAtMs === null ? monumentCompleted ? 1 : 0 : monumentReducedMotionRef.current ? 1 : (performance.now() - monumentRevealAtMs) / MONUMENT_REVEAL_MS
+      const pose = sampleMonumentCamera(monumentFocusSite, progress, camera.aspect)
+      camera.position.copy(pose.position)
+      camera.up.copy(pose.up)
+      controls.target.copy(pose.target)
+      camera.lookAt(pose.target)
+      updateCameraDataset(camera, controls)
+      return
+    }
     if (counterstrikeRun.status !== 'dormant') {
       controls.enabled = false
       const runProgress = getCounterstrikeRunProgress(
