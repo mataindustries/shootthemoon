@@ -6,6 +6,8 @@ import { deserializePrototypeSave, OUTPOST_STORAGE_KEY } from '../src/persistenc
 import { createRivalRevealCameraPlan } from '../src/camera/rivalCameraPlan.ts'
 import { getSurfaceCameraPose } from '../src/camera/touchdownCameraPlan.ts'
 import { createSurfaceTerrainProfile } from '../src/render/surfaceTerrain.ts'
+import { landingSiteToRenderTransform } from '../src/render/renderCoordinates.ts'
+import { PerspectiveCamera, Vector3 } from 'three'
 
 const evidence = 'artifacts/screenshots/siege-camera-collision'
 async function open(page: Page, save: string) {
@@ -14,6 +16,10 @@ async function open(page: Page, save: string) {
   await page.goto('/')
   await expect(page.locator('main')).toHaveAttribute('data-scene-ready', 'true')
   await page.getByRole('button', { name: 'CONTINUE', exact: true }).click()
+  // Completed campaigns offer monuments before the older camera workflow.
+  if (deserializePrototypeSave(save)!.firstStrike?.status === 'COMPLETE') {
+    await page.getByRole('button', { name: 'Close Territory Monuments' }).click()
+  }
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 2000))
 }
 async function step(page: Page, ms: number) {
@@ -48,7 +54,15 @@ test('touchdown owns one transition, rejects drag, and settles on the normal out
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await open(page, save)
-  await page.getByRole('button', { name: 'VIEW OUTPOST OPERATIONS' }).click()
+  // Closing monuments returns to normal orbit; revisit through the saved claim beacon.
+  const orbitalPose = await pose(page)
+  const camera = new PerspectiveCamera(Number(await page.locator('canvas').getAttribute('data-camera-fov')), 390 / 844, .001, 80)
+  camera.position.fromArray(orbitalPose.slice(0, 3))
+  camera.up.fromArray(orbitalPose.slice(6, 9))
+  camera.lookAt(new Vector3().fromArray(orbitalPose.slice(3, 6)))
+  camera.updateMatrixWorld()
+  const beacon = landingSiteToRenderTransform(outpost.site).position.multiplyScalar(1.00038).project(camera)
+  await page.locator('canvas').click({ position: { x: (beacon.x + 1) * 195, y: (1 - beacon.y) * 422 } })
   await page.getByRole('button', { name: 'REVISIT OUTPOST' }).click()
   await expect(page.locator('canvas')).toHaveAttribute('data-camera-input-locked', 'true')
   await step(page, 2400)

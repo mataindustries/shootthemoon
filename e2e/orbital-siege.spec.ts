@@ -64,6 +64,9 @@ test('Orbital Siege construction, failure, refresh, recovery and deterministic r
   await page.clock.fastForward(15200)
   await expect(main).toHaveAttribute('data-siege-status', 'operational')
   await expect(main).toHaveAttribute('data-siege-damage', '0')
+  // An operational platform now offers the existing Territory Monuments selector.
+  await expect(main).toHaveAttribute('data-monument-view', 'true')
+  await page.getByRole('button', { name: 'BACK TO OUTPOST', exact: true }).tap()
   await expect(page.getByText('ORBITAL CONTROL ACHIEVED', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: /REPLAY ORBITAL SIEGE/ }).tap()
   await page.clock.fastForward(6200)

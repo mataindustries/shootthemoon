@@ -102,6 +102,7 @@ test('Territory Monuments: choices, three waves, repair, claim, reveal replay an
   await page.getByRole('button', { name: 'RETURN TO ORBIT', exact: true }).tap()
   await page.clock.runFor(400)
   await expect(main).toHaveAttribute('data-monument-view', 'false')
+  await expect(canvas).toHaveAttribute('data-monument-detail-visible', 'true')
   await expect(canvas).toHaveAttribute('data-base-details-visible', 'false')
   await page.screenshot({ path: `${evidence}/claimed-orbit.png` })
   const metrics = await canvas.evaluate(el => ({ calls: Number(el.dataset.drawCalls), triangles: Number(el.dataset.triangles), geometries: Number(el.dataset.geometries), programs: Number(el.dataset.programs) }))

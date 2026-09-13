@@ -29,6 +29,10 @@ export const VISUAL_PALETTE = Object.freeze({
   monumentIvory: '#dcc19a',
   octogonalOchre: '#9b762f',
   octogonalViolet: '#aa7ed8',
+  monumentObsidian: '#20292d',
+  monumentGold: '#b39657',
+  monumentAmber: '#efad58',
+  monumentCyan: '#66bfc5',
 
   neutralMachinery: '#42494d',
   contactDark: '#0a0c0e',
@@ -53,6 +57,8 @@ export const MATERIAL_RESPONSE = Object.freeze({
   rivalPanel: Object.freeze({ metalness: 0.18, roughness: 0.52 }),
   neutralMachinery: Object.freeze({ metalness: 0.42, roughness: 0.62 }),
   contact: Object.freeze({ metalness: 0.05, roughness: 0.9 }),
+  monumentCeramic: Object.freeze({ metalness: 0.32, roughness: 0.42 }),
+  monumentTrim: Object.freeze({ metalness: 0.68, roughness: 0.34 }),
 })
 
 export const EMISSIVE_LIMITS = Object.freeze({

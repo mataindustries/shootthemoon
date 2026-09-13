@@ -32,7 +32,12 @@ export function sampleMonumentCamera(site: LandingSite, progress: number, aspect
 export function octogonalApproach(wave: number, progress: number, ship: number): Vector3 {
   const origin = OCTOGONALS.waves[wave]!.origin
   const t = Math.max(0, Math.min(1, progress))
-  const spread = (ship - 1) * .009
-  return new Vector3(origin[0] * .065 * (1 - t) + spread,
-    .035 + origin[1] * .08 * (1 - t), origin[2] * .065 * (1 - t) + spread)
+  // The pass clears the Spire's .083 render-unit summit, including the fleet hull.
+  if (t === 1 && ship === 1) return new Vector3(0, .09, 0)
+  const spread = (ship - 1) * .020
+  const length = Math.hypot(origin[0], origin[2])
+  const trail = Math.abs(ship - 1) * .003
+  return new Vector3(origin[0] * (.059 * (1 - t) + trail) - origin[2] / length * spread,
+    .035 + .055 * t + origin[1] * .08 * (1 - t) + Math.abs(ship - 1) * .004,
+    origin[2] * (.059 * (1 - t) + trail) + origin[0] / length * spread)
 }
