@@ -40,6 +40,8 @@ export function SceneMetrics() {
       }
       canvas.dataset.baseDetailsVisible = String(visible('player-base-detail') || visible('rival-base-detail'))
       canvas.dataset.monumentVisible = String(visible('territory-monument'))
+      canvas.dataset.monumentDetailVisible = String(visible('monument-detail'))
+      canvas.dataset.platformVisible = String(visible('orbital-platform'))
       canvas.dataset.claimSignalVisible = String(visible('territory-claim-signal'))
       canvas.dataset.scarVisible = String(visible('permanent-lunar-scar'))
       canvas.dataset.octogonalsVisible = String(visible('octogonal-approach'))

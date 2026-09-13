@@ -1,0 +1,172 @@
+{
+  "HELIOS_SPIRE": {
+    "position": [
+      1.921184,
+      -0.324011,
+      1.017988
+    ],
+    "target": [
+      0.638646,
+      0.208648,
+      0.520687
+    ],
+    "up": [
+      0.751339,
+      0.245466,
+      0.612566
+    ],
+    "fov": 42,
+    "radius": 2.198233,
+    "calls": 9,
+    "triangles": 21344,
+    "programs": 6,
+    "frames": 15,
+    "contextLost": false,
+    "error": 0,
+    "silhouettePixels": [
+      27.475861773559124,
+      58.57313255404899
+    ]
+  },
+  "CRATER_CROWN": {
+    "position": [
+      -0.501038,
+      -1.929435,
+      -0.926515
+    ],
+    "target": [
+      -0.051832,
+      -0.553246,
+      -0.64322
+    ],
+    "up": [
+      -0.060979,
+      -0.650878,
+      -0.75673
+    ],
+    "fov": 42,
+    "radius": 2.198224,
+    "calls": 12,
+    "triangles": 22915,
+    "programs": 6,
+    "frames": 12,
+    "contextLost": false,
+    "error": 0,
+    "silhouettePixels": [
+      77.5517818201293,
+      64.67591256193796
+    ]
+  },
+  "BASTION_OBELISK": {
+    "position": [
+      1.921184,
+      -0.324011,
+      1.017988
+    ],
+    "target": [
+      0.638646,
+      0.208648,
+      0.520687
+    ],
+    "up": [
+      0.751339,
+      0.245466,
+      0.612566
+    ],
+    "fov": 42,
+    "radius": 2.198233,
+    "calls": 9,
+    "triangles": 21296,
+    "programs": 6,
+    "frames": 15,
+    "contextLost": false,
+    "error": 0,
+    "silhouettePixels": [
+      32.535796725528904,
+      37.82207065221696
+    ]
+  },
+  "SIGNAL_ARRAY": {
+    "position": [
+      1.921184,
+      -0.324011,
+      1.017988
+    ],
+    "target": [
+      0.638646,
+      0.208648,
+      0.520687
+    ],
+    "up": [
+      0.751339,
+      0.245466,
+      0.612566
+    ],
+    "fov": 42,
+    "radius": 2.198233,
+    "calls": 9,
+    "triangles": 21696,
+    "programs": 6,
+    "frames": 11,
+    "contextLost": false,
+    "error": 0,
+    "silhouettePixels": [
+      40.82922984024115,
+      54.70552236398176
+    ]
+  },
+  "inspection-zoom-limit": {
+    "position": [
+      1.389985,
+      0.454113,
+      1.133252
+    ],
+    "target": [
+      0.638646,
+      0.208648,
+      0.520687
+    ],
+    "up": [
+      0.751339,
+      0.245466,
+      0.612566
+    ],
+    "fov": 42,
+    "radius": 1.85001,
+    "calls": 12,
+    "triangles": 22307,
+    "programs": 6,
+    "frames": 42,
+    "contextLost": false,
+    "error": 0
+  },
+  "CRATER_CROWN_LANDED": {
+    "position": [
+      1.921184,
+      -0.324011,
+      1.017988
+    ],
+    "target": [
+      0.638646,
+      0.208648,
+      0.520687
+    ],
+    "up": [
+      0.751339,
+      0.245466,
+      0.612566
+    ],
+    "fov": 42,
+    "radius": 2.198233,
+    "calls": 10,
+    "triangles": 40736,
+    "programs": 5,
+    "frames": 43,
+    "contextLost": false,
+    "error": 0,
+    "silhouettePixels": [
+      38.69584044051155,
+      32.25541283635439
+    ]
+  }
+}

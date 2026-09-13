@@ -129,6 +129,8 @@ export function SceneRoot({
   onFocusRival,
 }: SceneRootProps) {
   const monumentSite = outpost === null ? null : territoryMonumentSite(outpost, firstStrike)
+  const monumentOrbitalView = outpost?.monument?.status === 'complete' &&
+    (phase === 'orbit' || phase === 'selected' || phase === 'returning')
   const showLandingScene =
     landingSite !== null &&
     (phase === 'approach' || phase === 'landed' || phase === 'returning')
@@ -400,6 +402,7 @@ export function SceneRoot({
         counterstrikeSecondaryImpactSite={secondaryImpactSite}
       />
       <LightingRig
+        monumentReadability={(monumentView || monumentOrbitalView) && !strikePresentationActive && !counterstrikePresentationActive}
         counterstrikeRun={counterstrikeRun}
         orbitalInterceptPosition={orbitalInterceptPosition}
         landingSite={landingSite}
@@ -412,6 +415,8 @@ export function SceneRoot({
             ? strikeAtPlayer
               ? outpost?.site ?? null
               : rival?.site ?? null
+            : monumentView || monumentOrbitalView
+              ? monumentSite
             : rivalFocused
               ? rival?.site ?? null
               : completedScarOrbit
@@ -454,8 +459,9 @@ export function SceneRoot({
       ) : null}
       {outpost?.monument && monumentSite !== null && !strikePresentationActive && !counterstrikePresentationActive ? <TerritoryMonument
         monument={outpost.monument} site={monumentSite} onFocus={onFocusMonument}
+        terrain={counterstrikeTerrain} segments={quality.patchSegments}
       /> : null}
-      {outpost?.monument?.kind === 'CRATER_CROWN' && outpost.monument.anchor === 'outpost' && counterstrikeTerrain !== null && (monumentView || phase === 'orbit') ? <SurfacePatch
+      {outpost?.monument?.kind === 'CRATER_CROWN' && outpost.monument.anchor === 'outpost' && counterstrikeTerrain !== null && (monumentView || phase === 'orbit' || monumentOrbitalView) ? <SurfacePatch
         site={outpost.site} phase="landed" terrain={counterstrikeTerrain} segments={quality.patchSegments} maximumOpacity={.8}
       /> : null}
       <Starfield count={quality.starCount} />
@@ -717,7 +723,7 @@ export function SceneRoot({
                 damageSequence={counterstrikeRun}
                 operations={operationsMetrics ?? undefined}
               />
-              <OrbitalPlatform outpost={outpost} terrain={terrain} segments={quality.patchSegments} />
+              {outpost.orbitalSiege !== null ? <OrbitalPlatform outpost={outpost} terrain={terrain} segments={quality.patchSegments} /> : null}
               <OutpostModule
                 outpost={outpost}
                 damageState={counterstrike?.outpostDamageState ?? 'INTACT'}

@@ -28,6 +28,7 @@ const LAUNCH_LIGHT_CLEARANCE = 0.00152
 const IMPACT_LIGHT_CLEARANCE = 0.00814
 
 interface LightingRigProps {
+  readonly monumentReadability?: boolean
   readonly counterstrikeRun?: CounterstrikeRunState
   readonly orbitalInterceptPosition?: Vector3 | null
   readonly landingSite: LandingSite | null
@@ -42,6 +43,7 @@ interface LightingRigProps {
 }
 
 export function LightingRig({
+  monumentReadability = false,
   counterstrikeRun,
   orbitalInterceptPosition,
   landingSite,
@@ -84,7 +86,7 @@ export function LightingRig({
     () => targetPosition.clone().add(SUN_OFFSET),
     [targetPosition],
   )
-  const ambientIntensity = counterstrikeReadLight
+  const ambientIntensity = monumentReadability ? .2 : counterstrikeReadLight
     ? 0.075
     : cinematicReadability
       ? closeViewShadows
@@ -108,13 +110,13 @@ export function LightingRig({
         residualScarLight ||
         firstStrikePresentation.phase === 'orbital-pullback' ||
         firstStrikePresentation.phase === 'ending'
-      const playerSurface = !cinematicReadability && closeViewShadows && !scar
-      rake.intensity = counterstrikeReadLight ? 0.85 : scar ? 2.4 : playerSurface ? 1.6 : 0
+      const playerSurface = !monumentReadability && !cinematicReadability && closeViewShadows && !scar
+      rake.intensity = monumentReadability ? 2.3 : counterstrikeReadLight ? 0.85 : scar ? 2.4 : playerSurface ? 1.6 : 0
       // Fixed in the site's tangent frame, independent of camera motion.
       rake.position.copy(targetPosition)
         .addScaledVector(activeEast, playerSurface ? 0.08 : -0.14)
         .addScaledVector(activeSouth, playerSurface ? 0.14 : 0.055)
-        .addScaledVector(activeUp, playerSurface ? 0.08 : 0.035)
+        .addScaledVector(activeUp, monumentReadability ? .16 : playerSurface ? 0.08 : 0.035)
       if (targetRef.current !== null) rake.target = targetRef.current
     }
     const eventLight = eventLightRef.current

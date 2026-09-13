@@ -1,0 +1,927 @@
+{
+  "frames": {
+    "menu-portrait": {
+      "calls": 3,
+      "triangles": 31520,
+      "geometries": 3,
+      "programs": 3,
+      "textures": 5,
+      "frameCount": 3,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "false",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        4.496308,
+        0.449631,
+        1.292689,
+        0,
+        0,
+        0
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "fresh-orbit-portrait": {
+      "calls": 3,
+      "triangles": 31520,
+      "geometries": 3,
+      "programs": 3,
+      "textures": 5,
+      "frameCount": 4,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "false",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        4.496308,
+        0.449631,
+        1.292689,
+        0,
+        0,
+        0
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "menu-landscape": {
+      "calls": 3,
+      "triangles": 31520,
+      "geometries": 3,
+      "programs": 3,
+      "textures": 5,
+      "frameCount": 3,
+      "buffer": [
+        844,
+        390
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "false",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        3.200032,
+        0.320003,
+        0.920009,
+        0,
+        0,
+        0
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "fresh-orbit-landscape": {
+      "calls": 3,
+      "triangles": 31520,
+      "geometries": 3,
+      "programs": 3,
+      "textures": 5,
+      "frameCount": 4,
+      "buffer": [
+        844,
+        390
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "false",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        3.200032,
+        0.320003,
+        0.920009,
+        0,
+        0,
+        0
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "helios_spire-reveal-start": {
+      "calls": 9,
+      "triangles": 32768,
+      "geometries": 12,
+      "programs": 9,
+      "textures": 5,
+      "frameCount": 5,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.155559,
+        -0.068664,
+        0.73245,
+        0.706264,
+        0.230739,
+        0.575816
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "helios_spire-reveal-mid": {
+      "calls": 9,
+      "triangles": 32768,
+      "geometries": 12,
+      "programs": 9,
+      "textures": 5,
+      "frameCount": 8,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.528596,
+        -0.193077,
+        0.871573,
+        0.673318,
+        0.219976,
+        0.548955
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "helios_spire-complete": {
+      "calls": 9,
+      "triangles": 32768,
+      "geometries": 12,
+      "programs": 9,
+      "textures": 5,
+      "frameCount": 10,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.921184,
+        -0.324011,
+        1.017988,
+        0.638646,
+        0.208648,
+        0.520687
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "helios_spire-claim-orbit": {
+      "calls": 10,
+      "triangles": 32833,
+      "geometries": 12,
+      "programs": 13,
+      "textures": 5,
+      "frameCount": 12,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "false",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        3.92411,
+        -2.491007,
+        -0.697313,
+        0,
+        0,
+        0
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "crater_crown-reveal-start": {
+      "calls": 19,
+      "triangles": 35369,
+      "geometries": 14,
+      "programs": 16,
+      "textures": 5,
+      "frameCount": 5,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        -0.22035,
+        -1.149854,
+        -0.711198,
+        -0.05732,
+        -0.611822,
+        -0.711322
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "crater_crown-reveal-mid": {
+      "calls": 14,
+      "triangles": 34913,
+      "geometries": 14,
+      "programs": 16,
+      "textures": 5,
+      "frameCount": 8,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        -0.357389,
+        -1.530464,
+        -0.816321,
+        -0.054641,
+        -0.583224,
+        -0.678073
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "crater_crown-complete": {
+      "calls": 14,
+      "triangles": 34913,
+      "geometries": 14,
+      "programs": 16,
+      "textures": 5,
+      "frameCount": 10,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        -0.501038,
+        -1.929435,
+        -0.926515,
+        -0.051832,
+        -0.553246,
+        -0.64322
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "crater_crown-claim-orbit": {
+      "calls": 10,
+      "triangles": 32833,
+      "geometries": 14,
+      "programs": 16,
+      "textures": 5,
+      "frameCount": 12,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "false",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        -0.286602,
+        -3.059124,
+        -3.55663,
+        0,
+        0,
+        0
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "bastion_obelisk-reveal-start": {
+      "calls": 9,
+      "triangles": 32720,
+      "geometries": 12,
+      "programs": 9,
+      "textures": 5,
+      "frameCount": 5,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.155592,
+        -0.068675,
+        0.732462,
+        0.706261,
+        0.230738,
+        0.575814
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "bastion_obelisk-reveal-mid": {
+      "calls": 9,
+      "triangles": 32720,
+      "geometries": 12,
+      "programs": 9,
+      "textures": 5,
+      "frameCount": 8,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.53051,
+        -0.193716,
+        0.872287,
+        0.673149,
+        0.219921,
+        0.548818
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "bastion_obelisk-complete": {
+      "calls": 9,
+      "triangles": 32720,
+      "geometries": 12,
+      "programs": 9,
+      "textures": 5,
+      "frameCount": 10,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.921184,
+        -0.324011,
+        1.017988,
+        0.638646,
+        0.208648,
+        0.520687
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "bastion_obelisk-claim-orbit": {
+      "calls": 10,
+      "triangles": 32833,
+      "geometries": 12,
+      "programs": 13,
+      "textures": 5,
+      "frameCount": 12,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "false",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        3.92411,
+        -2.491007,
+        -0.697313,
+        0,
+        0,
+        0
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "signal_array-reveal-start": {
+      "calls": 9,
+      "triangles": 33120,
+      "geometries": 12,
+      "programs": 9,
+      "textures": 5,
+      "frameCount": 5,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.155554,
+        -0.068662,
+        0.732448,
+        0.706264,
+        0.23074,
+        0.575816
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "signal_array-reveal-mid": {
+      "calls": 9,
+      "triangles": 33120,
+      "geometries": 12,
+      "programs": 9,
+      "textures": 5,
+      "frameCount": 8,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.531275,
+        -0.193971,
+        0.872572,
+        0.673082,
+        0.219899,
+        0.548762
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "signal_array-complete": {
+      "calls": 9,
+      "triangles": 33120,
+      "geometries": 12,
+      "programs": 9,
+      "textures": 5,
+      "frameCount": 10,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.921184,
+        -0.324011,
+        1.017988,
+        0.638646,
+        0.208648,
+        0.520687
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "signal_array-claim-orbit": {
+      "calls": 10,
+      "triangles": 32833,
+      "geometries": 12,
+      "programs": 13,
+      "textures": 5,
+      "frameCount": 12,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "false",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        3.92411,
+        -2.491007,
+        -0.697313,
+        0,
+        0,
+        0
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "octogonals-lane-1": {
+      "calls": 17,
+      "triangles": 34756,
+      "geometries": 24,
+      "programs": 13,
+      "textures": 5,
+      "frameCount": 5,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        1.155531,
+        -0.068654,
+        0.732439,
+        0.706266,
+        0.23074,
+        0.575818
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "octogonals-lane-1-inbound": {
+      "calls": 17,
+      "triangles": 34756,
+      "geometries": 16,
+      "programs": 10,
+      "textures": 5,
+      "frameCount": 8,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        1.155531,
+        -0.068654,
+        0.732439,
+        0.706266,
+        0.23074,
+        0.575818
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "octogonals-lane-2": {
+      "calls": 17,
+      "triangles": 34756,
+      "geometries": 24,
+      "programs": 13,
+      "textures": 5,
+      "frameCount": 4,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        1.155531,
+        -0.068654,
+        0.732439,
+        0.706266,
+        0.23074,
+        0.575818
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "octogonals-lane-2-inbound": {
+      "calls": 17,
+      "triangles": 34756,
+      "geometries": 16,
+      "programs": 10,
+      "textures": 5,
+      "frameCount": 7,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        1.155531,
+        -0.068654,
+        0.732439,
+        0.706266,
+        0.23074,
+        0.575818
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "octogonals-lane-3": {
+      "calls": 17,
+      "triangles": 34756,
+      "geometries": 24,
+      "programs": 13,
+      "textures": 5,
+      "frameCount": 3,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        1.155531,
+        -0.068654,
+        0.732439,
+        0.706266,
+        0.23074,
+        0.575818
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "octogonals-lane-3-inbound": {
+      "calls": 17,
+      "triangles": 34756,
+      "geometries": 16,
+      "programs": 10,
+      "textures": 5,
+      "frameCount": 6,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "false",
+      "camera": [
+        1.155531,
+        -0.068654,
+        0.732439,
+        0.706266,
+        0.23074,
+        0.575818
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "platform-operational-portrait": {
+      "calls": 66,
+      "triangles": 61208,
+      "geometries": 40,
+      "programs": 18,
+      "textures": 6,
+      "frameCount": 5,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "true",
+      "monumentDetails": "false",
+      "platform": "true",
+      "claim": "false",
+      "camera": [
+        0.754807,
+        0.241926,
+        0.61391,
+        0.751749,
+        0.246488,
+        0.612652
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "platform-operational-landscape": {
+      "calls": 67,
+      "triangles": 61220,
+      "geometries": 40,
+      "programs": 18,
+      "textures": 6,
+      "frameCount": 6,
+      "buffer": [
+        844,
+        390
+      ],
+      "baseDetails": "true",
+      "monumentDetails": "false",
+      "platform": "true",
+      "claim": "false",
+      "camera": [
+        0.754807,
+        0.241926,
+        0.61391,
+        0.751749,
+        0.246488,
+        0.612652
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "platform-waves-portrait": {
+      "calls": 70,
+      "triangles": 64268,
+      "geometries": 44,
+      "programs": 19,
+      "textures": 6,
+      "frameCount": 3,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "true",
+      "monumentDetails": "false",
+      "platform": "true",
+      "claim": "false",
+      "camera": [
+        0.754807,
+        0.241926,
+        0.61391,
+        0.751749,
+        0.246488,
+        0.612652
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "platform-waves-landscape": {
+      "calls": 71,
+      "triangles": 64280,
+      "geometries": 44,
+      "programs": 19,
+      "textures": 6,
+      "frameCount": 4,
+      "buffer": [
+        844,
+        390
+      ],
+      "baseDetails": "true",
+      "monumentDetails": "false",
+      "platform": "true",
+      "claim": "false",
+      "camera": [
+        0.754807,
+        0.241926,
+        0.61391,
+        0.751749,
+        0.246488,
+        0.612652
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "platform-damaged-portrait": {
+      "calls": 69,
+      "triangles": 61352,
+      "geometries": 41,
+      "programs": 19,
+      "textures": 6,
+      "frameCount": 4,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "true",
+      "monumentDetails": "false",
+      "platform": "true",
+      "claim": "false",
+      "camera": [
+        0.754807,
+        0.241926,
+        0.61391,
+        0.751749,
+        0.246488,
+        0.612652
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "platform-damaged-landscape": {
+      "calls": 70,
+      "triangles": 61364,
+      "geometries": 41,
+      "programs": 19,
+      "textures": 6,
+      "frameCount": 5,
+      "buffer": [
+        844,
+        390
+      ],
+      "baseDetails": "true",
+      "monumentDetails": "false",
+      "platform": "true",
+      "claim": "false",
+      "camera": [
+        0.754807,
+        0.241926,
+        0.61391,
+        0.751749,
+        0.246488,
+        0.612652
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "crater-crown-outpost-basin": {
+      "calls": 9,
+      "triangles": 52576,
+      "geometries": 9,
+      "programs": 10,
+      "textures": 6,
+      "frameCount": 6,
+      "buffer": [
+        390,
+        844
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.155585,
+        -0.068672,
+        0.732459,
+        0.706262,
+        0.230739,
+        0.575814
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "signal-array-low-reduced-motion-landscape": {
+      "calls": 9,
+      "triangles": 21696,
+      "geometries": 12,
+      "programs": 6,
+      "textures": 3,
+      "frameCount": 5,
+      "buffer": [
+        844,
+        390
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.687216,
+        -0.210116,
+        0.936904,
+        0.638646,
+        0.208648,
+        0.520687
+      ],
+      "webglError": 0,
+      "contextLost": false
+    },
+    "signal-array-low-reduced-motion-held": {
+      "calls": 9,
+      "triangles": 21696,
+      "geometries": 12,
+      "programs": 6,
+      "textures": 3,
+      "frameCount": 70,
+      "buffer": [
+        844,
+        390
+      ],
+      "baseDetails": "false",
+      "monumentDetails": "true",
+      "platform": "false",
+      "claim": "true",
+      "camera": [
+        1.687216,
+        -0.210116,
+        0.936904,
+        0.638646,
+        0.208648,
+        0.520687
+      ],
+      "webglError": 0,
+      "contextLost": false
+    }
+  },
+  "assets": {
+    "index-Do1pxMRz.css": {
+      "bytes": 53759,
+      "gzipBytes": 11446,
+      "sha256": "4c8e3145b6129fe04dab367f3b792f7eaaed9d86292192ec407a9df3bfa4344e"
+    },
+    "index-DoNnx1AJ.js": {
+      "bytes": 1448008,
+      "gzipBytes": 394423,
+      "sha256": "9118bb87b7570fa3a32a29eafba1154cdfeb710b3575cf57c872bf5441657734"
+    }
+  },
+  "errors": []
+}

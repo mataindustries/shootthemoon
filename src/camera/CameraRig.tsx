@@ -332,6 +332,13 @@ function applyOrbitProjection(camera: PerspectiveCamera): void {
   camera.updateProjectionMatrix()
 }
 
+function applyMonumentProjection(camera: PerspectiveCamera): void {
+  camera.near = .001
+  camera.far = 80
+  camera.fov = 42
+  camera.updateProjectionMatrix()
+}
+
 function applySurfaceProjection(camera: PerspectiveCamera): void {
   camera.near = 0.000012
   camera.far = 3
@@ -556,6 +563,7 @@ export function CameraRig({
   const viewportSize = useThree((state) => state.size)
   const progressRef = useCinematicProgress()
   const monumentReducedMotionRef = useRef(window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const monumentCameraActiveRef = useRef(false)
   const controlsRef = useRef<OrbitControls | null>(null)
   const journeyRef = useRef<Journey | null>(null)
   const rivalJourneyRef = useRef<SafeOrbitalCameraPath | null>(null)
@@ -637,14 +645,21 @@ export function CameraRig({
       return
     }
 
+    const preserveMonumentPose = monumentCameraActiveRef.current
+    monumentCameraActiveRef.current = monumentFocusSite !== null
+
     if (monumentFocusSite !== null) {
       controls.enabled = false
       clearOrbitControlsTransientState(controls)
       baseTransitionKeyRef.current = null
-      camera.near = .001
-      camera.far = 80
-      camera.fov = 42
-      camera.updateProjectionMatrix()
+      journeyRef.current = null
+      touchdownRef.current = null
+      // Scripted poses must not inherit the preceding surface/orbit zoom limits.
+      controls.minDistance = 0
+      controls.maxDistance = Infinity
+      controls.minPolarAngle = 0
+      controls.maxPolarAngle = Math.PI
+      applyMonumentProjection(camera)
       const progress = monumentRevealAtMs === null ? monumentCompleted ? 1 : 0 : monumentReducedMotionRef.current ? 1 : (performance.now() - monumentRevealAtMs) / MONUMENT_REVEAL_MS
       synchronizeOrbitControls(camera, controls, sampleMonumentCamera(monumentFocusSite, progress, camera.aspect))
       gl.domElement.dataset.cameraMode = monumentRevealAtMs === null ? 'territory-monument' : 'territory-reveal'
@@ -1059,6 +1074,43 @@ export function CameraRig({
     rivalJourneyRef.current = null
     delete gl.domElement.dataset.cameraPathMinimumRadius
 
+    if (monumentCompleted && orbitalFocusSite !== null &&
+      (phase === 'orbit' || phase === 'selected' || (phase === 'returning' && preserveMonumentPose))) {
+      // The reveal already ends in orbit. Hand its exact pose to inspection
+      // controls instead of retargeting the Moon and changing the field of view.
+      const pose = preserveMonumentPose
+        ? currentCameraPose(camera, controls)
+        : sampleMonumentCamera(orbitalFocusSite, 1, camera.aspect)
+      monumentCameraActiveRef.current = true
+      journeyRef.current = null
+      touchdownRef.current = null
+      baseTransitionKeyRef.current = null
+      surfaceFocusKindRef.current = null
+      savedSurfaceViewRef.current = null
+      returningToSurfaceViewRef.current = false
+      controls.enabled = phase !== 'returning'
+      controls.enablePan = false
+      // Orbit the claim's outward hemisphere; even maximum inward zoom clears
+      // the lunar surface and keeps full surface bases below their LOD cutoff.
+      const minimumDistance = Math.min(1, pose.position.distanceTo(pose.target))
+      const targetRadius = pose.target.length()
+      controls.minDistance = minimumDistance
+      controls.maxDistance = isNarrowPortrait(camera) ? 5.8 : 5.2
+      controls.minPolarAngle = 0
+      controls.maxPolarAngle = Math.acos(MathUtils.clamp(
+        (1.2 ** 2 - targetRadius ** 2 - minimumDistance ** 2) / (2 * targetRadius * minimumDistance), 0, 1,
+      ))
+      controls.rotateSpeed = .56
+      controls.zoomSpeed = .72
+      synchronizeOrbitControls(camera, controls, pose)
+      applyMonumentProjection(camera)
+      gl.domElement.dataset.cameraMode = 'orbit'
+      gl.domElement.dataset.cameraInteracting = 'false'
+      updateCameraDataset(camera, controls)
+      invalidate()
+      return
+    }
+
     const baseKey = `${phase}:${landingSite?.location.latitudeRad}:${landingSite?.location.longitudeRad}`
     if (phase === 'approach' && landingSite !== null) {
       controls.enabled = false
@@ -1272,7 +1324,8 @@ export function CameraRig({
       camera.updateProjectionMatrix()
     } else if (phase === 'orbit' || phase === 'selected') {
       controls.maxDistance = isNarrowPortrait(camera) ? 5.8 : 5.2
-      applyOrbitProjection(camera)
+      if (monumentCameraActiveRef.current) applyMonumentProjection(camera)
+      else applyOrbitProjection(camera)
     }
 
     updateCameraDataset(camera, controls)
@@ -1486,6 +1539,7 @@ export function CameraRig({
 
     if (phase === 'orbit' || phase === 'selected') {
       controls.update(Math.min(delta, 0.05))
+      updateCameraDataset(camera, controls)
       return
     }
 

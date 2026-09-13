@@ -88,7 +88,7 @@ export function FirstStrikeHud({
           >
             <span>FINAL COMMAND AUTHORITY</span>
             <h2 id="strike-confirmation-title">LAUNCH AT NULL MERIDIAN?</h2>
-            <p>This action ends the current prototype run.</p>
+            <p>Launching the warhead ends this prototype run.</p>
             <div>
               <button type="button" onClick={onCancel}>CANCEL</button>
               <button className="strike-fire-action" type="button" onClick={onFire}>

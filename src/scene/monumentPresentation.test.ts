@@ -4,6 +4,9 @@ import { baseDetailsVisible, octogonalApproach, sampleMonumentCamera } from './m
 import { OCTOGONALS } from '../content/octogonals.ts'
 import { PerspectiveCamera, Vector3 } from 'three'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
+import { batchOctagonalModel, createOctagonalKit, disposeOctagonalKit } from '../render/octagonalKit.ts'
+import { authorDrone, authorMonument, authorPlatform } from './octagonalModels.ts'
+import { MONUMENT_KINDS } from '../domain/territoryMonument.ts'
 
 describe('Territory Monument orbital presentation', () => {
   it('hides base geometry at orbital altitude while retaining surface detail below the cutoff', () => {
@@ -19,7 +22,7 @@ describe('Territory Monument orbital presentation', () => {
         expect(point.y).toBeGreaterThanOrEqual(.035)
         expect(point).toEqual(octogonalApproach(wave, i / 100, 1))
       }
-      expect(octogonalApproach(wave, 1, 1).toArray()).toEqual([0, .035, 0])
+      expect(octogonalApproach(wave, 1, 1).toArray()).toEqual([0, .09, 0])
     }
   })
   it('portrait and landscape reveal pulls back safely, keeps the claim centered and ends above base detail altitude', () => {
@@ -55,5 +58,47 @@ describe('Territory Monument orbital presentation', () => {
       expect(projected.y).toBeLessThan(.92)
       expect(projected.y).toBeGreaterThan(0)
     }
+  })
+  it('keeps every authored monument vertex inside the unchanged mobile reveal and batches each model within budget', () => {
+    const kit = createOctagonalKit()
+    const site = createLandingSite(createLunarLocation(.248, -.684, 18))
+    const transform = landingSiteToRenderTransform(site)
+    const vertex = new Vector3()
+    for (const kind of MONUMENT_KINDS) {
+      const batches = batchOctagonalModel(kit, add => authorMonument(kind, add))
+      expect(batches.length).toBeLessThanOrEqual(4)
+      expect(batches.reduce((sum, b) => sum + b.geometry.getAttribute('position').count / 3, 0)).toBeLessThan(4000)
+      for (const aspect of [390 / 844, 844 / 390]) for (const progress of [0, .5, 1]) {
+        const camera = new PerspectiveCamera(42, aspect, .001, 80)
+        const pose = sampleMonumentCamera(site, progress, aspect)
+        camera.position.copy(pose.position)
+        camera.up.copy(pose.up)
+        camera.lookAt(pose.target)
+        camera.updateMatrixWorld()
+        let maxX = 0, minY = Infinity, maxY = -Infinity
+        for (const batch of batches) {
+          const positions = batch.geometry.getAttribute('position')
+          for (let i = 0; i < positions.count; i++) {
+            vertex.fromBufferAttribute(positions, i).multiplyScalar(.001)
+            vertex.y += .0007
+            vertex.applyQuaternion(transform.orientation).add(transform.position).project(camera)
+            maxX = Math.max(maxX, Math.abs(vertex.x))
+            minY = Math.min(minY, vertex.y)
+            maxY = Math.max(maxY, vertex.y)
+          }
+        }
+        expect(maxX).toBeLessThan(.93)
+        expect(maxY).toBeLessThan(.92)
+        expect(minY).toBeGreaterThan(0)
+      }
+      batches.forEach(b => b.geometry.dispose())
+    }
+    for (const author of [authorPlatform, authorDrone]) {
+      const batches = batchOctagonalModel(kit, author)
+      expect(batches.length).toBeLessThanOrEqual(4)
+      expect(batches.reduce((sum, b) => sum + b.geometry.getAttribute('position').count / 3, 0)).toBeLessThan(3000)
+      batches.forEach(b => b.geometry.dispose())
+    }
+    disposeOctagonalKit(kit)
   })
 })
