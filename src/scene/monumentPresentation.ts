@@ -20,7 +20,7 @@ export function sampleMonumentCamera(site: LandingSite, progress: number, aspect
   const p = Math.max(0, Math.min(1, progress))
   const t = p * p * (3 - 2 * p)
   const portrait = aspect < 1 ? 1.25 : 1
-  const target = transform.position.clone().addScaledVector(transform.up, -.06 - t * .09)
+  const target = transform.position.clone().addScaledVector(transform.up, -.04 - t * .11)
   const position = transform.position.clone()
     .addScaledVector(transform.up, (.24 + t * .55) * portrait)
     .addScaledVector(transform.east, (.13 + t * .21) * portrait)

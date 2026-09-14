@@ -1,5 +1,6 @@
 import type { FirstStrikeSnapshot } from './firstStrike.ts'
 import type { OutpostSnapshot } from './outpost.ts'
+import { DEFENSE_WINDOW_MS } from './waveDefense.ts'
 
 export const MONUMENT_KINDS = ['HELIOS_SPIRE', 'CRATER_CROWN', 'BASTION_OBELISK', 'SIGNAL_ARRAY'] as const
 export type MonumentKind = (typeof MONUMENT_KINDS)[number]
@@ -48,6 +49,8 @@ export interface TerritoryMonumentSnapshot {
   readonly oreLost: number
   readonly completedAtMs: number | null
   readonly revealSeen: boolean
+  /** Optional for existing saves; null means no manual shot in that wave. */
+  readonly defenseShots?: readonly (number | null)[]
 }
 
 export function monumentsUnlocked(outpost: OutpostSnapshot, firstStrike: FirstStrikeSnapshot | null): boolean {
@@ -100,6 +103,9 @@ export function parseTerritoryMonument(value: unknown): TerritoryMonumentSnapsho
       typeof m.revealSeen !== 'boolean' || !Array.isArray(m.orders) || m.orders.length !== 3 ||
       m.orders.some((o) => o !== null && !Object.hasOwn(MONUMENT_ORDERS, o))) return undefined
   if (m.orders.some((o, i) => i < m.wavesResolved ? o === null : i === m.wavesResolved && m.status === 'wave' ? o === null : o !== null)) return undefined
+  if (m.defenseShots !== undefined && (!Array.isArray(m.defenseShots) || m.defenseShots.length !== 3 ||
+      m.defenseShots.some((shot, i) => shot !== null && (!bounded(shot, DEFENSE_WINDOW_MS) ||
+        m.orders[i] === null || (i === m.wavesResolved && shot > m.phaseElapsedMs))))) return undefined
   if (m.anchor === 'impact-scar' && m.kind !== 'CRATER_CROWN') return undefined
   if (!['damaged', 'repairing'].includes(m.status) && (m.productionPenalty !== 0 || m.energyLoss !== 0)) return undefined
   if (m.status !== 'repairing' && m.repairWorkMs !== 0 && !(m.status === 'complete' && m.repairWorkMs === MONUMENT_REPAIR_WORK_MS)) return undefined
@@ -115,5 +121,6 @@ export function parseTerritoryMonument(value: unknown): TerritoryMonumentSnapsho
   return { kind: m.kind, anchor: m.anchor, status: m.status, phaseElapsedMs: m.phaseElapsedMs,
     workMs: m.workMs, repairWorkMs: m.repairWorkMs, health: m.health, wavesResolved: m.wavesResolved,
     orders: [...m.orders], productionPenalty: m.productionPenalty, energyLoss: m.energyLoss,
-    oreLost: m.oreLost, completedAtMs: m.completedAtMs, revealSeen: m.revealSeen }
+    oreLost: m.oreLost, completedAtMs: m.completedAtMs, revealSeen: m.revealSeen,
+    ...(m.defenseShots === undefined ? {} : { defenseShots: [...m.defenseShots] }) }
 }

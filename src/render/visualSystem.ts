@@ -33,6 +33,7 @@ export const VISUAL_PALETTE = Object.freeze({
   monumentGold: '#b39657',
   monumentAmber: '#efad58',
   monumentCyan: '#66bfc5',
+  defenseImpactCore: '#fff3d6',
 
   neutralMachinery: '#42494d',
   contactDark: '#0a0c0e',

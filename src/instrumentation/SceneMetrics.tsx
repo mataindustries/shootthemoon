@@ -45,6 +45,17 @@ export function SceneMetrics() {
       canvas.dataset.claimSignalVisible = String(visible('territory-claim-signal'))
       canvas.dataset.scarVisible = String(visible('permanent-lunar-scar'))
       canvas.dataset.octogonalsVisible = String(visible('octogonal-approach'))
+      canvas.dataset.defenseBurstVisible = String(visible('octogonal-destruction'))
+      canvas.dataset.defenseBeamVisible = String(visible('defense-beam'))
+      const defenseFraming: Record<string, number[]> = {}
+      for (const name of ['defense-turret', 'defense-target', 'octogonal-destruction']) {
+        const object = state.scene.getObjectByName(name)
+        if (object && visible(name)) defenseFraming[name] = object.getWorldPosition(new Vector3()).project(state.camera).toArray()
+      }
+      canvas.dataset.defenseFraming = JSON.stringify(defenseFraming)
+      const lander = state.scene.getObjectByName('player-lander')
+      canvas.dataset.landerFraming = JSON.stringify(lander && visible('player-lander')
+        ? lander.getWorldPosition(new Vector3()).project(state.camera).toArray() : null)
       if (shouldEnableE2eHarness(E2E_HARNESS_BUILD_ENABLED, window.location.search)) {
         const objects: Record<string, number[]> = {}
         for (const name of ['null-meridian-counterstrike-missile', 'player-orbital-interceptor', 'counterstrike-orbital-breakup', 'player-lander', 'orbital-outpost-signal', 'mining-laser-beam', 'mining-contact-glow']) {

@@ -1,7 +1,7 @@
 import { siegeIsActive, type SiegeOrder } from '../domain/orbitalSiege.ts'
 import { monumentIsActive, type MonumentKind, type MonumentOrder } from '../domain/territoryMonument.ts'
 import type { FirstStrikeSnapshot } from '../domain/firstStrike.ts'
-import { advanceTerritoryMonument, issueMonumentOrder, startMonument } from './territoryMonumentSimulation.ts'
+import { advanceTerritoryMonument, fireMonumentDefense, issueMonumentOrder, startMonument } from './territoryMonumentSimulation.ts'
 import { advanceOrbitalSiege, startOrbitalSiege, issueSiegeOrder } from './orbitalSiegeSimulation.ts'
 import {
   DEPOSIT_BLUEPRINTS,
@@ -95,6 +95,7 @@ export type OutpostAction =
   | { readonly type: 'startOrbitalSiege'; readonly nowMs: number; readonly repair?: boolean }
   | { readonly type: 'startMonument'; readonly kind: MonumentKind; readonly firstStrike: FirstStrikeSnapshot | null; readonly nowMs: number; readonly repair?: boolean }
   | { readonly type: 'issueMonumentOrder'; readonly order: MonumentOrder; readonly nowMs: number; readonly damageState: OutpostDamageState }
+  | { readonly type: 'fireMonumentDefense'; readonly wave: number; readonly nowMs: number; readonly damageState: OutpostDamageState }
   | { readonly type: 'monumentRevealSeen' }
   | { readonly type: 'issueSiegeOrder'; readonly order: SiegeOrder; readonly nowMs: number; readonly damageState: OutpostDamageState }
   | { readonly type: 'applyDamage'; readonly nowMs: number }
@@ -688,6 +689,9 @@ export function outpostReducer(
       return state === null ? null : startMonument(state, action.kind, action.firstStrike, action.nowMs, action.repair)
     case 'issueMonumentOrder':
       return state === null ? null : issueMonumentOrder(advanceTerritoryMonument(state, action.nowMs, action.damageState), action.order)
+    case 'fireMonumentDefense':
+      return state?.monument?.status !== 'wave' || state.monument.wavesResolved !== action.wave ? state :
+        fireMonumentDefense(advanceTerritoryMonument(state, action.nowMs, action.damageState), action.wave)
     case 'monumentRevealSeen':
       return state?.monument?.status !== 'complete' || state.monument.revealSeen ? state :
         { ...state, monument: { ...state.monument, revealSeen: true } }

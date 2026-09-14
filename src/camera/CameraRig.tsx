@@ -1,7 +1,9 @@
 import { sampleMonumentCamera } from '../scene/monumentPresentation.ts'
 import { MONUMENT_REVEAL_MS } from '../domain/territoryMonument.ts'
+import { defenseElapsed, defenseShake } from '../scene/waveDefensePresentation.ts'
+import { siegeIsActive } from '../domain/orbitalSiege.ts'
 export { getSurfaceCameraPose } from './touchdownCameraPlan.ts'
-import { getSurfaceCameraPose, createTouchdownCameraTransition, sampleTouchdownCamera, type TouchdownCameraTransition } from './touchdownCameraPlan.ts'
+import { getSurfaceCameraPose, createTouchdownCameraTransition, landingCameraBeat, sampleTouchdownCamera, type TouchdownCameraTransition } from './touchdownCameraPlan.ts'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
@@ -118,6 +120,7 @@ interface CameraRigProps {
 }
 
 type SurfaceFocusKind =
+  | 'platform'
   | 'deployment'
   | 'travel'
   | 'mining'
@@ -237,6 +240,7 @@ function getSurfaceFocusKind(
   outpost: OutpostSnapshot,
   nowMs: number,
 ): SurfaceFocusKind | null {
+  if (siegeIsActive(outpost.orbitalSiege)) return 'platform'
   const robotFocusByState: Partial<Record<RobotState, SurfaceFocusKind>> = {
     deploying: 'deployment',
     traveling: 'travel',
@@ -273,6 +277,14 @@ function getSurfaceFocusPose(
   nowMs: number,
 ): SurfaceCameraPose {
   const transform = landingSiteToRenderTransform(site)
+  if (kind === 'platform') {
+    const ground = sampleRenderedSurface(terrain, terrainSegments, 0, -6)
+    return {
+      position: localPointToWorld(site, .0065, ground.y + .012, ground.z + .016),
+      target: localPointToWorld(site, 0, ground.y - .0014, ground.z),
+      up: transform.up.clone(),
+    }
+  }
   const extractorFocus = kind === 'construction' || kind === 'activation'
   const kinematics = getRobotKinematics(outpost, nowMs)
   let focusPosition =
@@ -1396,6 +1408,14 @@ export function CameraRig({
       controls.enabled = false
       const progress = monumentRevealAtMs === null ? monumentCompleted ? 1 : 0 : monumentReducedMotionRef.current ? 1 : (performance.now() - monumentRevealAtMs) / MONUMENT_REVEAL_MS
       const pose = sampleMonumentCamera(monumentFocusSite, progress, camera.aspect)
+      const monument = outpost?.monument
+      if (monument?.status === 'wave') {
+        const elapsed = defenseElapsed(monument, outpost!.operations.lastUpdatedAtMs, simulationNowMs(), !document.hidden)
+        const shake = defenseShake(elapsed, monument.defenseShots?.[monument.wavesResolved], monumentReducedMotionRef.current)
+        temporaryPositionRef.current.subVectors(pose.target, pose.position).cross(pose.up).normalize().multiplyScalar(shake)
+        pose.position.add(temporaryPositionRef.current)
+        pose.target.add(temporaryPositionRef.current)
+      }
       camera.position.copy(pose.position)
       camera.up.copy(pose.up)
       controls.target.copy(pose.target)
@@ -1647,6 +1667,7 @@ export function CameraRig({
     }
 
     if (phase === 'approach' && touchdownRef.current !== null) {
+      gl.domElement.dataset.landingBeat = landingCameraBeat(progressRef.current)
       controls.enabled = false
       camera.fov = sampleTouchdownCamera(touchdownRef.current, progressRef.current,
         temporaryPositionRef.current, temporaryTargetRef.current, temporaryUpRef.current)

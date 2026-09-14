@@ -97,7 +97,7 @@ export function ImpactEffects({
   useFrame(() => {
     const progress =
       phase === 'landed' || phase === 'returning' ? 1 : progressRef.current
-    const impactAge = Math.max(0, Math.min(1, (progress - 0.78) / 0.22))
+    const impactAge = Math.max(0, Math.min(1, (progress - 0.86) / 0.14))
     const positionAttribute = dust.geometry.getAttribute(
       'position',
     ) as BufferAttribute
