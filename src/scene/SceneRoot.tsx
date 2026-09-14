@@ -1,4 +1,5 @@
 import { TerritoryMonument, SurfaceDetail } from './TerritoryMonument.tsx'
+import type { WaveDefenseView } from '../domain/waveDefense.ts'
 import { territoryMonumentSite } from './monumentPresentation.ts'
 import { monumentIsActive } from '../domain/territoryMonument.ts'
 import { OrbitalPlatform } from './OrbitalPlatform.tsx'
@@ -71,6 +72,7 @@ import { calculateOutpostOperations } from '../simulation/outpostOperations.ts'
 const CLEAR_COLOR = VISUAL_PALETTE.space
 
 interface SceneRootProps {
+  readonly platformDefense: WaveDefenseView | null
   readonly monumentView: boolean
   readonly monumentRevealAtMs: number | null
   readonly onFocusMonument: () => void
@@ -105,6 +107,7 @@ function MoonFallback() {
 }
 
 export function SceneRoot({
+  platformDefense,
   monumentView,
   monumentRevealAtMs,
   onFocusMonument,
@@ -361,7 +364,7 @@ export function SceneRoot({
   useDemandAnimation(
     active &&
       ((monumentView && (monumentRevealAtMs !== null || (monumentIsActive(outpost?.monument ?? null) && outpost?.monument?.status !== 'command'))) ||
-        outpostAnimationActive ||
+        platformDefense !== null || outpostAnimationActive ||
         rivalAnimationActive ||
         strikeAnimationActive ||
         counterstrikeAnimationActive),
@@ -460,6 +463,7 @@ export function SceneRoot({
       {outpost?.monument && monumentSite !== null && !strikePresentationActive && !counterstrikePresentationActive ? <TerritoryMonument
         monument={outpost.monument} site={monumentSite} onFocus={onFocusMonument}
         terrain={counterstrikeTerrain} segments={quality.patchSegments}
+        sampledAtMs={outpost.operations.lastUpdatedAtMs} running={active && monumentView}
       /> : null}
       {outpost?.monument?.kind === 'CRATER_CROWN' && outpost.monument.anchor === 'outpost' && counterstrikeTerrain !== null && (monumentView || phase === 'orbit' || monumentOrbitalView) ? <SurfacePatch
         site={outpost.site} phase="landed" terrain={counterstrikeTerrain} segments={quality.patchSegments} maximumOpacity={.8}
@@ -723,7 +727,7 @@ export function SceneRoot({
                 damageSequence={counterstrikeRun}
                 operations={operationsMetrics ?? undefined}
               />
-              {outpost.orbitalSiege !== null ? <OrbitalPlatform outpost={outpost} terrain={terrain} segments={quality.patchSegments} /> : null}
+              {outpost.orbitalSiege !== null ? <OrbitalPlatform outpost={outpost} terrain={terrain} segments={quality.patchSegments} defense={platformDefense} /> : null}
               <OutpostModule
                 outpost={outpost}
                 damageState={counterstrike?.outpostDamageState ?? 'INTACT'}

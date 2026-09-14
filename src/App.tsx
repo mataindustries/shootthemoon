@@ -1,4 +1,7 @@
 import { TerritoryMonumentHud, type MonumentAction } from './app/TerritoryMonumentHud.tsx'
+import { WaveDefenseHud } from './app/WaveDefenseHud.tsx'
+import { firePlatformDefense, platformDefenseView, type PlatformDefenseShots } from './app/platformDefensePresentation.ts'
+import { DEFENSE_WINDOW_MS } from './domain/waveDefense.ts'
 import { MONUMENT_KINDS, MONUMENT_REVEAL_MS, monumentIsActive, monumentModifiers, monumentsUnlocked, type MonumentKind, type MonumentOrder } from './domain/territoryMonument.ts'
 import { deriveSecondaryImpactSite } from './domain/counterstrike.ts'
 import { planInterceptorContact } from './simulation/interceptorCollision.ts'
@@ -265,6 +268,7 @@ function App() {
       createFirstStrikePresentation(),
     )
   const [monumentOpen, setMonumentOpen] = useState(false)
+  const [platformShots, setPlatformShots] = useState<PlatformDefenseShots | null>(null)
   const [monumentRevealAtMs, setMonumentRevealAtMs] = useState<number | null>(null)
   const monumentOfferedRef = useRef(false)
   const [strikeConfirmationOpen, setStrikeConfirmationOpen] = useState(false)
@@ -304,6 +308,8 @@ function App() {
   const monumentSafe = rivalPresentation.phase === 'idle' && firstStrikePresentation.phase === 'idle' && (counterstrikeRun.status === 'dormant' || (counterstrikeRun.status === 'resolved' && !counterstrikeRun.replay && counterstrike?.acceptedOutcome != null)) && (state.phase === 'landed' || state.phase === 'orbit')
   const monumentView = monumentOpen && monumentSafe && !entryOpen
   const monumentAvailable = outpost !== null && monumentsUnlocked(outpost, firstStrike)
+  const platformDefense = !entryOpen && state.phase === 'landed' && monumentSafe && !monumentView
+    ? platformDefenseView(outpost?.orbitalSiege ?? null, platformShots) : null
   const continuousRendering =
     !entryOpen &&
     ((monumentView && (monumentRevealAtMs !== null || (monumentIsActive(outpost?.monument ?? null) && outpost?.monument?.status !== 'command'))) ||
@@ -1356,7 +1362,9 @@ function App() {
   const handleMonumentAction = (action: MonumentAction) => {
     if (!monumentView || outpost === null) return
     const nowMs = Date.now()
-    if (action === 'repair' && outpost.monument !== null) {
+    if (action === 'fire') {
+      if (outpost.monument?.status === 'wave') dispatchOutpost({ type: 'fireMonumentDefense', wave: outpost.monument.wavesResolved, nowMs, damageState: counterstrike?.outpostDamageState ?? 'INTACT' })
+    } else if (action === 'repair' && outpost.monument !== null) {
       dispatchOutpost({ type: 'startMonument', kind: outpost.monument.kind, firstStrike, nowMs, repair: true })
     } else if (MONUMENT_KINDS.includes(action as MonumentKind)) {
       dispatchOutpost({ type: 'startMonument', kind: action as MonumentKind, firstStrike, nowMs })
@@ -1933,6 +1941,7 @@ function App() {
       data-operation-active-robots={operationsMetrics?.activeRobots ?? 0}
       data-operation-storage-capacity={outpost?.operations.storageCapacity ?? 0}
       data-monument-view={monumentView}
+      data-platform-defense={platformDefense !== null}
       data-monument-kind={outpost?.monument?.kind ?? 'none'}
       data-monument-status={outpost?.monument?.status ?? 'none'}
       data-monument-waves={outpost?.monument?.wavesResolved ?? 0}
@@ -1985,6 +1994,7 @@ function App() {
       >
         <WebGlContextRecovery />
         <SceneRoot
+          platformDefense={platformDefense}
           active={!entryOpen}
           monumentView={monumentView}
           monumentRevealAtMs={monumentView ? monumentRevealAtMs : null}
@@ -2040,6 +2050,7 @@ function App() {
         onSiegeAction={(action) => {
           const nowMs = Date.now()
           if (action === 'build' || action === 'repair') {
+            setPlatformShots(null)
             dispatchOutpost({ type: 'startOrbitalSiege', nowMs, repair: action === 'repair' })
           } else {
             dispatchOutpost({ type: 'issueSiegeOrder', nowMs, order: action, damageState: counterstrike?.outpostDamageState ?? 'INTACT' })
@@ -2106,6 +2117,13 @@ function App() {
         reveal={monumentRevealAtMs !== null} onAction={handleMonumentAction} onClose={closeMonument}
         onReplay={() => setMonumentRevealAtMs(performance.now())} onReset={handleResetPrototype}
       /> : null}
+      {platformDefense && outpost?.orbitalSiege ? <section className="monument-panel platform-defense-panel" data-status="wave" aria-label="Orbital Platform defense">
+        <header className="monument-heading"><div><span>ORBITAL PLATFORM</span><h1>DEFEND THE CONSTRUCTION</h1></div></header>
+        <div className="monument-stats"><span>ASSEMBLY {Math.round(outpost.orbitalSiege.progress * 100)}%</span><span>HULL {outpost.orbitalSiege.platformHealth}% · {outpost.orbitalSiege.wavesResolved}/3 WAVES</span></div>
+        <WaveDefenseHud view={platformDefense} durationMs={DEFENSE_WINDOW_MS}
+          allocationText="ALLOCATION LOCKED · ASSEMBLY CONTINUES" hitDetail="Octogonal destroyed. Your allocation determines wave damage."
+          onFire={() => setPlatformShots(current => firePlatformDefense(outpost.orbitalSiege!, current, Date.now() - outpost.operations.lastUpdatedAtMs))} />
+      </section> : null}
       {entryOpen ? (
         <LaunchGate
           continuing={

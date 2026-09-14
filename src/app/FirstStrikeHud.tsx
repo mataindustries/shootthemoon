@@ -62,7 +62,7 @@ export function FirstStrikeHud({
             <span aria-hidden="true" />
             FIRST STRIKE PROTOCOL AVAILABLE
           </div>
-          <p>Strike ends this prototype run.</p>
+          <p>Launching the warhead begins the strike on Null Meridian.</p>
           <button
             className="strike-arm-action"
             type="button"
@@ -88,7 +88,7 @@ export function FirstStrikeHud({
           >
             <span>FINAL COMMAND AUTHORITY</span>
             <h2 id="strike-confirmation-title">LAUNCH AT NULL MERIDIAN?</h2>
-            <p>Launching the warhead ends this prototype run.</p>
+            <p>Launching the warhead begins the strike on Null Meridian.</p>
             <div>
               <button type="button" onClick={onCancel}>CANCEL</button>
               <button className="strike-fire-action" type="button" onClick={onFire}>

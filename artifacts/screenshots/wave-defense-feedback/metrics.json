@@ -1,0 +1,300 @@
+{
+  "01-allocation": {
+    "calls": 18,
+    "triangles": 34932,
+    "geometries": 20,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {
+      "defense-turret": [
+        0.17201857514410518,
+        0.10451049679733988,
+        0.9960851765546409
+      ],
+      "defense-target": [
+        0.5558975299097572,
+        0.5075098220554656,
+        0.995459912519407
+      ]
+    }
+  },
+  "wave-1-targeting": {
+    "calls": 18,
+    "triangles": 34932,
+    "geometries": 20,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {
+      "defense-turret": [
+        0.17201857514410518,
+        0.10451049679733988,
+        0.9960851765546409
+      ],
+      "defense-target": [
+        0.4751398004398042,
+        0.5417908332707838,
+        0.9954755673575097
+      ]
+    }
+  },
+  "wave-1-impact": {
+    "calls": 22,
+    "triangles": 35664,
+    "geometries": 21,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155203,
+      -0.068887,
+      0.732935
+    ],
+    "framing": {
+      "defense-turret": [
+        0.1791098472735348,
+        0.10451049679733983,
+        0.9960851765546409
+      ],
+      "octogonal-destruction": [
+        0.48332830558653117,
+        0.5417908332707835,
+        0.9954755673575096
+      ]
+    }
+  },
+  "wave-1-debris": {
+    "calls": 20,
+    "triangles": 35572,
+    "geometries": 21,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {
+      "defense-turret": [
+        0.17201857514410518,
+        0.10451049679733988,
+        0.9960851765546409
+      ],
+      "octogonal-destruction": [
+        0.4751398004398042,
+        0.5417908332707838,
+        0.9954755673575097
+      ]
+    }
+  },
+  "wave-1-outcome": {
+    "calls": 18,
+    "triangles": 34932,
+    "geometries": 20,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {
+      "defense-turret": [
+        0.17201857514410518,
+        0.10451049679733988,
+        0.9960851765546409
+      ],
+      "defense-target": [
+        0.08657415108041372,
+        0.77962192079787,
+        0.9960294284415189
+      ]
+    }
+  },
+  "wave-2-targeting": {
+    "calls": 18,
+    "triangles": 34932,
+    "geometries": 20,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {
+      "defense-turret": [
+        0.14108987990936828,
+        0.10451049679733988,
+        0.9960851765546409
+      ],
+      "defense-target": [
+        0.0619020684701599,
+        0.7749875400744034,
+        0.9959702124174505
+      ]
+    }
+  },
+  "wave-2-missed": {
+    "calls": 17,
+    "triangles": 34868,
+    "geometries": 20,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {
+      "defense-turret": [
+        0.14108987990936828,
+        0.10451049679733988,
+        0.9960851765546409
+      ]
+    }
+  },
+  "wave-2-outcome": {
+    "calls": 18,
+    "triangles": 34932,
+    "geometries": 20,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {
+      "defense-turret": [
+        0.14108987990936828,
+        0.10451049679733988,
+        0.9960851765546409
+      ],
+      "defense-target": [
+        -0.5619345171050043,
+        0.5577288544529395,
+        0.9957750587186965
+      ]
+    }
+  },
+  "wave-3-targeting": {
+    "calls": 18,
+    "triangles": 34932,
+    "geometries": 20,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {
+      "defense-turret": [
+        0.17201857514410518,
+        0.10451049679733988,
+        0.9960851765546409
+      ],
+      "defense-target": [
+        -0.591648579037183,
+        0.5830710115683303,
+        0.9957467655234448
+      ]
+    }
+  },
+  "wave-3-impact": {
+    "calls": 22,
+    "triangles": 35664,
+    "geometries": 21,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.15521,
+      -0.068882,
+      0.732925
+    ],
+    "framing": {
+      "defense-turret": [
+        0.17896186738389594,
+        0.10451049679733988,
+        0.9960851765546409
+      ],
+      "octogonal-destruction": [
+        -0.5839801071232168,
+        0.5831059104741348,
+        0.9957467265606388
+      ]
+    }
+  },
+  "wave-3-debris": {
+    "calls": 20,
+    "triangles": 35572,
+    "geometries": 21,
+    "textures": 5,
+    "programs": 13,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {
+      "defense-turret": [
+        0.17201857514410518,
+        0.10451049679733988,
+        0.9960851765546409
+      ],
+      "octogonal-destruction": [
+        -0.5915198618855312,
+        0.5831059104741348,
+        0.9957467265606388
+      ]
+    }
+  },
+  "wave-3-outcome": {
+    "calls": 9,
+    "triangles": 32664,
+    "geometries": 17,
+    "textures": 5,
+    "programs": 10,
+    "radius": 1.36983,
+    "position": [
+      1.155531,
+      -0.068654,
+      0.732439
+    ],
+    "framing": {}
+  },
+  "claim": {
+    "calls": 9,
+    "triangles": 32768,
+    "geometries": 17,
+    "textures": 5,
+    "programs": 10,
+    "radius": 2.198233,
+    "position": [
+      1.921184,
+      -0.324011,
+      1.017988
+    ],
+    "framing": {}
+  }
+}

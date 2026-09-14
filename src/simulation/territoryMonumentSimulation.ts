@@ -6,6 +6,7 @@ import { MONUMENTS, MONUMENT_FOUNDATION_MS, MONUMENT_REPAIR_ORE, MONUMENT_REPAIR
   monumentAllocation, monumentIsActive, monumentsUnlocked, type MonumentKind, type MonumentOrder,
   type TerritoryMonumentSnapshot } from '../domain/territoryMonument.ts'
 import { OCTOGONALS } from '../content/octogonals.ts'
+import { DEFENSE_WINDOW_MS, resolveDefenseDamage } from '../domain/waveDefense.ts'
 import { advanceOutpostOperations, calculateOutpostOperations } from './outpostOperations.ts'
 
 export function canStartMonument(outpost: OutpostSnapshot, kind: MonumentKind, firstStrike: FirstStrikeSnapshot | null, repair = false): boolean {
@@ -23,7 +24,7 @@ export function startMonument(outpost: OutpostSnapshot, kind: MonumentKind, firs
     : { kind, anchor: kind === 'CRATER_CROWN' && firstStrike?.scar ? 'impact-scar' : 'outpost',
         status: 'constructing', phaseElapsedMs: 0, workMs: 0, repairWorkMs: 0, health: 100,
         wavesResolved: 0, orders: [null, null, null], productionPenalty: 0, energyLoss: 0,
-        oreLost: 0, completedAtMs: null, revealSeen: false }
+        oreLost: 0, completedAtMs: null, revealSeen: false, defenseShots: [null, null, null] }
   return { ...outpost, updatedAtMs: nowMs, lunarOre: outpost.lunarOre - (repair ? MONUMENT_REPAIR_ORE : MONUMENTS[kind].ore),
     operations: { ...outpost.operations, lastUpdatedAtMs: nowMs }, monument }
 }
@@ -34,6 +35,15 @@ export function issueMonumentOrder(outpost: OutpostSnapshot, order: MonumentOrde
   const orders = [...m.orders]
   orders[m.wavesResolved] = order
   return { ...outpost, monument: { ...m, status: 'wave', phaseElapsedMs: 0, orders } }
+}
+
+export function fireMonumentDefense(outpost: OutpostSnapshot, wave: number): OutpostSnapshot {
+  const m = outpost.monument
+  if (m?.status !== 'wave' || wave !== m.wavesResolved || m.phaseElapsedMs > DEFENSE_WINDOW_MS ||
+      m.defenseShots?.[wave] != null) return outpost
+  const defenseShots = [...(m.defenseShots ?? [null, null, null])]
+  defenseShots[wave] = m.phaseElapsedMs
+  return { ...outpost, monument: { ...m, defenseShots } }
 }
 
 function complete(m: TerritoryMonumentSnapshot, nowMs: number): TerritoryMonumentSnapshot {
@@ -80,7 +90,7 @@ export function advanceTerritoryMonument(initial: OutpostSnapshot, nowMs: number
       const hit = order === 'ACCELERATE' ? wave.hit - 9 : wave.hit - (wave.hit - (5 + m.wavesResolved * 2)) * poweredDefense
       const oreLost = Math.min(outpost.lunarOre, wave.storageLoss * (order === 'DEFEND' ? 1 - poweredDefense : order === 'PRESERVE' ? 1 : .5))
       outpost = { ...outpost, lunarOre: outpost.lunarOre - oreLost }
-      updated = { ...updated, health: Math.max(0, m.health - Math.round(hit)), oreLost: m.oreLost + oreLost,
+      updated = { ...updated, health: Math.max(0, m.health - resolveDefenseDamage(hit, m.defenseShots?.[m.wavesResolved])), oreLost: m.oreLost + oreLost,
         wavesResolved: m.wavesResolved + 1, phaseElapsedMs: 0, status: 'command' }
       if (updated.wavesResolved === 3) {
         updated = updated.health < 40 ? { ...updated, status: 'damaged', productionPenalty: .3, energyLoss: .15 } :

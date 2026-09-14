@@ -3,21 +3,32 @@ import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_METRES_TO_RENDER_UNITS, LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
 import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
-import { MathUtils, Vector3 } from 'three'
+import { CubicBezierCurve3, MathUtils, Vector3 } from 'three'
 import { MOON_RENDER_RADIUS } from '../render/renderCoordinates.ts'
-import { createSafeOrbitalCameraPath, type CameraPose, type SafeOrbitalCameraPath } from './orbitalCameraPath.ts'
+import { createSafeOrbitalCameraPath, slerpUnitDirections, type CameraPose, type SafeOrbitalCameraPath } from './orbitalCameraPath.ts'
 
 export interface TouchdownCameraTransition {
   readonly path: SafeOrbitalCameraPath
   readonly startFov: number
   readonly endFov: number
+  readonly descent: CubicBezierCurve3 | null
 }
 
 /** Snapshot both endpoints once. No live OrbitControls target belongs to this path. */
 export function createTouchdownCameraTransition(
   start: CameraPose, end: CameraPose, startFov: number, endFov: number,
 ): TouchdownCameraTransition {
+  // Bowed descent from 94a28a0/551daff, with fixed endpoints and the newer
+  // safe orbital fallback for far-side or extreme starting views.
+  const east = new Vector3().crossVectors(new Vector3(0, 1, 0), end.up).normalize()
+  if (east.lengthSq() < .5) east.set(1, 0, 0)
+  const south = new Vector3().crossVectors(east, end.up).normalize()
+  const curve = new CubicBezierCurve3(start.position.clone(),
+    start.position.clone().lerp(end.up.clone().multiplyScalar(2.15), .46).addScaledVector(east, .08),
+    end.up.clone().multiplyScalar(1.13).addScaledVector(east, .036).addScaledVector(south, .072), end.position.clone())
+  const safe = curve.getPoints(256).every(point => point.length() > MOON_RENDER_RADIUS + .0001)
   return {
+    descent: safe ? curve : null,
     path: createSafeOrbitalCameraPath({ start, end,
       minimumRadius: MOON_RENDER_RADIUS + 0.0001,
       timing: 'arc-before-descent', preferredArcDirection: end.up }),
@@ -30,8 +41,19 @@ export function sampleTouchdownCamera(
   position: Vector3, target: Vector3, up: Vector3,
 ): number {
   const p = MathUtils.clamp(progress, 0, 1)
-  transition.path.sample(p, position, target, up)
-  return MathUtils.lerp(transition.startFov, transition.endFov, MathUtils.smoothstep(p, 0.45, 1))
+  // Arrive before the state handoff: the last .62 s holds the settled framing.
+  const travel = Math.min(1, p / .9)
+  if (transition.descent) {
+    transition.descent.getPoint(MathUtils.smootherstep(travel, 0, 1), position)
+    const aim = MathUtils.smoothstep(p / .72, 0, 1)
+    target.copy(transition.path.start.target).lerp(transition.path.end.target, aim)
+    slerpUnitDirections(transition.path.start.up, transition.path.end.up, aim, transition.path.end.up, up)
+  } else transition.path.sample(travel, position, target, up)
+  return MathUtils.lerp(transition.startFov, transition.endFov, MathUtils.smoothstep(p, 0.45, .9))
+}
+
+export function landingCameraBeat(progress: number) {
+  return progress < .86 ? 'descent' : progress < .9 ? 'touchdown' : 'hold'
 }
 
 function localPointToWorld(site: LandingSite, x: number, y: number, z: number): Vector3 {
@@ -71,4 +93,3 @@ export function getSurfaceCameraPose(
   )
   return { position, target, up: transform.up.clone() }
 }
-
