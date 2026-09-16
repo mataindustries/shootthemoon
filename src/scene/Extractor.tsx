@@ -12,6 +12,8 @@ import {
   PointsMaterial,
 } from 'three'
 import { useFrame } from '@react-three/fiber'
+import { createPlayerCompositeMaterial } from '../render/playerComposite.ts'
+import { batchMiningModel, createMiningKit, disposeMiningKit } from '../render/miningKit.ts'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import type { CounterstrikeOrder } from '../domain/counterstrike.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
@@ -202,7 +204,7 @@ export function Extractor({
   const armorMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerArmor,
+        color: VISUAL_PALETTE.miningCeramic,
         emissive: compact && damaged ? VISUAL_PALETTE.damageEmber : '#000000',
         emissiveIntensity: compact && damaged ? 0.045 : 0,
         ...MATERIAL_RESPONSE.playerArmor,
@@ -212,26 +214,34 @@ export function Extractor({
   const steelMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerSteel,
+        color: VISUAL_PALETTE.miningCarbon,
         emissive: compact && damaged ? VISUAL_PALETTE.damageHeat : '#000000',
         emissiveIntensity: compact && damaged ? 0.035 : 0,
         ...MATERIAL_RESPONSE.playerSteel,
       }),
     [compact, damaged],
   )
-  const heatMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerHeatDark,
-        ...MATERIAL_RESPONSE.playerHeatDark,
-      }),
-    [],
-  )
+  const heatMaterial = useMemo(() => {
+    const material = createPlayerCompositeMaterial()
+    material.color.set(VISUAL_PALETTE.miningCarbon)
+    return material
+  }, [])
+  const miningKit = useMemo(createMiningKit, [])
+  const trim = useMemo(() => batchMiningModel(miningKit, add => {
+    add('ring', 'gold', [0, .5, 0], [1.01, 1.01, 1.01], [Math.PI / 2, 0, 0])
+    for (const side of [-1, 1]) {
+      add('box', 'gold', [side * .67, .94, -.82], [.16, .03, .045])
+      add('box', 'cyan', [side * .65, 1.18, -.81], [.15, .055, .035])
+      add('box', 'ceramic', [side * .52, .48, .87], [.1, .24, .25])
+      add('box', 'gold', [side * .52, .615, .88], [.14, .025, .22])
+    }
+  }), [miningKit])
+  useEffect(() => () => { trim.dispose(); disposeMiningKit(miningKit) }, [miningKit, trim])
   const operationMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerAmberPanel,
-        emissive: VISUAL_PALETTE.playerAmberEmissive,
+        color: VISUAL_PALETTE.monumentAmber,
+        emissive: VISUAL_PALETTE.monumentAmber,
         emissiveIntensity: EMISSIVE_LIMITS.panel,
         ...MATERIAL_RESPONSE.playerHeatDark,
       }),
@@ -743,6 +753,7 @@ export function Extractor({
         </group>
 
         <group ref={baseRef}>
+          <mesh name="extractor-service-trim" geometry={trim} material={miningKit.material} visible={!compact} />
           <instancedMesh
             ref={supportRef}
             args={[boxGeometry, armorMaterial, 17]}
@@ -761,7 +772,6 @@ export function Extractor({
           <instancedMesh
             ref={serviceRef}
             args={[serviceGeometry, steelMaterial, 7]}
-            castShadow
             receiveShadow
           />
           <instancedMesh
@@ -781,7 +791,6 @@ export function Extractor({
         <group ref={machineryRef}>
           <mesh
             ref={drumRef}
-            castShadow
             position={[0, 1.88, 0]}
             rotation-z={Math.PI / 2}
             material={steelMaterial}
@@ -797,7 +806,6 @@ export function Extractor({
             <instancedMesh
               ref={pumpPartsRef}
               args={[boxGeometry, steelMaterial, 3]}
-              castShadow
             />
           </group>
           <mesh

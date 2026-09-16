@@ -1,12 +1,12 @@
 import { E2E_HARNESS_BUILD_ENABLED, shouldEnableE2eHarness } from '../testing/e2eHarness.ts'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import { Group, InstancedMesh, MathUtils, Object3D, Points, PointsMaterial, Vector3 } from 'three'
+import { Group, InstancedMesh, MathUtils, Object3D, Vector3 } from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import type { OutpostDamageState } from '../domain/counterstrike.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
-import { sampleRenderedSurface } from '../render/renderedSurface.ts'
+import { maximumRenderedSurfaceHeight, sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { MODULE_CONSTRUCTION_DURATION_MS } from '../simulation/outpostSimulation.ts'
 import { simulationNowMs } from '../simulation/simulationTime.ts'
@@ -14,6 +14,8 @@ import { VISUAL_PALETTE } from '../render/visualSystem.ts'
 import { createPlayerCompositeMaterial } from '../render/playerComposite.ts'
 import { MODULE_SOCKETS } from './moduleLayout.ts'
 import { MODULE_MODEL_SCALE, SOLAR_PANEL } from './solarWingLayout.ts'
+
+import { RepairGantry } from './RepairGantry.tsx'
 
 const MODEL_SCALE = MODULE_MODEL_SCALE
 
@@ -115,102 +117,6 @@ function StorageSilo() {
   )
 }
 
-function RepairGantry({ repairing }: { readonly repairing: boolean }) {
-  const dronesRef = useRef<Group>(null)
-  const sparksRef = useRef<Points>(null)
-
-  useFrame((state) => {
-    if (!repairing) return
-    const drones = dronesRef.current
-    const sparks = sparksRef.current
-    if (drones !== null) {
-      drones.position.y = 1.45 + Math.sin(state.clock.elapsedTime * 3) * 0.12
-      drones.rotation.z = Math.sin(state.clock.elapsedTime * 1.8) * 0.06
-    }
-    if (sparks !== null) {
-      sparks.rotation.y = state.clock.elapsedTime * 4.2
-      ;(sparks.material as PointsMaterial).opacity =
-        0.28 + Math.abs(Math.sin(state.clock.elapsedTime * 9)) * 0.55
-    }
-  })
-
-  const sparkPositions = useMemo(
-    () =>
-      new Float32Array(
-        Array.from({ length: 18 }, (_, index) => {
-          const angle = index * 2.399963
-          return [
-            Math.cos(angle) * (0.2 + (index % 4) * 0.08),
-            (index % 6) * 0.09,
-            Math.sin(angle) * (0.2 + (index % 3) * 0.1),
-          ]
-        }).flat(),
-      ),
-    [],
-  )
-
-  return (
-    <group name="repair-gantry-structure">
-      <mesh position-y={0.12} castShadow receiveShadow>
-        <boxGeometry args={[3.4, 0.24, 1.8]} />
-        <meshStandardMaterial color={VISUAL_PALETTE.playerHeatDark} roughness={0.74} metalness={0.65} />
-      </mesh>
-      {[-1.45, 1.45].map((x) => (
-        <mesh key={x} position={[x, 1.35, 0]} castShadow>
-          <boxGeometry args={[0.2, 2.5, 0.25]} />
-          <meshStandardMaterial color={VISUAL_PALETTE.playerArmor} roughness={0.58} metalness={0.75} />
-        </mesh>
-      ))}
-      <mesh position-y={2.56} castShadow>
-        <boxGeometry args={[3.18, 0.22, 0.28]} />
-        <meshStandardMaterial color={VISUAL_PALETTE.playerSteel} roughness={0.42} metalness={0.84} />
-      </mesh>
-      <mesh position={[0, 2.25, 0]} castShadow>
-        <cylinderGeometry args={[0.11, 0.11, 0.72, 8]} />
-        <meshStandardMaterial color={VISUAL_PALETTE.playerSteel} roughness={0.4} metalness={0.86} />
-      </mesh>
-      <group ref={dronesRef} visible={repairing}>
-        {[-1, 1].map((side) => (
-          <group key={side} position={[side * 0.82, 0, 1.08]}>
-            <mesh>
-              <octahedronGeometry args={[0.27, 0]} />
-              <meshBasicMaterial color={VISUAL_PALETTE.playerHotMetal} />
-            </mesh>
-            <mesh rotation-x={Math.PI / 2}>
-              <torusGeometry args={[0.38, 0.055, 6, 14]} />
-              <meshBasicMaterial color={VISUAL_PALETTE.playerAmberEmissive} />
-            </mesh>
-            <mesh position-y={-0.3}>
-              <cylinderGeometry args={[0.025, 0.025, 0.48, 5]} />
-              <meshBasicMaterial color={VISUAL_PALETTE.playerHotMetal} transparent opacity={0.72} />
-            </mesh>
-          </group>
-        ))}
-      </group>
-      <points ref={sparksRef} position={[0, 0.72, 1.12]} visible={repairing}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[sparkPositions, 3]} />
-        </bufferGeometry>
-        <pointsMaterial color="#ffd2a0" size={0.000055} transparent depthWrite={false} />
-      </points>
-      {repairing ? (
-        <group position={[0, 0.65, 1.13]}>
-          {[-0.42, -0.18, 0.2, 0.46].map((x, index) => (
-            <mesh key={x} position={[x, (index % 2) * 0.22, 0]} rotation-z={x * 0.9}>
-              <boxGeometry args={[0.045, 0.5, 0.045]} />
-              <meshBasicMaterial color={index % 2 === 0 ? '#fff1c2' : VISUAL_PALETTE.playerHotMetal} />
-            </mesh>
-          ))}
-        </group>
-      ) : null}
-      <mesh position={[0, 0.5, 0.92]}>
-        <boxGeometry args={[1.1, 0.4, 0.08]} />
-        <meshStandardMaterial color={VISUAL_PALETTE.playerAmberPanel} emissive={VISUAL_PALETTE.playerAmberEmissive} emissiveIntensity={repairing ? 0.65 : 0.22} />
-      </mesh>
-    </group>
-  )
-}
-
 export function OutpostModule({
   outpost,
   damageState,
@@ -230,8 +136,18 @@ export function OutpostModule({
     [outpost.site],
   )
   const ground = useMemo(
-    () => sampleRenderedSurface(terrain, segments, slotXM, slotZM),
-    [segments, terrain, slotXM, slotZM],
+    () => {
+      const sample = sampleRenderedSurface(terrain, segments, slotXM, slotZM)
+      if (module?.kind !== 'REPAIR_GANTRY') return sample
+      // The heavy cradle rests on its whole footprint, with 2 cm of skirt
+      // embedded. Do not inherit the centre height for the outer supports.
+      const points = [-1.5, 0, 1.5].flatMap(x => [-.78, 0, .78].map(z => ({
+        xM: slotXM + x * MODEL_SCALE / LOCAL_METRES_TO_RENDER_UNITS,
+        zM: slotZM + z * MODEL_SCALE / LOCAL_METRES_TO_RENDER_UNITS,
+      })))
+      return { ...sample, y: maximumRenderedSurfaceHeight(terrain, segments, points) - .02 * LOCAL_METRES_TO_RENDER_UNITS }
+    },
+    [segments, terrain, slotXM, slotZM, module?.kind],
   )
 
   const projected = useMemo(() => new Vector3(), [])
@@ -255,8 +171,9 @@ export function OutpostModule({
     if (!isE2e) return
     root.updateWorldMatrix(true, false)
     const bounds = [Infinity, Infinity, -Infinity, -Infinity]
-    for (const x of [-1, 1]) for (const y of [0, 2.45]) for (const z of [-1, 1]) {
-      projected.set(x * 1.32, y, z * 1.32).applyMatrix4(root.matrixWorld).project(state.camera)
+    const cradle = module.kind === 'REPAIR_GANTRY'
+    for (const x of [-1, 1]) for (const y of [0, cradle ? 2.35 : 2.45]) for (const z of [-1, 1]) {
+      projected.set(x * (cradle ? 1.77 : 1.32), y, z * (cradle ? 1.03 : 1.32)).applyMatrix4(root.matrixWorld).project(state.camera)
       bounds[0] = Math.min(bounds[0]!, (projected.x + 1) * state.size.width / 2)
       bounds[1] = Math.min(bounds[1]!, (1 - projected.y) * state.size.height / 2)
       bounds[2] = Math.max(bounds[2]!, (projected.x + 1) * state.size.width / 2)

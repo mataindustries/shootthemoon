@@ -5,7 +5,7 @@ import { OUTPOST_STORAGE_KEY } from '../src/persistence/outpostSave.ts'
 
 test('three mobile defense waves: hit, timeout miss, hit, saved claim and reveal replay', async ({ page, request }) => {
   test.setTimeout(180_000)
-  const evidence = 'artifacts/screenshots/wave-defense-feedback'
+  const evidence = process.env.MINING_REPAIR_EVIDENCE ?? 'artifacts/screenshots/wave-defense-feedback'
   await mkdir(evidence, { recursive: true })
   expect(await (await request.get('/')).text()).toBe(await readFile('dist/index.html', 'utf8'))
   const errors: string[] = []

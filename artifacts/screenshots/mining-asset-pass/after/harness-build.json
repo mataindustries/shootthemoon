@@ -1,0 +1,21 @@
+{
+  "baseCommit": "f37283846fe9ea4bcfe78f8fe5eea1b0956a7a68",
+  "harnessEnabled": true,
+  "files": {
+    "dist/index.html": {
+      "bytes": 500,
+      "gzip9Bytes": 320,
+      "sha256": "82de7460a503439e17f8a5678f93c7a693b6dab55ea632469eaa24b1e07b5f2d"
+    },
+    "dist/assets/index-G9I5ubkN.css": {
+      "bytes": 55729,
+      "gzip9Bytes": 11734,
+      "sha256": "bce1618b318a4597c7c8c1ba777e6cb70098829c2cee95d3d569f39a76ee6bf7"
+    },
+    "dist/assets/index-BLSl4H5f.js": {
+      "bytes": 1466588,
+      "gzip9Bytes": 398593,
+      "sha256": "0628a658eb1198f84aaf91e37e3ec992333a45106fc307b466811b79c6388f8a"
+    }
+  }
+}

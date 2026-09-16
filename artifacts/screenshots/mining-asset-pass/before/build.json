@@ -1,0 +1,17 @@
+{
+  "dist/index.html": {
+    "bytes": 500,
+    "gzipBytes": 321,
+    "sha256": "096b63128609bfa340aa1263c9cc77e7968036f00270849dec743e2c71a8189a"
+  },
+  "dist/assets/index-G9I5ubkN.css": {
+    "bytes": 55729,
+    "gzipBytes": 11734,
+    "sha256": "bce1618b318a4597c7c8c1ba777e6cb70098829c2cee95d3d569f39a76ee6bf7"
+  },
+  "dist/assets/index-BxyyVZDw.js": {
+    "bytes": 1460463,
+    "gzipBytes": 395523,
+    "sha256": "c95af9069b57ce3873a2f84226b2d6a19264c23d4c1cb7a8ee1f1b5da9b86726"
+  }
+}

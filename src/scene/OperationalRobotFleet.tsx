@@ -1,116 +1,116 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { BoxGeometry, InstancedMesh, MeshStandardMaterial, Object3D } from 'three'
+import { DynamicDrawUsage, InstancedMesh, Matrix4, Object3D } from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import type { OutpostOperationsMetrics } from '../simulation/outpostOperations.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
-import { LOCAL_METRES_TO_RENDER_UNITS } from '../render/localSurface.ts'
+import { LOCAL_METRES_TO_RENDER_UNITS as M } from '../render/localSurface.ts'
 import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { simulationNowMs } from '../simulation/simulationTime.ts'
-import { MATERIAL_RESPONSE, VISUAL_PALETTE } from '../render/visualSystem.ts'
+import { createMiningKit, disposeMiningKit } from '../render/miningKit.ts'
+import { createMiningRobotModels } from './miningModels.ts'
+import { advanceWorkerNavigation, CAPSULE_SERVICE_ANCHOR, createWorkerNavigation, WORKER_SCALE_M } from './miningPresentation.ts'
+import { useDemandAnimation } from '../render/useDemandAnimation.ts'
+import { E2E_HARNESS_BUILD_ENABLED, shouldEnableE2eHarness } from '../testing/e2eHarness.ts'
 
 interface OperationalRobotFleetProps {
   readonly outpost: OutpostSnapshot
   readonly operations: OutpostOperationsMetrics
   readonly terrain: SurfaceTerrainProfile
   readonly segments: number
+  readonly damaged?: boolean
 }
 
-/** Three tiny autonomous haulers make the operating-mode robot count legible. */
-export function OperationalRobotFleet({
-  outpost,
-  operations,
-  terrain,
-  segments,
-}: OperationalRobotFleetProps) {
-  const bodyRef = useRef<InstancedMesh>(null)
-  const bodyDummyRef = useRef(new Object3D())
-  const transform = useMemo(
-    () => landingSiteToRenderTransform(outpost.site),
-    [outpost.site],
-  )
-  const geometry = useMemo(() => new BoxGeometry(1, 1, 1), [])
-  const bodyMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerSteel,
-        emissive: VISUAL_PALETTE.playerAmberEmissive,
-        emissiveIntensity: 0.04,
-        ...MATERIAL_RESPONSE.playerSteel,
-      }),
-    [],
-  )
-  useEffect(
-    () => () => {
-      geometry.dispose()
-      bodyMaterial.dispose()
-    },
-    [bodyMaterial, geometry],
-  )
+/** Instanced assemblies for the existing three robots. The simulation and
+ * saved snapshot never consume these poses, cargo meshes or tool animations. */
+export function OperationalRobotFleet({ outpost, operations, terrain, segments, damaged = false }: OperationalRobotFleetProps) {
+  const motionClock = useRef(createWorkerNavigation())
+  useDemandAnimation(operations.activeRobots > 0)
+  const refs = useRef<Record<string, InstancedMesh | null>>({})
+  const transform = useMemo(() => landingSiteToRenderTransform(outpost.site), [outpost.site])
+  const kit = useMemo(createMiningKit, [])
+  const models = useMemo(() => createMiningRobotModels(kit, true), [kit])
+  const root = useMemo(() => new Object3D(), [])
+  const part = useMemo(() => new Object3D(), [])
+  const matrix = useMemo(() => new Matrix4(), [])
+  const isE2e = useMemo(() => shouldEnableE2eHarness(E2E_HARNESS_BUILD_ENABLED, window.location.search), [])
+  useEffect(() => () => {
+    Object.values(models).forEach(geometry => geometry.dispose())
+    disposeMiningKit(kit)
+  }, [kit, models])
 
-  useFrame(() => {
-    const bodies = bodyRef.current
-    if (bodies === null || outpost.extractor === null) return
-
-    const nowSeconds = simulationNowMs() / 1_000
-    const activity = Math.max(0.18, Math.min(1, operations.productionPerMin / 8))
-    const cycleSeconds = 15 - activity * 8
-    const target = outpost.extractor.position
-
-    const bodyDummy = bodyDummyRef.current
-    const modelScale = LOCAL_METRES_TO_RENDER_UNITS * 0.72
-
-    for (let index = 0; index < 3; index += 1) {
-      const enabled = index < operations.activeRobots
-      if (!enabled) {
-        bodyDummy.scale.setScalar(0)
-        bodyDummy.updateMatrix()
-        bodies.setMatrixAt(index, bodyDummy.matrix)
-        continue
-      }
-
-      const phase = ((nowSeconds / cycleSeconds + index / 3) % 1 + 1) % 1
-      const travel = 0.5 - Math.cos(phase * Math.PI * 2) * 0.5
-      const lateral = (index - 1) * 1.15 + Math.sin(phase * Math.PI * 2) * 0.32
-      const directionLength = Math.max(0.001, Math.hypot(target.xM, target.zM))
-      const directionX = target.xM / directionLength
-      const directionZ = target.zM / directionLength
-      const xM = target.xM - directionX * (2.6 + travel * 4.8) + directionZ * lateral
-      const zM = target.zM - directionZ * (2.6 + travel * 4.8) - directionX * lateral
-      const surface = sampleRenderedSurface(terrain, segments, xM, zM)
-      const heading =
-        Math.atan2(directionX, directionZ) + (phase < 0.5 ? Math.PI : 0)
-      bodyDummy.position.set(
-        surface.x,
-        surface.y + 0.18 * LOCAL_METRES_TO_RENDER_UNITS,
-        surface.z,
-      )
-      bodyDummy.rotation.set(0, heading, 0)
-      bodyDummy.scale.set(
-        0.78 * modelScale,
-        0.34 * modelScale,
-        1.12 * modelScale,
-      )
-      bodyDummy.updateMatrix()
-      bodies.setMatrixAt(index, bodyDummy.matrix)
+  useFrame(state => {
+    if (!outpost.extractor) return
+    advanceWorkerNavigation(motionClock.current, outpost, simulationNowMs(), operations.productionPerMin / 8, operations.activeRobots, damaged)
+    const seconds = motionClock.current.seconds
+    const modelScale = M * WORKER_SCALE_M
+    const states: string[] = []
+    const poses: number[][] = []
+    const write = (name: keyof typeof models, index: number) => {
+      part.updateMatrix()
+      matrix.multiplyMatrices(root.matrix, part.matrix)
+      refs.current[name]?.setMatrixAt(index, matrix)
     }
-    bodies.instanceMatrix.needsUpdate = true
-
-    const energyPulse =
-      operations.energyThrottle >= 0.999 || Math.sin(nowSeconds * 3.1) > 0.35
-    bodyMaterial.emissiveIntensity = energyPulse
-      ? 0.08 + operations.energyThrottle * 0.2
-      : 0.005
+    for (let index = 0; index < 3; index++) {
+      const worker = motionClock.current.workers[index]!
+      const working = worker.task === 'working'
+      const pose = { ...worker, working, returning: worker.task === 'returning',
+        toolAngle: working ? .54 + Math.sin(seconds * 3.2 + index) * .14 : worker.task === 'servicing' ? .24 + Math.sin(seconds * 2) * .04 : -.12,
+        sensorYaw: working ? -.2 : Math.sin(seconds * .7 + index) * .18 }
+      const enabled = index < operations.activeRobots
+      const ground = sampleRenderedSurface(terrain, segments, pose.xM, pose.zM)
+      root.position.set(ground.x, ground.y + .42 * modelScale, ground.z)
+      root.rotation.set(0, pose.heading, 0)
+      root.scale.setScalar(enabled ? modelScale : 0)
+      root.updateMatrix()
+      part.position.set(0, pose.moving ? Math.sin(seconds * 9 + index) * .018 : 0, 0)
+      part.rotation.set(0, 0, 0)
+      part.scale.setScalar(1)
+      write('body', index)
+      part.position.set(-.22, 1.04, -.18)
+      part.rotation.set(0, pose.sensorYaw, 0)
+      write('sensor', index)
+      part.position.set(0, .65, .6)
+      part.rotation.set(pose.toolAngle, 0, 0)
+      write('arm', index)
+      part.position.set(0, .68, -.61)
+      part.rotation.set(0, 0, 0)
+      part.scale.setScalar(pose.returning && pose.moving ? 1 : 0)
+      write('cargo', index)
+      part.scale.setScalar(1)
+      for (let wheel = 0; wheel < 4; wheel++) {
+        const side = wheel < 2 ? -1 : 1
+        const x = side * .72, z = (wheel % 2 === 0 ? -1 : 1) * .49
+        const surface = sampleRenderedSurface(terrain, segments,
+          pose.xM + (x * Math.cos(pose.heading) + z * Math.sin(pose.heading)) * WORKER_SCALE_M,
+          pose.zM + (z * Math.cos(pose.heading) - x * Math.sin(pose.heading)) * WORKER_SCALE_M)
+        part.position.set(x, -.19 + (surface.y - ground.y) / modelScale, z)
+        part.rotation.set(pose.wheelSpin * side, 0, Math.PI / 2)
+        write('wheel', index * 4 + wheel)
+      }
+      if (enabled && isE2e) {
+        states.push(worker.task)
+        poses.push([pose.xM, pose.zM, pose.heading, pose.toolAngle])
+      }
+    }
+    Object.entries(refs.current).forEach(([name, mesh]) => {
+      if (!mesh) return
+      mesh.count = operations.activeRobots * (name === 'wheel' ? 4 : 1)
+      mesh.instanceMatrix.needsUpdate = true
+      mesh.computeBoundingSphere()
+    })
+    if (isE2e) {
+      state.gl.domElement.dataset.workerStates = JSON.stringify(states)
+      state.gl.domElement.dataset.workerPoses = JSON.stringify(poses)
+      state.gl.domElement.dataset.workerClock = String(seconds)
+      state.gl.domElement.dataset.workerRouteRevision = String(motionClock.current.revision)
+      state.gl.domElement.dataset.workerDock = CAPSULE_SERVICE_ANCHOR.name
+    }
   })
-
-  return (
-    <group position={transform.position} quaternion={transform.orientation}>
-      <instancedMesh
-        ref={bodyRef}
-        name="operational-robot-fleet"
-        args={[geometry, bodyMaterial, 3]}
-      />
-    </group>
-  )
+  return <group position={transform.position} quaternion={transform.orientation} name="operational-robot-fleet">
+    {(Object.keys(models) as (keyof typeof models)[]).map(name => <instancedMesh key={name}
+      ref={mesh => { refs.current[name] = mesh; mesh?.instanceMatrix.setUsage(DynamicDrawUsage) }}
+      name={`worker-${name}`} args={[models[name], kit.material, name === 'wheel' ? 12 : 3]} />)}
+  </group>
 }

@@ -736,6 +736,7 @@ export function SceneRoot({
               />
               {operationsMetrics !== null ? (
                 <OperationalRobotFleet
+                  damaged={persistentOutpostDamage || counterstrikeFailureVisible}
                   outpost={outpost}
                   operations={operationsMetrics}
                   terrain={terrain}

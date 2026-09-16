@@ -1,3 +1,4 @@
+import { CAPSULE_SERVICE_ANCHOR } from './miningPresentation.ts'
 import { createPlayerCompositeMaterial } from '../render/playerComposite.ts'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import {
@@ -614,6 +615,10 @@ export function InvasionCapsule({
   return (
     <group position={transform.position} quaternion={transform.orientation}>
       <group ref={capsuleRef} name="player-lander">
+        <group name={CAPSULE_SERVICE_ANCHOR.name} position={[
+          CAPSULE_SERVICE_ANCHOR.xM * LOCAL_METRES_TO_RENDER_UNITS, 0,
+          CAPSULE_SERVICE_ANCHOR.zM * LOCAL_METRES_TO_RENDER_UNITS,
+        ]} />
         <CapsuleModel
           outpost={outpost}
           padOffsetsModel={grounding.padOffsetsModel}

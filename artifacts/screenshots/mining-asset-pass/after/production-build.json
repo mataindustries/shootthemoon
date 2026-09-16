@@ -1,0 +1,22 @@
+{
+  "baseCommit": "f37283846fe9ea4bcfe78f8fe5eea1b0956a7a68",
+  "harnessEnabled": false,
+  "files": {
+    "index.html": {
+      "bytes": 500,
+      "gzip9Bytes": 320,
+      "sha256": "cda05080ab918128b0faa571b2b8061d1ba053d22a40e3a2d6a63a90948fd0b1"
+    },
+    "assets/index-Jik1-WR6.js": {
+      "bytes": 1466588,
+      "gzip9Bytes": 398593,
+      "sha256": "877afced99d18c38086bd58c24fb1df803d429d871b2571b3d3459bc8ee08dc4"
+    },
+    "assets/index-G9I5ubkN.css": {
+      "bytes": 55729,
+      "gzip9Bytes": 11734,
+      "sha256": "bce1618b318a4597c7c8c1ba777e6cb70098829c2cee95d3d569f39a76ee6bf7"
+    }
+  },
+  "finalWorkspaceBuildMatchesTestedBuild": true
+}

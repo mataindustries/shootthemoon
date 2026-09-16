@@ -19,6 +19,11 @@ export const VISUAL_PALETTE = Object.freeze({
   playerAmberEmissive: '#d95a1f',
   playerWarningRed: '#9b2b1a',
   playerHotMetal: '#a46b43',
+  miningCeramic: '#344047',
+  miningCarbon: '#46535b',
+  miningBasalt: '#41494e',
+  miningMineral: '#aea38a',
+  miningVein: '#758f94',
 
   rivalSkeleton: '#071118',
   rivalFrame: '#14242b',
