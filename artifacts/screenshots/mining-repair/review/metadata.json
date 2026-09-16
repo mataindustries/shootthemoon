@@ -1,0 +1,26 @@
+[
+  {
+    "file": "2026_09_15_20_27_34.mp4",
+    "seconds": 32.773377777777775,
+    "decoded_frames": 760,
+    "sampled_frames": 33
+  },
+  {
+    "file": "2026_09_15_20_28_37.mp4",
+    "seconds": 26.79468888888889,
+    "decoded_frames": 1290,
+    "sampled_frames": 27
+  },
+  {
+    "file": "2026_09_15_20_30_05.mp4",
+    "seconds": 77.72644444444444,
+    "decoded_frames": 2524,
+    "sampled_frames": 78
+  },
+  {
+    "file": "2026_09_15_20_32_12.mp4",
+    "seconds": 62.945677777777775,
+    "decoded_frames": 3099,
+    "sampled_frames": 63
+  }
+]

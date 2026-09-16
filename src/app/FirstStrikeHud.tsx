@@ -122,7 +122,7 @@ export function FirstStrikeHud({
       ) : null}
 
       {phase === 'ending' ? (
-        <section className="strike-ending" aria-label="Prototype complete">
+        <section className="strike-ending" aria-label="First strike complete">
           <span>NULL MERIDIAN · SIGNAL LOST</span>
           <h1>FIRST STRIKE COMPLETE</h1>
           <p>THE MOON REMEMBERS</p>

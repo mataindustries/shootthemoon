@@ -69,3 +69,34 @@ it.each([[390, 844], [320, 568]])('frames the silo clear of deposit touch discs 
     expect(gap).toBeGreaterThan(22)
   }
 })
+
+it.each([[390, 844], [320, 568]])('keeps the repair cradle in the normal %i × %i frame and clear of mining routes', (width, height) => {
+  const site = createLandingSite(createLunarLocation(.248, -.684, 18))
+  const terrain = createSurfaceTerrainProfile(site)
+  const transform = landingSiteToRenderTransform(site)
+  const pose = getSurfaceCameraPose(site, terrain, 112, true)
+  const camera = new PerspectiveCamera(54, width / height, .0001, 80)
+  camera.position.copy(pose.position)
+  camera.up.copy(pose.up)
+  camera.lookAt(pose.target)
+  camera.updateMatrixWorld()
+  const cradle = MODULE_SOCKETS.REPAIR_GANTRY
+  const ground = sampleRenderedSurface(terrain, 112, cradle.xM, cradle.zM)
+  for (const x of [-1.77, 1.77]) for (const y of [0, 2.35]) for (const z of [-1.03, 1.03]) {
+    const point = new Vector3(x, y, z).multiplyScalar(MODULE_MODEL_SCALE)
+      .add(new Vector3(ground.x, ground.y, ground.z)).applyQuaternion(transform.orientation).add(transform.position).project(camera)
+    expect(Math.abs(point.x)).toBeLessThan(.93)
+    expect(Math.abs(point.y)).toBeLessThan(.85)
+  }
+  const initial = createInitialOutpost(site, 0)
+  for (const deposit of DEPOSIT_BLUEPRINTS) {
+    expect(Math.hypot(cradle.xM - deposit.position.xM, cradle.zM - deposit.position.zM)).toBeGreaterThan(cradle.clearanceRadiusM + 1.3)
+    for (const state of ['deploying', 'idle', 'traveling', 'mining', 'returning', 'unloading'] as const) {
+      const outpost = { ...initial, robot: { ...initial.robot, state, targetDepositId: deposit.id } }
+      for (let i = 0; i <= 100; i++) {
+        const position = getRobotKinematics(outpost, i / 100 * (getRobotStateDurationMs(outpost) ?? 1)).position
+        expect(Math.hypot(cradle.xM - position.xM, cradle.zM - position.zM)).toBeGreaterThan(cradle.clearanceRadiusM + 1.3)
+      }
+    }
+  }
+})

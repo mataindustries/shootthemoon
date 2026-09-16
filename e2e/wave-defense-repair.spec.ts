@@ -4,7 +4,7 @@ import { OUTPOST_STORAGE_KEY } from '../src/persistence/outpostSave.ts'
 import { createLegacyActiveExtractorSave } from './rivalFixtures.ts'
 import { createStrikeReadySave } from './firstStrikeFixtures.ts'
 
-const evidence = 'artifacts/screenshots/wave-defense-feedback'
+const evidence = process.env.MINING_REPAIR_EVIDENCE ?? 'artifacts/screenshots/wave-defense-feedback'
 async function open(page: Page, save?: string) {
   await page.clock.install()
   await page.addInitScript(({ key, save }) => {
@@ -142,7 +142,8 @@ test('nuke confirmation uses final wording and keeps cancel and launch behavior'
   }
   await page.getByRole('button', { name: /ARM LUNAR WARHEAD/ }).tap()
   const dialog = page.getByRole('dialog')
-  await expect(dialog).toContainText('Launching the warhead begins the strike on Null Meridian.')
+  await expect(dialog.locator('p')).toHaveText('Launching the warhead begins the strike on Null Meridian.')
+  await expect(page.locator('.strike-ready p')).toHaveText('Launching the warhead begins the strike on Null Meridian.')
   await expect(dialog).not.toContainText(/prototype|placeholder|version/i)
   await expect(page.locator('.strike-ready')).not.toContainText(/prototype/i)
   await capture(page, 'nuke-confirmation')
@@ -151,6 +152,7 @@ test('nuke confirmation uses final wording and keeps cancel and launch behavior'
   await expect(dialog).toHaveCount(0)
   expect((await saved(page)).firstStrike).toEqual(armed)
   await page.getByRole('button', { name: /WARHEAD ARMED/ }).tap()
+  await expect(dialog).not.toContainText(/prototype/i)
   await dialog.getByRole('button', { name: 'FIRE', exact: true }).tap()
   await expect(page.locator('main')).toHaveAttribute('data-first-strike-status', 'LAUNCHING')
 })

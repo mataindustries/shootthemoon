@@ -5,7 +5,6 @@ import {
   InstancedMesh,
   MeshBasicMaterial,
   Object3D,
-  OctahedronGeometry,
   SphereGeometry,
   TorusGeometry,
   Vector3,
@@ -18,17 +17,13 @@ import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { canConstructExtractor } from '../simulation/outpostSimulation.ts'
 import { isSimulationTimePaused } from '../simulation/simulationTime.ts'
-import {
-  EMISSIVE_LIMITS,
-  MATERIAL_RESPONSE,
-  VISUAL_PALETTE,
-} from '../render/visualSystem.ts'
+import { createMiningKit, disposeMiningKit } from '../render/miningKit.ts'
+import { createOreCluster } from './miningModels.ts'
 import {
   E2E_HARNESS_BUILD_ENABLED,
   shouldEnableE2eHarness,
 } from '../testing/e2eHarness.ts'
 
-const CRYSTALS_PER_DEPOSIT = 3
 const TAP_DISTANCE_PX = 10
 const CRYSTAL_EMBED_M = 0.035
 
@@ -119,9 +114,10 @@ export function MineralDeposits({
     () => landingSiteToRenderTransform(outpost.site),
     [outpost.site],
   )
-  const crystalGeometry = useMemo(() => new OctahedronGeometry(1, 0), [])
+  const kit = useMemo(createMiningKit, [])
+  const crystalGeometry = useMemo(() => createOreCluster(kit), [kit])
   const indicatorGeometry = useMemo(
-    () => new TorusGeometry(1, 0.045, 6, 28),
+    () => new TorusGeometry(1, 0.045, 4, 20),
     [],
   )
   const beamGeometry = useMemo(
@@ -134,6 +130,7 @@ export function MineralDeposits({
     [],
   )
   const crystalsVisible = outpost.stage !== 'capsule-landed'
+  const occupiedDepositId = outpost.extractor?.depositId
   const isE2e = useMemo(
     () =>
       shouldEnableE2eHarness(
@@ -151,74 +148,64 @@ export function MineralDeposits({
     }
 
     const dummy = new Object3D()
-    const depletedColor = new Color('#665f58')
-    const oreColor = new Color('#d8b284')
+    const depletedColor = new Color('#8a8984')
+    const oreColor = new Color('#ffffff')
 
     outpost.deposits.forEach((deposit, depositIndex) => {
       const yieldRatio = deposit.remainingYield / deposit.initialYield
       const occupiedScale =
-        outpost.extractor?.depositId === deposit.id ? 0.46 : 1
+        occupiedDepositId === deposit.id ? 0.24 : 1
 
-      for (let crystalIndex = 0; crystalIndex < CRYSTALS_PER_DEPOSIT; crystalIndex += 1) {
-        const instanceIndex =
-          depositIndex * CRYSTALS_PER_DEPOSIT + crystalIndex
-        const angle =
-          deposit.orientationRad + crystalIndex * ((Math.PI * 2) / 3)
-        const offsetM = crystalIndex === 0 ? 0 : 0.5
-        const sizeM =
-          (crystalIndex === 0 ? 0.92 : 0.6) *
-          (0.58 + yieldRatio * 0.42) *
-          occupiedScale
-        const scale = sizeM * LOCAL_METRES_TO_RENDER_UNITS
-        const crystalXM = deposit.position.xM + Math.sin(angle) * offsetM
-        const crystalZM = deposit.position.zM + Math.cos(angle) * offsetM
-        const sample = sampleRenderedSurface(
+      const angle = deposit.orientationRad
+      const sizeM =
+        (1 + depositIndex * 0.06) *
+        (0.58 + yieldRatio * 0.42) *
+        occupiedScale
+      const scale = sizeM * LOCAL_METRES_TO_RENDER_UNITS
+      const crystalXM = deposit.position.xM
+      const crystalZM = deposit.position.zM
+      const sample = sampleRenderedSurface(
+        terrain,
+        segments,
+        crystalXM,
+        crystalZM,
+      )
+      dummy.position.set(0, 0, 0)
+      dummy.rotation.set(0, angle, 0)
+      dummy.scale.set(scale, scale * (1 + depositIndex * 0.12), scale)
+      dummy.updateMatrix()
+      const positions = crystalGeometry.getAttribute('position')
+      const vertex = new Vector3()
+      let groundedY = Number.NEGATIVE_INFINITY
+
+      for (
+        let vertexIndex = 0;
+        vertexIndex < positions.count;
+        vertexIndex += 1
+      ) {
+        vertex
+          .fromBufferAttribute(positions, vertexIndex)
+          .applyMatrix4(dummy.matrix)
+        const vertexSurface = sampleRenderedSurface(
           terrain,
           segments,
-          crystalXM,
-          crystalZM,
+          crystalXM + vertex.x / LOCAL_METRES_TO_RENDER_UNITS,
+          crystalZM + vertex.z / LOCAL_METRES_TO_RENDER_UNITS,
         )
-        dummy.position.set(0, 0, 0)
-        dummy.rotation.set(
-          0.12 * crystalIndex,
-          angle,
-          0.16 - crystalIndex * 0.1,
-        )
-        dummy.scale.set(scale * 0.68, scale * 1.45, scale * 0.68)
-        dummy.updateMatrix()
-        const positions = crystalGeometry.getAttribute('position')
-        const vertex = new Vector3()
-        let groundedY = Number.NEGATIVE_INFINITY
-
-        for (
-          let vertexIndex = 0;
-          vertexIndex < positions.count;
-          vertexIndex += 1
-        ) {
-          vertex
-            .fromBufferAttribute(positions, vertexIndex)
-            .applyMatrix4(dummy.matrix)
-          const vertexSurface = sampleRenderedSurface(
-            terrain,
-            segments,
-            crystalXM + vertex.x / LOCAL_METRES_TO_RENDER_UNITS,
-            crystalZM + vertex.z / LOCAL_METRES_TO_RENDER_UNITS,
-          )
-          groundedY = Math.max(groundedY, vertexSurface.y - vertex.y)
-        }
-
-        dummy.position.set(
-          sample.x,
-          groundedY - CRYSTAL_EMBED_M * LOCAL_METRES_TO_RENDER_UNITS,
-          sample.z,
-        )
-        dummy.updateMatrix()
-        mesh.setMatrixAt(instanceIndex, dummy.matrix)
-        mesh.setColorAt(
-          instanceIndex,
-          depletedColor.clone().lerp(oreColor, 0.3 + yieldRatio * 0.7),
-        )
+        groundedY = Math.max(groundedY, vertexSurface.y - vertex.y)
       }
+
+      dummy.position.set(
+        sample.x,
+        groundedY - CRYSTAL_EMBED_M * LOCAL_METRES_TO_RENDER_UNITS,
+        sample.z,
+      )
+      dummy.updateMatrix()
+      mesh.setMatrixAt(depositIndex, dummy.matrix)
+      mesh.setColorAt(
+        depositIndex,
+        depletedColor.clone().lerp(oreColor, 0.3 + yieldRatio * 0.7),
+      )
     })
 
     mesh.instanceMatrix.needsUpdate = true
@@ -230,7 +217,7 @@ export function MineralDeposits({
     crystalGeometry,
     crystalsVisible,
     outpost.deposits,
-    outpost.extractor,
+    occupiedDepositId,
     segments,
     terrain,
   ])
@@ -251,6 +238,7 @@ export function MineralDeposits({
   useEffect(
     () => () => {
       crystalGeometry.dispose()
+      disposeMiningKit(kit)
       indicatorGeometry.dispose()
       beamGeometry.dispose()
       hitGeometry.dispose()
@@ -258,6 +246,7 @@ export function MineralDeposits({
     },
     [
       beamGeometry,
+      kit,
       crystalGeometry,
       hitGeometry,
       hitMaterial,
@@ -355,7 +344,7 @@ export function MineralDeposits({
       return
     }
 
-    const deposit = outpost.deposits[Math.floor(instanceId / CRYSTALS_PER_DEPOSIT)]
+    const deposit = outpost.deposits[instanceId]
 
     if (deposit === undefined) {
       return
@@ -375,20 +364,12 @@ export function MineralDeposits({
         ref={crystalRef}
         args={[
           crystalGeometry,
-          undefined,
-          outpost.deposits.length * CRYSTALS_PER_DEPOSIT,
+          kit.material,
+          outpost.deposits.length,
         ]}
-        castShadow
+        name="lunar-mineral-clusters"
         onClick={handleCrystalClick}
-      >
-        <meshStandardMaterial
-          color={VISUAL_PALETTE.playerHotMetal}
-          emissive={VISUAL_PALETTE.playerAmberEmissive}
-          emissiveIntensity={EMISSIVE_LIMITS.activePanel}
-          {...MATERIAL_RESPONSE.playerHeatDark}
-          vertexColors
-        />
-      </instancedMesh>
+      />
       <instancedMesh
         ref={indicatorRef}
         args={[indicatorGeometry, undefined, outpost.deposits.length]}

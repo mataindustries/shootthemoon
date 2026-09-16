@@ -1,0 +1,21 @@
+{
+  "normal": {
+    "samples": 65,
+    "sample_ms": 232,
+    "max_displacement_m": 0.30960000000000043,
+    "min_center_separation_m": 7.590845467159309,
+    "revisions": [
+      3
+    ]
+  },
+  "repair": {
+    "samples": 65,
+    "sample_ms": 232,
+    "max_displacement_m": 0.3048000000000001,
+    "min_center_separation_m": 7.590845467159309,
+    "revisions": [
+      4,
+      5
+    ]
+  }
+}

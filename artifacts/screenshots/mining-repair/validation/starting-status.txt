@@ -1,0 +1,17 @@
+ M e2e/base-construction.spec.ts
+ M src/render/visualSystem.ts
+ M src/scene/Extractor.tsx
+ M src/scene/MinerRobot.tsx
+ M src/scene/MineralDeposits.tsx
+ M src/scene/OperationalRobotFleet.tsx
+ M src/scene/OutpostModule.tsx
+ M src/scene/moduleLayout.test.ts
+ M src/scene/moduleLayout.ts
+?? artifacts/screenshots/mining-asset-pass/
+?? e2e/mining-asset-pass.spec.ts
+?? src/render/miningKit.ts
+?? src/scene/RepairGantry.tsx
+?? src/scene/miningModels.ts
+?? src/scene/miningPresentation.test.ts
+?? src/scene/miningPresentation.ts
+?? tmp/

@@ -88,6 +88,9 @@ test('constructs Solar Wing once, resumes construction after refresh, and persis
   await assertPortraitAndCapture(page, 'solar-wing-after')
   expect(errors).toEqual([])
 
+  // The independent silo capture creates another WebGL context. Release the
+  // finished solar scene first, especially on software/mobile renderers.
+  await page.close()
   await captureStorageEvidence(browser)
 })
 

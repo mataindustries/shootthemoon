@@ -2,13 +2,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import {
   BufferAttribute,
   BufferGeometry,
-  BoxGeometry,
-  CylinderGeometry,
   DynamicDrawUsage,
   Group,
   InstancedMesh,
   Mesh,
-  MeshStandardMaterial,
   Matrix4,
   Object3D,
   PointsMaterial,
@@ -16,6 +13,8 @@ import {
   Vector3,
 } from 'three'
 import { useFrame } from '@react-three/fiber'
+import { createMiningKit, disposeMiningKit } from '../render/miningKit.ts'
+import { createMiningRobotModels } from './miningModels.ts'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import {
@@ -26,8 +25,6 @@ import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { getRobotKinematics } from '../simulation/outpostSimulation.ts'
 import { simulationNowMs } from '../simulation/simulationTime.ts'
 import {
-  EMISSIVE_LIMITS,
-  MATERIAL_RESPONSE,
   VISUAL_PALETTE,
 } from '../render/visualSystem.ts'
 import {
@@ -48,7 +45,6 @@ interface MiningEffectsProps {
   readonly segments: number
 }
 
-const LASER_ARM_INSTANCE_INDEX = 13
 const ROBOT_MODEL_SCALE_M = 1.14
 const ROBOT_LANDED_CLEARANCE_M = 0.48
 const WHEEL_CENTER_Y_MODEL = -0.19
@@ -424,368 +420,85 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
   )
 }
 
-export function MinerRobot({
-  outpost,
-  terrain,
-  segments,
-  compact = false,
-}: MinerRobotProps) {
+export function MinerRobot({ outpost, terrain, segments, compact = false }: MinerRobotProps) {
   const robotRef = useRef<Group>(null)
-  const upperMachineryRef = useRef<Group>(null)
+  const upperRef = useRef<Group>(null)
   const wheelRef = useRef<InstancedMesh>(null)
-  const treadRef = useRef<InstancedMesh>(null)
-  const structureRef = useRef<InstancedMesh>(null)
-  const lightRef = useRef<InstancedMesh>(null)
   const laserArmRef = useRef<Group>(null)
-  const laserHeadRef = useRef<Mesh>(null)
+  const sensorRef = useRef<Group>(null)
   const cargoRef = useRef<Group>(null)
-  const wheelDummyRef = useRef(new Object3D())
-  const structureDummyRef = useRef(new Object3D())
-  const projectedPointRef = useRef(new Vector3())
-  const transform = useMemo(
-    () => landingSiteToRenderTransform(outpost.site),
-    [outpost.site],
-  )
-  const wheelGeometry = useMemo(
-    () => new CylinderGeometry(0.23, 0.23, 0.18, 12),
-    [],
-  )
-  const treadGeometry = useMemo(() => new BoxGeometry(0.24, 0.34, 1.46), [])
-  const structureGeometry = useMemo(() => new BoxGeometry(1, 1, 1), [])
-  const wheelMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerSteel,
-        ...MATERIAL_RESPONSE.playerSteel,
-      }),
-    [],
-  )
-  const treadMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.contactDark,
-        ...MATERIAL_RESPONSE.contact,
-      }),
-    [],
-  )
-  const structureMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerArmor,
-        ...MATERIAL_RESPONSE.playerArmor,
-      }),
-    [],
-  )
-  const lightMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerAmberPanel,
-        emissive: VISUAL_PALETTE.playerAmberEmissive,
-        emissiveIntensity: EMISSIVE_LIMITS.panel,
-        ...MATERIAL_RESPONSE.playerHeatDark,
-      }),
-    [],
-  )
-  const isE2e = useMemo(
-    () =>
-      shouldEnableE2eHarness(
-        E2E_HARNESS_BUILD_ENABLED,
-        window.location.search,
-      ),
-    [],
-  )
-
-  useLayoutEffect(() => {
-    const treadMesh = treadRef.current
-    const structureMesh = structureRef.current
-    const lights = lightRef.current
-
-    if (treadMesh === null || structureMesh === null || lights === null) {
-      return
-    }
-
-    const dummy = new Object3D()
-
-    for (let index = 0; index < 2; index += 1) {
-      dummy.position.set(index === 0 ? -0.61 : 0.61, -0.1, 0)
-      dummy.rotation.set(0, 0, 0)
-      dummy.scale.set(0.55, 0.72, 1)
-      dummy.updateMatrix()
-      treadMesh.setMatrixAt(index, dummy.matrix)
-    }
-    treadMesh.instanceMatrix.needsUpdate = true
-
-    const structureParts = [
-      { position: [0, 0.2, 0] as const, scale: [1.14, 0.42, 1.18] as const },
-      { position: [0, 0.58, -0.14] as const, scale: [0.72, 0.36, 0.64] as const },
-      { position: [0, 0.49, 0.46] as const, scale: [0.9, 0.28, 0.34] as const },
-      { position: [-0.61, 0.08, 0] as const, scale: [0.16, 0.25, 1.4] as const },
-      { position: [0.61, 0.08, 0] as const, scale: [0.16, 0.25, 1.4] as const },
-      { position: [0, 0.55, -0.6] as const, scale: [0.86, 0.1, 0.5] as const },
-      { position: [-0.43, 0.73, -0.62] as const, scale: [0.08, 0.36, 0.58] as const },
-      { position: [0.43, 0.73, -0.62] as const, scale: [0.08, 0.36, 0.58] as const },
-      { position: [0, 0.73, -0.89] as const, scale: [0.86, 0.36, 0.08] as const },
-      { position: [0, 0.65, -0.35] as const, scale: [0.86, 0.2, 0.08] as const },
-      { position: [0, 1, -0.17] as const, scale: [0.08, 0.6, 0.08] as const },
-      { position: [0, 0.13, 0.73] as const, scale: [1.02, 0.15, 0.13] as const },
-      { position: [0, 0.39, 0.63] as const, scale: [0.48, 0.18, 0.2] as const },
-      { position: [0, 0.28, 1.06] as const, scale: [0.22, 0.2, 0.74] as const },
-    ]
-    const structureDummy = structureDummyRef.current
-
-    structureParts.forEach((definition, index) => {
-      structureDummy.position.set(
-        definition.position[0],
-        definition.position[1],
-        definition.position[2],
-      )
-      structureDummy.rotation.set(0, 0, 0)
-      structureDummy.scale.set(
-        definition.scale[0],
-        definition.scale[1],
-        definition.scale[2],
-      )
-      structureDummy.updateMatrix()
-      structureMesh.setMatrixAt(index, structureDummy.matrix)
-    })
-
-    structureMesh.instanceMatrix.setUsage(DynamicDrawUsage)
-    structureMesh.instanceMatrix.needsUpdate = true
-
-    const lightParts = [
-      { position: [-0.32, 0.55, 0.65] as const, scale: [0.18, 0.11, 0.045] as const },
-      { position: [0.32, 0.55, 0.65] as const, scale: [0.18, 0.11, 0.045] as const },
-      { position: [0, 1.31, -0.17] as const, scale: [0.13, 0.08, 0.13] as const },
-    ]
-
-    lightParts.forEach((definition, index) => {
-      dummy.position.set(
-        definition.position[0],
-        definition.position[1],
-        definition.position[2],
-      )
-      dummy.rotation.set(0, 0, 0)
-      dummy.scale.set(
-        definition.scale[0],
-        definition.scale[1],
-        definition.scale[2],
-      )
-      dummy.updateMatrix()
-      lights.setMatrixAt(index, dummy.matrix)
-    })
-    lights.instanceMatrix.needsUpdate = true
-  }, [])
-
-  useEffect(
-    () => () => {
-      wheelGeometry.dispose()
-      treadGeometry.dispose()
-      structureGeometry.dispose()
-      wheelMaterial.dispose()
-      treadMaterial.dispose()
-      structureMaterial.dispose()
-      lightMaterial.dispose()
-    },
-    [
-      lightMaterial,
-      structureGeometry,
-      structureMaterial,
-      treadGeometry,
-      treadMaterial,
-      wheelGeometry,
-      wheelMaterial,
-    ],
-  )
+  const dummy = useMemo(() => new Object3D(), [])
+  const projected = useMemo(() => new Vector3(), [])
+  const transform = useMemo(() => landingSiteToRenderTransform(outpost.site), [outpost.site])
+  const kit = useMemo(createMiningKit, [])
+  const models = useMemo(() => createMiningRobotModels(kit), [kit])
+  const isE2e = useMemo(() => shouldEnableE2eHarness(E2E_HARNESS_BUILD_ENABLED, window.location.search), [])
+  useLayoutEffect(() => { wheelRef.current?.instanceMatrix.setUsage(DynamicDrawUsage) }, [])
+  useEffect(() => () => {
+    Object.values(models).forEach(geometry => geometry.dispose())
+    disposeMiningKit(kit)
+  }, [kit, models])
 
   useFrame((state) => {
-    const robot = robotRef.current
-    const upperMachinery = upperMachineryRef.current
-    const wheels = wheelRef.current
-    const structure = structureRef.current
-    const laserArm = laserArmRef.current
-    const laserHead = laserHeadRef.current
-
-    if (
-      robot === null ||
-      upperMachinery === null ||
-      wheels === null ||
-      structure === null ||
-      laserArm === null ||
-      laserHead === null
-    ) {
-      return
-    }
-
+    const robot = robotRef.current, upper = upperRef.current, wheels = wheelRef.current
+    if (!robot || !upper || !wheels) return
     const nowMs = simulationNowMs()
     const kinematics = getRobotKinematics(outpost, nowMs)
-    const grounding = calculateMinerGrounding(
-      terrain,
-      segments,
-      kinematics.position.xM,
-      kinematics.position.zM,
-      kinematics.headingRad,
-    )
+    const grounding = calculateMinerGrounding(terrain, segments, kinematics.position.xM, kinematics.position.zM, kinematics.headingRad)
     const elapsed = (nowMs - outpost.robot.stateStartedAtMs) / 1_000
     const movingPulse = kinematics.moving ? Math.sin(elapsed * 17) : 0
-    const deploymentLiftM = Math.max(
-      0,
-      kinematics.clearanceM - ROBOT_LANDED_CLEARANCE_M,
-    )
-
-    robot.position.set(
-      grounding.position.x,
-      grounding.position.y +
-        deploymentLiftM * LOCAL_METRES_TO_RENDER_UNITS,
-      grounding.position.z,
-    )
+    const liftM = Math.max(0, kinematics.clearanceM - ROBOT_LANDED_CLEARANCE_M)
+    robot.position.set(grounding.position.x, grounding.position.y + liftM * LOCAL_METRES_TO_RENDER_UNITS, grounding.position.z)
     robot.quaternion.copy(grounding.orientation)
-    upperMachinery.position.y = movingPulse * 0.024
-    upperMachinery.rotation.x = movingPulse * 0.006
-    upperMachinery.rotation.z = movingPulse * 0.01
-
-    if (isE2e && outpost.robot.state !== 'stored') {
-      projectedPointRef.current
-        .set(
-          robot.position.x,
-          robot.position.y + 0.95 * LOCAL_METRES_TO_RENDER_UNITS,
-          robot.position.z,
-        )
-        .applyQuaternion(transform.orientation)
-        .add(transform.position)
-        .project(state.camera)
-      const canvas = state.gl.domElement
-      canvas.dataset.robotX = String(
-        ((projectedPointRef.current.x + 1) / 2) * canvas.clientWidth,
-      )
-      canvas.dataset.robotY = String(
-        ((1 - projectedPointRef.current.y) / 2) * canvas.clientHeight,
-      )
+    upper.position.y = movingPulse * .024
+    upper.rotation.set(movingPulse * .006, 0, movingPulse * .01)
+    const mining = outpost.robot.state === 'mining'
+    if (sensorRef.current) sensorRef.current.rotation.y = mining ? 0 : Math.sin(nowMs * .00065) * .22
+    if (laserArmRef.current) {
+      // Preserve the proven muzzle pose and contact line exactly.
+      laserArmRef.current.rotation.x = mining ? .44 : -.04
+      laserArmRef.current.position.z = mining ? .5 : .72
     }
-
-    const dummy = wheelDummyRef.current
-    const wheelSpin = kinematics.moving ? elapsed * 13.5 : 0
-
-    for (let index = 0; index < 6; index += 1) {
+    for (let index = 0; index < 6; index++) {
       const side = index < 3 ? -1 : 1
-      const longitudinal = (index % 3 - 1) * 0.49
-      dummy.position.set(
-        side * 0.72,
-        WHEEL_CENTER_Y_MODEL + (grounding.wheelOffsetsModel[index] ?? 0),
-        longitudinal,
-      )
-      dummy.rotation.set(wheelSpin * side, 0, Math.PI / 2)
-      dummy.scale.set(1, 1, 1)
+      dummy.position.set(side * .72, WHEEL_CENTER_Y_MODEL + (grounding.wheelOffsetsModel[index] ?? 0), (index % 3 - 1) * .49)
+      dummy.rotation.set(kinematics.moving ? elapsed * 13.5 * side : 0, 0, Math.PI / 2)
+      dummy.scale.setScalar(1)
       dummy.updateMatrix()
       wheels.setMatrixAt(index, dummy.matrix)
     }
-
-    wheels.instanceMatrix.setUsage(DynamicDrawUsage)
     wheels.instanceMatrix.needsUpdate = true
-
-    const mining = outpost.robot.state === 'mining'
-    laserArm.rotation.x = mining ? 0.44 : -0.04
-    laserArm.position.z = mining ? 0.5 : 0.72
-
-    const structureDummy = structureDummyRef.current
-    const armAngle = laserArm.rotation.x
-    structureDummy.position.set(
-      0,
-      laserArm.position.y - Math.sin(armAngle) * 0.2,
-      laserArm.position.z + Math.cos(armAngle) * 0.2,
-    )
-    structureDummy.rotation.set(armAngle, 0, 0)
-    structureDummy.scale.set(0.22, 0.2, 0.44)
-    structureDummy.updateMatrix()
-    structure.setMatrixAt(LASER_ARM_INSTANCE_INDEX, structureDummy.matrix)
-    structure.instanceMatrix.needsUpdate = true
-
-    lightMaterial.emissiveIntensity = Math.min(
-      EMISSIVE_LIMITS.activePanel,
-      EMISSIVE_LIMITS.panel + Math.sin(state.clock.elapsedTime * 4.1) * 0.045,
-    )
-
-    if (cargoRef.current !== null) {
-      const unloadingScale =
-        outpost.robot.state === 'unloading'
-          ? Math.max(0, 1 - kinematics.stateProgress)
-          : 1
-      cargoRef.current.scale.setScalar(unloadingScale)
-      cargoRef.current.visible =
-        outpost.robot.carriedOre > 0 && unloadingScale > 0.02
+    wheels.computeBoundingSphere()
+    if (cargoRef.current) {
+      const unload = outpost.robot.state === 'unloading' ? Math.max(0, 1 - kinematics.stateProgress) : 1
+      cargoRef.current.scale.setScalar(unload)
+      cargoRef.current.visible = outpost.robot.carriedOre > 0 && unload > .02
+    }
+    if (isE2e && outpost.robot.state !== 'stored') {
+      projected.set(robot.position.x, robot.position.y + .95 * LOCAL_METRES_TO_RENDER_UNITS, robot.position.z)
+        .applyQuaternion(transform.orientation).add(transform.position).project(state.camera)
+      state.gl.domElement.dataset.robotX = String((projected.x + 1) * state.size.width / 2)
+      state.gl.domElement.dataset.robotY = String((1 - projected.y) * state.size.height / 2)
     }
   })
-
   return (
     <group position={transform.position} quaternion={transform.orientation}>
-      <group
-        ref={robotRef}
-        name="miner-robot"
-        scale={LOCAL_METRES_TO_RENDER_UNITS * ROBOT_MODEL_SCALE_M}
-        visible={outpost.robot.state !== 'stored'}
-      >
-        <instancedMesh
-          ref={treadRef}
-          args={[treadGeometry, treadMaterial, 2]}
-          castShadow
-          receiveShadow
-        />
-        <instancedMesh
-          ref={wheelRef}
-          args={[wheelGeometry, wheelMaterial, 6]}
-          castShadow
-        />
-        <group ref={upperMachineryRef}>
-          <instancedMesh
-            ref={structureRef}
-            args={[structureGeometry, structureMaterial, 14]}
-            castShadow
-            receiveShadow
-          />
-          <instancedMesh
-            ref={lightRef}
-            args={[structureGeometry, lightMaterial, 3]}
-            visible={!compact}
-          />
-          <group
-            ref={laserArmRef}
-            position={[0, 0.65, 0.72]}
-            visible={!compact}
-          >
-            <mesh
-              ref={laserHeadRef}
-              position-z={0.4}
-              rotation-x={Math.PI / 2}
-              castShadow
-            >
-              <cylinderGeometry args={[0.18, 0.22, 0.3, 10]} />
-              <meshStandardMaterial
-                color={VISUAL_PALETTE.neutralMachinery}
-                {...MATERIAL_RESPONSE.neutralMachinery}
-              />
-            </mesh>
-            <mesh position-z={0.565} rotation-x={Math.PI / 2}>
-              <cylinderGeometry args={[0.1, 0.1, 0.035, 12]} />
-              <meshStandardMaterial color="#8fbbb9" metalness={0.6} roughness={0.25} />
-            </mesh>
-
+      <group ref={robotRef} name="miner-robot" scale={LOCAL_METRES_TO_RENDER_UNITS * ROBOT_MODEL_SCALE_M} visible={outpost.robot.state !== 'stored'}>
+        <instancedMesh ref={wheelRef} args={[models.wheel, kit.material, 6]} />
+        <group ref={upperRef}>
+          <mesh name="miner-carbon-chassis" geometry={models.body} material={kit.material} castShadow receiveShadow />
+          <group ref={sensorRef} position={[0, 1.04, -.18]} visible={!compact}>
+            <mesh geometry={models.sensor} material={kit.material} />
           </group>
-          <group ref={cargoRef} position={[0, 0.77, -0.62]} visible={false}>
-            <mesh castShadow scale={[1.3, 0.72, 1]}>
-              <octahedronGeometry args={[0.24, 0]} />
-              <meshStandardMaterial
-                color={VISUAL_PALETTE.playerHotMetal}
-                emissive={VISUAL_PALETTE.damageHeat}
-                emissiveIntensity={0.16}
-                metalness={0.22}
-                roughness={0.78}
-              />
-            </mesh>
+          <group ref={laserArmRef} position={[0, .65, .72]} visible={!compact}>
+            <mesh name="miner-articulated-laser" geometry={models.arm} material={kit.material} />
+          </group>
+          <group ref={cargoRef} position={[0, .68, -.61]} visible={false}>
+            <mesh geometry={models.cargo} material={kit.material} />
           </group>
         </group>
       </group>
-      {!compact ? (
-        <MiningEffects outpost={outpost} terrain={terrain} segments={segments} />
-      ) : null}
+      {!compact ? <MiningEffects outpost={outpost} terrain={terrain} segments={segments} /> : null}
     </group>
   )
 }

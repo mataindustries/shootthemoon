@@ -1,0 +1,22 @@
+{
+  "dist/index.html": {
+    "bytes": 500,
+    "sha256": "5ad552d700830ae6a2f61efe95b51107414fae015cebd07ee696c9f18885c35f"
+  },
+  "dist/assets/index-G9I5ubkN.css": {
+    "bytes": 55729,
+    "sha256": "bce1618b318a4597c7c8c1ba777e6cb70098829c2cee95d3d569f39a76ee6bf7"
+  },
+  "dist/assets/index-ChRhU7cr.js": {
+    "bytes": 1472385,
+    "sha256": "5d4a8a62549fda826030210f219af6cbb1b211906997439af4262ade524e96a3"
+  },
+  "dist/assets/moon/lroc_color_2k.jpg": {
+    "bytes": 457942,
+    "sha256": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170"
+  },
+  "dist/assets/moon/ldem_3_8bit.jpg": {
+    "bytes": 111552,
+    "sha256": "6d93f887e7d8bedfe35ab89ba785e5e3ca12381bd092a5e6abe2c707dda8bb98"
+  }
+}
