@@ -2136,6 +2136,7 @@ function App() {
           soundEnabled={audio.enabled}
           onBegin={handleBeginExperience}
           onToggleSound={audio.toggle}
+          onResetPrototype={handleResetPrototype}
         />
       ) : null}
     </main>
