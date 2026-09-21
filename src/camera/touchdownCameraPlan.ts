@@ -45,7 +45,10 @@ export function sampleTouchdownCamera(
   const travel = Math.min(1, p / .9)
   if (transition.descent) {
     transition.descent.getPoint(MathUtils.smootherstep(travel, 0, 1), position)
-    const aim = MathUtils.smoothstep(p / .72, 0, 1)
+    // Track the look-target closer to the position's own pace (was .72) so the
+    // capsule reads as part of the shot as it arrives, instead of the camera
+    // snapping fully onto the landing point while still well short of it.
+    const aim = MathUtils.smoothstep(p / .86, 0, 1)
     target.copy(transition.path.start.target).lerp(transition.path.end.target, aim)
     slerpUnitDirections(transition.path.start.up, transition.path.end.up, aim, transition.path.end.up, up)
   } else transition.path.sample(travel, position, target, up)

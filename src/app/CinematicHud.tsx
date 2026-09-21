@@ -1,6 +1,7 @@
 import { OrbitalSiegeHud, type SiegeAction } from './OrbitalSiegeHud.tsx'
 import { siegeIsActive } from '../domain/orbitalSiege.ts'
 import { useState } from 'react'
+import { useCoarsePointer } from './useCoarsePointer.ts'
 import { depositLabel, outpostGuidance } from './outpostGuidance.ts'
 import {
   findDeposit,
@@ -404,6 +405,7 @@ export function CinematicHud({
       : false
   const siteAnalysis = site === null ? null : analyzeLandingSite(site)
   const operationsActive = outpost?.extractor?.status === 'active'
+  const coarsePointer = useCoarsePointer()
 
   return (
     <div className="hud" aria-live="polite">
@@ -557,9 +559,9 @@ export function CinematicHud({
               <strong className="first-run-objective">Select a site → claim → build → mine</strong>
               <span>DRAG TO ORBIT</span>
               <i aria-hidden="true" />
-              <span>PINCH TO ZOOM</span>
+              <span>{coarsePointer ? 'PINCH TO ZOOM' : 'SCROLL TO ZOOM'}</span>
               <i aria-hidden="true" />
-              <span>TAP TO MARK</span>
+              <span>{coarsePointer ? 'TAP TO MARK' : 'CLICK TO MARK'}</span>
             </>
           ) : (
             <>

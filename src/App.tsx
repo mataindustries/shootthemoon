@@ -185,6 +185,9 @@ const COUNTERSTRIKE_RUN_STATUSES: readonly CounterstrikeRunStatus[] = [
 
 const COUNTERSTRIKE_ENDING_HOLD_MS = 3_600
 
+// Keep in sync with the `.launch-gate--closing` transition duration in styles.css.
+const LAUNCH_GATE_TRANSITION_MS = 420
+
 function requestHaptic(pattern: number | number[]): void {
   try {
     navigator.vibrate?.(pattern)
@@ -273,6 +276,8 @@ function App() {
   const monumentOfferedRef = useRef(false)
   const [strikeConfirmationOpen, setStrikeConfirmationOpen] = useState(false)
   const [entryOpen, setEntryOpen] = useState(true)
+  const [gateClosing, setGateClosing] = useState(false)
+  const gateClosingTimeoutRef = useRef<number | null>(null)
   const [previewRivalStage, setPreviewRivalStage] =
     useState<RivalStage | null>(null)
   const [selectedDepositId, setSelectedDepositId] = useState<string | null>(
@@ -339,6 +344,15 @@ function App() {
   }, [quality.maxDpr])
 
   useEffect(() => () => stopHaptics(), [])
+
+  useEffect(
+    () => () => {
+      if (gateClosingTimeoutRef.current !== null) {
+        window.clearTimeout(gateClosingTimeoutRef.current)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -1754,6 +1768,17 @@ function App() {
     audio.unlock()
     audio.play('enter')
     setEntryOpen(false)
+    // Keep LaunchGate mounted a moment longer so it can fade out over the
+    // scene instead of vanishing instantly; the game itself is already
+    // interactive the instant entryOpen flips, so this never delays control.
+    setGateClosing(true)
+    if (gateClosingTimeoutRef.current !== null) {
+      window.clearTimeout(gateClosingTimeoutRef.current)
+    }
+    gateClosingTimeoutRef.current = window.setTimeout(() => {
+      gateClosingTimeoutRef.current = null
+      setGateClosing(false)
+    }, LAUNCH_GATE_TRANSITION_MS)
   }, [audio])
 
   const handleClaim = useCallback(() => {
@@ -1777,6 +1802,11 @@ function App() {
 
     transitionGenerationRef.current += 1
     entryOpenRef.current = true
+    if (gateClosingTimeoutRef.current !== null) {
+      window.clearTimeout(gateClosingTimeoutRef.current)
+      gateClosingTimeoutRef.current = null
+    }
+    setGateClosing(false)
     audio.reset()
     stopHaptics()
     saveEnabledRef.current = false
@@ -1885,6 +1915,7 @@ function App() {
       data-first-strike-presentation={firstStrikePresentation.phase}
       data-first-strike-replay={firstStrikePresentation.replay}
       data-entry-open={entryOpen}
+      data-entry-transition={gateClosing ? 'revealing' : 'idle'}
       data-launch-complete={firstStrike?.launchCompleted ?? false}
       data-impact-complete={firstStrike?.impactCompleted ?? false}
       data-rival-damaged={firstStrike?.rivalFootholdDamaged ?? false}
@@ -2124,8 +2155,9 @@ function App() {
           allocationText="ALLOCATION LOCKED · ASSEMBLY CONTINUES" hitDetail="Octogonal destroyed. Your allocation determines wave damage."
           onFire={() => setPlatformShots(current => firePlatformDefense(outpost.orbitalSiege!, current, Date.now() - outpost.operations.lastUpdatedAtMs))} />
       </section> : null}
-      {entryOpen ? (
+      {entryOpen || gateClosing ? (
         <LaunchGate
+          closing={!entryOpen && gateClosing}
           continuing={
             outpost !== null ||
             rival !== null ||
