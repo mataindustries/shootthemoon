@@ -67,58 +67,85 @@ canvas {
   overflow: hidden;
   align-content: center;
   justify-items: center;
-  gap: 0.78rem;
-  padding:
-    max(28px, env(safe-area-inset-top))
-    max(24px, env(safe-area-inset-right))
-    max(34px, env(safe-area-inset-bottom))
-    max(24px, env(safe-area-inset-left));
   color: #f2e9e2;
   background:
-    radial-gradient(circle at 50% 58%, rgb(100 40 20 / 16%), transparent 27%),
+    radial-gradient(circle at 50% 76%, rgb(100 40 20 / 15%), transparent 32%),
     linear-gradient(180deg, #010205, #030407);
   text-align: center;
   touch-action: manipulation;
 }
 
-.launch-gate::before,
-.launch-gate::after {
+/* Horizon: sized off viewport height (not width) so the arc stays a large,
+   consistent lower-frame anchor from 1280px phones-in-landscape widths up
+   through ultrawide desktops, instead of drifting off-screen as width grows. */
+.launch-gate__horizon {
   position: absolute;
-  right: -26vw;
-  bottom: -23vw;
-  left: -26vw;
-  height: min(54vw, 23rem);
+  z-index: 0;
+  bottom: 0;
+  left: 50%;
+  overflow: hidden;
+  width: min(230vw, 3400px);
+  height: clamp(9.5rem, 30vh, 19rem);
   border-radius: 50% 50% 0 0 / 100% 100% 0 0;
-  content: "";
+  transform: translateX(-50%);
+  box-shadow:
+    0 -1px 0 rgb(217 167 94 / 55%),
+    0 -7px 30px rgb(177 112 45 / 8%);
   pointer-events: none;
 }
 
+.launch-gate__horizon-surface,
+.launch-gate__horizon-relief {
+  position: absolute;
+  inset: 0;
+}
+
 /* Static relief uses the already-shipped lunar maps; no canvas or animation. */
-.launch-gate::before {
+.launch-gate__horizon-surface {
   background:
     linear-gradient(112deg, transparent 16%, rgb(3 5 8 / 38%) 40%, #030508 73%),
     linear-gradient(180deg, rgb(164 138 91 / 10%), rgb(2 4 7 / 40%) 32%, #020407 83%),
     url('/assets/moon/lroc_color_2k.jpg');
   background-color: #777b7d;
-  background-size: cover, cover, 125% auto;
-  background-position: center, center, 38% 54%;
+  background-repeat: no-repeat;
+  background-size: cover, cover, cover;
+  background-position: center, center, center 30%;
   background-blend-mode: normal, normal, multiply;
-  box-shadow:
-    0 -1px 0 rgb(217 167 94 / 62%),
-    0 -7px 24px rgb(177 112 45 / 7%);
 }
 
-.launch-gate::after {
-  background: url('/assets/moon/ldem_3_8bit.jpg') 38% 54% / 125% auto;
+.launch-gate__horizon-relief {
+  background: url('/assets/moon/ldem_3_8bit.jpg') center 30% / cover no-repeat;
   mix-blend-mode: soft-light;
   filter: contrast(2.8);
   mask-image: linear-gradient(110deg, #000 14%, transparent 72%);
   opacity: .58;
 }
 
-.launch-gate > * {
+/* Frame: restrained aerospace corner marks + telemetry labels. Decorative
+   only, never intercepts input, hidden below 720px to keep mobile clean. */
+.launch-gate__frame {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+}
+
+.launch-gate__corner,
+.launch-gate__telemetry {
+  display: none;
+}
+
+.launch-gate__content {
   position: relative;
   z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.78rem;
+  padding:
+    max(28px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right))
+    calc(max(34px, env(safe-area-inset-bottom)) + clamp(1rem, 6vh, 3rem))
+    max(24px, env(safe-area-inset-left));
 }
 
 .launch-gate__rule {
@@ -129,60 +156,98 @@ canvas {
 }
 
 .launch-gate__kicker {
-  color: rgb(213 174 150 / 58%);
-  font-size: 0.58rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  color: rgb(213 174 150 / 62%);
+  font-size: 0.6rem;
   font-weight: 720;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.34em;
 }
 
-.launch-gate h1 {
+.launch-gate__kicker::before,
+.launch-gate__kicker::after {
+  width: 1.3em;
+  height: 1px;
+  background: currentColor;
+  content: "";
+  opacity: 0.5;
+}
+
+.launch-gate__title {
   display: grid;
   margin: 0;
   color: #ece7e1;
-  font-size: clamp(2.6rem, 14vw, 5.5rem);
-  font-weight: 830;
-  letter-spacing: -0.055em;
-  line-height: 0.78;
+  font-size: clamp(2.75rem, 13.5vw, 6.1rem);
+  font-weight: 860;
+  letter-spacing: -0.045em;
+  line-height: 0.76;
   text-transform: uppercase;
-  text-shadow: 0 12px 36px #000;
+  text-shadow: 0 14px 40px rgb(0 0 0 / 70%);
 }
 
-.launch-gate h1 span:last-child {
-  color: #8d8d89;
-  font-size: 0.69em;
-  letter-spacing: 0.05em;
+.launch-gate__title span:first-child {
+  color: #f5efe8;
 }
 
-.launch-gate > strong {
-  padding-left: 0.22em;
+.launch-gate__title span:last-child {
+  color: #86867f;
+  font-size: 0.685em;
+  letter-spacing: 0.015em;
+}
+
+.launch-gate__designation {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.1rem;
+}
+
+.launch-gate__designation-rule {
+  width: clamp(1.4rem, 4vw, 2.4rem);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(220 103 48 / 65%));
+}
+
+.launch-gate__designation-rule:last-child {
+  background: linear-gradient(270deg, transparent, rgb(220 103 48 / 65%));
+}
+
+.launch-gate__designation strong {
+  padding-left: 0.46em;
   color: #dc6730;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.42em;
+  font-size: 0.8rem;
+  font-weight: 820;
+  letter-spacing: 0.46em;
 }
 
-.launch-gate p {
-  margin: 0.65rem 0 0.45rem;
-  color: rgb(226 219 211 / 65%);
+.launch-gate__lede {
+  max-width: 30ch;
+  margin: 0.7rem 0 0.5rem;
+  color: rgb(226 219 211 / 62%);
   font-size: 0.76rem;
   line-height: 1.55;
 }
 
-.launch-gate button {
-  width: min(100%, 18rem);
-  min-height: 3.25rem;
-  cursor: pointer;
-  font-weight: 780;
-  letter-spacing: 0.17em;
-  touch-action: manipulation;
+.launch-gate__actions {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  width: 100%;
 }
 
 .launch-gate__begin {
+  width: min(100%, 19rem);
+  min-height: 3.25rem;
   border: 1px solid rgb(222 101 48 / 76%);
   color: #fff0e7;
   background: linear-gradient(108deg, #7e2410, #3e110a);
   box-shadow: 0 14px 42px rgb(0 0 0 / 48%);
+  cursor: pointer;
   font-size: 0.69rem;
+  font-weight: 780;
+  letter-spacing: 0.17em;
+  touch-action: manipulation;
 }
 
 .launch-gate__begin:hover,
@@ -192,12 +257,35 @@ canvas {
   outline: none;
 }
 
-.launch-gate__sound {
-  min-height: 2.75rem !important;
-  border: 1px solid rgb(190 196 199 / 13%);
-  color: rgb(210 214 215 / 54%);
-  background: rgb(5 7 10 / 52%);
-  font-size: 0.55rem;
+/* Utility row: sound + (when a save exists) new-game, both intentionally
+   quiet ghost-text controls so neither competes with the primary CTA. */
+.launch-gate__utilities {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.3rem;
+}
+
+.launch-gate__sound,
+.launch-gate__reset {
+  min-height: 2.5rem;
+  padding: 0 0.15rem;
+  border: 0;
+  border-bottom: 1px solid rgb(193 204 218 / 18%);
+  background: transparent;
+  color: rgb(215 210 203 / 46%);
+  cursor: pointer;
+  font-size: 0.56rem;
+  font-weight: 680;
+  letter-spacing: 0.16em;
+  touch-action: manipulation;
+}
+
+.launch-gate__sound:hover,
+.launch-gate__sound:focus-visible {
+  border-bottom-color: rgb(255 139 79 / 55%);
+  color: #f5c2a6;
+  outline: none;
 }
 
 .launch-gate__sound:disabled {
@@ -205,11 +293,76 @@ canvas {
   opacity: 0.45;
 }
 
-.launch-gate small {
+.launch-gate__reset {
+  color: rgb(196 120 96 / 42%);
+}
+
+.launch-gate__reset:hover,
+.launch-gate__reset:focus-visible {
+  border-bottom-color: rgb(226 62 42 / 55%);
+  color: #e2836a;
+  outline: none;
+}
+
+.launch-gate__hint {
   color: rgb(191 197 200 / 32%);
   font-size: 0.49rem;
   font-weight: 680;
   letter-spacing: 0.22em;
+}
+
+@media (min-width: 720px) {
+  .launch-gate__corner {
+    position: absolute;
+    display: block;
+    width: 22px;
+    height: 22px;
+    border: 1px solid rgb(196 168 130 / 22%);
+  }
+
+  .launch-gate__corner--tl {
+    top: max(22px, env(safe-area-inset-top));
+    left: max(22px, env(safe-area-inset-left));
+    border-width: 1px 0 0 1px;
+  }
+
+  .launch-gate__corner--tr {
+    top: max(22px, env(safe-area-inset-top));
+    right: max(22px, env(safe-area-inset-right));
+    border-width: 1px 1px 0 0;
+  }
+
+  .launch-gate__corner--bl {
+    bottom: max(22px, env(safe-area-inset-bottom));
+    left: max(22px, env(safe-area-inset-left));
+    border-width: 0 0 1px 1px;
+  }
+
+  .launch-gate__corner--br {
+    bottom: max(22px, env(safe-area-inset-bottom));
+    right: max(22px, env(safe-area-inset-right));
+    border-width: 0 1px 1px 0;
+  }
+
+  .launch-gate__telemetry {
+    position: absolute;
+    display: block;
+    bottom: max(28px, env(safe-area-inset-bottom));
+    color: rgb(196 168 130 / 38%);
+    font-size: 0.52rem;
+    font-weight: 620;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .launch-gate__telemetry--left {
+    left: calc(max(22px, env(safe-area-inset-left)) + 26px);
+  }
+
+  .launch-gate__telemetry--right {
+    right: calc(max(22px, env(safe-area-inset-right)) + 26px);
+  }
 }
 
 .hud {
@@ -2037,39 +2190,43 @@ button {
 }
 
 @media (orientation: landscape) and (max-height: 560px) {
-  .launch-gate {
+  .launch-gate__content {
     gap: 0.36rem;
-    padding-block: max(16px, env(safe-area-inset-top));
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: calc(max(16px, env(safe-area-inset-bottom)) + clamp(0.9rem, 9vh, 2rem));
   }
 
-  .launch-gate::before,
-  .launch-gate::after {
-    bottom: -7rem;
-    height: 10rem;
+  .launch-gate__horizon {
+    height: clamp(6rem, 24vh, 10rem);
   }
 
   .launch-gate__rule {
     margin-bottom: 0;
   }
 
-  .launch-gate h1 {
+  .launch-gate__title {
     display: flex;
     gap: 0.2em;
     font-size: clamp(2.2rem, 8vw, 4rem);
     line-height: 0.9;
   }
 
-  .launch-gate h1 span:last-child {
+  .launch-gate__title span:last-child {
     font-size: 1em;
   }
 
-  .launch-gate p {
+  .launch-gate__lede {
     margin: 0.22rem 0;
     line-height: 1.35;
   }
 
-  .launch-gate button {
+  .launch-gate__begin {
     min-height: 2.65rem;
+  }
+
+  .launch-gate__sound,
+  .launch-gate__reset {
+    min-height: 2.2rem;
   }
 
   .strike-ready,
