@@ -2192,7 +2192,8 @@ button {
 @media (orientation: landscape) and (max-height: 560px) {
   .launch-gate__content {
     gap: 0.36rem;
-    padding-block: max(16px, env(safe-area-inset-top));
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: calc(max(16px, env(safe-area-inset-bottom)) + clamp(0.9rem, 9vh, 2rem));
   }
 
   .launch-gate__horizon {
