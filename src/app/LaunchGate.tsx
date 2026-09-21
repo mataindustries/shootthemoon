@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCoarsePointer } from './useCoarsePointer.ts'
 
 interface LaunchGateProps {
+  readonly closing?: boolean
   readonly continuing: boolean
   readonly soundAvailable: boolean
   readonly soundEnabled: boolean
@@ -9,34 +10,8 @@ interface LaunchGateProps {
   readonly onResetPrototype: () => void
 }
 
-function readCoarsePointer(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(pointer: coarse)').matches
-  )
-}
-
-/** Desktop/mouse sessions get accurate control copy instead of the touch hint. */
-function useCoarsePointer(): boolean {
-  const [coarsePointer, setCoarsePointer] = useState(readCoarsePointer)
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') {
-      return
-    }
-
-    const query = window.matchMedia('(pointer: coarse)')
-    const update = () => setCoarsePointer(query.matches)
-    update()
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
-
-  return coarsePointer
-}
-
 export function LaunchGate({
+  closing = false,
   continuing,
   soundAvailable,
   soundEnabled,
@@ -47,7 +22,11 @@ export function LaunchGate({
   const coarsePointer = useCoarsePointer()
 
   return (
-    <section className="launch-gate" aria-label="Shoot the Moon opening">
+    <section
+      className={'launch-gate' + (closing ? ' launch-gate--closing' : '')}
+      aria-hidden={closing}
+      aria-label="Shoot the Moon opening"
+    >
       <div className="launch-gate__horizon" aria-hidden="true">
         <div className="launch-gate__horizon-surface" />
         <div className="launch-gate__horizon-relief" />

@@ -73,6 +73,22 @@ canvas {
     linear-gradient(180deg, #010205, #030407);
   text-align: center;
   touch-action: manipulation;
+  opacity: 1;
+  /* Keep in sync with LAUNCH_GATE_TRANSITION_MS in App.tsx. */
+  transition: opacity 420ms ease;
+}
+
+/* BEGIN INVASION fades the gate away instead of an instant unmount, so the
+   already-live orbital scene underneath reads as a cinematic reveal. */
+.launch-gate--closing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launch-gate {
+    transition-duration: 1ms;
+  }
 }
 
 /* Horizon: sized off viewport height (not width) so the arc stays a large,
@@ -388,6 +404,40 @@ canvas {
     linear-gradient(0deg, rgb(0 0 0 / 52%) 0%, transparent 28%);
   content: "";
   pointer-events: none;
+}
+
+/* The HUD is mounted underneath LaunchGate the whole time; this only plays
+   during the BEGIN INVASION reveal window (main[data-entry-transition]),
+   so the chrome arrives in two restrained beats instead of all at once. */
+@keyframes hud-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-shell[data-entry-transition="revealing"] .hud-header {
+  animation: hud-enter 300ms ease both;
+}
+
+.app-shell[data-entry-transition="revealing"] .orbit-instruction,
+.app-shell[data-entry-transition="revealing"] .surface-status {
+  animation: hud-enter 300ms ease both;
+  animation-delay: 100ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell[data-entry-transition="revealing"] .hud-header,
+  .app-shell[data-entry-transition="revealing"] .orbit-instruction,
+  .app-shell[data-entry-transition="revealing"] .surface-status {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
 }
 
 .hud-header {
@@ -706,6 +756,23 @@ canvas {
   border-left-color: #ff914f;
 }
 
+/* During descent the site card should stop competing with the cinematic:
+   keep the eyebrow + abort control, fade the selection statistics away. */
+.site-panel--approach .coordinate-grid,
+.site-panel--approach .datum-line,
+.site-panel--approach .site-qualities {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coordinate-grid,
+  .datum-line,
+  .site-qualities {
+    transition-duration: 1ms;
+  }
+}
+
 .site-panel__eyebrow {
   display: flex;
   align-items: center;
@@ -726,6 +793,7 @@ canvas {
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
   margin-top: 0.9rem;
+  transition: opacity 320ms ease;
 }
 
 .coordinate-grid > div {
@@ -762,6 +830,7 @@ canvas {
   color: rgb(203 215 228 / 38%);
   font-size: 0.55rem;
   letter-spacing: 0.14em;
+  transition: opacity 320ms ease;
 }
 
 .site-qualities {
@@ -769,6 +838,7 @@ canvas {
   grid-template-columns: repeat(3, 1fr);
   margin-top: 0.75rem;
   border-block: 1px solid rgb(193 207 221 / 12%);
+  transition: opacity 320ms ease;
 }
 
 .site-qualities > div {
