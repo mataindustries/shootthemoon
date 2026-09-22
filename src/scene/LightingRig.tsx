@@ -14,6 +14,10 @@ import {
   type FirstStrikePresentationState,
 } from '../app/firstStrikePresentation.ts'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
+import {
+  sampleEjectaBlastResidual,
+  sampleImpactBlastEnergy,
+} from './LunarImpactEffects.tsx'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import {
   LOCAL_SURFACE_RENDER_OFFSET,
@@ -26,6 +30,10 @@ const WORLD_EAST = new Vector3(1, 0, 0)
 const WORLD_SOUTH = new Vector3(0, 0, 1)
 const LAUNCH_LIGHT_CLEARANCE = 0.00152
 const IMPACT_LIGHT_CLEARANCE = 0.00814
+// Scoped to the First Strike detonation: the blast is the only light the rival
+// site gets during `impact-flash`, and it keeps burning into early `ejecta`.
+const IMPACT_LIGHT_RANGE = 0.22
+const IMPACT_LIGHT_PEAK = 0.55
 
 interface LightingRigProps {
   readonly monumentReadability?: boolean
@@ -171,14 +179,22 @@ export function LightingRig({
       return
     }
 
-    if (firstStrikePresentation.phase === 'impact-flash') {
-      const flashWindow = Math.min(1, progress / 0.42)
-      const flashPulse = Math.sin(Math.PI * flashWindow) ** 0.42
-      eventLight.distance = 0.18
+    const detonation = firstStrikePresentation.phase === 'impact-flash'
+    const blastAfterglow =
+      firstStrikePresentation.phase === 'ejecta' && !residualScarLight
+
+    // The detonation drives this light through `impact-flash` and hands its
+    // tail to the opening of `ejecta`, so the crater and the debris rising out
+    // of it keep the blast's light instead of cutting straight to the scar rake.
+    if (detonation || blastAfterglow) {
+      eventLight.distance = IMPACT_LIGHT_RANGE
       eventLight.position
         .copy(targetPosition)
         .addScaledVector(activeUp, IMPACT_LIGHT_CLEARANCE)
-      eventLight.intensity = flashPulse * 0.12
+      eventLight.intensity =
+        (detonation
+          ? sampleImpactBlastEnergy(progress)
+          : sampleEjectaBlastResidual(progress)) * IMPACT_LIGHT_PEAK
       return
     }
 
