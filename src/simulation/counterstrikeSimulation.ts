@@ -53,8 +53,8 @@ export const COUNTERSTRIKE_TIMING = Object.freeze({
   launchedMissMs: 2_400,
   successMs: 6_400,
   missedMs: 1_800,
-  impactMs: 7_800,
-  impactContactMs: 3_120,
+  impactMs: 4_400,
+  impactContactMs: 1_500,
   maximumAttempts: 2,
 })
 

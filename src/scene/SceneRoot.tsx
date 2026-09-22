@@ -66,6 +66,7 @@ import {
   OrbitalInterceptEffects,
 } from './OrbitalInterceptEffects.tsx'
 import { CounterstrikeDamage } from './CounterstrikeDamage.tsx'
+import { getCounterstrikeImpactLightPosition } from './counterstrikeImpactPresentation.ts'
 import { OperationalRobotFleet } from './OperationalRobotFleet.tsx'
 import { OutpostModule } from './OutpostModule.tsx'
 import { calculateOutpostOperations } from '../simulation/outpostOperations.ts'
@@ -171,6 +172,18 @@ export function SceneRoot({
       createCounterstrikeRoute(outpost.site, rival.site, secondaryImpactSite)
         .getRenderPoint(counterstrikeRun.interceptRouteProgress ?? 0.7),
     [outpost?.site, rival?.site, secondaryImpactSite, counterstrikeRun.interceptRouteProgress],
+  )
+  const counterstrikeImpactLightPosition = useMemo(
+    () =>
+      outpost === null || counterstrikeTerrain === null
+        ? null
+        : getCounterstrikeImpactLightPosition(
+            outpost,
+            counterstrikeTerrain,
+            quality.patchSegments,
+          ),
+    // Economic ticks do not move the hit; see secondaryImpactSite above.
+    [outpost?.site, outpost?.extractor?.position, counterstrikeTerrain, quality.patchSegments],
   )
   const rivalTerrainSegments = Math.min(quality.patchSegments, 32)
   const playerSurfaceHeight =
@@ -410,6 +423,7 @@ export function SceneRoot({
         monumentReadability={(monumentView || monumentOrbitalView) && !strikePresentationActive && !counterstrikePresentationActive}
         counterstrikeRun={counterstrikeRun}
         orbitalInterceptPosition={orbitalInterceptPosition}
+        counterstrikeImpactPosition={counterstrikeImpactLightPosition}
         landingSite={landingSite}
         strategicFocusSite={
           counterstrikePresentationActive

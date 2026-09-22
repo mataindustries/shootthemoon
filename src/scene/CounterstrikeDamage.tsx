@@ -1,22 +1,23 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
+  AdditiveBlending,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   Color,
+  DoubleSide,
+  DynamicDrawUsage,
   Group,
   IcosahedronGeometry,
   InstancedMesh,
-  MathUtils,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   Object3D,
   Points,
   PointsMaterial,
-  PointLight,
-  SphereGeometry,
+  Quaternion,
   Vector2,
 } from 'three'
 import type { OutpostSnapshot } from '../domain/outpost.ts'
@@ -28,11 +29,12 @@ import {
 } from '../render/localSurface.ts'
 import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { CounterstrikeRunState } from '../simulation/counterstrikeSimulation.ts'
-import {
-  COUNTERSTRIKE_TIMING,
-  getCounterstrikeRunProgress,
-} from '../simulation/counterstrikeSimulation.ts'
 import { MATERIAL_RESPONSE, VISUAL_PALETTE } from '../render/visualSystem.ts'
+import {
+  COUNTERSTRIKE_IMPACT_EFFECT_MS,
+  getCounterstrikeImpactElapsedMs,
+  sampleCounterstrikeImpactEnergy,
+} from './counterstrikeImpactPresentation.ts'
 
 interface CounterstrikeDamageProps {
   readonly outpost: OutpostSnapshot
@@ -47,16 +49,40 @@ const CRATER_SEGMENTS = 22
 const EJECTA_CHUNK_COUNT = 18
 const EJECTA_STREAK_COUNT = 7
 const WRECKAGE_COUNT = 8
-const IMPACT_SHARD_COUNT = 18
-const IMPACT_DUST_COUNT = 34
+const IMPACT_SHARD_COUNT = 16
+const IMPACT_GRAIN_COUNT = 110
+const CURTAIN_SEGMENTS = 28
 // The hit is 8.4 m beyond the extractor. A ~6 m outer rim remains substantial
 // without laying raised crater geometry over (and visually burying) machinery.
 const DAMAGE_MODEL_SCALE = 0.78
-const IMPACT_CONTACT_PROGRESS =
-  COUNTERSTRIKE_TIMING.impactContactMs / COUNTERSTRIKE_TIMING.impactMs
+// SurfacePatch is a depth-less transparent overlay drawn at renderOrder 1;
+// transient impact layers must draw after it or the ground paints over them.
+const EFFECT_RENDER_ORDER = 3
 
 function deterministicVariation(index: number, salt: number): number {
   return Math.sin(index * 12.9898 + salt * 78.233) * 0.5 + 0.5
+}
+
+/**
+ * The permanent mark speaks the First Strike scar's language: a carbonized
+ * floor, a restrained scorch band on the inner wall, neutral grey fractured
+ * rim material, and an ejecta blanket lifted toward the regolith it lands on.
+ */
+export function createCounterstrikeCraterColors(): {
+  readonly floor: Color
+  readonly innerWall: Color
+  readonly rim: Color
+  readonly blanket: Color
+} {
+  const lunar = new Color(VISUAL_PALETTE.lunarMid)
+  return {
+    floor: new Color(VISUAL_PALETTE.damageChar).lerp(lunar, 0.04),
+    innerWall: new Color(VISUAL_PALETTE.damageFloor)
+      .lerp(new Color(VISUAL_PALETTE.damageHeat), 0.3)
+      .lerp(lunar, 0.08),
+    rim: new Color(VISUAL_PALETTE.damageRim).lerp(lunar, 0.32),
+    blanket: new Color(VISUAL_PALETTE.damageFloor).lerp(lunar, 0.45),
+  }
 }
 
 export function createCounterstrikeCraterGeometry(
@@ -65,12 +91,9 @@ export function createCounterstrikeCraterGeometry(
   const positions: number[] = [0, 0.025, 0]
   const colors: number[] = []
   const indices: number[] = []
-  const floorColor = new Color(VISUAL_PALETTE.damageFloor).multiplyScalar(0.56)
-  const innerColor = new Color(VISUAL_PALETTE.damageFloor).multiplyScalar(0.78)
-  const rimColor = new Color(VISUAL_PALETTE.damageRim).multiplyScalar(0.9)
-  const outerColor = new Color(VISUAL_PALETTE.damageHeat).multiplyScalar(0.72)
-  const ringColors = [innerColor, rimColor, outerColor]
-  colors.push(floorColor.r, floorColor.g, floorColor.b)
+  const palette = createCounterstrikeCraterColors()
+  const ringColors = [palette.innerWall, palette.rim, palette.blanket]
+  colors.push(palette.floor.r, palette.floor.g, palette.floor.b)
 
   for (let ring = 0; ring < 3; ring += 1) {
     for (let index = 0; index < CRATER_SEGMENTS; index += 1) {
@@ -95,7 +118,9 @@ export function createCounterstrikeCraterGeometry(
       const center = sampleRenderedSurface(terrain, segments, offset.xM, offset.zM)
       const surface = sampleRenderedSurface(terrain, segments, offset.xM + x * DAMAGE_MODEL_SCALE, offset.zM + z * DAMAGE_MODEL_SCALE)
       positions.push(x, height + (surface.y - center.y) / (LOCAL_METRES_TO_RENDER_UNITS * DAMAGE_MODEL_SCALE), z)
-      const color = ringColors[ring]!
+      // Fractured rim material alternates lighter and darker plates.
+      const color = ringColors[ring]!.clone()
+      if (ring === 1) color.multiplyScalar(0.84 + deterministicVariation(index, 21) * 0.3)
       colors.push(color.r, color.g, color.b)
     }
   }
@@ -134,17 +159,83 @@ export function createCounterstrikeCraterGeometry(
   return geometry
 }
 
-function createImpactDustGeometry(): BufferGeometry {
-  const positions = new Float32Array(IMPACT_DUST_COUNT * 3)
-  for (let index = 0; index < IMPACT_DUST_COUNT; index += 1) {
-    const angle = index * 2.399963229728653
-    const radius = 0.8 + deterministicVariation(index, 4) * 4.8
-    positions[index * 3] = Math.cos(angle) * radius
-    positions[index * 3 + 1] = 0.28 + (index % 7) * 0.34
-    positions[index * 3 + 2] = Math.sin(angle) * radius
+/**
+ * Flat unit disc or band whose vertex alpha follows `stops`, so glows, the
+ * shock band and the ember fall off softly without a texture.
+ */
+function createSoftDiscGeometry(
+  stops: ReadonlyArray<{ readonly radius: number; readonly alpha: number }>,
+  segments = 36,
+): BufferGeometry {
+  const positions: number[] = []
+  const colors: number[] = []
+  const indices: number[] = []
+  stops.forEach((stop) => {
+    for (let index = 0; index < segments; index += 1) {
+      const angle = (index / segments) * Math.PI * 2
+      positions.push(Math.cos(angle) * stop.radius, Math.sin(angle) * stop.radius, 0)
+      colors.push(1, 1, 1, stop.alpha)
+    }
+  })
+  for (let ring = 0; ring < stops.length - 1; ring += 1) {
+    for (let index = 0; index < segments; index += 1) {
+      const a = ring * segments + index
+      const b = ring * segments + ((index + 1) % segments)
+      indices.push(a, a + segments, b, b, a + segments, b + segments)
+    }
   }
   const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new BufferAttribute(positions, 3))
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
+  geometry.setAttribute('color', new BufferAttribute(new Float32Array(colors), 4))
+  geometry.setIndex(indices)
+  geometry.computeBoundingSphere()
+  return geometry
+}
+
+/** Unit-height open cone with a ragged lip; alpha thins toward the lip. */
+function createEjectaCurtainGeometry(): BufferGeometry {
+  const rings = [
+    { radius: 0.18, height: 0, alpha: 0.9 },
+    { radius: 0.58, height: 0.46, alpha: 0.5 },
+    { radius: 1, height: 1, alpha: 0 },
+  ]
+  const color = new Color(VISUAL_PALETTE.damageRim).lerp(
+    new Color(VISUAL_PALETTE.lunarSunlit),
+    0.3,
+  )
+  const positions: number[] = []
+  const colors: number[] = []
+  const indices: number[] = []
+  rings.forEach((ring, ringIndex) => {
+    for (let index = 0; index <= CURTAIN_SEGMENTS; index += 1) {
+      const angle = (index / CURTAIN_SEGMENTS) * Math.PI * 2
+      const ragged =
+        ringIndex === 0
+          ? 1
+          : 0.7 +
+            deterministicVariation(index % CURTAIN_SEGMENTS, 31 + ringIndex) *
+              (ringIndex === 2 ? 0.6 : 0.3)
+      positions.push(
+        Math.cos(angle) * ring.radius * ragged,
+        ring.height * ragged,
+        Math.sin(angle) * ring.radius * ragged,
+      )
+      colors.push(color.r, color.g, color.b, ring.alpha)
+    }
+  })
+  const stride = CURTAIN_SEGMENTS + 1
+  for (let ring = 0; ring < rings.length - 1; ring += 1) {
+    for (let index = 0; index < CURTAIN_SEGMENTS; index += 1) {
+      const a = ring * stride + index
+      const b = a + stride
+      indices.push(a, b, a + 1, a + 1, b, b + 1)
+    }
+  }
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
+  geometry.setAttribute('color', new BufferAttribute(new Float32Array(colors), 4))
+  geometry.setIndex(indices)
+  geometry.computeVertexNormals()
   geometry.computeBoundingSphere()
   return geometry
 }
@@ -159,15 +250,20 @@ export function CounterstrikeDamage({
 }: CounterstrikeDamageProps) {
   const permanentRootRef = useRef<Group>(null)
   const transientRootRef = useRef<Group>(null)
-  const flashRef = useRef<Mesh>(null)
+  const coreRef = useRef<Mesh>(null)
+  const haloRef = useRef<Mesh>(null)
+  const billboardRef = useRef(new Quaternion())
+  const ringRef = useRef<Mesh>(null)
+  const curtainRef = useRef<Mesh>(null)
+  const emberRef = useRef<Mesh>(null)
   const shardsRef = useRef<InstancedMesh>(null)
+  const grainsRef = useRef<Points>(null)
   const ejectaChunksRef = useRef<InstancedMesh>(null)
   const ejectaStreaksRef = useRef<InstancedMesh>(null)
   const wreckageRef = useRef<InstancedMesh>(null)
-  const impactDustRef = useRef<Points>(null)
-  const impactLightRef = useRef<PointLight>(null)
   const dummyRef = useRef(new Object3D())
   const gl = useThree((state) => state.gl)
+  const camera = useThree((state) => state.camera)
   const transform = useMemo(
     () => landingSiteToRenderTransform(outpost.site),
     [outpost.site],
@@ -180,71 +276,194 @@ export function CounterstrikeDamage({
   const craterGeometry = useMemo(() => createCounterstrikeCraterGeometry(terrain, segments, offset), [terrain, segments, offset.xM, offset.zM])
   const rockGeometry = useMemo(() => new IcosahedronGeometry(1, 0), [])
   const debrisGeometry = useMemo(() => new BoxGeometry(1, 1, 1), [])
-  const flashGeometry = useMemo(() => new SphereGeometry(1, 12, 8), [])
-  const impactDustGeometry = useMemo(createImpactDustGeometry, [])
+  const glowGeometry = useMemo(
+    () =>
+      createSoftDiscGeometry([
+        { radius: 0, alpha: 1 },
+        { radius: 0.28, alpha: 0.85 },
+        { radius: 0.6, alpha: 0.28 },
+        { radius: 1, alpha: 0 },
+      ]),
+    [],
+  )
+  const ringGeometry = useMemo(
+    () =>
+      createSoftDiscGeometry(
+        [
+          { radius: 0.78, alpha: 0 },
+          { radius: 0.93, alpha: 1 },
+          { radius: 1, alpha: 0 },
+        ],
+        56,
+      ),
+    [],
+  )
+  const curtainGeometry = useMemo(createEjectaCurtainGeometry, [])
+  const grainGeometry = useMemo(() => {
+    const geometry = new BufferGeometry()
+    geometry.setAttribute(
+      'position',
+      new BufferAttribute(new Float32Array(IMPACT_GRAIN_COUNT * 3), 3).setUsage(
+        DynamicDrawUsage,
+      ),
+    )
+    return geometry
+  }, [])
   const craterMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
         color: '#ffffff',
-        emissive: VISUAL_PALETTE.damageEmber,
-        emissiveIntensity: 0.04,
         vertexColors: true,
         flatShading: true,
-        ...MATERIAL_RESPONSE.contact,
+        ...MATERIAL_RESPONSE.lunar,
       }),
     [],
   )
   const ejectaMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: VISUAL_PALETTE.damageRim,
-        roughness: 0.98,
-        metalness: 0,
+        color: new Color(VISUAL_PALETTE.damageRim).lerp(
+          new Color(VISUAL_PALETTE.lunarMid),
+          0.3,
+        ),
+        ...MATERIAL_RESPONSE.lunar,
+        flatShading: true,
       }),
     [],
   )
+  // Charred structural steel from the extractor, not the rust-red of fresh
+  // player heat panels. Residual heat belongs to the transient ember only.
   const wreckageMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: VISUAL_PALETTE.playerHeatDark,
-        emissive: VISUAL_PALETTE.damageEmber,
-        emissiveIntensity: 0.08,
-        ...MATERIAL_RESPONSE.playerHeatDark,
+        color: new Color(VISUAL_PALETTE.playerSteel).lerp(
+          new Color(VISUAL_PALETTE.damageChar),
+          0.3,
+        ),
+        ...MATERIAL_RESPONSE.playerSteel,
       }),
     [],
   )
   const shardMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: VISUAL_PALETTE.damageHeat,
-        emissive: VISUAL_PALETTE.damageEmber,
-        emissiveIntensity: 0.16,
-        ...MATERIAL_RESPONSE.playerHeatDark,
+        color: '#ffffff',
+        flatShading: true,
+        ...MATERIAL_RESPONSE.lunar,
       }),
     [],
   )
-  const flashMaterial = useMemo(
+  // The unlit contact layers share one program: tone mapping is off so the
+  // white-hot core can exceed the lit scene for its fifth of a second.
+  const coreMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
-        color: '#ffd7ad',
+        color: VISUAL_PALETTE.defenseImpactCore,
         depthWrite: false,
-        opacity: 0.88,
+        opacity: 0,
+        toneMapped: false,
+        transparent: true,
+        vertexColors: true,
+      }),
+    [],
+  )
+  const haloMaterial = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        blending: AdditiveBlending,
+        color: '#ffb676',
+        depthWrite: false,
+        opacity: 0,
+        toneMapped: false,
+        transparent: true,
+        vertexColors: true,
+      }),
+    [],
+  )
+  const ringMaterial = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        color: '#9d978d',
+        depthWrite: false,
+        opacity: 0,
+        side: DoubleSide,
+        toneMapped: false,
+        transparent: true,
+        vertexColors: true,
+      }),
+    [],
+  )
+  const emberMaterial = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        blending: AdditiveBlending,
+        color: VISUAL_PALETTE.damageEmber,
+        depthWrite: false,
+        opacity: 0,
+        side: DoubleSide,
+        toneMapped: false,
+        transparent: true,
+        vertexColors: true,
+      }),
+    [],
+  )
+  const curtainMaterial = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        color: '#ffffff',
+        depthWrite: false,
+        opacity: 0,
+        side: DoubleSide,
+        toneMapped: false,
+        transparent: true,
+        vertexColors: true,
+      }),
+    [],
+  )
+  const grainMaterial = useMemo(
+    () =>
+      new PointsMaterial({
+        color: new Color(VISUAL_PALETTE.damageRim).lerp(
+          new Color(VISUAL_PALETTE.lunarSunlit),
+          0.55,
+        ),
+        depthWrite: false,
+        opacity: 0,
+        size: 0.32 * LOCAL_METRES_TO_RENDER_UNITS,
+        sizeAttenuation: true,
         toneMapped: false,
         transparent: true,
       }),
     [],
   )
-  const impactDustMaterial = useMemo(
+  const shardFlights = useMemo(
     () =>
-      new PointsMaterial({
-        color: '#a98a70',
-        depthWrite: false,
-        opacity: 0.72,
-        size: 0.00034,
-        sizeAttenuation: true,
-        toneMapped: true,
-        transparent: true,
+      Array.from({ length: IMPACT_SHARD_COUNT }, (_, index) => {
+        const flightMs =
+          COUNTERSTRIKE_IMPACT_EFFECT_MS.debris *
+          (0.62 + deterministicVariation(index, 18) * 0.38)
+        const apexM = 1.6 + deterministicVariation(index, 19) * 5.2
+        return {
+          angle: index * 2.399963229728653 + deterministicVariation(index, 20) * 0.4,
+          rangeM: 5 + deterministicVariation(index, 22) * 11,
+          apexM,
+          flightMs,
+          size: 0.1 + deterministicVariation(index, 23) * 0.2,
+        }
       }),
+    [],
+  )
+  // Fine regolith follows ballistic arcs in vacuum; it does not billow.
+  const grainFlights = useMemo(
+    () =>
+      Array.from({ length: IMPACT_GRAIN_COUNT }, (_, index) => ({
+        angle: index * 2.399963229728653 + deterministicVariation(index, 24) * 0.5,
+        rangeM: 2.5 + deterministicVariation(index, 25) ** 0.7 * 17,
+        apexM: 1 + deterministicVariation(index, 26) * 8.5,
+        flightMs:
+          COUNTERSTRIKE_IMPACT_EFFECT_MS.grains *
+          (0.45 + deterministicVariation(index, 27) * 0.55),
+      })),
     [],
   )
 
@@ -282,7 +501,7 @@ export function CounterstrikeDamage({
         const radius = 9.2 + deterministicVariation(index, 9) * 8.4
         dummy.position.set(
           Math.cos(angle) * radius,
-          0.08,
+          0.03,
           Math.sin(angle) * radius,
         )
         dummy.rotation.set(
@@ -290,10 +509,11 @@ export function CounterstrikeDamage({
           -angle + (deterministicVariation(index, 11) - 0.5) * 0.3,
           (deterministicVariation(index, 12) - 0.5) * 0.18,
         )
+        // Low, broad ejecta rays rather than raised planks.
         dummy.scale.set(
           1.1 + deterministicVariation(index, 13) * 2.2,
-          0.08 + deterministicVariation(index, 14) * 0.08,
-          0.18 + deterministicVariation(index, 15) * 0.22,
+          0.035 + deterministicVariation(index, 14) * 0.03,
+          0.34 + deterministicVariation(index, 15) * 0.3,
         )
         dummy.updateMatrix()
         streaks.setMatrixAt(index, dummy.matrix)
@@ -332,30 +552,41 @@ export function CounterstrikeDamage({
     }
 
     if (shards !== null) {
+      shards.instanceMatrix.setUsage(DynamicDrawUsage)
+      const palette = createCounterstrikeCraterColors()
+      const shardColors = [palette.rim, palette.blanket, palette.floor, palette.rim]
       for (let index = 0; index < IMPACT_SHARD_COUNT; index += 1) {
+        shards.setColorAt(index, shardColors[index % shardColors.length]!)
         dummy.position.set(0, 0, 0)
-        dummy.rotation.set(index * 0.37, index * 0.51, index * 0.22)
-        dummy.scale.setScalar(0.42 + (index % 5) * 0.12)
+        dummy.scale.setScalar(0)
         dummy.updateMatrix()
         shards.setMatrixAt(index, dummy.matrix)
       }
+      if (shards.instanceColor !== null) shards.instanceColor.needsUpdate = true
       shards.instanceMatrix.needsUpdate = true
     }
-  }, [offset.xM, offset.zM, outpost.extractor?.position])
+
+  }, [offset.xM, offset.zM, outpost.extractor?.position, transientImpact, permanent])
 
   useEffect(
     () => () => {
       craterGeometry.dispose()
       rockGeometry.dispose()
       debrisGeometry.dispose()
-      flashGeometry.dispose()
-      impactDustGeometry.dispose()
+      glowGeometry.dispose()
+      ringGeometry.dispose()
+      curtainGeometry.dispose()
+      grainGeometry.dispose()
       craterMaterial.dispose()
       ejectaMaterial.dispose()
       wreckageMaterial.dispose()
       shardMaterial.dispose()
-      flashMaterial.dispose()
-      impactDustMaterial.dispose()
+      coreMaterial.dispose()
+      haloMaterial.dispose()
+      ringMaterial.dispose()
+      emberMaterial.dispose()
+      curtainMaterial.dispose()
+      grainMaterial.dispose()
       delete gl.domElement.dataset.counterstrikeImpactEffect
       delete gl.domElement.dataset.counterstrikeDamageField
       delete gl.domElement.dataset.counterstrikeEjectaCount
@@ -363,15 +594,21 @@ export function CounterstrikeDamage({
       delete gl.domElement.dataset.secondaryImpactZ
     },
     [
+      coreMaterial,
       craterGeometry,
       craterMaterial,
+      curtainGeometry,
+      curtainMaterial,
       debrisGeometry,
       ejectaMaterial,
-      flashGeometry,
-      flashMaterial,
+      emberMaterial,
       gl,
-      impactDustGeometry,
-      impactDustMaterial,
+      glowGeometry,
+      grainGeometry,
+      grainMaterial,
+      haloMaterial,
+      ringGeometry,
+      ringMaterial,
       rockGeometry,
       shardMaterial,
       wreckageMaterial,
@@ -382,29 +619,31 @@ export function CounterstrikeDamage({
     if (!transientImpact) return
     const permanentRoot = permanentRootRef.current
     const transientRoot = transientRootRef.current
-    const flash = flashRef.current
+    const core = coreRef.current
+    const halo = haloRef.current
+    const ring = ringRef.current
+    const curtain = curtainRef.current
+    const ember = emberRef.current
     const shards = shardsRef.current
-    const dust = impactDustRef.current
-    const impactLight = impactLightRef.current
+    const grains = grainsRef.current
     if (
       permanentRoot === null ||
       transientRoot === null ||
-      flash === null ||
+      core === null ||
+      halo === null ||
+      ring === null ||
+      curtain === null ||
+      ember === null ||
       shards === null ||
-      dust === null ||
-      impactLight === null
+      grains === null
     ) {
       return
     }
 
-    const progress = getCounterstrikeRunProgress(run, performance.now())
-    const contacted = progress >= IMPACT_CONTACT_PROGRESS
-    const impactProgress = MathUtils.clamp(
-      (progress - IMPACT_CONTACT_PROGRESS) / 0.34,
-      0,
-      1,
-    )
-    const effectActive = contacted && impactProgress < 1
+    const elapsedMs = getCounterstrikeImpactElapsedMs(run, performance.now())
+    const contacted = elapsedMs >= 0
+    const effectActive =
+      contacted && elapsedMs < COUNTERSTRIKE_IMPACT_EFFECT_MS.ember
     permanentRoot.visible = permanent && contacted
     transientRoot.visible = effectActive
     gl.domElement.dataset.counterstrikeDamageField = permanentRoot.visible
@@ -412,50 +651,78 @@ export function CounterstrikeDamage({
       : 'hidden'
 
     if (!effectActive) {
-      impactLight.intensity = 0
       delete gl.domElement.dataset.counterstrikeImpactEffect
       return
     }
 
-    const flashEnvelope = Math.sin(
-      Math.PI * Math.min(1, impactProgress / 0.34),
+    const energy = sampleCounterstrikeImpactEnergy(elapsedMs)
+    // Camera-facing soft discs: a white-hot core inside a short warm bloom.
+    core.visible = energy.core > 0.002
+    halo.visible = core.visible
+    if (core.visible) {
+      transientRoot.getWorldQuaternion(billboardRef.current).invert()
+      billboardRef.current.multiply(camera.quaternion)
+      core.quaternion.copy(billboardRef.current)
+      halo.quaternion.copy(billboardRef.current)
+    }
+    core.scale.setScalar(energy.coreRadiusM)
+    halo.scale.setScalar(energy.coreRadiusM * 2.1)
+    coreMaterial.opacity = Math.min(1, energy.core * 1.4)
+    haloMaterial.opacity = energy.core * 0.6
+
+    ring.visible = energy.ringOpacity > 0.004
+    ring.scale.setScalar(energy.ringRadiusM)
+    ringMaterial.opacity = energy.ringOpacity * 0.8
+
+    curtain.visible = energy.curtainOpacity > 0.004
+    curtain.scale.set(
+      energy.curtainRadiusM,
+      Math.max(0.001, energy.curtainHeightM),
+      energy.curtainRadiusM,
     )
-    flash.scale.setScalar(1.4 + impactProgress * 8.6)
-    flashMaterial.opacity = Math.max(
-      0,
-      flashEnvelope * 0.9 - impactProgress * 0.28,
-    )
-    impactLight.intensity = flashEnvelope * 0.0007
-    dust.scale.setScalar(0.72 + impactProgress * 3.9)
-    dust.position.y =
-      impactProgress * 3.4 - impactProgress * impactProgress * 1.2
-    impactDustMaterial.opacity = Math.max(0, 0.76 - impactProgress * 0.68)
+    curtainMaterial.opacity = energy.curtainOpacity
+
+    ember.visible = energy.ember > 0.004
+    emberMaterial.opacity = energy.ember * 0.55
 
     const dummy = dummyRef.current
     for (let index = 0; index < IMPACT_SHARD_COUNT; index += 1) {
-      const angle = index * 2.399963229728653
-      const speed = 4.2 + deterministicVariation(index, 18) * 8.4
-      const distance = impactProgress * speed
+      const flight = shardFlights[index]!
+      const t = Math.min(1, elapsedMs / flight.flightMs)
+      const landed = elapsedMs >= flight.flightMs
       dummy.position.set(
-        Math.cos(angle) * distance,
-        impactProgress * (3.2 + (index % 6) * 1.25) -
-          impactProgress * impactProgress * 8.8,
-        Math.sin(angle) * distance,
+        Math.cos(flight.angle) * flight.rangeM * t,
+        landed ? 0.12 : 4 * flight.apexM * t * (1 - t) + 0.12,
+        Math.sin(flight.angle) * flight.rangeM * t,
       )
       dummy.rotation.set(
-        index * 0.37 + impactProgress * 4.2,
-        index * 0.51 + impactProgress * 5.4,
-        index * 0.22 + impactProgress * 3.8,
+        index * 0.37 + t * 6.2,
+        index * 0.51 + t * 4.4,
+        index * 0.22 + t * 5.1,
       )
-      dummy.scale.set(
-        0.36 + (index % 4) * 0.12,
-        0.18 + (index % 3) * 0.08,
-        0.48 + deterministicVariation(index, 19) * 0.44,
-      )
+      dummy.scale.setScalar(landed ? 0 : flight.size)
       dummy.updateMatrix()
       shards.setMatrixAt(index, dummy.matrix)
     }
     shards.instanceMatrix.needsUpdate = true
+
+    const grainPositions = grains.geometry.getAttribute(
+      'position',
+    ) as BufferAttribute
+    for (let index = 0; index < IMPACT_GRAIN_COUNT; index += 1) {
+      const flight = grainFlights[index]!
+      const t = Math.min(1, elapsedMs / flight.flightMs)
+      const travel = 1 - (1 - t) ** 1.6
+      grainPositions.setXYZ(
+        index,
+        Math.cos(flight.angle) * flight.rangeM * travel,
+        4 * flight.apexM * t * (1 - t) + 0.08,
+        Math.sin(flight.angle) * flight.rangeM * travel,
+      )
+    }
+    grainPositions.needsUpdate = true
+    grains.visible = energy.dustOpacity > 0.004
+    grainMaterial.opacity = energy.dustOpacity
     gl.domElement.dataset.counterstrikeImpactEffect = 'structural-impact'
   })
 
@@ -486,12 +753,12 @@ export function CounterstrikeDamage({
           ground.y + 0.000018,
           ground.z,
         ]}
-        scale={LOCAL_METRES_TO_RENDER_UNITS * DAMAGE_MODEL_SCALE}
       >
         {permanent ? (
           <group
             ref={permanentRootRef}
             name="counterstrike-permanent-damage-field"
+            scale={LOCAL_METRES_TO_RENDER_UNITS * DAMAGE_MODEL_SCALE}
             visible={!transientImpact}
           >
             <mesh geometry={craterGeometry} material={craterMaterial} receiveShadow />
@@ -510,27 +777,60 @@ export function CounterstrikeDamage({
           </group>
         ) : null}
         {transientImpact ? (
-          <group ref={transientRootRef} visible={false}>
-            <pointLight
-              ref={impactLightRef}
-              color="#ffb26b"
-              decay={2}
-              distance={0.006}
-              intensity={0}
+          <group
+            ref={transientRootRef}
+            name="counterstrike-contact-effect"
+            scale={LOCAL_METRES_TO_RENDER_UNITS}
+            visible={false}
+          >
+            <mesh
+              ref={emberRef}
+              geometry={glowGeometry}
+              material={emberMaterial}
+              position-y={0.14}
+              rotation-x={-Math.PI / 2}
+              scale={2.3}
+              renderOrder={EFFECT_RENDER_ORDER}
             />
             <mesh
-              ref={flashRef}
-              geometry={flashGeometry}
-              material={flashMaterial}
+              ref={ringRef}
+              geometry={ringGeometry}
+              material={ringMaterial}
+              position-y={0.35}
+              rotation-x={-Math.PI / 2}
+              renderOrder={EFFECT_RENDER_ORDER}
+            />
+            <mesh
+              ref={curtainRef}
+              geometry={curtainGeometry}
+              material={curtainMaterial}
+              renderOrder={EFFECT_RENDER_ORDER}
             />
             <instancedMesh
               ref={shardsRef}
-              args={[debrisGeometry, shardMaterial, IMPACT_SHARD_COUNT]}
+              args={[rockGeometry, shardMaterial, IMPACT_SHARD_COUNT]}
+              frustumCulled={false}
             />
             <points
-              ref={impactDustRef}
-              geometry={impactDustGeometry}
-              material={impactDustMaterial}
+              ref={grainsRef}
+              geometry={grainGeometry}
+              material={grainMaterial}
+              frustumCulled={false}
+              renderOrder={EFFECT_RENDER_ORDER + 1}
+            />
+            <mesh
+              ref={haloRef}
+              geometry={glowGeometry}
+              material={haloMaterial}
+              position-y={1.4}
+              renderOrder={EFFECT_RENDER_ORDER + 2}
+            />
+            <mesh
+              ref={coreRef}
+              geometry={glowGeometry}
+              material={coreMaterial}
+              position-y={1.4}
+              renderOrder={EFFECT_RENDER_ORDER + 2}
             />
           </group>
         ) : null}

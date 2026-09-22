@@ -24,17 +24,18 @@ import { maximumRenderedSurfaceHeight, sampleRenderedSurface } from '../render/r
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { EXTRACTOR_CONSTRUCTION_DURATION_MS } from '../simulation/outpostSimulation.ts'
 import { simulationNowMs } from '../simulation/simulationTime.ts'
-import {
-  COUNTERSTRIKE_TIMING,
-  getCounterstrikeRunProgress,
-  type CounterstrikeRunState,
-} from '../simulation/counterstrikeSimulation.ts'
+import type { CounterstrikeRunState } from '../simulation/counterstrikeSimulation.ts'
+import { getCounterstrikeImpactElapsedMs } from './counterstrikeImpactPresentation.ts'
 import {
   EMISSIVE_LIMITS,
   MATERIAL_RESPONSE,
   VISUAL_PALETTE,
 } from '../render/visualSystem.ts'
 import type { OutpostOperationsMetrics } from '../simulation/outpostOperations.ts'
+
+// Sparks and the stuttering status light play out over this window after
+// warhead contact, independent of how long the impact status lasts.
+const EXTRACTOR_DAMAGE_SETTLE_MS = 2_600
 
 interface ExtractorProps {
   readonly outpost: OutpostSnapshot
@@ -611,22 +612,16 @@ export function Extractor({
       0,
       Math.min(1, (constructionProgress - 0.57) / 0.43),
     )
-    const counterstrikeProgress =
-      damageSequence?.status === 'impact'
-        ? getCounterstrikeRunProgress(damageSequence, performance.now())
-        : 1
-    const impactContactProgress =
-      COUNTERSTRIKE_TIMING.impactContactMs / COUNTERSTRIKE_TIMING.impactMs
+    const impactElapsedMs =
+      damageSequence === undefined
+        ? Number.POSITIVE_INFINITY
+        : getCounterstrikeImpactElapsedMs(damageSequence, performance.now())
     const damageVisible =
       damaged &&
-      (damageSequence?.status !== 'impact' ||
-        counterstrikeProgress >= impactContactProgress)
+      (damageSequence?.status !== 'impact' || impactElapsedMs >= 0)
     const damageImpactProgress = Math.max(
       0,
-      Math.min(
-        1,
-        (counterstrikeProgress - impactContactProgress) / 0.34,
-      ),
+      Math.min(1, impactElapsedMs / EXTRACTOR_DAMAGE_SETTLE_MS),
     )
     baseRef.current.scale.set(1, baseProgress, 1)
     towerRef.current.scale.set(1, towerProgress, 1)

@@ -9,6 +9,9 @@ import { COUNTERSTRIKE_TIMING } from '../src/simulation/counterstrikeSimulation.
 import { COUNTERSTRIKE_IMPACT_CAMERA_TIMING } from '../src/camera/counterstrikeCameraPlan.ts'
 
 const SCREENSHOT_DIRECTORY = 'artifacts/screenshots/counterstrike'
+// Inside the settled damage framing at the end of the impact status.
+const DAMAGE_HOLD_PROGRESS =
+  (COUNTERSTRIKE_IMPACT_CAMERA_TIMING.damageArrivalProgress + 1) / 2
 const RECORDING_DIRECTORY = 'artifacts/recordings/counterstrike'
 
 interface BrowserErrors {
@@ -616,7 +619,7 @@ test('Counterstrike failure preserves progress and replay replacement is deliber
   await advanceRun(page, 'impact')
   await setRun(page, {
     status: 'impact',
-    progress: 0.18,
+    progress: COUNTERSTRIKE_IMPACT_CAMERA_TIMING.wideHoldEndProgress / 2,
     attemptNumber: 2,
     attemptsUsed: 2,
     judgement: 'LATE',
@@ -663,7 +666,7 @@ test('Counterstrike failure preserves progress and replay replacement is deliber
   await capture(page, '08-rival-impact-near-outpost.png', samples)
   await setRun(page, {
     status: 'impact',
-    progress: 0.78,
+    progress: DAMAGE_HOLD_PROGRESS,
     attemptNumber: 2,
     attemptsUsed: 2,
     judgement: 'LATE',
@@ -1017,9 +1020,17 @@ test('records a paced survived Counterstrike', async ({ page }) => {
     timeout: 45_000,
   })
   const durationMs = Date.now() - startedAtMs
-  expect(durationMs).toBeGreaterThanOrEqual(30_000)
+  const unattendedFailureMs =
+    COUNTERSTRIKE_TIMING.commandConfirmationMs +
+    COUNTERSTRIKE_TIMING.warningMs +
+    (COUNTERSTRIKE_TIMING.trackingMs +
+      COUNTERSTRIKE_TIMING.readyMs +
+      COUNTERSTRIKE_TIMING.missedMs) *
+      COUNTERSTRIKE_TIMING.maximumAttempts +
+    COUNTERSTRIKE_TIMING.impactMs
+  expect(durationMs).toBeGreaterThanOrEqual(unattendedFailureMs - 2_000)
   // Video encoding can delay browser task delivery. The state-machine suite
-  // owns the exact 31-second unattended production budget.
+  // owns the exact unattended production budget.
   expect(durationMs).toBeLessThanOrEqual(45_000)
   await expect(main).toHaveAttribute('data-counterstrike-outcome', 'FAILURE')
   expect(errors).toEqual({ console: [], page: [] })
@@ -1141,7 +1152,7 @@ test('focused hero scars retain depth and readable debris without circular fill'
   await mkdir('artifacts/screenshots/hero-polish', { recursive: true })
   await page.waitForTimeout(300)
   await page.screenshot({ path: 'artifacts/screenshots/hero-polish/lunar-scar.png' })
-  await setRun(page, { status: 'impact', progress: 0.7, outcome: 'FAILURE', attemptsUsed: 2 })
+  await setRun(page, { status: 'impact', progress: DAMAGE_HOLD_PROGRESS, outcome: 'FAILURE', attemptsUsed: 2 })
   await expect(page.locator('canvas')).toHaveAttribute('data-counterstrike-camera-beat', 'damage-hold')
   await page.screenshot({ path: 'artifacts/screenshots/hero-polish/outpost-scar.png' })
   expect(Number(await page.locator('canvas').getAttribute('data-draw-calls'))).toBeLessThanOrEqual(80)

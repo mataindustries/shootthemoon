@@ -71,7 +71,9 @@ import {
 } from '../simulation/counterstrikeSimulation.ts'
 import {
   COUNTERSTRIKE_CAMERA_SAFETY,
+  COUNTERSTRIKE_IMPACT_PROJECTION,
   createCounterstrikeCameraPlan,
+  getCounterstrikeImpactFov,
   sampleCounterstrikeImpactCamera,
   sampleCounterstrikeInterceptionCamera,
   type CounterstrikeCameraPlan,
@@ -571,29 +573,33 @@ function applyCounterstrikeProjection(
   const close =
     run.status === 'impact' ||
     (run.status === 'resolved' && run.outcome === 'FAILURE')
-  camera.near = close ? 0.00018 : 0.01
-  camera.far = close ? 8 : 80
-  camera.fov = close
-    ? isNarrowPortrait(camera)
-      ? 51
-      : 41
-    : isNarrowPortrait(camera)
-      ? 56
-      : 40
+  if (close) {
+    applyCounterstrikeImpactProjection(camera, true)
+    return
+  }
+  camera.near = 0.01
+  camera.far = 80
+  camera.fov = isNarrowPortrait(camera) ? 56 : 40
   camera.updateProjectionMatrix()
 }
 
 function applyCounterstrikeImpactProjection(
   camera: PerspectiveCamera,
+  force = false,
 ): void {
-  camera.near = 0.00018
-  camera.far = 8
-  const portrait = isNarrowPortrait(camera)
-  const nextFov = portrait ? 51 : 41
-  if (camera.fov !== nextFov) {
-    camera.fov = nextFov
-    camera.updateProjectionMatrix()
+  const nextFov = getCounterstrikeImpactFov(camera.aspect)
+  if (
+    !force &&
+    camera.fov === nextFov &&
+    camera.near === COUNTERSTRIKE_IMPACT_PROJECTION.near &&
+    camera.far === COUNTERSTRIKE_IMPACT_PROJECTION.far
+  ) {
+    return
   }
+  camera.near = COUNTERSTRIKE_IMPACT_PROJECTION.near
+  camera.far = COUNTERSTRIKE_IMPACT_PROJECTION.far
+  camera.fov = nextFov
+  camera.updateProjectionMatrix()
 }
 
 function configureRivalSurfaceControls(controls: OrbitControls): void {
@@ -856,6 +862,7 @@ export function CameraRig({
           temporaryPositionRef.current,
           temporaryTargetRef.current,
           temporaryUpRef.current,
+          monumentReducedMotionRef.current,
         )
         pose = {
           position: temporaryPositionRef.current,
@@ -1545,6 +1552,7 @@ export function CameraRig({
           temporaryPositionRef.current,
           temporaryTargetRef.current,
           temporaryUpRef.current,
+          monumentReducedMotionRef.current,
         )
         gl.domElement.dataset.counterstrikeCameraBeat = beat
         applyCounterstrikeImpactProjection(camera)

@@ -34,6 +34,7 @@ import {
 } from '../simulation/counterstrikeSimulation.ts'
 import {
   createCounterstrikeRoute,
+  createCounterstrikeTerminalApproach,
   createInterceptorRoute,
 } from '../camera/counterstrikeRoute.ts'
 import {
@@ -41,11 +42,6 @@ import {
   MATERIAL_RESPONSE,
   VISUAL_PALETTE,
 } from '../render/visualSystem.ts'
-import {
-  landingSiteToLocalSurfaceRenderPoint,
-  landingSiteToRenderTransform,
-} from '../render/renderCoordinates.ts'
-import { LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
 
 interface CounterstrikeMissileSystemProps {
   readonly playerSite: LandingSite
@@ -57,7 +53,11 @@ interface CounterstrikeMissileSystemProps {
 const MODEL_UP = new Vector3(0, 1, 0)
 const THREAT_FIN_COUNT = 3
 const RETICLE_TICK_COUNT = 4
-const IMPACT_TERMINAL_ROUTE_START = 0.9
+// Readable ~11 m physical length for the close impact shot; the orbital
+// silhouette is intentionally exaggerated at lunar scale.
+const TERMINAL_MODEL_SCALE = 0.00014
+// Nose-cone tip in model units, so the warhead touches down at contact.
+const THREAT_TIP_Y = 5.25
 
 function createCorridorGeometry(
   route: ReturnType<typeof createCounterstrikeRoute>,
@@ -107,16 +107,10 @@ export function CounterstrikeMissileSystem({
     () => createCounterstrikeRoute(playerSite, rivalSite, secondaryImpactSite),
     [playerSite, rivalSite, secondaryImpactSite],
   )
-  const terminalVisualOffset = useMemo(() => {
-    const player = landingSiteToRenderTransform(playerSite)
-    const expandedImpact = landingSiteToLocalSurfaceRenderPoint(
-      playerSite,
-      secondaryImpactSite,
-    ).addScaledVector(player.up, LOCAL_SURFACE_RENDER_OFFSET)
-    return expandedImpact.sub(
-      landingSiteToRenderTransform(secondaryImpactSite).position,
-    )
-  }, [playerSite, secondaryImpactSite])
+  const terminalApproach = useMemo(
+    () => createCounterstrikeTerminalApproach(playerSite, secondaryImpactSite),
+    [playerSite, secondaryImpactSite],
+  )
   const interceptorRoute = useMemo(
     () =>
       run.interceptRouteProgress === null
@@ -361,23 +355,18 @@ export function CounterstrikeMissileSystem({
       !(run.status === 'impact' && phaseProgress >= impactContactProgress)
 
     if (run.status === 'impact') {
-      const terminalProgress = MathUtils.lerp(
-        IMPACT_TERMINAL_ROUTE_START,
-        1,
+      // Presentation-only dive: the tip converges on the contact point.
+      terminalApproach.getTipPoint(
         MathUtils.clamp(phaseProgress / impactContactProgress, 0, 1),
+        currentPosition.current,
       )
-      route.getTerminalRenderPoint(terminalProgress, currentPosition.current)
-      route.getTerminalRenderPoint(
-        Math.max(IMPACT_TERMINAL_ROUTE_START, terminalProgress - 0.0005),
-        previousPosition.current,
+      terminalApproach.getDirection(direction.current)
+      currentPosition.current.addScaledVector(
+        direction.current,
+        -THREAT_TIP_Y * TERMINAL_MODEL_SCALE,
       )
-      route.getTerminalRenderPoint(
-        Math.min(1, terminalProgress + 0.0005),
-        nextPosition.current,
-      )
-      currentPosition.current.add(terminalVisualOffset)
-      previousPosition.current.add(terminalVisualOffset)
-      nextPosition.current.add(terminalVisualOffset)
+      previousPosition.current.copy(currentPosition.current).sub(direction.current)
+      nextPosition.current.copy(currentPosition.current).add(direction.current)
     } else {
       route.getRenderPoint(threatProgress, currentPosition.current)
       route.getRenderPoint(
@@ -394,10 +383,9 @@ export function CounterstrikeMissileSystem({
     hostile.visible = threatVisible
     hostile.position.copy(currentPosition.current)
     hostile.quaternion.copy(orientation.current)
-    // The orbital silhouette is intentionally exaggerated at lunar scale. Once
-    // it enters the surface sequence, restore a readable ~10 m physical scale
+    // Once it enters the surface sequence, restore the physical terminal scale
     // so the missile establishes the shot without swallowing the outpost.
-    hostile.scale.setScalar(run.status === 'impact' ? 0.00014 : 0.0062)
+    hostile.scale.setScalar(run.status === 'impact' ? TERMINAL_MODEL_SCALE : 0.0062)
     const threatRadius = currentPosition.current.length()
     hostileModel.rotation.y = Math.sin(state.clock.elapsedTime * 2.1) * 0.035
     rivalPanelMaterial.emissiveIntensity = Math.min(

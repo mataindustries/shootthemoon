@@ -4,10 +4,9 @@ import { createLandingSite, createLunarLocation } from '../domain/lunarCoordinat
 import { deriveSecondaryImpactSite } from '../domain/counterstrike.ts'
 import { createInitialOutpost } from '../simulation/outpostSimulation.ts'
 import { counterstrikeRunReducer, createCounterstrikeRunState, getCounterstrikeRunProgress, COUNTERSTRIKE_TIMING } from '../simulation/counterstrikeSimulation.ts'
-import { landingSiteToLocalSurfaceRenderPoint, landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
-import { LOCAL_SURFACE_RENDER_OFFSET } from '../render/localSurface.ts'
-import { createInterceptorRoute } from './counterstrikeRoute.ts'
-import { COUNTERSTRIKE_INTERCEPTION_HOLD_MS, sampleCounterstrikeInterceptionCamera, createCounterstrikeCameraPlan, sampleCounterstrikeImpactCamera, COUNTERSTRIKE_IMPACT_CAMERA_TIMING } from './counterstrikeCameraPlan.ts'
+import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
+import { createCounterstrikeTerminalApproach, createInterceptorRoute } from './counterstrikeRoute.ts'
+import { COUNTERSTRIKE_INTERCEPTION_HOLD_MS, sampleCounterstrikeInterceptionCamera, createCounterstrikeCameraPlan, sampleCounterstrikeImpactCamera, COUNTERSTRIKE_IMPACT_CAMERA_TIMING, getCounterstrikeImpactFov, sampleCounterstrikeContactImpulseM } from './counterstrikeCameraPlan.ts'
 import type { CameraPose } from './orbitalCameraPath.ts'
 
 function cameraFor(pose: CameraPose, aspect: number, fov: number) {
@@ -52,31 +51,68 @@ describe.each([320 / 568, 390 / 844, 844 / 390])('Counterstrike composition at a
         Math.max(0, Math.min(1, -plan.launchPose.position.dot(ray) / ray.lengthSq())))
       expect(closest.length()).toBeGreaterThan(1)
     }
-    const local = landingSiteToRenderTransform(player)
-    const target = landingSiteToLocalSurfaceRenderPoint(player, impact)
-      .addScaledVector(local.up, LOCAL_SURFACE_RENDER_OFFSET)
-    const offset = target.clone().sub(landingSiteToRenderTransform(impact).position)
+    // The terminal shot: the warhead converges on the contact point in front
+    // of the outpost, the lander and extractor stay grounded in frame, and the
+    // upper frame holds the lunar horizon and sky rather than bare regolith.
+    const approach = createCounterstrikeTerminalApproach(player, impact)
+    const frame = plan.impactFrame
+    const hit = frame.impact
+    const extractorBase = frame.at(-8.4, 0, 0.5)
+    const landerBase = frame.origin.clone().addScaledVector(frame.up, 0.0004)
+    const fov = getCounterstrikeImpactFov(aspect)
     const pose = { position: new Vector3(), target: new Vector3(), up: new Vector3() }
-    for (let index = 0; index <= 40; index++) {
-      const progress = index / 100
-      sampleCounterstrikeImpactCamera(plan, progress, pose.position, pose.target, pose.up)
-      expect(pose.position.toArray()).toEqual(plan.impactWidePose.position.toArray())
-      expect(pose.target.toArray()).toEqual(plan.impactWidePose.target.toArray())
-      const camera = cameraFor(pose, aspect, aspect < 0.72 ? 51 : 41)
-      const vehicle = plan.route.getTerminalRenderPoint(0.9 + progress / 0.4 * 0.1).add(offset)
-      expectInFrame(vehicle, camera)
-      // Include the missile silhouette and the structures, not only their centers.
-      expectInFrame(vehicle.clone().addScaledVector(local.up, 0.0008), camera)
-      expectInFrame(target, camera)
-      expectInFrame(local.position.clone().addScaledVector(local.up, 0.002), camera)
+    const contactMs = COUNTERSTRIKE_TIMING.impactContactMs
+    for (let elapsedMs = 0; elapsedMs <= COUNTERSTRIKE_TIMING.impactMs; elapsedMs += 50) {
+      sampleCounterstrikeImpactCamera(plan, elapsedMs / COUNTERSTRIKE_TIMING.impactMs,
+        pose.position, pose.target, pose.up)
+      const camera = cameraFor(pose, aspect, fov)
+      expectInFrame(hit, camera)
+      expectInFrame(extractorBase, camera)
+      expectInFrame(landerBase, camera)
+      if (elapsedMs < contactMs) {
+        const tip = approach.getTipPoint(elapsedMs / contactMs)
+        expectInFrame(tip, camera)
+        // Include the ~11 m body behind the tip, not only its nose.
+        expectInFrame(tip.clone().addScaledVector(approach.getDirection(), -0.0013), camera)
+      }
+      // The top of the frame clears the lunar horizon (which dips below the
+      // eye's horizontal with altitude): sky is always part of the shot.
+      const topEdge = new Vector3(0, 0.98, 0.5).unproject(camera).sub(camera.position).normalize()
+      const horizonDip = Math.acos(1 / pose.position.length())
+      expect(Math.asin(topEdge.dot(pose.position.clone().normalize())), `${elapsedMs} ms`)
+        .toBeGreaterThan(0.012 - horizonDip)
     }
     const timing = COUNTERSTRIKE_IMPACT_CAMERA_TIMING
     expect((timing.mediumHoldEndProgress - timing.contactProgress) * COUNTERSTRIKE_TIMING.impactMs).toBeGreaterThanOrEqual(750)
-    sampleCounterstrikeImpactCamera(plan, timing.mediumHoldEndProgress - 0.001, pose.position, pose.target, pose.up)
-    expect(pose.position.toArray()).toEqual(plan.impactWidePose.position.toArray())
-    expect(plan.damagePose.position.distanceTo(plan.damagePose.target)).toBeGreaterThan(plan.impactWidePose.position.distanceTo(plan.impactWidePose.target))
-    expect(plan.damagePose.target.toArray()).toEqual(plan.impactWidePose.target.toArray())
+
+    // The damage reveal ends where the resolved ending holds, with the crater,
+    // its near rim and the damaged extractor above the ending card, which
+    // covers the lower ~44% of every viewport.
+    sampleCounterstrikeImpactCamera(plan, 1, pose.position, pose.target, pose.up)
+    expect(pose.position.toArray()).toEqual(plan.damagePose.position.toArray())
+    expect(pose.target.toArray()).toEqual(plan.damagePose.target.toArray())
+    const damageCamera = cameraFor(plan.damagePose, aspect, fov)
+    for (const point of [hit, frame.at(4.5, 0, 0), frame.at(-8.4, 0, 6), extractorBase, landerBase]) {
+      const screen = point.clone().project(damageCamera)
+      expect(screen.y).toBeGreaterThan(-0.05)
+      expect(screen.y).toBeLessThan(0.8)
+      expect(Math.abs(screen.x)).toBeLessThan(0.85)
+    }
   })
+})
+
+it('jolts the contact camera briefly and honours reduced motion', () => {
+  const impulseMs = COUNTERSTRIKE_IMPACT_CAMERA_TIMING.contactImpulseMs
+  expect(sampleCounterstrikeContactImpulseM(-10, false)).toBe(0)
+  expect(sampleCounterstrikeContactImpulseM(impulseMs, false)).toBe(0)
+  let peak = 0
+  for (let elapsedMs = 0; elapsedMs < impulseMs; elapsedMs += 5) {
+    peak = Math.max(peak, Math.abs(sampleCounterstrikeContactImpulseM(elapsedMs, false)))
+    expect(sampleCounterstrikeContactImpulseM(elapsedMs, true)).toBe(0)
+  }
+  // Perceptible at ~30 m, but far smaller than the structures in frame.
+  expect(peak).toBeGreaterThan(0.1)
+  expect(peak).toBeLessThan(0.5)
 })
 
 

@@ -3,7 +3,6 @@ import { MathUtils, Vector3 } from 'three'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import {
   MOON_RENDER_RADIUS,
-  landingSiteToLocalSurfaceRenderPoint,
   landingSiteToRenderTransform,
 } from '../render/renderCoordinates.ts'
 import {
@@ -12,8 +11,10 @@ import {
   type SafeOrbitalCameraPath,
 } from './orbitalCameraPath.ts'
 import {
+  createCounterstrikeImpactFrame,
   createCounterstrikeRoute,
   createInterceptorRoute,
+  type CounterstrikeImpactFrame,
   type CounterstrikeRoute,
 } from './counterstrikeRoute.ts'
 import { createStrikeCameraPlan } from './strikeCameraPlan.ts'
@@ -22,6 +23,10 @@ import {
   LOCAL_METRES_TO_RENDER_UNITS,
   LOCAL_SURFACE_RENDER_OFFSET,
 } from '../render/localSurface.ts'
+import {
+  createSurfaceTerrainProfile,
+  sampleTerrainHeightM,
+} from '../render/surfaceTerrain.ts'
 
 const SUN_DIRECTION = new Vector3(4.6, 2.6, 3.4).normalize()
 const WORLD_UP = new Vector3(0, 1, 0)
@@ -30,12 +35,21 @@ const COUNTERSTRIKE_CAMERA_ARC = new Vector3(-0.42, 0.76, 0.5).normalize()
 export const COUNTERSTRIKE_CAMERA_SAFETY = Object.freeze({
   orbitalMinimumRadius: MOON_RENDER_RADIUS + 0.09,
   interceptMinimumRadius: MOON_RENDER_RADIUS + 0.075,
-  damageMinimumRadius: MOON_RENDER_RADIUS + 0.0045,
+  // The terminal shots sit low over the outpost so the horizon and sky frame
+  // the hit. Every impact pose is authored relative to the rendered relief
+  // beneath it and keeps at least this much eye clearance above it.
+  damageSurfaceClearanceM: 3,
+  // Absolute floor above the offset surface datum, for any relief.
+  damageMinimumRadius:
+    MOON_RENDER_RADIUS +
+    LOCAL_SURFACE_RENDER_OFFSET +
+    3 * LOCAL_METRES_TO_RENDER_UNITS,
   sampleCount: 2_048,
 })
 
 export interface CounterstrikeCameraPlan {
   readonly route: CounterstrikeRoute
+  readonly impactFrame: CounterstrikeImpactFrame
   readonly launchPose: CameraPose
   readonly trackingPose: CameraPose
   readonly interceptPose: CameraPose
@@ -46,9 +60,6 @@ export interface CounterstrikeCameraPlan {
   readonly warningCamera: SafeOrbitalCameraPath
   readonly interceptorRail: readonly CameraPose[]
   readonly successCamera: SafeOrbitalCameraPath
-  readonly impactWideCamera: SafeOrbitalCameraPath
-  readonly impactMediumCamera: SafeOrbitalCameraPath
-  readonly damageRevealCamera: SafeOrbitalCameraPath
 }
 
 export type CounterstrikeImpactCameraBeat =
@@ -58,14 +69,23 @@ export type CounterstrikeImpactCameraBeat =
   | 'damage-reveal'
   | 'damage-hold'
 
+const impactProgress = (elapsedMs: number) =>
+  elapsedMs / COUNTERSTRIKE_TIMING.impactMs
+
+/**
+ * INCOMING → CONTACT → IMPACT → DAMAGE REVEAL inside the impact status. The
+ * camera pushes in while the warhead converges, is nearly settled at contact,
+ * keeps a slow drift through the blast, then rises into the damage framing
+ * that the resolved ending holds. No beat is a static frame for more than the
+ * short final settle.
+ */
 export const COUNTERSTRIKE_IMPACT_CAMERA_TIMING = Object.freeze({
-  wideArrivalProgress: 0.12,
-  wideHoldEndProgress: 0.24,
-  mediumArrivalProgress: 0.36,
+  wideHoldEndProgress: impactProgress(700),
   contactProgress:
     COUNTERSTRIKE_TIMING.impactContactMs / COUNTERSTRIKE_TIMING.impactMs,
-  mediumHoldEndProgress: 0.5,
-  damageArrivalProgress: 0.6,
+  mediumHoldEndProgress: impactProgress(2_600),
+  damageArrivalProgress: impactProgress(4_100),
+  contactImpulseMs: 420,
 })
 
 function rangeProgress(value: number, start: number, end: number): number {
@@ -91,36 +111,131 @@ export function getCounterstrikeImpactCameraBeat(
   return 'damage-hold'
 }
 
+/**
+ * A bounded jolt at warhead contact, in local metres: a decaying translation
+ * of camera and target together (no zoom, roll or accumulation), following the
+ * wave-defense shake. Reduced motion removes it.
+ */
+export function sampleCounterstrikeContactImpulseM(
+  elapsedSinceContactMs: number,
+  reducedMotion: boolean,
+): number {
+  const t = elapsedSinceContactMs / COUNTERSTRIKE_IMPACT_CAMERA_TIMING.contactImpulseMs
+  if (reducedMotion || !(t > 0) || t >= 1) return 0
+  return Math.sin(t * Math.PI * 5) * (1 - t) ** 2 * 0.42
+}
+
+const temporaryImpulse = new Vector3()
+
 export function sampleCounterstrikeImpactCamera(
   plan: CounterstrikeCameraPlan,
   progress: number,
   position: Vector3,
   target: Vector3,
   up: Vector3,
+  reducedMotion = false,
 ): CounterstrikeImpactCameraBeat {
-  const clamped = MathUtils.clamp(progress, 0, 1)
+  const clamped = MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1)
   const timing = COUNTERSTRIKE_IMPACT_CAMERA_TIMING
 
-  // Establish the terminal shot immediately, then keep projectile and target
-  // in the same composition through contact and its short aftermath.
+  // All three poses sit a few metres over the outpost relief; straight
+  // interpolation keeps the eye above it (see the terrain clearance tests).
   if (clamped < timing.mediumHoldEndProgress) {
-    position.copy(plan.impactWidePose.position)
-    target.copy(plan.impactWidePose.target)
-    up.copy(plan.impactWidePose.up)
+    // Decelerating push: most of the move is spent before contact; a linear
+    // share keeps a slow drift through the blast, so the composition never
+    // settles before the reveal takes over.
+    const pushProgress = clamped / timing.mediumHoldEndProgress
+    const push = 0.85 * (1 - (1 - pushProgress) ** 3) + 0.15 * pushProgress
+    position.lerpVectors(plan.impactWidePose.position, plan.impactMediumPose.position, push)
+    target.lerpVectors(plan.impactWidePose.target, plan.impactMediumPose.target, push)
   } else {
-    plan.damageRevealCamera.sample(
-      rangeProgress(
-        clamped,
-        timing.mediumHoldEndProgress,
-        timing.damageArrivalProgress,
-      ),
-      position,
-      target,
-      up,
-    )
+    // The rise leaves with some of the drift's momentum and lands at rest on
+    // the damage framing that the resolved ending keeps.
+    const u = rangeProgress(clamped, timing.mediumHoldEndProgress, timing.damageArrivalProgress)
+    const reveal = 0.35 * u * (1 - u) ** 2 + u * u * (3 - 2 * u)
+    position.lerpVectors(plan.impactMediumPose.position, plan.damagePose.position, reveal)
+    target.lerpVectors(plan.impactMediumPose.target, plan.damagePose.target, reveal)
+  }
+  up.copy(plan.impactFrame.up)
+
+  const impulseM = sampleCounterstrikeContactImpulseM(
+    (clamped - timing.contactProgress) * COUNTERSTRIKE_TIMING.impactMs,
+    reducedMotion,
+  )
+  if (impulseM !== 0) {
+    temporaryImpulse
+      .copy(up)
+      .multiplyScalar(impulseM)
+      .addScaledVector(plan.impactFrame.side, impulseM * 0.45)
+      .multiplyScalar(LOCAL_METRES_TO_RENDER_UNITS)
+    position.add(temporaryImpulse)
+    target.add(temporaryImpulse)
   }
 
   return getCounterstrikeImpactCameraBeat(clamped)
+}
+
+/**
+ * Close impact framing in the impact frame: the eye (metres beyond the hit,
+ * toward the sun side, and height above the rendered relief) and where a
+ * subject (the contact point) must sit on screen, in NDC. The camera looks
+ * back across the hit at the extractor and lander, so the contact, the base
+ * and the horizon stack vertically on narrow phones and spread on desktop.
+ * The damage framing keeps the crater and the damaged extractor above the
+ * resolved ending card, which fills the lower half of the viewport.
+ */
+export const COUNTERSTRIKE_IMPACT_FRAMING = Object.freeze({
+  narrow: Object.freeze({
+    wide: Object.freeze({ camera: [35, 14, 6.5], screen: [0.26, -0.28] }),
+    medium: Object.freeze({ camera: [27, 11.5, 4.8], screen: [0.3, -0.26] }),
+    damage: Object.freeze({ camera: [30, 12, 7], screen: [0.12, 0.16] }),
+  }),
+  wide: Object.freeze({
+    wide: Object.freeze({ camera: [35, 17, 6.5], screen: [0.12, -0.44] }),
+    medium: Object.freeze({ camera: [27, 14, 4.8], screen: [0.14, -0.28] }),
+    damage: Object.freeze({ camera: [30, 14, 7], screen: [0.1, 0.18] }),
+  }),
+})
+
+type FramingPose = { readonly camera: readonly number[]; readonly screen: readonly number[] }
+
+/**
+ * Roll-free aim that places `subject` at the requested NDC position for this
+ * projection, so a composition holds across aspect ratios.
+ */
+function aimAtScreen(
+  position: Vector3,
+  subject: Vector3,
+  up: Vector3,
+  screenX: number,
+  screenY: number,
+  fovDeg: number,
+  aspect: number,
+): Vector3 {
+  const tanV = Math.tan(MathUtils.degToRad(fovDeg) / 2)
+  const toSubject = subject.clone().sub(position)
+  const distance = toSubject.length()
+  const forward = toSubject.normalize()
+  const right = forward.clone().cross(up).normalize()
+  forward
+    .applyAxisAngle(right, -Math.atan(screenY * tanV))
+    .applyAxisAngle(up, Math.atan(screenX * tanV * aspect))
+  return position.clone().addScaledVector(forward, distance)
+}
+
+/** Vertical field of view for the close impact and resolved damage shots. */
+export const COUNTERSTRIKE_IMPACT_PROJECTION = Object.freeze({
+  narrowFov: 46,
+  wideFov: 38,
+  near: 0.00018,
+  // Far enough to include the starfield above the lunar horizon.
+  far: 64,
+})
+
+export function getCounterstrikeImpactFov(aspect: number): number {
+  return aspect < 0.72
+    ? COUNTERSTRIKE_IMPACT_PROJECTION.narrowFov
+    : COUNTERSTRIKE_IMPACT_PROJECTION.wideFov
 }
 
 export function createCounterstrikeCameraPlan(
@@ -236,71 +351,48 @@ export function createCounterstrikeCameraPlan(
     target: successTarget,
     up: flightAxis.clone(),
   }
-  const playerSurfacePosition = player.position
-    .clone()
-    .addScaledVector(player.up, LOCAL_SURFACE_RENDER_OFFSET)
-  const impactPosition = landingSiteToLocalSurfaceRenderPoint(
-    playerSite,
-    secondaryImpactSite,
-  ).addScaledVector(player.up, LOCAL_SURFACE_RENDER_OFFSET)
-  const damageAxis = impactPosition
-    .clone()
-    .sub(player.position)
-    .addScaledVector(
-      player.up,
-      -impactPosition.clone().sub(player.position).dot(player.up),
+  const impactFrame = createCounterstrikeImpactFrame(playerSite, secondaryImpactSite)
+  const terrain = createSurfaceTerrainProfile(playerSite)
+  const reliefBelow = (point: Vector3) => {
+    const offset = point.clone().sub(impactFrame.origin)
+    return sampleTerrainHeightM(
+      terrain,
+      offset.dot(impactFrame.east) / LOCAL_METRES_TO_RENDER_UNITS,
+      offset.dot(impactFrame.south) / LOCAL_METRES_TO_RENDER_UNITS,
     )
-  if (damageAxis.lengthSq() < 1e-10) damageAxis.copy(player.east)
-  damageAxis.normalize()
-  const damageSide = damageAxis.clone().cross(player.up).normalize()
-  const viewSide = damageSide.clone().multiplyScalar(
-    damageSide.dot(SUN_DIRECTION) >= 0 ? 1 : -1,
-  )
-  const metres = LOCAL_METRES_TO_RENDER_UNITS
-  const surfaceFocus = (routeProgress: number, heightM: number) =>
-    playerSurfacePosition
-      .clone()
-      .lerp(impactPosition, routeProgress)
-      .addScaledVector(player.up, heightM * metres)
-  const surfacePose = (
-    routeProgress: number,
-    sideM: number,
-    heightM: number,
-    targetHeightM: number,
-    rollRad = 0,
-  ): CameraPose => {
-    const surfaceAnchor = surfaceFocus(routeProgress, 0)
-    const target = surfaceFocus(routeProgress, targetHeightM)
-    const position = surfaceAnchor
-      .clone()
-      .addScaledVector(viewSide, sideM * metres)
-      .addScaledVector(player.up, heightM * metres)
-    if (rollRad === 0) {
-      return { position, target, up: player.up.clone() }
+  }
+  const framing = narrow
+    ? COUNTERSTRIKE_IMPACT_FRAMING.narrow
+    : COUNTERSTRIKE_IMPACT_FRAMING.wide
+  const impactFov = getCounterstrikeImpactFov(aspect)
+  // `side` follows the sun, so the frame can be mirrored; mirror the screen
+  // placement with it to keep the outpost on the same side of the hit.
+  const handedness =
+    impactFrame.side.dot(impactFrame.axis.clone().cross(impactFrame.up)) >= 0 ? 1 : -1
+  const framedPose = ({ camera, screen }: FramingPose): CameraPose => {
+    const position = impactFrame.at(camera[0]!, camera[1]!, 0)
+    position.addScaledVector(
+      impactFrame.up,
+      (Math.max(0, reliefBelow(position)) + camera[2]!) *
+        LOCAL_METRES_TO_RENDER_UNITS,
+    )
+    return {
+      position,
+      target: aimAtScreen(
+        position,
+        impactFrame.impact,
+        impactFrame.up,
+        screen[0]! * handedness,
+        screen[1]!,
+        impactFov,
+        aspect,
+      ),
+      up: impactFrame.up.clone(),
     }
-
-    const view = target.clone().sub(position).normalize()
-    const projectedUp = player.up
-      .clone()
-      .addScaledVector(view, -player.up.dot(view))
-      .normalize()
-    const up = projectedUp
-      .multiplyScalar(Math.cos(rollRad))
-      .addScaledVector(damageAxis, Math.sin(rollRad))
-      .normalize()
-    return { position, target, up }
   }
-  const impactWidePose = surfacePose(0.65, narrow ? 70 : 52, 48, 10)
-  // Retain the beat markers without introducing a second shot before impact.
-  const impactMediumPose = impactWidePose
-  const damagePose: CameraPose = {
-    position: impactWidePose.position.clone()
-      .sub(impactWidePose.target)
-      .multiplyScalar(1.3)
-      .add(impactWidePose.target),
-    target: impactWidePose.target.clone(),
-    up: impactWidePose.up.clone(),
-  }
+  const impactWidePose = framedPose(framing.wide)
+  const impactMediumPose = framedPose(framing.medium)
+  const damagePose = framedPose(framing.damage)
   const firstStrikeFinalPose = createStrikeCameraPlan(
     playerSite,
     rivalSite,
@@ -320,30 +412,10 @@ export function createCounterstrikeCameraPlan(
     timing: 'climb-before-arc',
     preferredArcDirection: COUNTERSTRIKE_CAMERA_ARC,
   })
-  const impactWideCamera = createSafeOrbitalCameraPath({
-    start: trackingPose,
-    end: impactWidePose,
-    minimumRadius: COUNTERSTRIKE_CAMERA_SAFETY.damageMinimumRadius,
-    timing: 'arc-before-descent',
-    preferredArcDirection: player.up,
-  })
-  const impactMediumCamera = createSafeOrbitalCameraPath({
-    start: impactWidePose,
-    end: impactMediumPose,
-    minimumRadius: COUNTERSTRIKE_CAMERA_SAFETY.damageMinimumRadius,
-    timing: 'arc-before-descent',
-    preferredArcDirection: player.east,
-  })
-  const damageRevealCamera = createSafeOrbitalCameraPath({
-    start: impactMediumPose,
-    end: damagePose,
-    minimumRadius: COUNTERSTRIKE_CAMERA_SAFETY.damageMinimumRadius,
-    timing: 'arc-before-descent',
-    preferredArcDirection: player.south,
-  })
 
   return {
     route,
+    impactFrame,
     launchPose,
     trackingPose,
     interceptPose,
@@ -354,9 +426,6 @@ export function createCounterstrikeCameraPlan(
     warningCamera,
     interceptorRail,
     successCamera,
-    impactWideCamera,
-    impactMediumCamera,
-    damageRevealCamera,
   }
 }
 
