@@ -4,10 +4,19 @@ import {
   surfaceUnitVector,
   type LandingSite,
 } from '../domain/lunarCoordinates.ts'
-import { MOON_RENDER_RADIUS } from '../render/renderCoordinates.ts'
+import {
+  MOON_RENDER_RADIUS,
+  landingSiteToLocalSurfaceRenderPoint,
+  landingSiteToRenderTransform,
+} from '../render/renderCoordinates.ts'
+import {
+  LOCAL_METRES_TO_RENDER_UNITS,
+  LOCAL_SURFACE_RENDER_OFFSET,
+} from '../render/localSurface.ts'
 import { slerpUnitDirections } from './orbitalCameraPath.ts'
 
 const COUNTERSTRIKE_ARC_DIRECTION = new Vector3(-0.42, 0.76, 0.5).normalize()
+const SUN_DIRECTION = new Vector3(4.6, 2.6, 3.4).normalize()
 const HIDDEN_SOURCE_SEPARATION_RAD = (104 * Math.PI) / 180
 
 export const COUNTERSTRIKE_ROUTE_SAFETY = Object.freeze({
@@ -221,4 +230,111 @@ export function sampleMinimumCounterstrikeClearanceM(
     )
   }
   return minimum
+}
+
+/**
+ * The close-range frame of the terminal strike, in the expanded local scale
+ * used by the outpost terrain. `axis` runs from the outpost origin to the hit,
+ * `side` is horizontal and faces the sun, and `at` measures in local metres
+ * from the impact point on the offset surface datum.
+ */
+export interface CounterstrikeImpactFrame {
+  readonly origin: Vector3
+  readonly impact: Vector3
+  readonly axis: Vector3
+  readonly side: Vector3
+  readonly up: Vector3
+  readonly east: Vector3
+  readonly south: Vector3
+  readonly impactDistanceM: number
+  at(axisM: number, sideM: number, heightM: number, target?: Vector3): Vector3
+}
+
+export function createCounterstrikeImpactFrame(
+  playerSite: LandingSite,
+  secondaryImpactSite: LandingSite,
+): CounterstrikeImpactFrame {
+  const player = landingSiteToRenderTransform(playerSite)
+  const origin = player.position
+    .clone()
+    .addScaledVector(player.up, LOCAL_SURFACE_RENDER_OFFSET)
+  const impact = landingSiteToLocalSurfaceRenderPoint(
+    playerSite,
+    secondaryImpactSite,
+  ).addScaledVector(player.up, LOCAL_SURFACE_RENDER_OFFSET)
+  const axis = impact.clone().sub(origin)
+  axis.addScaledVector(player.up, -axis.dot(player.up))
+  const impactDistanceM = axis.length() / LOCAL_METRES_TO_RENDER_UNITS
+  if (axis.lengthSq() < 1e-14) axis.copy(player.east)
+  axis.normalize()
+  const side = axis.clone().cross(player.up).normalize()
+  if (side.dot(SUN_DIRECTION) < 0) side.negate()
+  const up = player.up.clone()
+
+  return {
+    origin,
+    impact,
+    axis,
+    side,
+    up,
+    east: player.east.clone(),
+    south: player.south.clone(),
+    impactDistanceM,
+    at: (axisM, sideM, heightM, target = new Vector3()) =>
+      target
+        .copy(impact)
+        .addScaledVector(axis, axisM * LOCAL_METRES_TO_RENDER_UNITS)
+        .addScaledVector(side, sideM * LOCAL_METRES_TO_RENDER_UNITS)
+        .addScaledVector(up, heightM * LOCAL_METRES_TO_RENDER_UNITS),
+  }
+}
+
+/**
+ * Presentation-only terminal dive for the close impact shot. The warhead
+ * enters high above the far side of the outpost and accelerates into the
+ * contact point, so the approach converges on the hit instead of dropping
+ * vertically out of frame. The canonical route above is unchanged.
+ */
+export const COUNTERSTRIKE_TERMINAL_APPROACH = Object.freeze({
+  startAxisM: -66,
+  startSideM: -18,
+  startHeightM: 26,
+  acceleration: 1.3,
+})
+
+export interface CounterstrikeTerminalApproach {
+  readonly frame: CounterstrikeImpactFrame
+  readonly start: Vector3
+  readonly contact: Vector3
+  /** Warhead tip position; progress 1 is ground contact at the impact point. */
+  getTipPoint(progress: number, target?: Vector3): Vector3
+  getDirection(target?: Vector3): Vector3
+}
+
+export function createCounterstrikeTerminalApproach(
+  playerSite: LandingSite,
+  secondaryImpactSite: LandingSite,
+): CounterstrikeTerminalApproach {
+  const frame = createCounterstrikeImpactFrame(playerSite, secondaryImpactSite)
+  const approach = COUNTERSTRIKE_TERMINAL_APPROACH
+  const start = frame.at(
+    approach.startAxisM,
+    approach.startSideM,
+    approach.startHeightM,
+  )
+  const contact = frame.impact.clone()
+  const direction = contact.clone().sub(start).normalize()
+
+  return {
+    frame,
+    start,
+    contact,
+    getTipPoint: (progress, target = new Vector3()) =>
+      target.lerpVectors(
+        start,
+        contact,
+        clampProgress(progress) ** approach.acceleration,
+      ),
+    getDirection: (target = new Vector3()) => target.copy(direction),
+  }
 }

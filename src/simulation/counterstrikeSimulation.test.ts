@@ -95,7 +95,7 @@ function beginTracking() {
 
 describe('Vesper Counterstrike timing and state machine', () => {
   it('keeps the longest unattended escalation within 20–35 seconds', () => {
-    expect(COUNTERSTRIKE_MAXIMUM_AUTOMATIC_DURATION_MS).toBe(33_010)
+    expect(COUNTERSTRIKE_MAXIMUM_AUTOMATIC_DURATION_MS).toBe(29_610)
     expect(COUNTERSTRIKE_MAXIMUM_AUTOMATIC_DURATION_MS).toBeGreaterThan(20_000)
     expect(COUNTERSTRIKE_MAXIMUM_AUTOMATIC_DURATION_MS).toBeLessThan(35_000)
     expect(
@@ -104,6 +104,15 @@ describe('Vesper Counterstrike timing and state machine', () => {
         COUNTERSTRIKE_TIMING.launchedValidMs +
         COUNTERSTRIKE_TIMING.successMs,
     ).toBe(20_000)
+  })
+
+  it('keeps the rival impact beat short, with a readable approach before contact', () => {
+    expect(COUNTERSTRIKE_TIMING.impactMs).toBeGreaterThanOrEqual(4_000)
+    expect(COUNTERSTRIKE_TIMING.impactMs).toBeLessThanOrEqual(4_500)
+    expect(COUNTERSTRIKE_TIMING.impactContactMs).toBeGreaterThanOrEqual(1_200)
+    expect(
+      COUNTERSTRIKE_TIMING.impactContactMs / COUNTERSTRIKE_TIMING.impactMs,
+    ).toBeLessThan(0.5)
   })
 
   it('defines inclusive, deterministic timing-window boundaries', () => {

@@ -1,7 +1,12 @@
 import { getCounterstrikeRunProgress, type CounterstrikeRunState } from '../simulation/counterstrikeSimulation.ts'
 import { sampleInterceptEnergy } from './interceptPresentation.ts'
+import {
+  COUNTERSTRIKE_IMPACT_LIGHT,
+  getCounterstrikeImpactElapsedMs,
+  sampleCounterstrikeImpactEnergy,
+} from './counterstrikeImpactPresentation.ts'
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import {
   DirectionalLight,
   Object3D,
@@ -39,6 +44,7 @@ interface LightingRigProps {
   readonly monumentReadability?: boolean
   readonly counterstrikeRun?: CounterstrikeRunState
   readonly orbitalInterceptPosition?: Vector3 | null
+  readonly counterstrikeImpactPosition?: Vector3 | null
   readonly landingSite: LandingSite | null
   readonly strategicFocusSite?: LandingSite | null
   readonly cinematicReadability?: boolean
@@ -54,6 +60,7 @@ export function LightingRig({
   monumentReadability = false,
   counterstrikeRun,
   orbitalInterceptPosition,
+  counterstrikeImpactPosition,
   landingSite,
   strategicFocusSite = null,
   cinematicReadability = false,
@@ -64,6 +71,7 @@ export function LightingRig({
   surfaceHeight = LOCAL_SURFACE_RENDER_OFFSET,
   closeReadLightColor,
 }: LightingRigProps) {
+  const gl = useThree((state) => state.gl)
   const lightRef = useRef<DirectionalLight>(null)
   const rakeRef = useRef<DirectionalLight>(null)
   const eventLightRef = useRef<PointLight>(null)
@@ -137,6 +145,24 @@ export function LightingRig({
       eventLight.distance = 1.2
       eventLight.intensity = energy.surfacePulse * 0.8
       return
+    }
+
+    // Rival warhead contact: a sharp, short pulse from the hit itself that
+    // lights the extractor and the rising regolith, then hands back to the
+    // close read lighting below.
+    if (counterstrikeRun?.status === 'impact' && counterstrikeImpactPosition != null) {
+      const energy = sampleCounterstrikeImpactEnergy(
+        getCounterstrikeImpactElapsedMs(counterstrikeRun, performance.now()),
+      )
+      eventLight.color.set(COUNTERSTRIKE_IMPACT_LIGHT.color)
+      eventLight.position.copy(counterstrikeImpactPosition)
+      eventLight.distance = COUNTERSTRIKE_IMPACT_LIGHT.range
+      eventLight.intensity = energy.light * COUNTERSTRIKE_IMPACT_LIGHT.peakIntensity
+      gl.domElement.dataset.counterstrikeImpactLight = energy.light.toFixed(3)
+      return
+    }
+    if (gl.domElement.dataset.counterstrikeImpactLight !== undefined) {
+      delete gl.domElement.dataset.counterstrikeImpactLight
     }
 
     const closeReadLight =
