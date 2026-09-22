@@ -6,16 +6,18 @@ import {
   Group,
   InstancedMesh,
   Mesh,
+  MeshBasicMaterial,
   Matrix4,
   Object3D,
   PointsMaterial,
   Quaternion,
+  Raycaster,
   Vector3,
 } from 'three'
 import { useFrame } from '@react-three/fiber'
 import { createMiningKit, disposeMiningKit } from '../render/miningKit.ts'
-import { createMiningRobotModels } from './miningModels.ts'
-import type { OutpostSnapshot } from '../domain/outpost.ts'
+import { createMiningRobotModels, createOreCluster } from './miningModels.ts'
+import type { MineralDeposit, OutpostSnapshot } from '../domain/outpost.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import {
   LOCAL_METRES_TO_RENDER_UNITS,
@@ -43,7 +45,23 @@ interface MiningEffectsProps {
   readonly outpost: OutpostSnapshot
   readonly terrain: SurfaceTerrainProfile
   readonly segments: number
+  readonly laser: ReturnType<typeof calculateMiningLaser> | null
 }
+
+function smoothstep01(value: number): number {
+  const clamped = Math.max(0, Math.min(1, value))
+  return clamped * clamped * (3 - 2 * clamped)
+}
+
+// Restrained early/mid/late envelope for the 2.8s mining beat: the beam and
+// contact effects build in, hold at full read, then taper toward completion.
+// Driven by the robot's own stateProgress, never MINING_DURATION_MS itself.
+// A contact effect is never fully absent while mining is active (floored,
+// not faded to zero) so a beat frozen at any progress still reads as "beam
+// touching ore", not "nothing there yet".
+const MINING_ARC_ESTABLISH_END = 0.18
+const MINING_ARC_TAPER_START = 0.82
+const MINING_ARC_FLOOR = 0.6
 
 const ROBOT_MODEL_SCALE_M = 1.14
 const ROBOT_LANDED_CLEARANCE_M = 0.48
@@ -251,34 +269,168 @@ export function calculateMinerGrounding(
   }
 }
 
+// Muzzle geometry for the "mining" pose only. The arm pivots at
+// MINING_PIVOT_LOCAL and the nozzle sits MUZZLE_REACH_LOCAL further along
+// its own barrel axis; pitching the barrel (see solveArmPitch) sweeps the
+// muzzle around that pivot without moving the robot itself.
+const MINING_PIVOT_LOCAL = new Vector3(0, 0.65, 0.5)
+const MUZZLE_REACH_LOCAL = new Vector3(0, 0, 0.582)
+const FALLBACK_ARM_PITCH_RAD = 0.44
+const MIN_ARM_PITCH_RAD = 0.08
+const MAX_ARM_PITCH_RAD = 1.05
+
+// Half-extent (in authored model metres, i.e. before a deposit's own sizeM
+// multiplier) of createOreCluster()'s vertex cloud in the XZ plane. Measured
+// once from the authored geometry; used only as a deterministic fallback
+// when a ray happens to miss every triangle.
+const ORE_CLUSTER_HORIZONTAL_RADIUS_M = 0.88
+// How far the beam contact sits inside the visible ore surface once found.
+const ORE_CONTACT_INSET_M = 0.018
+// Mirrors MineralDeposits.tsx's CRYSTAL_EMBED_M so the cluster this laser
+// targets is grounded exactly like the one that gets rendered.
+const ORE_CLUSTER_EMBED_M = 0.035
+
+// A CPU-only copy of the ore cluster mesh, built once and never added to the
+// render graph. It exists purely so the laser can raycast a deterministic
+// contact point onto the deposit a miner is actually working, instead of
+// approximating a fixed distance in front of the robot.
+const oreContactKit = createMiningKit()
+const oreContactGeometry = createOreCluster(oreContactKit)
+const oreContactVertices = oreContactGeometry.getAttribute('position')
+const oreContactMesh = new Mesh(oreContactGeometry)
+oreContactMesh.matrixAutoUpdate = false
+const oreContactRaycaster = new Raycaster()
+
+/** Mirrors MineralDeposits.tsx's crystal instance sizing so the beam lands
+ * on the cluster it renders, not an approximation of it. */
+function oreClusterSizeM(depositIndex: number, yieldRatio: number): number {
+  return (1 + depositIndex * 0.06) * (0.58 + yieldRatio * 0.42)
+}
+
+/** Reproduces MineralDeposits.tsx's per-vertex grounding: the cluster settles
+ * so its lowest point (at that point's own local terrain height) touches the
+ * surface, then is nudged down by the same embed used for the rendered mesh.
+ * Leaves oreContactMesh's matrix set to this placement as a side effect. */
+function groundOreCluster(
+  terrain: SurfaceTerrainProfile,
+  segments: number,
+  deposit: Pick<MineralDeposit, 'position' | 'orientationRad'>,
+  depositIndex: number,
+  sizeM: number,
+): Vector3 {
+  const scale = sizeM * LOCAL_METRES_TO_RENDER_UNITS
+  const dummy = new Object3D()
+  dummy.rotation.set(0, deposit.orientationRad, 0)
+  dummy.scale.set(scale, scale * (1 + depositIndex * 0.12), scale)
+  dummy.updateMatrix()
+
+  const vertex = new Vector3()
+  let groundedY = Number.NEGATIVE_INFINITY
+  for (let index = 0; index < oreContactVertices.count; index += 1) {
+    vertex.fromBufferAttribute(oreContactVertices, index).applyMatrix4(dummy.matrix)
+    const vertexSurface = sampleRenderedSurface(
+      terrain, segments,
+      deposit.position.xM + vertex.x / LOCAL_METRES_TO_RENDER_UNITS,
+      deposit.position.zM + vertex.z / LOCAL_METRES_TO_RENDER_UNITS,
+    )
+    groundedY = Math.max(groundedY, vertexSurface.y - vertex.y)
+  }
+
+  const sample = sampleRenderedSurface(terrain, segments, deposit.position.xM, deposit.position.zM)
+  dummy.position.set(sample.x, groundedY - ORE_CLUSTER_EMBED_M * LOCAL_METRES_TO_RENDER_UNITS, sample.z)
+  dummy.updateMatrix()
+  oreContactMesh.matrix.copy(dummy.matrix)
+  oreContactMesh.matrixWorld.copy(dummy.matrix)
+  return dummy.position.clone()
+}
+
+/** Casts from the (provisional) muzzle toward the grounded cluster's origin
+ * and returns the first surface point the beam would actually touch, nudged
+ * slightly inside it. Falls back to a footprint-radius estimate if the ray
+ * somehow threads every triangle, and never returns a point below terrain. */
+function resolveOreContact(
+  terrain: SurfaceTerrainProfile,
+  segments: number,
+  emitter: Vector3,
+  clusterCenter: Vector3,
+  sizeM: number,
+): Vector3 {
+  const toCenter = clusterCenter.clone().sub(emitter)
+  const centerDistance = toCenter.length()
+  const direction = centerDistance > 1e-6
+    ? toCenter.multiplyScalar(1 / centerDistance)
+    : new Vector3(0, 0, 1)
+
+  let surfacePoint: Vector3
+  if (centerDistance > 1e-6) {
+    oreContactRaycaster.set(emitter, direction)
+    oreContactRaycaster.near = 0
+    oreContactRaycaster.far = centerDistance + ORE_CLUSTER_HORIZONTAL_RADIUS_M * sizeM * LOCAL_METRES_TO_RENDER_UNITS
+    const hit = oreContactRaycaster.intersectObject(oreContactMesh, false)[0]
+    surfacePoint = hit
+      ? hit.point
+      : clusterCenter.clone().addScaledVector(direction, -ORE_CLUSTER_HORIZONTAL_RADIUS_M * sizeM * LOCAL_METRES_TO_RENDER_UNITS)
+  } else {
+    surfacePoint = clusterCenter.clone()
+  }
+
+  const contact = surfacePoint.clone().addScaledVector(direction, ORE_CONTACT_INSET_M * LOCAL_METRES_TO_RENDER_UNITS)
+  const ground = sampleRenderedSurface(terrain, segments, contact.x / LOCAL_METRES_TO_RENDER_UNITS, contact.z / LOCAL_METRES_TO_RENDER_UNITS)
+  const minY = ground.y + 0.015 * LOCAL_METRES_TO_RENDER_UNITS
+  if (contact.y < minY) contact.y = minY
+  return contact
+}
+
+/** Solves the single-axis (pitch) rotation that points the arm's barrel from
+ * its pivot toward the contact point, in the pivot's own unrotated frame. */
+function solveArmPitch(orientation: Quaternion, pivotWorld: Vector3, contact: Vector3): number {
+  const toContact = contact.clone().sub(pivotWorld)
+  if (toContact.lengthSq() < 1e-10) return FALLBACK_ARM_PITCH_RAD
+  const directionLocal = toContact.normalize().applyQuaternion(orientation.clone().invert())
+  const pitch = Math.atan2(-directionLocal.y, directionLocal.z)
+  return Math.max(MIN_ARM_PITCH_RAD, Math.min(MAX_ARM_PITCH_RAD, pitch))
+}
+
 export function calculateMiningLaser(
   terrain: SurfaceTerrainProfile,
   segments: number,
   xM: number,
   zM: number,
   headingRad: number,
+  deposit: Pick<MineralDeposit, 'position' | 'orientationRad' | 'remainingYield' | 'initialYield'>,
+  depositIndex: number,
 ) {
   const grounding = calculateMinerGrounding(terrain, segments, xM, zM, headingRad)
-  const emitter = new Vector3(0, 0, 0.582)
-    .applyAxisAngle(new Vector3(1, 0, 0), 0.44)
-    .add(new Vector3(0, 0.65, 0.5))
-    .multiplyScalar(ROBOT_MODEL_SCALE_M * LOCAL_METRES_TO_RENDER_UNITS)
+  const robotScale = ROBOT_MODEL_SCALE_M * LOCAL_METRES_TO_RENDER_UNITS
+  const groundingPosition = new Vector3(grounding.position.x, grounding.position.y, grounding.position.z)
+  const pivotWorld = MINING_PIVOT_LOCAL.clone()
+    .multiplyScalar(robotScale)
     .applyQuaternion(grounding.orientation)
-    .add(new Vector3(grounding.position.x, grounding.position.y, grounding.position.z))
-  const ground = sampleRenderedSurface(terrain, segments,
-    xM + Math.sin(headingRad) * 1.92, zM + Math.cos(headingRad) * 1.92)
-  const contact = new Vector3(ground.x, ground.y + 0.015 * LOCAL_METRES_TO_RENDER_UNITS, ground.z)
-  return { emitter, contact }
+    .add(groundingPosition)
+  const provisionalEmitter = MUZZLE_REACH_LOCAL.clone()
+    .applyAxisAngle(new Vector3(1, 0, 0), FALLBACK_ARM_PITCH_RAD)
+    .multiplyScalar(robotScale)
+    .applyQuaternion(grounding.orientation)
+    .add(pivotWorld)
+
+  const yieldRatio = deposit.initialYield > 0
+    ? Math.max(0, Math.min(1, deposit.remainingYield / deposit.initialYield))
+    : 0
+  const sizeM = oreClusterSizeM(depositIndex, yieldRatio)
+  const clusterCenter = groundOreCluster(terrain, segments, deposit, depositIndex, sizeM)
+  const contact = resolveOreContact(terrain, segments, provisionalEmitter, clusterCenter, sizeM)
+
+  const pitch = solveArmPitch(grounding.orientation, pivotWorld, contact)
+  const emitter = MUZZLE_REACH_LOCAL.clone()
+    .applyAxisAngle(new Vector3(1, 0, 0), pitch)
+    .multiplyScalar(robotScale)
+    .applyQuaternion(grounding.orientation)
+    .add(pivotWorld)
+
+  return { emitter, contact, pitch }
 }
 
-function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
-  // Mining holds the rover still. Solve terrain attachment once per job,
-  // leaving only the small pulse and twelve particle positions to animate.
-  const laser = useMemo(() => {
-    if (outpost.robot.state !== 'mining') return null
-    const pose = getRobotKinematics(outpost, outpost.robot.stateStartedAtMs)
-    return calculateMiningLaser(terrain, segments, pose.position.xM, pose.position.zM, pose.headingRad)
-  }, [terrain, segments, outpost.robot.state, outpost.robot.stateStartedAtMs, outpost.robot.targetDepositId])
+function MiningEffects({ outpost, terrain, segments, laser }: MiningEffectsProps) {
   const geometry = useMemo(() => {
     const result = new BufferGeometry()
     result.setAttribute('position', new BufferAttribute(new Float32Array(12 * 3), 3))
@@ -298,6 +450,7 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
   )
   const groupRef = useRef<Group>(null)
   const beamRef = useRef<Mesh>(null)
+  const glowRef = useRef<Mesh>(null)
   const heatRef = useRef<Mesh>(null)
   const beamDirection = useMemo(() => new Vector3(), [])
   const beamUp = useMemo(() => new Vector3(0, 1, 0), [])
@@ -337,15 +490,37 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
       contactZM,
     )
     groupRef.current.position.set(contact.x, contact.y + 0.015 * LOCAL_METRES_TO_RENDER_UNITS, contact.z)
+
+    // Restrained early/mid/late arc: fade+thin the contact effects in, hold
+    // them at full read through the middle of the beat, then fade them back
+    // out toward completion. Purely a visual envelope over the existing
+    // stateProgress; MINING_DURATION_MS itself is untouched.
+    const arcEnvelope = Math.min(
+      smoothstep01(kinematics.stateProgress / MINING_ARC_ESTABLISH_END),
+      1 - smoothstep01((kinematics.stateProgress - MINING_ARC_TAPER_START) / (1 - MINING_ARC_TAPER_START)),
+    )
+    const arc = mining ? MINING_ARC_FLOOR + (1 - MINING_ARC_FLOOR) * arcEnvelope : 0
+
     if (mining && laser !== null && beamRef.current !== null) {
       groupRef.current.position.copy(laser.contact)
       beamDirection.copy(laser.emitter).sub(laser.contact)
       beamRef.current.position.copy(beamDirection).multiplyScalar(0.5)
-      beamRef.current.scale.set(0.022 * LOCAL_METRES_TO_RENDER_UNITS, beamDirection.length(), 0.022 * LOCAL_METRES_TO_RENDER_UNITS)
+      const beamRadius = 0.022 * LOCAL_METRES_TO_RENDER_UNITS * arc
+      beamRef.current.scale.set(beamRadius, beamDirection.length(), beamRadius)
       beamRef.current.quaternion.setFromUnitVectors(beamUp, beamDirection.normalize())
+      ;(beamRef.current.material as MeshBasicMaterial).opacity = 0.62 * arc
+      if (glowRef.current !== null) {
+        glowRef.current.scale.set(0.065 * arc, 0.045 * arc, 0.065 * arc)
+        ;(glowRef.current.material as MeshBasicMaterial).opacity = 0.72 * arc
+      }
       if (heatRef.current !== null) {
+        // Reuses the beat's one remaining transparent-draw slot as the mid
+        // -beat ejecta accent at the actual contact, instead of an
+        // always-on, near-invisible blob (keeps the transparent-pass count
+        // unchanged from before this pass).
         const pulse = 0.94 + Math.sin(nowMs * 0.009) * 0.06
-        heatRef.current.scale.set(0.24 * pulse, 0.045, 0.18 * pulse)
+        heatRef.current.scale.set(0.26 * pulse * arc, 0.05 * pulse * arc, 0.2 * pulse * arc)
+        ;(heatRef.current.material as MeshBasicMaterial).opacity = 0.34 * arc
       }
     }
 
@@ -364,7 +539,10 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
       const age = (elapsed * (1.35 + (index % 5) * 0.11) + index * 0.071) % 1
       if (mining) {
         const angle = index * 2.399 + elapsed * 0.7
-        const radialM = age * (0.45 + (index % 4) * 0.12)
+        // Small controlled ejecta from the actual ore contact: scaled by the
+        // same arc envelope as the beam, so sparks build in with it instead
+        // of running at a constant rate for the whole beat.
+        const radialM = age * (0.45 + (index % 4) * 0.12) * arc
         array[offset] = Math.cos(angle) * radialM * LOCAL_METRES_TO_RENDER_UNITS
         array[offset + 1] =
           (age * 0.72 - age * age * 0.62) * LOCAL_METRES_TO_RENDER_UNITS
@@ -406,13 +584,13 @@ function MiningEffects({ outpost, terrain, segments }: MiningEffectsProps) {
           <meshBasicMaterial color={VISUAL_PALETTE.playerLaserCore} transparent opacity={0.62} depthWrite={false} />
         </mesh>
         <group scale={LOCAL_METRES_TO_RENDER_UNITS}>
-          <mesh scale={[0.065, 0.045, 0.065]} name="mining-contact-glow" renderOrder={2}>
+          <mesh ref={glowRef} scale={[0.065, 0.045, 0.065]} name="mining-contact-glow" renderOrder={2}>
             <sphereGeometry args={[1, 8, 6]} />
             <meshBasicMaterial color={VISUAL_PALETTE.playerLaserCore} transparent opacity={0.72} depthWrite={false} />
           </mesh>
-          <mesh ref={heatRef} scale={[0.24, 0.045, 0.18]} renderOrder={2}>
+          <mesh ref={heatRef} scale={[0.26, 0.05, 0.2]} renderOrder={2}>
             <sphereGeometry args={[1, 10, 6]} />
-            <meshBasicMaterial color={VISUAL_PALETTE.playerAmberEmissive} transparent opacity={0.22} depthWrite={false} />
+            <meshBasicMaterial color={VISUAL_PALETTE.playerAmberEmissive} transparent opacity={0.34} depthWrite={false} />
           </mesh>
         </group>
       </group>
@@ -433,6 +611,21 @@ export function MinerRobot({ outpost, terrain, segments, compact = false }: Mine
   const kit = useMemo(createMiningKit, [])
   const models = useMemo(() => createMiningRobotModels(kit), [kit])
   const isE2e = useMemo(() => shouldEnableE2eHarness(E2E_HARNESS_BUILD_ENABLED, window.location.search), [])
+  // Mining holds the rover still. Solve terrain/ore attachment once per job,
+  // shared by the arm pose below and by <MiningEffects>, leaving only the
+  // small pulse and twelve particle positions to animate per frame.
+  // outpost.deposits is read for its target-deposit yield, which cannot
+  // change while this same mining job is running, so it is deliberately not
+  // in this dependency list (matching the existing state/targetDepositId-only
+  // pattern below rather than reacting to every unrelated outpost update).
+  const laser = useMemo(() => {
+    if (outpost.robot.state !== 'mining') return null
+    const depositIndex = outpost.deposits.findIndex(candidate => candidate.id === outpost.robot.targetDepositId)
+    const deposit = depositIndex >= 0 ? outpost.deposits[depositIndex] : undefined
+    if (deposit === undefined) return null
+    const pose = getRobotKinematics(outpost, outpost.robot.stateStartedAtMs)
+    return calculateMiningLaser(terrain, segments, pose.position.xM, pose.position.zM, pose.headingRad, deposit, depositIndex)
+  }, [terrain, segments, outpost.robot.state, outpost.robot.stateStartedAtMs, outpost.robot.targetDepositId])
   useLayoutEffect(() => { wheelRef.current?.instanceMatrix.setUsage(DynamicDrawUsage) }, [])
   useEffect(() => () => {
     Object.values(models).forEach(geometry => geometry.dispose())
@@ -455,8 +648,9 @@ export function MinerRobot({ outpost, terrain, segments, compact = false }: Mine
     const mining = outpost.robot.state === 'mining'
     if (sensorRef.current) sensorRef.current.rotation.y = mining ? 0 : Math.sin(nowMs * .00065) * .22
     if (laserArmRef.current) {
-      // Preserve the proven muzzle pose and contact line exactly.
-      laserArmRef.current.rotation.x = mining ? .44 : -.04
+      // Non-mining pose is unchanged; the mining pitch now aims at the
+      // resolved ore contact instead of a fixed angle when one is available.
+      laserArmRef.current.rotation.x = mining ? (laser?.pitch ?? FALLBACK_ARM_PITCH_RAD) : -.04
       laserArmRef.current.position.z = mining ? .5 : .72
     }
     for (let index = 0; index < 6; index++) {
@@ -498,7 +692,7 @@ export function MinerRobot({ outpost, terrain, segments, compact = false }: Mine
           </group>
         </group>
       </group>
-      {!compact ? <MiningEffects outpost={outpost} terrain={terrain} segments={segments} /> : null}
+      {!compact ? <MiningEffects outpost={outpost} terrain={terrain} segments={segments} laser={laser} /> : null}
     </group>
   )
 }
