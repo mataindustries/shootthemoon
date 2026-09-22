@@ -10,9 +10,11 @@ import {
   ConeGeometry,
   Group,
   InstancedMesh,
+  Mesh,
   MeshBasicMaterial,
   Object3D,
   OctahedronGeometry,
+  type PerspectiveCamera,
   RingGeometry,
   SphereGeometry,
   Vector3,
@@ -28,6 +30,15 @@ import {
 } from '../interaction/touchSelectionGate.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import {
+  CLAIM_HARDWARE,
+  claimEmphasisPulse,
+  claimFacesCamera,
+  claimHardwareScale,
+  claimHorizonVisibility,
+  resolveClaimMarkerReadout,
+} from '../render/orbitalClaimMarker.ts'
+import { createClaimBeaconGeometry } from './claimBeaconGeometry.ts'
+import {
   getRivalPresentationProgress,
   type RivalPresentationState,
 } from '../app/rivalPresentation.ts'
@@ -39,6 +50,7 @@ import {
 
 const TAP_DISTANCE_PX = 10
 const SIGNAL_SURFACE_CLEARANCE = 0.00046
+const HARDWARE = CLAIM_HARDWARE.rival
 
 export interface RivalSignalProps {
   readonly rival: RivalSignalSnapshot
@@ -94,6 +106,9 @@ export function RivalSignal({
   const signalRef = useRef<Group>(null)
   const shuttersRef = useRef<InstancedMesh>(null)
   const crownRef = useRef<InstancedMesh>(null)
+  const beaconRef = useRef<Mesh>(null)
+  const hitRef = useRef<Mesh>(null)
+  const emphasisSecondsRef = useRef(0)
   const projectedPointRef = useRef(new Vector3())
   const dummyRef = useRef(new Object3D())
   const invalidate = useThree((state) => state.invalidate)
@@ -121,7 +136,8 @@ export function RivalSignal({
     () => new RingGeometry(0.48, 0.62, 6, 1, 0.42, Math.PI * 1.52),
     [],
   )
-  const hitGeometry = useMemo(() => new SphereGeometry(7.4, 8, 6), [])
+  const hitGeometry = useMemo(() => new SphereGeometry(1, 8, 6), [])
+  const beaconGeometry = useMemo(() => createClaimBeaconGeometry('spear'), [])
   const structureMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
@@ -157,6 +173,17 @@ export function RivalSignal({
   )
   const hitMaterial = useMemo(
     () => new MeshBasicMaterial({ visible: false }),
+    [],
+  )
+  const beaconMaterial = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        color: VISUAL_PALETTE.rivalCyanEmissive,
+        depthWrite: false,
+        opacity: 0,
+        toneMapped: true,
+        transparent: true,
+      }),
     [],
   )
   const isE2e = useMemo(
@@ -234,17 +261,25 @@ export function RivalSignal({
       pulseGeometry.dispose()
       crownGeometry.dispose()
       hitGeometry.dispose()
+      beaconGeometry.dispose()
       structureMaterial.dispose()
       highlightMaterial.dispose()
       crownMaterial.dispose()
       hitMaterial.dispose()
+      beaconMaterial.dispose()
 
       if (isE2e) {
         delete gl.domElement.dataset.rivalSignalX
         delete gl.domElement.dataset.rivalSignalY
+        delete gl.domElement.dataset.rivalSignalPx
+        delete gl.domElement.dataset.rivalSignalTouchPx
+        delete gl.domElement.dataset.rivalBeaconX
+        delete gl.domElement.dataset.rivalBeaconY
       }
     },
     [
+      beaconGeometry,
+      beaconMaterial,
       crownGeometry,
       crownMaterial,
       gl,
@@ -260,18 +295,30 @@ export function RivalSignal({
     ],
   )
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const signal = signalRef.current
     const shutters = shuttersRef.current
+    const beacon = beaconRef.current
+    const hit = hitRef.current
 
-    if (signal === null || shutters === null) {
+    if (
+      signal === null ||
+      shutters === null ||
+      beacon === null ||
+      hit === null
+    ) {
       return
     }
 
     const elapsedMs = state.clock.elapsedTime * 1_000
     const beat = sampleVesperSignalPulse(elapsedMs)
     const distance = state.camera.position.distanceTo(position)
-    const baseScale = Math.max(0.013, Math.min(0.023, distance * 0.0052))
+    const baseScale = claimHardwareScale(
+      distance,
+      HARDWARE.minimumScale,
+      HARDWARE.maximumScale,
+      HARDWARE.distanceScale,
+    )
     const presentationProgress = getRivalPresentationProgress(
       presentation,
       performance.now(),
@@ -282,11 +329,42 @@ export function RivalSignal({
         : presentation.phase === 'dual-sites'
           ? (1 - presentationProgress) * 0.12
           : 0
-    signal.scale.setScalar(
-      baseScale *
-        (1 + beat * 0.14 + impactEmphasis) *
-        (focused ? 1.18 : 1),
+    const hardwareScale =
+      baseScale * (1 + beat * 0.14 + impactEmphasis) * (focused ? 1.18 : 1)
+    signal.scale.setScalar(hardwareScale)
+
+    const emphasised = presentation.phase === 'dual-sites'
+    emphasisSecondsRef.current = emphasised
+      ? emphasisSecondsRef.current + delta
+      : 0
+    const emphasis = emphasised
+      ? claimEmphasisPulse(emphasisSecondsRef.current)
+      : 0
+    const readout = resolveClaimMarkerReadout(
+      hardwareScale * HARDWARE.unitDiameter,
+      {
+        distance,
+        verticalFovDeg: (state.camera as PerspectiveCamera).fov,
+        viewportHeightPx: state.size.height,
+      },
+      emphasised,
     )
+    const beaconOpacity =
+      readout.beaconOpacity *
+      claimHorizonVisibility(position, state.camera.position)
+
+    beacon.visible = beaconOpacity > 0.02
+    beacon.quaternion.copy(state.camera.quaternion)
+    beacon.position
+      .copy(transform.up)
+      .multiplyScalar(readout.beaconSurfaceOffset)
+    beacon.scale.setScalar(readout.beaconWorldDiameter * (1 + emphasis * 0.08))
+    beaconMaterial.opacity =
+      beaconOpacity *
+      (0.58 + beat * 0.12 + (focused ? 0.14 : 0) + emphasis * 0.24)
+
+    hit.position.copy(beacon.position)
+    hit.scale.setScalar(readout.touchWorldRadius)
 
     const dummy = dummyRef.current
     const shutterAngle = 0.12 + beat * 0.24
@@ -313,16 +391,23 @@ export function RivalSignal({
       canvas.dataset.rivalSignalY = String(
         ((1 - projectedPointRef.current.y) / 2) * canvas.clientHeight,
       )
+      canvas.dataset.rivalSignalPx = readout.beaconDiameterPx.toFixed(2)
+      canvas.dataset.rivalSignalTouchPx = readout.touchDiameterPx.toFixed(2)
+      // The drawn ring and its tap target share this anchor.
+      beacon.getWorldPosition(projectedPointRef.current).project(state.camera)
+      canvas.dataset.rivalBeaconX = String(
+        ((projectedPointRef.current.x + 1) / 2) * canvas.clientWidth,
+      )
+      canvas.dataset.rivalBeaconY = String(
+        ((1 - projectedPointRef.current.y) / 2) * canvas.clientHeight,
+      )
     }
   })
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
-    const facesCamera =
-      position.dot(event.camera.position) > position.lengthSq() - 0.0004
-
     if (
       !interactive ||
-      !facesCamera ||
+      !claimFacesCamera(position, event.camera.position) ||
       event.delta > TAP_DISTANCE_PX ||
       !canSelectWithTouchGate(touchSelectionGate, performance.now())
     ) {
@@ -334,32 +419,37 @@ export function RivalSignal({
   }
 
   return (
-    <group position={position} quaternion={transform.orientation}>
-      <group rotation-y={rival.surfaceHeadingRad}>
-        <group
-          ref={signalRef}
-          name="orbital-rival-signal"
-          onClick={handleClick}
-        >
-          <instancedMesh
-            ref={crownRef}
-            args={[prongGeometry, structureMaterial, 3]}
-          />
-          <instancedMesh
-            ref={shuttersRef}
-            args={[shutterGeometry, highlightMaterial, 2]}
-          />
-          <mesh geometry={spearGeometry} material={structureMaterial} position-y={0.68} />
-          <mesh geometry={pulseGeometry} material={highlightMaterial} position-y={1.28} />
-          <mesh
-            geometry={crownGeometry}
-            material={crownMaterial}
-            position-y={0.08}
-            rotation-x={Math.PI / 2}
-          />
-          <mesh geometry={hitGeometry} material={hitMaterial} />
+    <group position={position} onClick={handleClick}>
+      <group quaternion={transform.orientation}>
+        <group rotation-y={rival.surfaceHeadingRad}>
+          <group ref={signalRef} name="orbital-rival-signal">
+            <instancedMesh
+              ref={crownRef}
+              args={[prongGeometry, structureMaterial, 3]}
+            />
+            <instancedMesh
+              ref={shuttersRef}
+              args={[shutterGeometry, highlightMaterial, 2]}
+            />
+            <mesh geometry={spearGeometry} material={structureMaterial} position-y={0.68} />
+            <mesh geometry={pulseGeometry} material={highlightMaterial} position-y={1.28} />
+            <mesh
+              geometry={crownGeometry}
+              material={crownMaterial}
+              position-y={0.08}
+              rotation-x={Math.PI / 2}
+            />
+          </group>
         </group>
       </group>
+      <mesh
+        ref={beaconRef}
+        name="orbital-rival-beacon"
+        geometry={beaconGeometry}
+        material={beaconMaterial}
+        frustumCulled={false}
+      />
+      <mesh ref={hitRef} geometry={hitGeometry} material={hitMaterial} />
     </group>
   )
 }

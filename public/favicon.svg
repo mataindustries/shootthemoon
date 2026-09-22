@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Shoot the Moon">
+  <rect width="32" height="32" fill="#010207"/>
+  <circle cx="15" cy="18" r="11" fill="#9a988f"/>
+  <path d="M15 7a11 11 0 0 0 0 22 7.6 11 0 0 1 0-22z" fill="#3a3f45"/>
+  <path d="M23.5 4.5 27.5 8.5 23.5 12.5 19.5 8.5z" fill="#d95a1f"/>
+  <path d="M23.5 7 25 8.5 23.5 10 22 8.5z" fill="#efad58"/>
+</svg>

@@ -59,6 +59,14 @@ selection surface; the coordinate readout explicitly remains on the
 - The starfield, impact dust, surface dust, mining sparks, and fragments are
   deterministic point or primitive geometries. They use no bitmap sprites.
 - The landing marker is true 3D torus, ring, and beam geometry.
+- The orbital claim beacons — the camera-facing bracket rings, leader lines, and
+  faction glyphs that keep the player outpost and Null Meridian readable at
+  orbital distance — are a single merged code-authored buffer geometry per
+  marker. They use no sprite, bitmap, or font atlas.
+- `public/favicon.svg` is a hand-authored vector drawn from the repository
+  palette (space, lunar, and player amber). `public/favicon.png` is a 32 x 32
+  raster of that same file, provided for browsers without SVG icon support.
+  Neither contains third-party art.
 
 ## Project-authored audio and haptics
 

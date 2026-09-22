@@ -1515,6 +1515,7 @@ button {
 
 .rival-transmission button,
 .rival-strategic__actions > button:first-child,
+.rival-orbit-action > button,
 .rival-scan-action {
   width: 100%;
   min-height: 3rem;
@@ -1532,7 +1533,9 @@ button {
 .rival-transmission button:hover,
 .rival-transmission button:focus-visible,
 .rival-strategic button:hover,
-.rival-strategic button:focus-visible {
+.rival-strategic button:focus-visible,
+.rival-orbit-action > button:hover,
+.rival-orbit-action > button:focus-visible {
   border-color: #d9ffff;
   color: #fff;
   outline: none;
@@ -1673,6 +1676,52 @@ button {
   background: rgb(4 11 17 / 74%);
   text-align: center;
   white-space: nowrap;
+}
+
+/* Post-reveal orbit needs a stated way forward; the cyan world-space signal
+   stays a shortcut to the same approach. */
+.rival-orbit-action {
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(92px, calc(env(safe-area-inset-bottom) + 78px));
+  left: max(18px, env(safe-area-inset-left));
+  display: grid;
+  width: min(calc(100% - 36px), 17.5rem);
+  margin-inline: auto;
+  gap: 0.5rem;
+  padding: 0.62rem 0.7rem;
+  border: 1px solid rgb(116 211 220 / 20%);
+  background: rgb(4 11 17 / 78%);
+  box-shadow: 0 18px 46px rgb(0 0 0 / 46%);
+  pointer-events: auto;
+  text-align: center;
+}
+
+.rival-orbit-action__eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: rgb(163 224 230 / 72%);
+  font-size: 0.54rem;
+  font-weight: 720;
+  letter-spacing: 0.15em;
+}
+
+.rival-orbit-action__eyebrow > span {
+  width: 6px;
+  height: 6px;
+  border: 1px solid #dfffff;
+  transform: rotate(45deg);
+  background: #4fcbd7;
+  box-shadow: 0 0 12px rgb(93 219 229 / 72%);
+}
+
+.rival-orbit-action small {
+  color: rgb(198 226 229 / 42%);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
 }
 
 .rival-skip {
