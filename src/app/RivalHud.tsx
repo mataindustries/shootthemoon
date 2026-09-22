@@ -11,6 +11,9 @@ interface RivalHudProps {
   readonly onScan: () => void
   readonly onReplay: () => void
   readonly onSkip: () => void
+  /** True only while `onFocusRival` would actually open the rival approach. */
+  readonly scanActionAvailable: boolean
+  readonly onFocusRival: () => void
   readonly firstStrikeAvailable: boolean
   readonly rivalDamaged: boolean
 }
@@ -139,6 +142,8 @@ export function RivalHud({
   onScan,
   onReplay,
   onSkip,
+  scanActionAvailable,
+  onFocusRival,
   firstStrikeAvailable,
   rivalDamaged,
 }: RivalHudProps) {
@@ -208,6 +213,19 @@ export function RivalHud({
           <span>{identity.strategicLabels.contestedStatus}</span>
           <strong>{identity.territorialThreat}</strong>
           <b>{strategicObjective}</b>
+        </section>
+      ) : null}
+
+      {phase === 'idle' && scanActionAvailable ? (
+        <section className="rival-orbit-action" aria-label="Null Meridian contact">
+          <div className="rival-orbit-action__eyebrow">
+            <span aria-hidden="true" />
+            NULL MERIDIAN · SIGNAL UNRESOLVED
+          </div>
+          <button type="button" onClick={onFocusRival}>
+            SCAN NULL MERIDIAN
+          </button>
+          <small>OR SELECT THE CYAN SIGNAL IN ORBIT</small>
         </section>
       ) : null}
 

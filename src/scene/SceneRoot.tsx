@@ -38,6 +38,7 @@ import {
 } from '../app/rivalPresentation.ts'
 import { RivalSignal } from './RivalSignal.tsx'
 import { RivalFoothold } from './RivalFoothold.tsx'
+import { ClaimRelationshipArc } from './ClaimRelationshipArc.tsx'
 import { RivalRevealEffects } from './RivalRevealEffects.tsx'
 import { RivalScanSweep } from './RivalScanSweep.tsx'
 import type { FirstStrikeSnapshot } from '../domain/firstStrike.ts'
@@ -301,6 +302,7 @@ export function SceneRoot({
       rivalFocused) &&
     (rival.stage !== null ||
       rivalPresentationShowsFoothold(rivalPresentation.phase))
+  const dualSiteBeat = rivalPresentation.phase === 'dual-sites'
   const rivalSignalVisible =
     rival !== null &&
     !rivalDamagedForPresentation &&
@@ -494,7 +496,16 @@ export function SceneRoot({
           outpost={outpost}
           focused={phase === 'selected'}
           interactive={!counterstrikePresentationActive}
+          emphasised={dualSiteBeat}
           onFocus={onFocusOutpost}
+        />
+      ) : null}
+
+      {dualSiteBeat && outpost !== null && rival !== null && !monumentView ? (
+        <ClaimRelationshipArc
+          playerSite={outpost.site}
+          rivalSite={rival.site}
+          presentation={rivalPresentation}
         />
       ) : null}
 

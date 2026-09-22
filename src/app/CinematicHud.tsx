@@ -3,6 +3,7 @@ import { siegeIsActive } from '../domain/orbitalSiege.ts'
 import { useState } from 'react'
 import { useCoarsePointer } from './useCoarsePointer.ts'
 import { depositLabel, outpostGuidance } from './outpostGuidance.ts'
+import { formatMetric } from './hudFormatting.ts'
 import {
   findDeposit,
   type OperatingMode,
@@ -65,10 +66,6 @@ const OPERATING_MODES: readonly OperatingMode[] = [
   'BALANCED',
   'OVERDRIVE',
 ]
-
-function formatMetric(value: number, digits = 1): string {
-  return value.toFixed(digits).replace(/\.0$/, '')
-}
 
 function OperationsPanel({
   outpost,
@@ -574,7 +571,7 @@ export function CinematicHud({
                   <span>CYAN · VESPER</span>
                 </>
               ) : null}
-              <b>{outpost.lunarOre} ORE</b>
+              <b>{formatMetric(outpost.lunarOre)} ORE</b>
               {lunarControlContested ? <em>CONTESTED</em> : null}
             </>
           )}

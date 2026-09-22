@@ -1862,6 +1862,16 @@ function App() {
   const rivalSignalHeld =
     rival?.revealStatus === 'AWAITING_SAFE_MOMENT' ||
     (restoredSessionRef.current && rival?.revealStatus === 'QUEUED')
+  // Mirrors handleFocusRival's guard so the explicit action is offered only
+  // when selecting the world-space marker would do the same thing.
+  const rivalScanActionAvailable =
+    state.phase === 'orbit' &&
+    rivalPresentation.phase === 'idle' &&
+    firstStrikePresentation.phase === 'idle' &&
+    counterstrikeRun.status === 'dormant' &&
+    rivalRevealed &&
+    !(firstStrike?.rivalFootholdDamaged ?? false) &&
+    !(rival?.scanCompleted ?? false)
   const operationsMetrics =
     outpost?.extractor?.status === 'active'
       ? calculateOutpostOperations(
@@ -1907,6 +1917,7 @@ function App() {
         rival?.introTransmissionCompleted ?? false
       }
       data-rival-scan-complete={rival?.scanCompleted ?? false}
+      data-rival-scan-action={rivalScanActionAvailable}
       data-rival-response-complete={
         rival?.scanResponseCompleted ?? false
       }
@@ -2102,6 +2113,8 @@ function App() {
         onScan={handleScanRival}
         onReplay={handleReplayRival}
         onSkip={handleSkipRival}
+        scanActionAvailable={rivalScanActionAvailable}
+        onFocusRival={handleFocusRival}
         firstStrikeAvailable={firstStrike?.available ?? false}
         rivalDamaged={firstStrike?.rivalFootholdDamaged ?? false}
       />
