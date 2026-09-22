@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
+  AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
   Color,
@@ -36,6 +37,61 @@ const DUST_COUNT = 88
 const SHEET_SEGMENTS = 42
 
 export const IMPACT_EMITTER_CLEARANCE_M = 0.015
+
+/**
+ * First Strike detonation envelope.
+ *
+ * The blast is authored as a fast attack into a held peak and a long,
+ * controlled decay: contact is the brightest beat of the cinematic, and the
+ * tail never reaches zero inside `impact-flash`, so the phase has no dead
+ * portion. `BLAST_TAIL` is the fraction of the peak still burning when the
+ * phase hands over to `ejecta`, where `sampleEjectaBlastResidual` carries the
+ * same value forward and fades it out over `BLAST_EJECTA_CARRY`.
+ */
+const BLAST_ATTACK = 0.1
+const BLAST_HOLD = 0.18
+const BLAST_DECAY = 2.4
+const BLAST_TAIL = 0.14
+const BLAST_EJECTA_CARRY = 0.28
+
+/**
+ * Fireball radius, in render units: the contact seed, the burst it opens to
+ * within `BLAST_BURST` of the phase, and the slow swell it keeps adding while
+ * it cools, so the tail stays readable as it dims.
+ */
+const BLAST_CORE_RADIUS = 0.0035
+const BLAST_FLASH_RADIUS = 0.019
+const BLAST_SWELL_RADIUS = 0.005
+const BLAST_BURST = 0.12
+
+export function sampleImpactBlastEnergy(progress: number): number {
+  const clamped = Math.max(0, Math.min(1, progress))
+  const attack = (1 - Math.min(1, clamped / BLAST_ATTACK)) ** 2
+  const decay = Math.max(0, (clamped - BLAST_HOLD) / (1 - BLAST_HOLD))
+
+  return (
+    (1 - attack) *
+    (BLAST_TAIL + (1 - BLAST_TAIL) * Math.exp(-BLAST_DECAY * decay))
+  )
+}
+
+export function sampleEjectaBlastResidual(progress: number): number {
+  const fade =
+    1 - Math.max(0, Math.min(1, progress / BLAST_EJECTA_CARRY))
+
+  return sampleImpactBlastEnergy(1) * fade * fade
+}
+
+export function sampleImpactBlastRadius(progress: number): number {
+  const clamped = Math.max(0, Math.min(1, progress))
+  const burst = 1 - (1 - Math.min(1, clamped / BLAST_BURST)) ** 2
+
+  return (
+    BLAST_CORE_RADIUS +
+    burst * BLAST_FLASH_RADIUS +
+    clamped * BLAST_SWELL_RADIUS
+  )
+}
 
 interface LunarImpactEffectsProps {
   readonly rivalSite: LandingSite
@@ -191,7 +247,7 @@ export function LunarImpactEffects({
     geometry.setAttribute('color', new BufferAttribute(colors, 3))
     return geometry
   }, [])
-  const flashGeometry = useMemo(() => new SphereGeometry(1, 16, 8), [])
+  const flashGeometry = useMemo(() => new SphereGeometry(1, 28, 14), [])
   const sheetGeometry = useMemo(
     () => createRegolithSheetGeometry(seed),
     [seed],
@@ -200,6 +256,7 @@ export function LunarImpactEffects({
   const flashMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
+        blending: AdditiveBlending,
         color: '#ff9a55',
         depthTest: false,
         depthWrite: false,
@@ -322,8 +379,11 @@ export function LunarImpactEffects({
     const flashPhase = presentation.phase === 'impact-flash'
     const ejectaPhase = presentation.phase === 'ejecta'
     const revealPhase = presentation.phase === 'crater-reveal'
-    const flashWindow = Math.min(1, progress / 0.42)
-    const flashPulse = flashPhase ? Math.sin(Math.PI * flashWindow) ** 0.42 : 0
+    const blast = flashPhase
+      ? sampleImpactBlastEnergy(progress)
+      : ejectaPhase
+        ? sampleEjectaBlastResidual(progress)
+        : 0
     const eventProgress = flashPhase
       ? progress * 0.18
       : ejectaPhase
@@ -332,15 +392,17 @@ export function LunarImpactEffects({
     const expansion = smoothstep(eventProgress)
     const revealFade = revealPhase ? 1 - smoothstep(progress) : 1
 
-    flash.visible = flashPulse > 0.005
-    flash.scale.setScalar(0.003 + smoothstep(flashWindow) * 0.0085)
-    flashMaterial.opacity = flashPulse * 0.56
-    flashCoreMaterial.opacity = flashPulse * 0.94
+    flash.visible = blast > 0.004
+    flash.scale.setScalar(sampleImpactBlastRadius(flashPhase ? progress : 1))
+    // The fireball cools faster than it lights the ground: the core drops out
+    // first, the amber haze thins next, and the event light carries the tail.
+    flashMaterial.opacity = blast ** 1.1 * 0.38
+    flashCoreMaterial.opacity = Math.min(1, blast ** 1.6 * 1.15)
 
     surfaceSheet.visible = !revealPhase || revealFade > 0.02
     surfaceSheet.scale.setScalar(0.014 + expansion * 0.128)
     sheetMaterial.opacity = flashPhase
-      ? flashPulse * 0.34
+      ? (1 - blast) * 0.52
       : ejectaPhase
         ? (1 - smoothstep(progress)) * 0.4
         : revealFade * 0.08
@@ -409,7 +471,7 @@ export function LunarImpactEffects({
         <mesh
           geometry={flashGeometry}
           material={flashCoreMaterial}
-          scale={0.42}
+          scale={0.4}
         />
       </group>
       <instancedMesh
