@@ -34,6 +34,12 @@ import {
 } from '../render/localSurface.ts'
 import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
+import {
+  FULL_SAFE_AREA,
+  miningFramingForDeposit,
+  type SurfaceSafeArea,
+} from './miningFraming.ts'
+import { measureSurfaceSafeArea } from './surfaceSafeArea.ts'
 import { useCinematicProgress } from './CinematicClock.tsx'
 import {
   getRivalPresentationProgress,
@@ -133,6 +139,13 @@ interface SurfaceCameraPose {
   readonly position: Vector3
   readonly target: Vector3
   readonly up: Vector3
+}
+
+/** Viewport facts the mining composition is solved against. */
+interface SurfaceFramingContext {
+  readonly aspect: number
+  readonly focusFovDeg: number
+  readonly safeArea: SurfaceSafeArea
 }
 
 interface SavedSurfaceView {
@@ -268,6 +281,59 @@ function getSurfaceFocusKind(
   return null
 }
 
+/**
+ * The mining beat's settled pose. Kept separate from the follow poses because
+ * it is solved from the hero triad and the live HUD rather than from fixed
+ * offsets, and because the travel beat needs it before it is adopted.
+ */
+function getMiningFocusPose(
+  site: LandingSite,
+  terrain: SurfaceTerrainProfile,
+  terrainSegments: number,
+  outpost: OutpostSnapshot,
+  nowMs: number,
+  framingContext: SurfaceFramingContext,
+): SurfaceCameraPose | null {
+  // The rover's parked pose, which the mining state resolves to. Reading it via
+  // the existing kinematics query keeps the standoff and heading owned by the
+  // simulation; nothing here is written back.
+  const parked = getRobotKinematics(
+    { ...outpost, robot: { ...outpost.robot, state: 'mining' } },
+    nowMs,
+  )
+  const framing = miningFramingForDeposit(
+    outpost.robot.targetDepositId,
+    parked.position,
+    parked.headingRad,
+    framingContext.aspect,
+    framingContext.focusFovDeg,
+    framingContext.safeArea,
+  )
+
+  if (framing === null) {
+    return null
+  }
+
+  const ground = sampleRenderedSurface(
+    terrain,
+    terrainSegments,
+    framing.focusXM,
+    framing.focusZM,
+  )
+  const targetY = ground.y + framing.targetLiftM * LOCAL_METRES_TO_RENDER_UNITS
+
+  return {
+    position: localPointToWorld(
+      site,
+      ground.x + framing.offsetXM * LOCAL_METRES_TO_RENDER_UNITS,
+      targetY + framing.offsetYM * LOCAL_METRES_TO_RENDER_UNITS,
+      ground.z + framing.offsetZM * LOCAL_METRES_TO_RENDER_UNITS,
+    ),
+    target: localPointToWorld(site, ground.x, targetY, ground.z),
+    up: landingSiteToRenderTransform(site).up.clone(),
+  }
+}
+
 function getSurfaceFocusPose(
   site: LandingSite,
   terrain: SurfaceTerrainProfile,
@@ -275,6 +341,7 @@ function getSurfaceFocusPose(
   outpost: OutpostSnapshot,
   kind: SurfaceFocusKind,
   nowMs: number,
+  framingContext: SurfaceFramingContext,
 ): SurfaceCameraPose {
   const transform = landingSiteToRenderTransform(site)
   if (kind === 'platform') {
@@ -285,49 +352,46 @@ function getSurfaceFocusPose(
       up: transform.up.clone(),
     }
   }
-  const extractorFocus = kind === 'construction' || kind === 'activation'
+
+  if (kind === 'mining') {
+    const mining = getMiningFocusPose(
+      site,
+      terrain,
+      terrainSegments,
+      outpost,
+      nowMs,
+      framingContext,
+    )
+
+    if (mining !== null) {
+      return mining
+    }
+  }
+
+  // `unloading` lasts 0.7 s — barely three easing time constants. It shares the
+  // return pose so the cargo hand-off reads as the tail of one move rather than
+  // a separate commitment. `surface-focus-unloading` stays observable; only the
+  // pose is shared, and the rover is parked at the same place in both states.
+  const posedKind: SurfaceFocusKind = kind === 'unloading' ? 'return' : kind
+  const extractorFocus =
+    posedKind === 'construction' || posedKind === 'activation'
   const kinematics = getRobotKinematics(outpost, nowMs)
-  let focusPosition =
+  const focusPosition =
     extractorFocus && outpost.extractor !== null
       ? outpost.extractor.position
       : kinematics.position
-  const targetDeposit =
-    kind === 'mining' && outpost.robot.targetDepositId !== null
-      ? outpost.deposits.find(
-          (deposit) => deposit.id === outpost.robot.targetDepositId,
-        ) ?? null
-      : null
-
-  if (targetDeposit !== null) {
-    focusPosition = {
-      xM: (kinematics.position.xM + targetDeposit.position.xM) / 2,
-      zM: (kinematics.position.zM + targetDeposit.position.zM) / 2,
-    }
-  }
   const ground = sampleRenderedSurface(
     terrain,
     terrainSegments,
     focusPosition.xM,
     focusPosition.zM,
   )
-  // A side view relative to the rover heading exposes the muzzle and contact
-  // instead of looking through the rover from its rear.
-  const offsetX =
-    kind === 'mining'
-      ? Math.cos(kinematics.headingRad) * 0.00128 + Math.sin(kinematics.headingRad) * 0.00025
-      : extractorFocus ? 0.00028 : 0.00124
-  const offsetY =
-    kind === 'mining' ? 0.00085 : extractorFocus ? 0.00068 : 0.00134
-  const offsetZ =
-    kind === 'mining'
-      ? -Math.sin(kinematics.headingRad) * 0.00128 + Math.cos(kinematics.headingRad) * 0.00025
-      : extractorFocus ? 0.00122 : 0.00248
+  const offsetX = extractorFocus ? 0.00028 : 0.00124
+  const offsetY = extractorFocus ? 0.00068 : 0.00134
+  const offsetZ = extractorFocus ? 0.00122 : 0.00248
   const targetY =
-    ground.y +
-    // Keep the drill contact above the operations panel while mining.
-    (kind === 'mining' ? -1.4 : extractorFocus ? 1.25 : 0.9) * LOCAL_METRES_TO_RENDER_UNITS
-
-  return {
+    ground.y + (extractorFocus ? 1.25 : 0.9) * LOCAL_METRES_TO_RENDER_UNITS
+  const follow: SurfaceCameraPose = {
     position: localPointToWorld(
       site,
       ground.x + offsetX,
@@ -337,6 +401,36 @@ function getSurfaceFocusPose(
     target: localPointToWorld(site, ground.x, targetY, ground.z),
     up: transform.up.clone(),
   }
+
+  // One intentional arrival instead of a follow shot that is abandoned the
+  // moment the rover parks: the second half of the outbound run eases into the
+  // mining composition, so the held frame is already settled when the beat
+  // starts. The mode string is untouched; only the pose moves.
+  const arrivalBlend =
+    posedKind === 'travel'
+      ? smoothstep((kinematics.stateProgress - 0.42) / 0.58)
+      : 0
+
+  if (arrivalBlend > 0) {
+    const arrival = getMiningFocusPose(
+      site,
+      terrain,
+      terrainSegments,
+      outpost,
+      nowMs,
+      framingContext,
+    )
+
+    if (arrival !== null) {
+      return {
+        position: follow.position.clone().lerp(arrival.position, arrivalBlend),
+        target: follow.target.clone().lerp(arrival.target, arrivalBlend),
+        up: follow.up,
+      }
+    }
+  }
+
+  return follow
 }
 
 function applyOrbitProjection(camera: PerspectiveCamera): void {
@@ -596,6 +690,8 @@ export function CameraRig({
   const surfaceFocusKindRef = useRef<SurfaceFocusKind | null>(null)
   const savedSurfaceViewRef = useRef<SavedSurfaceView | null>(null)
   const returningToSurfaceViewRef = useRef(false)
+  const safeAreaRef = useRef<SurfaceSafeArea>(FULL_SAFE_AREA)
+  const safeAreaMeasuredAtRef = useRef(0)
 
   useLayoutEffect(() => {
     camera.position.copy(
@@ -1586,6 +1682,17 @@ export function CameraRig({
         surfaceFocusKindRef.current = focusKind
         returningToSurfaceViewRef.current = false
         controls.enabled = false
+        const focusFov = isNarrowPortrait(camera) ? 49 : 38
+        // The bottom chrome is width-dependent and swaps panels mid-beat, so
+        // the safe area is measured rather than assumed. A quarter-second
+        // throttle keeps this to a handful of layout reads per second.
+        const elapsedSinceMeasure = nowMs - safeAreaMeasuredAtRef.current
+
+        if (elapsedSinceMeasure < 0 || elapsedSinceMeasure > 250) {
+          safeAreaMeasuredAtRef.current = nowMs
+          safeAreaRef.current = measureSurfaceSafeArea(gl.domElement)
+        }
+
         const focusPose = getSurfaceFocusPose(
           landingSite,
           terrain,
@@ -1593,13 +1700,20 @@ export function CameraRig({
           outpost,
           focusKind,
           nowMs,
+          {
+            aspect: camera.aspect,
+            focusFovDeg: focusFov,
+            safeArea: safeAreaRef.current,
+          },
         )
-        const easing = 1 - Math.exp(-Math.min(delta, 0.05) * 4.8)
+        // Clamped only to survive a tab resume. The former 0.05 s cap made
+        // convergence frame-rate dependent below 20 fps, so a short beat
+        // arrived late on exactly the devices least able to afford it.
+        const easing = 1 - Math.exp(-Math.min(delta, 0.12) * 4.8)
         camera.position.lerp(focusPose.position, easing)
         camera.up.lerp(focusPose.up, easing).normalize()
         controls.target.lerp(focusPose.target, easing)
         camera.lookAt(controls.target)
-        const focusFov = isNarrowPortrait(camera) ? 49 : 38
         const nextFov = MathUtils.damp(camera.fov, focusFov, 4.8, delta)
 
         if (Math.abs(nextFov - camera.fov) > 0.001) {
