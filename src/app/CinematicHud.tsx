@@ -588,39 +588,50 @@ export function CinematicHud({
         >
           <div className="site-panel__eyebrow">
             <span className="signal-dot" aria-hidden="true" />
-            {targetingOutpost ? 'ESTABLISHED OUTPOST' : 'SELECTED LANDING SITE'}
-          </div>
-          <div className="coordinate-grid">
-            <div>
-              <span>LATITUDE</span>
-              <strong>{latitude?.value}</strong>
-              <b>{latitude?.direction}</b>
-            </div>
-            <div>
-              <span>LONGITUDE</span>
-              <strong>{longitude?.value}</strong>
-              <b>{longitude?.direction}</b>
-            </div>
-          </div>
-          <div className="datum-line">
-            MEAN SPHERE · ALT {formatAltitude(site.location.heightM)} M
+            {phase === 'approach'
+              ? outpost === null
+                ? 'DESCENT'
+                : 'RETURNING'
+              : targetingOutpost
+                ? 'ESTABLISHED OUTPOST'
+                : 'SELECTED LANDING SITE'}
           </div>
 
-          {!targetingOutpost && siteAnalysis !== null ? (
-            <div className="site-qualities" aria-label="Site qualities">
-              <div>
-                <span>SOLAR</span>
-                <strong>{siteAnalysis.solarQuality.toUpperCase()}</strong>
+          {phase !== 'approach' ? (
+            <>
+              <div className="coordinate-grid">
+                <div>
+                  <span>LATITUDE</span>
+                  <strong>{latitude?.value}</strong>
+                  <b>{latitude?.direction}</b>
+                </div>
+                <div>
+                  <span>LONGITUDE</span>
+                  <strong>{longitude?.value}</strong>
+                  <b>{longitude?.direction}</b>
+                </div>
               </div>
-              <div>
-                <span>EXTRACTION</span>
-                <strong>{siteAnalysis.extractionQuality.toUpperCase()}</strong>
+              <div className="datum-line">
+                MEAN SPHERE · ALT {formatAltitude(site.location.heightM)} M
               </div>
-              <div>
-                <span>LOGISTICS</span>
-                <strong>{siteAnalysis.logisticsQuality.toUpperCase()}</strong>
-              </div>
-            </div>
+
+              {!targetingOutpost && siteAnalysis !== null ? (
+                <div className="site-qualities" aria-label="Site qualities">
+                  <div>
+                    <span>SOLAR</span>
+                    <strong>{siteAnalysis.solarQuality.toUpperCase()}</strong>
+                  </div>
+                  <div>
+                    <span>EXTRACTION</span>
+                    <strong>{siteAnalysis.extractionQuality.toUpperCase()}</strong>
+                  </div>
+                  <div>
+                    <span>LOGISTICS</span>
+                    <strong>{siteAnalysis.logisticsQuality.toUpperCase()}</strong>
+                  </div>
+                </div>
+              ) : null}
+            </>
           ) : null}
 
           {phase === 'selected' ? (

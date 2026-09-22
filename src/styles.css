@@ -756,21 +756,17 @@ canvas {
   border-left-color: #ff914f;
 }
 
-/* During descent the site card should stop competing with the cinematic:
-   keep the eyebrow + abort control, fade the selection statistics away. */
-.site-panel--approach .coordinate-grid,
-.site-panel--approach .datum-line,
-.site-panel--approach .site-qualities {
-  opacity: 0;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .coordinate-grid,
-  .datum-line,
-  .site-qualities {
-    transition-duration: 1ms;
-  }
+/* During descent the statistics unmount entirely (see CinematicHud) instead
+   of just fading, so the card collapses into a small corner status module —
+   label + abort control only — instead of leaving an empty full-height
+   panel over the cinematic. Doubled class beats the .site-panel rules in
+   the breakpoint blocks below on specificity, regardless of source order. */
+.site-panel.site-panel--approach {
+  display: grid;
+  gap: 0.3rem;
+  width: min(42%, 12.5rem);
+  min-width: 8.5rem;
+  padding: 0.4rem 0.6rem;
 }
 
 .site-panel__eyebrow {
