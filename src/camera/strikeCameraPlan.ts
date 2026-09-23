@@ -1,4 +1,4 @@
-import { Vector3 } from 'three'
+import { MathUtils, Vector3 } from 'three'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import {
   MOON_RENDER_RADIUS,
@@ -21,6 +21,24 @@ export const STRIKE_CAMERA_SAFETY = Object.freeze({
   sampleCount: 2_048,
 })
 
+/**
+ * Vertical FOVs CameraRig applies to the surface beats (arming through crater
+ * reveal) and to the pullback/ending. The narrow-portrait pullback start is
+ * dollied in by their tangent ratio so the crater keeps its size across the cut.
+ */
+export const STRIKE_PROJECTION_FOV = Object.freeze({
+  narrowPortrait: Object.freeze({ close: 38, orbital: 56, pullback: 58 }),
+  landscape: Object.freeze({ close: 34, orbital: 40, pullback: 42 }),
+})
+
+const PORTRAIT_ENDING = Object.freeze({
+  radius: 3.8,
+  leanWest: 0.22,
+  leanNorth: 0.1,
+  /** Where the Moon's centre lands vertically, in NDC, at the ending. */
+  moonCentreNdcY: -0.6,
+})
+
 export interface StrikeCameraPlan {
   readonly route: StrikeRoute
   readonly armingPose: CameraPose
@@ -28,11 +46,13 @@ export interface StrikeCameraPlan {
   readonly flightEndPose: CameraPose
   readonly targetWidePose: CameraPose
   readonly impactPose: CameraPose
+  readonly craterRevealPose: CameraPose
   readonly scarExplorePose: CameraPose
   readonly finalOrbitPose: CameraPose
   readonly flightCamera: SafeOrbitalCameraPath
   readonly transmissionCamera: SafeOrbitalCameraPath
   readonly targetApproachCamera: SafeOrbitalCameraPath
+  readonly craterRevealCamera: SafeOrbitalCameraPath
   readonly orbitalPullbackCamera: SafeOrbitalCameraPath
 }
 
@@ -101,6 +121,55 @@ function getImpactPose(
   }
 }
 
+/**
+ * Narrow portrait sees only ~18 degrees across at the close FOV, so the impact
+ * pose shows fragments of the rim. The reveal climbs to a steeper, wider
+ * framing that holds the whole crater plus untouched terrain. Landscape
+ * already frames it and keeps the impact pose.
+ */
+function getCraterRevealPose(
+  rivalSite: LandingSite,
+  narrowPortrait: boolean,
+  impactPose: CameraPose,
+): CameraPose {
+  if (!narrowPortrait) {
+    return impactPose
+  }
+
+  const transform = landingSiteToRenderTransform(rivalSite)
+  return {
+    position: localPointToWorld(rivalSite, 0.13, 0.38, 0.26),
+    target: localPointToWorld(rivalSite, 0, 0.004, 0),
+    up: transform.up.clone(),
+  }
+}
+
+/**
+ * The pullback opens on a wider FOV than the crater reveal. In narrow portrait
+ * that cut shrinks the crater to ~60%, so the pullback starts dollied in along
+ * the same sight line until the crater holds its framing.
+ */
+function getPullbackStartPose(
+  craterRevealPose: CameraPose,
+  narrowPortrait: boolean,
+): CameraPose {
+  if (!narrowPortrait) {
+    return craterRevealPose
+  }
+
+  const fov = STRIKE_PROJECTION_FOV.narrowPortrait
+  const dolly =
+    Math.tan(MathUtils.degToRad(fov.close / 2)) /
+    Math.tan(MathUtils.degToRad(fov.pullback / 2))
+  return {
+    position: craterRevealPose.target
+      .clone()
+      .lerp(craterRevealPose.position, dolly),
+    target: craterRevealPose.target.clone(),
+    up: craterRevealPose.up.clone(),
+  }
+}
+
 function getScarExplorePose(
   rivalSite: LandingSite,
   narrowPortrait: boolean,
@@ -118,11 +187,52 @@ function getScarExplorePose(
   }
 }
 
+/**
+ * Narrow portrait centres the end card over the middle of the frame. Look down
+ * on the scar itself, leaning toward its rake-lit west side and a little north,
+ * with a larger Moon aimed low so the lit limb and the scar fill the open frame
+ * beneath the card.
+ */
+function getNarrowPortraitFinalOrbitPose(rivalSite: LandingSite): CameraPose {
+  const rival = landingSiteToRenderTransform(rivalSite)
+  const viewDirection = rival.up
+    .clone()
+    .addScaledVector(rival.east, -PORTRAIT_ENDING.leanWest)
+    .addScaledVector(rival.south, -PORTRAIT_ENDING.leanNorth)
+    .normalize()
+  const target = new Vector3(0, 0, 0)
+  const screenUp = WORLD_UP.clone().addScaledVector(
+    viewDirection,
+    -WORLD_UP.dot(viewDirection),
+  )
+
+  if (screenUp.lengthSq() > 1e-6) {
+    target.addScaledVector(
+      screenUp.normalize(),
+      -PORTRAIT_ENDING.moonCentreNdcY *
+        PORTRAIT_ENDING.radius *
+        Math.tan(
+          MathUtils.degToRad(STRIKE_PROJECTION_FOV.narrowPortrait.pullback / 2),
+        ),
+    )
+  }
+
+  return {
+    position: viewDirection.multiplyScalar(PORTRAIT_ENDING.radius),
+    target,
+    up: WORLD_UP.clone(),
+  }
+}
+
 function getFinalOrbitPose(
   playerSite: LandingSite,
   rivalSite: LandingSite,
   narrowPortrait: boolean,
 ): CameraPose {
+  if (narrowPortrait) {
+    return getNarrowPortraitFinalOrbitPose(rivalSite)
+  }
+
   const player = landingSiteToRenderTransform(playerSite)
   const rival = landingSiteToRenderTransform(rivalSite)
   const viewDirection = rival.up
@@ -134,9 +244,8 @@ function getFinalOrbitPose(
     viewDirection.copy(rival.up)
   }
 
-  const radius = narrowPortrait ? 4.7 : 3.65
   return {
-    position: viewDirection.normalize().multiplyScalar(radius),
+    position: viewDirection.normalize().multiplyScalar(3.65),
     target: new Vector3(0, 0, 0),
     up: WORLD_UP.clone(),
   }
@@ -210,6 +319,11 @@ export function createStrikeCameraPlan(
     transmissionTarget,
   )
   const impactPose = getImpactPose(rivalSite, narrowPortrait)
+  const craterRevealPose = getCraterRevealPose(
+    rivalSite,
+    narrowPortrait,
+    impactPose,
+  )
   const scarExplorePose = getScarExplorePose(rivalSite, narrowPortrait)
   const finalOrbitPose = getFinalOrbitPose(
     playerSite,
@@ -238,8 +352,13 @@ export function createStrikeCameraPlan(
     timing: 'arc-before-descent',
     preferredArcDirection: landingSiteToRenderTransform(rivalSite).up,
   })
-  const orbitalPullbackCamera = createSafeOrbitalCameraPath({
+  const craterRevealCamera = createSafeOrbitalCameraPath({
     start: impactPose,
+    end: craterRevealPose,
+    minimumRadius: STRIKE_CAMERA_SAFETY.approachMinimumRadius,
+  })
+  const orbitalPullbackCamera = createSafeOrbitalCameraPath({
+    start: getPullbackStartPose(craterRevealPose, narrowPortrait),
     end: finalOrbitPose,
     minimumRadius: STRIKE_CAMERA_SAFETY.approachMinimumRadius,
     timing: 'climb-before-arc',
@@ -253,11 +372,13 @@ export function createStrikeCameraPlan(
     flightEndPose,
     targetWidePose,
     impactPose,
+    craterRevealPose,
     scarExplorePose,
     finalOrbitPose,
     flightCamera,
     transmissionCamera,
     targetApproachCamera,
+    craterRevealCamera,
     orbitalPullbackCamera,
   }
 }
