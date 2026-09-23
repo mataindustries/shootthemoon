@@ -1895,7 +1895,7 @@ function App() {
   return (
     <main
       className="app-shell"
-      aria-label="Shoot the Moon technical prototype"
+      aria-label="Shoot the Moon"
       data-phase={state.phase}
       data-quality={quality.tier}
       data-scene-ready={sceneReady}

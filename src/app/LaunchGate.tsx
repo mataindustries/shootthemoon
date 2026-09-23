@@ -45,7 +45,7 @@ export function LaunchGate({
       </div>
       <div className="launch-gate__content">
         <div className="launch-gate__rule" aria-hidden="true" />
-        <span className="launch-gate__kicker">AN AUTHORED LUNAR HOSTILITY</span>
+        <span className="launch-gate__kicker">TWO MOON LORDS • ONE MOON</span>
         <h1 className="launch-gate__title">
           <span>SHOOT</span>
           <span>THE MOON</span>
@@ -58,7 +58,7 @@ export function LaunchGate({
         <p className="launch-gate__lede">
           Two supervillains claimed one Moon.
           <br />
-          You built first—and fired first.
+          You built first. You fired first.
         </p>
         <div className="launch-gate__actions">
           <button className="launch-gate__begin" type="button" onClick={onBegin}>

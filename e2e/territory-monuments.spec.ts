@@ -119,7 +119,7 @@ test('Territory Monuments: choices, three waves, repair, claim, reveal replay an
   expect(choicesFit).toBe(true)
   // Existing reset confirmation, followed by a second choice and a defended success.
   page.on('dialog', dialog => dialog.accept())
-  await page.getByRole('button', { name: /RESET PROTOTYPE/ }).tap()
+  await page.getByRole('button', { name: /NEW GAME/ }).tap()
   await expect(main).toHaveAttribute('data-monument-status', 'none')
   expect(await page.evaluate(key => localStorage.getItem(key), OUTPOST_STORAGE_KEY)).toBeNull()
   await page.evaluate(({ key, save }) => localStorage.setItem(key, save), { key: OUTPOST_STORAGE_KEY, save: JSON.stringify(raw) })

@@ -109,7 +109,7 @@ test('portrait first-run guidance, visible marker, mining, build and recovery', 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
   page.once('dialog', dialog => dialog.accept())
-  await page.getByRole('button', { name: 'RESET PROTOTYPE' }).tap()
+  await page.getByRole('button', { name: 'NEW GAME' }).tap()
   await begin(page)
   await expect(main).toHaveAttribute('data-outpost-stage', 'none')
   await expect(page.locator('.operations-panel')).toHaveCount(0)
