@@ -62,6 +62,7 @@ import {
   type FirstStrikePresentationState,
 } from '../app/firstStrikePresentation.ts'
 import {
+  STRIKE_PROJECTION_FOV,
   createStrikeCameraPlan,
   type StrikeCameraPlan,
 } from './strikeCameraPlan.ts'
@@ -550,19 +551,13 @@ function applyStrikeProjection(
     phase === 'vesper-transmission' ||
     phase === 'target-approach'
 
+  const fov = isNarrowPortrait(camera)
+    ? STRIKE_PROJECTION_FOV.narrowPortrait
+    : STRIKE_PROJECTION_FOV.landscape
+
   camera.near = close ? 0.0004 : 0.01
   camera.far = close ? 12 : 80
-  camera.fov = close
-    ? isNarrowPortrait(camera)
-      ? 38
-      : 34
-    : orbital
-      ? isNarrowPortrait(camera)
-        ? 56
-        : 40
-      : isNarrowPortrait(camera)
-        ? 58
-        : 42
+  camera.fov = close ? fov.close : orbital ? fov.orbital : fov.pullback
   camera.updateProjectionMatrix()
 }
 
@@ -1014,6 +1009,8 @@ export function CameraRig({
         journey = plan.transmissionCamera
       } else if (strikePhase === 'target-approach') {
         journey = plan.targetApproachCamera
+      } else if (strikePhase === 'crater-reveal') {
+        journey = plan.craterRevealCamera
       } else if (strikePhase === 'orbital-pullback') {
         journey = plan.orbitalPullbackCamera
       } else if (strikePhase === 'ending') {
