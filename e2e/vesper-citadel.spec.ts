@@ -5,7 +5,8 @@ import { createLegacyActiveExtractorSave } from './rivalFixtures.ts'
 import { createStrikeReadySave } from './firstStrikeFixtures.ts'
 
 const stage = process.env.VESPER_EVIDENCE ?? 'after'
-const directory = `artifacts/vesper-citadel/${stage}`
+// Evidence is review output, not source: keep it in the git-ignored results tree.
+const directory = `test-results/vesper-citadel/${stage}`
 test.use({ trace: 'off', actionTimeout: 30_000, launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } })
 
 async function setPresentation(page: Page, phase: string, progress: number | null) {

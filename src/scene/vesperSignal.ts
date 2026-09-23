@@ -17,3 +17,30 @@ export function sampleCitadelSignal(elapsedMs: number) {
     sweep: ramp(time, 5_000, 5_900),
   }
 }
+
+export type CitadelSignalSample = ReturnType<typeof sampleCitadelSignal>
+
+/** Headings are model-space radians; +z is the front that faces the player. */
+const CROWN_IDLE_SWING = 0.42
+const CROWN_SWEEP = 0.38
+const ARRAY_AIM_PITCH = -0.32
+
+/**
+ * Converts the clock into joint angles and emissive levels. Idle is a slow,
+ * searching crown; the peak is a short aligned burst, never a steady glow.
+ */
+export function poseCitadelSignal(signal: CitadelSignalSample, elapsedMs: number) {
+  const listening = Math.sin(elapsedMs / 1_900) * CROWN_IDLE_SWING
+  const aimed = (signal.sweep - 0.5) * CROWN_SWEEP
+  const crownYaw = listening + (aimed - listening) * signal.alignment
+  return {
+    crownYaw,
+    arrayYaw: crownYaw * 0.55,
+    arrayPitch: ARRAY_AIM_PITCH * signal.alignment,
+    core: 0.2 + signal.charge * 0.36 + signal.transmission * 0.08,
+    routing: 0.1 + signal.routing * 0.55,
+    crown: 0.26 + signal.alignment * 0.2 + signal.transmission * 0.34,
+    array: 0.18 + signal.alignment * 0.14 + signal.transmission * 0.46,
+    beam: signal.transmission * 0.22,
+  }
+}

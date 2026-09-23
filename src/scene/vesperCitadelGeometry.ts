@@ -10,9 +10,10 @@ type Triple = readonly [number, number, number]
 export type CitadelGroundSampler = (x: number, z: number) => number
 
 // The asymmetric apron surrounds the old anchor; it never changes its datum.
+// Every hardware module with a low base must sit inside this polygon.
 export const CITADEL_FOOTPRINT: readonly (readonly [number, number])[] = [
-  [-8, -3.5], [-5.8, -6], [2.3, -6], [6, -3.8], [8, -1.2],
-  [7.6, 3.8], [4, 5.8], [-5.5, 5.8], [-8, 3],
+  [-8, -3.5], [-5.8, -6], [7.7, -6], [8.2, -3.2], [8, -1.2],
+  [7.6, 3.8], [6.8, 5.3], [4, 5.8], [-5.5, 5.8], [-8, 3],
 ]
 export const CITADEL_CROWN_PIVOT: Triple = [-2.5, 8.75, -0.65]
 export const CITADEL_ARRAY_PIVOT: Triple = [4.4, 3.35, -1.7]
