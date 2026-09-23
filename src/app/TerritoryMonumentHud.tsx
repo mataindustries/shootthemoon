@@ -93,6 +93,6 @@ export function TerritoryMonumentHud({ outpost, firstStrike, metrics, reveal, on
         </> : null}
       </>}
     </>}
-    <footer><button type="button" onClick={onClose}>{m?.status === 'complete' ? 'RETURN TO ORBIT' : 'BACK TO OUTPOST'}</button><button type="button" onClick={onReset}>RESET PROTOTYPE</button></footer>
+    <footer><button type="button" onClick={onClose}>{m?.status === 'complete' ? 'RETURN TO ORBIT' : 'BACK TO OUTPOST'}</button><button type="button" onClick={onReset}>NEW GAME</button></footer>
   </section>
 }

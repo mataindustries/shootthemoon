@@ -1335,7 +1335,7 @@ test('complete migrated-save Rival Signal loop, restoration, reset, and performa
   expect(errors).toEqual({ console: [], page: [] })
 
   page.once('dialog', (dialog) => dialog.accept())
-  await page.getByRole('button', { name: 'RESET PROTOTYPE' }).click()
+  await page.getByRole('button', { name: 'NEW GAME' }).click()
   await expect(main).toHaveAttribute('data-phase', 'orbit')
   await expect(main).toHaveAttribute('data-outpost-stage', 'none')
   await expect(main).toHaveAttribute('data-rival-reveal-state', 'none')

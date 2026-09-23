@@ -509,7 +509,7 @@ test('reset invalidates an active replay timer and cannot resurrect strike phase
   await expect(page.locator('[data-impact-effect-phase]')).toHaveCount(1)
 
   page.once('dialog', (dialog) => dialog.accept())
-  await page.getByRole('button', { name: 'RESET PROTOTYPE' }).click()
+  await page.getByRole('button', { name: 'NEW GAME' }).click()
   await expect(main).toHaveAttribute('data-entry-open', 'true')
   await expect(main).toHaveAttribute('data-first-strike-status', 'none')
   await expect(main).toHaveAttribute('data-first-strike-presentation', 'idle')

@@ -447,7 +447,7 @@ export function CinematicHud({
               type="button"
               onClick={onResetPrototype}
             >
-              RESET PROTOTYPE
+              NEW GAME
             </button>
           </div>
         </div>

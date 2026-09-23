@@ -838,7 +838,7 @@ test('Counterstrike failure preserves progress and replay replacement is deliber
   await expectCleanWebGl(page)
 
   page.once('dialog', (dialog) => dialog.accept())
-  await page.getByRole('button', { name: 'RESET PROTOTYPE' }).click()
+  await page.getByRole('button', { name: 'NEW GAME' }).click()
   await expect(main).toHaveAttribute('data-counterstrike-state', 'dormant')
   await expect(main).toHaveAttribute('data-counterstrike-available', 'false')
   await expect(main).toHaveAttribute('data-outpost-stage', 'none')

@@ -404,7 +404,7 @@ test('complete First Strike production loop, restoration, orientation, and reset
   expect(await readWebGlState(page)).toEqual({ contextLost: false, error: 0 })
 
   page.once('dialog', (dialog) => dialog.accept())
-  await page.getByRole('button', { name: 'RESET PROTOTYPE' }).click()
+  await page.getByRole('button', { name: 'NEW GAME' }).click()
   await expect(main).toHaveAttribute('data-first-strike-status', 'none')
   await expect(main).toHaveAttribute('data-rival-reveal-state', 'none')
   await expect(main).toHaveAttribute('data-outpost-stage', 'none')

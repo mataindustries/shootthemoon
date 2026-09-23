@@ -91,7 +91,7 @@ test('Orbital Siege construction, failure, refresh, recovery and deterministic r
   expect(errors).toEqual([])
   // Reset is the existing confirmed reset interaction.
   page.on('dialog', (dialog) => dialog.accept())
-  await page.getByRole('button', { name: /RESET PROTOTYPE/ }).tap()
+  await page.getByRole('button', { name: /NEW GAME/ }).tap()
   await expect(main).toHaveAttribute('data-siege-status', 'none')
   expect(await page.evaluate((key) => localStorage.getItem(key), OUTPOST_STORAGE_KEY)).toBeNull()
 })
