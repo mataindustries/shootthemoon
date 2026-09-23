@@ -1,16 +1,10 @@
 import {
-  useEffect,
   useMemo,
   useRef,
 } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
-  BoxGeometry,
-  ConeGeometry,
-  CylinderGeometry,
   Group,
-  MeshStandardMaterial,
-  OctahedronGeometry,
   Quaternion,
   Vector3,
 } from 'three'
@@ -18,7 +12,6 @@ import {
   getRivalPresentationProgress,
   type RivalPresentationState,
 } from '../app/rivalPresentation.ts'
-import { getRivalIdentity } from '../content/rivalIdentity.ts'
 import type {
   RivalSignalSnapshot,
   RivalStage,
@@ -34,20 +27,19 @@ import {
   sampleRenderedSurface,
 } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
-import {
-  MATERIAL_RESPONSE,
-  VISUAL_PALETTE,
-} from '../render/visualSystem.ts'
 import { calculatePermanentScarFloorHeight } from './PermanentLunarScar.tsx'
 import { VesperCitadel } from './VesperCitadel.tsx'
+import { VesperCitadelWreck } from './VesperCitadelWreck.tsx'
+import {
+  CITADEL_WRECK_FOUNDATION_BOTTOM,
+  CITADEL_WRECK_FOUNDATION_TOP,
+} from './vesperCitadelWreckGeometry.ts'
 
 const RIVAL_FOUNDATION_RADIUS_MODEL = 7.15
 const RIVAL_FOUNDATION_CENTER_Y_MODEL = 0.34
 const RIVAL_FOUNDATION_HEIGHT_MODEL = 0.72
 const RIVAL_FOCUSED_SCALE_MULTIPLIER = 1.2
 const RIVAL_STRATEGIC_SCALE_MULTIPLIER = 2.05
-const DAMAGED_FOUNDATION_CENTER_Y_MODEL = 0
-const DAMAGED_FOUNDATION_VERTICAL_SCALE = 0.34
 const RIVAL_FOUNDATION_BOTTOM_MODEL =
   RIVAL_FOUNDATION_CENTER_Y_MODEL - RIVAL_FOUNDATION_HEIGHT_MODEL / 2
 
@@ -84,17 +76,11 @@ export function calculateDamagedFoundationVerticalBounds(
     (focused
       ? RIVAL_FOCUSED_SCALE_MULTIPLIER
       : RIVAL_STRATEGIC_SCALE_MULTIPLIER)
-  const halfHeight =
-    (RIVAL_FOUNDATION_HEIGHT_MODEL / 2) *
-    DAMAGED_FOUNDATION_VERTICAL_SCALE
 
+  // The wreck's sunk base terrace, before its small settle tilt.
   return {
-    bottom:
-      attachmentHeight +
-      (DAMAGED_FOUNDATION_CENTER_Y_MODEL - halfHeight) * visualScale,
-    top:
-      attachmentHeight +
-      (DAMAGED_FOUNDATION_CENTER_Y_MODEL + halfHeight) * visualScale,
+    bottom: attachmentHeight + CITADEL_WRECK_FOUNDATION_BOTTOM * visualScale,
+    top: attachmentHeight + CITADEL_WRECK_FOUNDATION_TOP * visualScale,
   }
 }
 
@@ -309,7 +295,6 @@ export function RivalFoothold({
       ),
     [effectiveGroundingMode, rival.site, segments, terrain],
   )
-  const identity = getRivalIdentity(rival.identityId)
   const profile = getRivalStageVisualProfile(rival.stage)
   const initialArrivalScale = footholdArrivalScale(
     presentation,
@@ -318,83 +303,6 @@ export function RivalFoothold({
   const visualScale =
     LOCAL_METRES_TO_RENDER_UNITS * RIVAL_STRATEGIC_SCALE_MULTIPLIER
   const shadowed = focused || closeViewShadows
-
-  // The wreck keeps the First Strike debris kit; the intact headquarters is
-  // the Vesper citadel below.
-  const foundationGeometry = useMemo(
-    () => new CylinderGeometry(6.25, 7.15, 0.72, 7),
-    [],
-  )
-  const commandGeometry = useMemo(() => new ConeGeometry(2.35, 8.4, 5), [])
-  const wellGeometry = useMemo(
-    () => new CylinderGeometry(1.62, 2.08, 0.62, 8),
-    [],
-  )
-  const sensorGeometry = useMemo(() => new OctahedronGeometry(0.74, 0), [])
-  const pylonGeometry = useMemo(() => new BoxGeometry(0.72, 7.2, 0.92), [])
-  const crownGeometry = useMemo(() => new BoxGeometry(0.74, 4.7, 1.12), [])
-
-  const skeletonMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.rivalSkeleton,
-        ...MATERIAL_RESPONSE.rivalSkeleton,
-      }),
-    [],
-  )
-  const frameMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.rivalFrame,
-        ...MATERIAL_RESPONSE.rivalSkeleton,
-      }),
-    [],
-  )
-  const panelMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.rivalCyanPanel,
-        emissive: identity.palette.signal,
-        emissiveIntensity: 0.18,
-        ...MATERIAL_RESPONSE.rivalPanel,
-      }),
-    [identity.palette.signal],
-  )
-  const contactMaterial = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: VISUAL_PALETTE.contactDark,
-        ...MATERIAL_RESPONSE.contact,
-      }),
-    [],
-  )
-
-  useEffect(
-    () => () => {
-      foundationGeometry.dispose()
-      commandGeometry.dispose()
-      wellGeometry.dispose()
-      sensorGeometry.dispose()
-      pylonGeometry.dispose()
-      crownGeometry.dispose()
-      skeletonMaterial.dispose()
-      frameMaterial.dispose()
-      panelMaterial.dispose()
-      contactMaterial.dispose()
-    },
-    [
-      commandGeometry,
-      contactMaterial,
-      crownGeometry,
-      foundationGeometry,
-      frameMaterial,
-      panelMaterial,
-      pylonGeometry,
-      sensorGeometry,
-      skeletonMaterial,
-      wellGeometry,
-    ],
-  )
 
   useFrame(() => {
     const arrival = arrivalRef.current
@@ -410,71 +318,7 @@ export function RivalFoothold({
     return (
       <group position={attachment.position} quaternion={attachment.orientation}>
         <group rotation-y={rival.surfaceHeadingRad} scale={visualScale}>
-          <mesh
-            castShadow={shadowed}
-            geometry={foundationGeometry}
-            material={contactMaterial}
-            position={[0.2, DAMAGED_FOUNDATION_CENTER_Y_MODEL, 0.15]}
-            receiveShadow={shadowed}
-            rotation={[0.08, -0.12, 0.06]}
-            scale={[1, DAMAGED_FOUNDATION_VERTICAL_SCALE, 0.9]}
-          />
-          <mesh
-            castShadow={shadowed}
-            geometry={commandGeometry}
-            material={skeletonMaterial}
-            position={[-3.4, 1.1, 1.45]}
-            rotation={[0.28, -0.22, 1.18]}
-            scale={[0.96, 0.72, 1]}
-          />
-          <mesh
-            castShadow={shadowed}
-            geometry={wellGeometry}
-            material={frameMaterial}
-            position={[0.36, -0.05, -1.05]}
-            rotation={[0.12, 0.48, -0.24]}
-            scale={[1, 0.48, 0.84]}
-          />
-          <mesh
-            castShadow={shadowed}
-            geometry={pylonGeometry}
-            material={skeletonMaterial}
-            position={[2.7, 0.62, 3.25]}
-            rotation={[0.12, -0.62, 1.3]}
-            scale={[0.78, 0.58, 0.76]}
-          />
-          <mesh
-            castShadow={shadowed}
-            geometry={pylonGeometry}
-            material={frameMaterial}
-            position={[-1.35, 0.2, -4.35]}
-            rotation={[-0.16, 0.42, -1.4]}
-            scale={[0.58, 0.46, 0.58]}
-          />
-          <mesh
-            castShadow={shadowed}
-            geometry={crownGeometry}
-            material={skeletonMaterial}
-            position={[-4.4, 0.55, -1.7]}
-            rotation={[0.22, 0.48, 1.18]}
-            scale={[0.78, 0.7, 0.8]}
-          />
-          <mesh
-            castShadow={shadowed}
-            geometry={crownGeometry}
-            material={frameMaterial}
-            position={[3.5, 0.35, -2.2]}
-            rotation={[-0.18, -0.3, -1.36]}
-            scale={[0.64, 0.62, 0.72]}
-          />
-          <mesh
-            castShadow={shadowed}
-            geometry={sensorGeometry}
-            material={panelMaterial}
-            position={[0.45, 0.32, -1.12]}
-            rotation={[0.36, 0.18, 0.7]}
-            scale={0.52}
-          />
+          <VesperCitadelWreck rival={rival} profile={profile} shadowed={shadowed} />
         </group>
       </group>
     )
