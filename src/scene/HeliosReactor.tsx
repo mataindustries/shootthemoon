@@ -52,7 +52,8 @@ export function HeliosReactor({ kit, running, revealAtMs }: {
     const additive = () => new MeshBasicMaterial({ color: P.defenseImpactCore, transparent: true, opacity: 0,
       depthWrite: false, blending: AdditiveBlending })
     return {
-      core: new MeshStandardMaterial({ color: P.monumentIvory, emissive: P.defenseImpactCore, metalness: .1, roughness: .5 }),
+      // A dark body lets the emissive wake, not diffuse light, carry the core's charge.
+      core: new MeshStandardMaterial({ color: P.monumentObsidian, emissive: P.defenseImpactCore, metalness: .1, roughness: .5 }),
       powerPath: new MeshStandardMaterial({ color: P.monumentAmber, emissive: P.monumentAmber, metalness: .2, roughness: .4 }),
       railHeat: new MeshStandardMaterial({ color: P.monumentObsidian, emissive: P.playerAmberEmissive, ...R.monumentTrim }),
       payload: new MeshStandardMaterial({ color: P.monumentIvory, emissive: P.defenseImpactCore, ...R.monumentCeramic }),

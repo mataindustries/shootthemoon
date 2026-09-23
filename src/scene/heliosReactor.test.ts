@@ -7,7 +7,7 @@ import { createOctagonalKit, disposeOctagonalKit } from '../render/octagonalKit.
 import {
   COLLAR_S, HELIOS_FOOTINGS, HELIOS_HELD_POSE_MS, HELIOS_LAUNCH_MS, HELIOS_LOOP_LIMIT_MS,
   HELIOS_LOOP_MS, HELIOS_MUZZLE_SPEED, HELIOS_OPEN_LEAD_MS, HELIOS_PATH_SEGMENTS,
-  HELIOS_PATH_SEGMENT_VERTICES, HELIOS_REVEAL_LAUNCH_MS, HELIOS_REVEAL_LEAD_MS,
+  HELIOS_CAPACITOR_N, HELIOS_PATH_SEGMENT_VERTICES, HELIOS_REVEAL_LAUNCH_MS, HELIOS_REVEAL_LEAD_MS,
   L, PARK, PITCH, RINGS, createHeliosReactorGeometry, heliosGroundY, heliosLoopNeedsFrames,
   heliosLoopRemainingMs, heliosLoopTime, heliosOpenOrigin, heliosRailPoint,
   heliosRevealOrigin, heliosRingAngle, sampleHelios,
@@ -211,7 +211,7 @@ describe('Helios reactor geometry', () => {
         expect(centre.x).toBeCloseTo(-12.4 - 1.2 * (segment + .5), 5)
         expect(centre.y).toBeCloseTo(9.55, 5)
       } else {
-        const [x, y] = heliosRailPoint(COLLAR_S[segment - 4]!, -8.1)
+        const [x, y] = heliosRailPoint(COLLAR_S[segment - 4]!, HELIOS_CAPACITOR_N)
         expect(centre.x).toBeCloseTo(-x, 5)
         expect(centre.y).toBeCloseTo(y, 5)
       }

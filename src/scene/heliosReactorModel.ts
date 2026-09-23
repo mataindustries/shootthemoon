@@ -15,6 +15,7 @@ export const COLLAR_S = Array.from({ length: 10 }, (_, k) => 4 + 9.6 * k)
 export const PYLON_S = [8.8, 28, 47.2, 66.4, 85.6]
 export const RINGS = [{ y: 14, radius: 14.2, tilt: .16, turns: 2 }, { y: 23, radius: 12.6, tilt: -.20, turns: -3 }, { y: 31, radius: 11.312, tilt: .12, turns: 4 }]
 export const HELIOS_PATH_SEGMENTS = 14, HELIOS_PATH_SEGMENT_VERTICES = 72
+export const HELIOS_CAPACITOR_N = 4.78
 const PI = Math.PI, C = Math.cos(PITCH), S = Math.sin(PITCH)
 type Triple = [number, number, number]
 const az = (a: number, r: number, y: number): Triple => [Math.sin(a) * r, y, Math.cos(a) * r]
@@ -159,9 +160,10 @@ export function createHeliosReactorGeometry(kit: OctagonalKit) {
     m('sled', 'box', [0, -3.05, sign * 1.6], [7.4, .4, .6])
   }
   // Keep both boxes of each segment contiguous for the advancing draw range.
+  // Rail segments inlay each collar crown, the face the monument camera sees.
   for (let k = 0; k < HELIOS_PATH_SEGMENTS; k++) for (const sign of [-1, 1]) {
     if (k < 4) m('powerPath', 'box', [-12.4 - 1.2 * (k + .5), 9.55, sign * 2.6], [1.05, .15, .7])
-    else rail('powerPath', COLLAR_S[k - 4]!, -8.1, sign * 2.25, [2.6, .5, .12])
+    else rail('powerPath', COLLAR_S[k - 4]!, HELIOS_CAPACITOR_N, sign * .95, [1.7, .2, 1.6])
   }
   m('sled', 'box', [0, -2.45, 0], [7, 1.1, 4.2])
   m('payload', 'bevel', [0, 0, 0], [1.9, 7, 1.9], [0, 0, -PI / 2])
