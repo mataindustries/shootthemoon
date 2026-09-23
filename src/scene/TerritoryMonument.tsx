@@ -12,6 +12,7 @@ import { baseDetailsVisible } from './monumentPresentation.ts'
 import { OctagonalModel } from './OctagonalModel.tsx'
 import { authorDrone, authorMonument } from './octagonalModels.ts'
 import { WaveDefense } from './WaveDefense.tsx'
+import { HeliosReactor } from './HeliosReactor.tsx'
 
 /** Orbital cameras never draw the detailed base kit, even during a return journey. */
 export function SurfaceDetail({ children, name }: { readonly children: ReactNode; readonly name: string }) {
@@ -20,7 +21,7 @@ export function SurfaceDetail({ children, name }: { readonly children: ReactNode
   return <group ref={group} name={name}>{children}</group>
 }
 
-export function TerritoryMonument({ monument, site, terrain, segments, onFocus, sampledAtMs, running }: {
+export function TerritoryMonument({ monument, site, terrain, segments, onFocus, sampledAtMs, running, revealAtMs = null }: {
   readonly monument: TerritoryMonumentSnapshot
   readonly site: LandingSite
   readonly terrain: SurfaceTerrainProfile | null
@@ -28,6 +29,7 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
   readonly onFocus: () => void
   readonly sampledAtMs: number
   readonly running: boolean
+  readonly revealAtMs?: number | null
 }) {
   const transform = useMemo(() => landingSiteToRenderTransform(site), [site])
   const signal = useRef<Group>(null)
@@ -76,6 +78,7 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
       <group name="monument-detail" rotation-z={damaged ? -.08 : 0}>
         <group scale={[.001 * crownScale, .001 * crownScale * Math.max(.08, progress), .001 * crownScale]} name="monument-construction">
           <OctagonalModel batches={model} kit={kit} />
+          {complete && monument.kind === 'HELIOS_SPIRE' ? <HeliosReactor kit={kit} running={running} revealAtMs={revealAtMs} /> : null}
         </group>
         {!complete && !crown ? [-1, 1].map(x => <mesh key={x} geometry={kit.shapes.box} material={kit.materials.gold}
           scale={[.0007, height, .0007]} position={[x * .016, height / 2, -.012]} />) : null}

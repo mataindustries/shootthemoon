@@ -479,7 +479,7 @@ export function SceneRoot({
       {outpost?.monument && monumentSite !== null && !strikePresentationActive && !counterstrikePresentationActive ? <TerritoryMonument
         monument={outpost.monument} site={monumentSite} onFocus={onFocusMonument}
         terrain={counterstrikeTerrain} segments={quality.patchSegments}
-        sampledAtMs={outpost.operations.lastUpdatedAtMs} running={active && monumentView}
+        sampledAtMs={outpost.operations.lastUpdatedAtMs} running={active && monumentView} revealAtMs={monumentRevealAtMs}
       /> : null}
       {outpost?.monument?.kind === 'CRATER_CROWN' && outpost.monument.anchor === 'outpost' && counterstrikeTerrain !== null && (monumentView || phase === 'orbit' || monumentOrbitalView) ? <SurfacePatch
         site={outpost.site} phase="landed" terrain={counterstrikeTerrain} segments={quality.patchSegments} maximumOpacity={.8}
