@@ -1,6 +1,6 @@
 import {
-  BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry,
-  Object3D, TorusGeometry,
+  BoxGeometry, BufferAttribute, BufferGeometry, Color, CylinderGeometry, Euler,
+  Matrix4, Object3D, Quaternion, TorusGeometry, Vector3,
 } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { VISUAL_PALETTE as P } from '../render/visualSystem.ts'
@@ -17,6 +17,33 @@ export const CITADEL_FOOTPRINT: readonly (readonly [number, number])[] = [
 ]
 export const CITADEL_CROWN_PIVOT: Triple = [-2.5, 8.75, -0.65]
 export const CITADEL_ARRAY_PIVOT: Triple = [4.4, 3.35, -1.7]
+export const CITADEL_HARDPOINTS = [
+  { x: -6.45, z: -3.3, pivotY: 4.25, riserBase: 2.75, yaw: -.24, elevation: .08, mount: 'collar' },
+  { x: 6.25, z: .5, pivotY: 4.65, riserBase: 1.90, yaw: .18, elevation: .13, mount: 'strut' },
+  { x: 1.1, z: -4.4, pivotY: 5.05, riserBase: 2.00, yaw: -.06, elevation: .10, mount: 'none' },
+] as const
+export const CITADEL_HARDPOINT_TRUNNION_Y = .6
+export const CITADEL_HARDPOINT_MUZZLE_Z = 1.54
+type CitadelHardpointFrame = 'fixed' | 'turret' | 'cradle'
+
+export function poseCitadelHardpointPart(
+  hardpoint: typeof CITADEL_HARDPOINTS[number],
+  frame: CitadelHardpointFrame,
+  position: Triple,
+  rotation: Triple = [0, 0, 0],
+): { position: Triple, rotation: Triple } {
+  const matrix = new Matrix4().makeTranslation(hardpoint.x, hardpoint.pivotY, hardpoint.z)
+  if (frame !== 'fixed') matrix.multiply(new Matrix4().makeRotationY(hardpoint.yaw))
+  if (frame === 'cradle') {
+    matrix.multiply(new Matrix4().makeTranslation(0, CITADEL_HARDPOINT_TRUNNION_Y, 0))
+    matrix.multiply(new Matrix4().makeRotationX(-hardpoint.elevation))
+  }
+  const point = new Vector3().fromArray(position).applyMatrix4(matrix)
+  const orientation = new Quaternion().setFromRotationMatrix(matrix)
+    .multiply(new Quaternion().setFromEuler(new Euler(...rotation, 'XYZ')))
+  const angles = new Euler().setFromQuaternion(orientation, 'XYZ')
+  return { position: [point.x, point.y, point.z], rotation: [angles.x, angles.y, angles.z] }
+}
 
 export function colored(geometry: BufferGeometry, hex: string): BufferGeometry {
   const count = geometry.getAttribute('position').count
@@ -175,17 +202,52 @@ export const CITADEL_ARCHITECTURE = {
   },
 } as const satisfies Record<string, CitadelAuthor>
 
-// Existing stages still gain authored communications/defensive hardware.
+// Stage hardware supports split-rail energy-lance hardpoints.
 export function authorCitadelStageHardware(add: CitadelAdd, profile: RivalStageVisualProfile): void {
   for (let i = 0; i < profile.pylonCount; i++) {
-    const x = [-6.45, 6.25, 1.1][i]!, z = [-3.3, .5, -4.4][i]!
-    add('armor', P.rivalFrame, [x, 1.2, z], [1.12, 1.5, 1.22])
-    add('box', P.neutralMachinery, [x, 2.8 + i * .2, z], [.25, 3.3 + i * .4, .35])
-    add('box', P.neutralMachinery, [x, 4 + i * .4, z], [1.15, .22, .35])
+    const h = CITADEL_HARDPOINTS[i]!
+    add('armor', P.rivalFrame, [h.x, 1.2, h.z], [1.12, 1.5, 1.22])
+    add('box', P.neutralMachinery, [h.x, 2.8 + i * .2, h.z], [.25, 3.3 + i * .4, .35])
+    add('box', P.neutralMachinery, [h.x, 4.3 + i * .4, h.z], [.42, .30, .42])
   }
   for (let i = 0; i < profile.buttressCount; i++) {
     const x = -5.5 + i * 2.05
     add('armor', P.rivalFrame, [x, 1, -4.8], [1.2, 1.8, 1.4], [-.15, 0, 0])
+  }
+}
+
+export function authorCitadelHardpoints(add: CitadelAdd, profile: RivalStageVisualProfile): void {
+  for (let i = 0; i < profile.pylonCount; i++) {
+    const h = CITADEL_HARDPOINTS[i]!, r = h.pivotY - h.riserBase
+    const part = (frame: CitadelHardpointFrame, shape: CitadelShape, color: string, position: Triple, scale: Triple, rotation?: Triple) => {
+      const pose = poseCitadelHardpointPart(h, frame, position, rotation)
+      add(shape, color, pose.position, scale, pose.rotation)
+    }
+    part('fixed', 'armor', P.neutralMachinery, [0, -r / 2 + .02, 0], [.66, r + .04, .70])
+    part('fixed', 'box', P.rivalFrame, [0, -r / 2 + .05, -.37], [.18, r - .10, .12])
+    part('turret', 'armor', P.rivalFrame, [0, .17, -.05], [.92, .34, .96])
+    for (const side of [-1, 1]) part('turret', 'box', P.neutralMachinery, [side * .30, .55, .04], [.12, .50, .54])
+    part('cradle', 'armor', P.rivalFrame, [0, 0, -.20], [.52, .36, .88])
+    for (const side of [-1, 1]) part('cradle', 'box', P.neutralMachinery, [side * .115, 0, .80], [.08, .20, 1.30])
+    part('cradle', 'box', P.rivalFrame, [0, .125, .42], [.31, .05, .56])
+    for (const side of [-1, 1]) part('cradle', 'box', P.rivalSurgical, [side * .23, .04, .98], [.05, .24, .46], [0, side * .2, 0])
+    part('cradle', 'box', P.rivalFrame, [0, 0, 1.44], [.38, .28, .12])
+    part('cradle', 'box', P.contactDark, [0, 0, 1.52], [.14, .12, .04])
+    if (h.mount === 'collar') add('box', P.rivalFrame, [h.x, 3.08, h.z], [1.0, .26, 1.0])
+    if (h.mount === 'strut') add('box', P.rivalFrame, [h.x - .65, 3.225, h.z], [.14, 1.32, .26], [0, 0, -.651])
+  }
+}
+
+export function authorCitadelHardpointSignal(add: CitadelAdd, profile: RivalStageVisualProfile): void {
+  for (let i = 0; i < profile.pylonCount; i++) {
+    const h = CITADEL_HARDPOINTS[i]!
+    for (const [position, scale] of [
+      [[0, -.02, .82], [.06, .12, 1.18]],
+      [[0, 0, 1.555], [.05, .05, .03]],
+    ] as const) {
+      const pose = poseCitadelHardpointPart(h, 'cradle', position)
+      add('box', P.rivalCyanPanel, pose.position, scale, pose.rotation)
+    }
   }
 }
 
@@ -260,9 +322,13 @@ export function createCitadelGeometry(profile: RivalStageVisualProfile) {
   const architecture = batch(add => {
     for (const author of Object.values(CITADEL_ARCHITECTURE)) author(add)
     authorCitadelStageHardware(add, profile)
+    authorCitadelHardpoints(add, profile)
   })
   const core = batch(authorCitadelCore)
-  const routing = batch(authorCitadelRouting)
+  const routing = batch(add => {
+    authorCitadelRouting(add)
+    authorCitadelHardpointSignal(add, profile)
+  })
   const lamps = batch(add => {
     for (const x of [-4.7, -2.5, -.3]) add('box', P.rivalCyanPanel, [x, 2.48, 3.48], [.45, .09, .12])
     for (const x of [-6.3, 6.3]) add('box', P.rivalCyanPanel, [x, .95, 3.95], [.2, .16, .22])
