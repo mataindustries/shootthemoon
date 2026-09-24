@@ -313,6 +313,11 @@ function App() {
   const monumentSafe = rivalPresentation.phase === 'idle' && firstStrikePresentation.phase === 'idle' && (counterstrikeRun.status === 'dormant' || (counterstrikeRun.status === 'resolved' && !counterstrikeRun.replay && counterstrike?.acceptedOutcome != null)) && (state.phase === 'landed' || state.phase === 'orbit')
   const monumentView = monumentOpen && monumentSafe && !entryOpen
   const monumentAvailable = outpost !== null && monumentsUnlocked(outpost, firstStrike)
+  // Counterstrike is "dormant" both before it exists and while its urgent
+  // TRACK COUNTERSTRIKE prompt is up awaiting the player's action. Only the
+  // latter must hold off the monument auto-open; the button stays reachable.
+  const counterstrikeAwaitingTrack = counterstrikeRun.status === 'dormant' && counterstrike?.available === true && counterstrike.acceptedOutcome === null
+  const monumentAutoOpenSafe = monumentSafe && !counterstrikeAwaitingTrack
   const platformDefense = !entryOpen && state.phase === 'landed' && monumentSafe && !monumentView
     ? platformDefenseView(outpost?.orbitalSiege ?? null, platformShots) : null
   const continuousRendering =
@@ -1343,13 +1348,13 @@ function App() {
   }, [counterstrike, counterstrikeRun, outpost])
 
   useEffect(() => {
-    if (!entryOpen && monumentSafe && monumentAvailable && !monumentOfferedRef.current && !siegeIsActive(outpost?.orbitalSiege ?? null)) {
+    if (!entryOpen && monumentAutoOpenSafe && monumentAvailable && !monumentOfferedRef.current && !siegeIsActive(outpost?.orbitalSiege ?? null)) {
       monumentOfferedRef.current = true
       setCounterstrikeRun(current => current.status === 'resolved' ? counterstrikeRunReducer(current, { type: 'reset', clockMs: performance.now() }) : current)
       setMonumentOpen(true)
       dispatchOutpost({ type: 'resumeSurface', nowMs: Date.now() })
     }
-  }, [entryOpen, monumentSafe, monumentAvailable, outpost?.orbitalSiege?.status])
+  }, [entryOpen, monumentAutoOpenSafe, monumentAvailable, outpost?.orbitalSiege?.status])
 
   useEffect(() => {
     if (monumentView && outpost?.monument?.status === 'complete' && !outpost.monument.revealSeen && monumentRevealAtMs === null) {

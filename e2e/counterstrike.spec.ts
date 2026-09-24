@@ -912,6 +912,63 @@ test('accepted Counterstrike fixture never resumes a transient projectile', asyn
   expect(errors).toEqual({ console: [], page: [] })
 })
 
+// Regression for Territory Monuments auto-opening over an untracked but
+// available Counterstrike: First Strike completion unlocks monuments and
+// Counterstrike in the same frame, so the monument offer must defer instead
+// of replacing the HUD that carries the TRACK COUNTERSTRIKE control.
+test('Territory Monuments defer their auto-open until an urgent Counterstrike flow resolves', async ({
+  page,
+}) => {
+  test.setTimeout(45_000)
+  const errors = watchBrowserErrors(page)
+  await openScene(page, createCompletedStrikeSave())
+  const main = page.locator('main')
+
+  // Monuments are unlocked by the same First Strike completion that makes
+  // Counterstrike available, so both become eligible on the same render.
+  await expect(main).toHaveAttribute('data-counterstrike-available', 'true')
+  await expect(main).toHaveAttribute('data-monument-view', 'false')
+  await expect(page.locator('.counterstrike-ready')).toContainText(
+    'COUNTERSTRIKE AVAILABLE',
+  )
+
+  // Deferred, not suppressed: the manual entry point still reaches monuments.
+  await expect(
+    page.getByRole('button', { name: 'TERRITORY MONUMENTS', exact: true }),
+  ).toBeVisible()
+
+  await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
+  await expect(main).toHaveAttribute('data-monument-view', 'false')
+  await page.getByRole('button', { name: /PRIORITIZE INTERCEPTOR/ }).click()
+  await expect(main).toHaveAttribute('data-monument-view', 'false')
+
+  // Hand the run to the harness immediately (before the real warning timer
+  // fires) and resolve it outright; the monument must stay off-screen for
+  // the whole urgent presentation, not just its opening moment.
+  await setRun(page, {
+    status: 'resolved',
+    progress: 1,
+    attemptNumber: 1,
+    attemptsUsed: 1,
+    outcome: 'SUCCESS',
+    order: 'PRIORITIZE_INTERCEPTOR',
+    replay: false,
+  })
+  await expect(main).toHaveAttribute(
+    'data-counterstrike-accepted-outcome',
+    'SUCCESS',
+  )
+
+  // Only once the urgent flow has actually concluded does the deferred
+  // monument offer resurface, proving this is a defer and not a suppression.
+  await expect(main).toHaveAttribute('data-monument-view', 'true')
+  await expect(page.locator('.monument-heading')).toContainText(
+    'TERRITORY MONUMENTS',
+  )
+
+  expect(errors).toEqual({ console: [], page: [] })
+})
+
 test('records a paced successful Counterstrike', async ({ page }) => {
   test.skip(
     process.env.COUNTERSTRIKE_RECORDING !== '1',

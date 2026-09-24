@@ -1,5 +1,5 @@
 import type { OutpostSnapshot } from '../domain/outpost.ts'
-import { PLATFORM_ORE_COST, SIEGE_COMMAND_END_MS, SIEGE_WAVE_TIMES, SIEGE_ORDERS, siegeAllocation, siegeIsActive, type SiegeOrder } from '../domain/orbitalSiege.ts'
+import { PLATFORM_ORE_COST, PLATFORM_POWER_KW, SIEGE_COMMAND_END_MS, SIEGE_WAVE_TIMES, SIEGE_ORDERS, siegeAllocation, siegeIsActive, type SiegeOrder } from '../domain/orbitalSiege.ts'
 import { canStartOrbitalSiege } from '../simulation/orbitalSiegeSimulation.ts'
 import type { OutpostOperationsMetrics } from '../simulation/outpostOperations.ts'
 
@@ -16,12 +16,19 @@ export function OrbitalSiegeHud({ outpost, metrics, onAction }: {
   const allocation = siegeAllocation(siege)
   return (
     <section className="siege-panel" aria-label="Orbital Siege" data-siege-status={siege?.status ?? 'available'}>
-      <header><span>ORBITAL SIEGE</span><strong>{siege === null ? 'ORBITAL PLATFORM OBJECTIVE' :
+      <header><span>ORBITAL SIEGE</span><strong>{siege === null ? 'ORBITAL PLATFORM' :
         siege.status === 'operational' ? 'ORBITAL CONTROL ACHIEVED' :
         siege.status === 'damaged' ? 'PLATFORM BREACHED · RECOVERABLE' :
         siege.status === 'repairing' ? 'REPAIRING PLATFORM' :
         siege.status === 'constructing' ? 'ASSEMBLING ABOVE OUTPOST' : 'INCOMING DRONE SWARM'}</strong></header>
-      {siege === null ? <p>Build an orbital logistics relay. +20% ore delivery when operational.<br />60 stored ore · 6 kW reserved · 2 of 3 robots. No defense reserve; 1 miner with −25% ore delivery during assembly.</p> : <>
+      {siege === null ? <>
+        <p className="siege-benefit">+20% ORE DELIVERY</p>
+        <p className="siege-stats">{PLATFORM_ORE_COST} ORE · {PLATFORM_POWER_KW} kW · 2 ROBOTS</p>
+        <details className="siege-detail">
+          <summary>ASSEMBLY DETAILS</summary>
+          <p>Orbital logistics relay. Reserves 2 of 3 robots and {PLATFORM_POWER_KW} kW for assembly. No defense reserve; remaining miner works at −25% ore delivery.</p>
+        </details>
+      </> : <>
         <div className="siege-progress"><span>{Math.round(siege.progress * 100)}% ASSEMBLED</span><span>HULL {siege.platformHealth}%</span></div>
         <progress aria-label="Platform assembly" value={siege.progress} max={1} />
         {active ? <p>{metrics.activeRobots} mining · {allocation.builders} building · {allocation.defenders} defending<br />{metrics.platformAllocationKw} kW platform + {metrics.defenseAllocationKw.toFixed(1)} kW defense · {metrics.miningAllocationKw.toFixed(1)} kW mining<br />Assembly delivery −25% · Defense reserve {allocation.readiness}/3 · {metrics.productionPerMin.toFixed(1)} ore/min</p> : null}
