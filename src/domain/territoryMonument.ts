@@ -19,8 +19,9 @@ export const MONUMENTS = {
     benefit: 'Fusion reactor + lunar mass driver. +25% solar output.', form: 'An illuminated beacon above the lunar horizon.' },
   CRATER_CROWN: { title: 'CRATER CROWN', ore: 90, laborMs: 42_000,
     benefit: '+20% extraction at this territory’s selected terrain.', form: 'An industrial crown built into the existing impact scar.' },
-  BASTION_OBELISK: { title: 'BASTION OBELISK', ore: 100, laborMs: 48_000,
-    benefit: '25% less siege damage; +50% repair speed; halves production damage effects.', form: 'An armored obelisk held by massive structural braces.' },
+  // Persisted id remains BASTION_OBELISK; the player-facing name is BASTION ZIGGURAT.
+  BASTION_OBELISK: { title: 'BASTION ZIGGURAT', ore: 100, laborMs: 48_000,
+    benefit: 'Every step a wall. −25% siege damage · +50% repair · half production damage.', form: 'Five armored terraces, four corner bastions, one stair to a horned sanctum.' },
   SIGNAL_ARRAY: { title: 'SIGNAL ARRAY', ore: 80, laborMs: 36_000,
     benefit: 'Halves logistics losses; +50% rival scan speed and detection lead.', form: 'A geometric antenna with a pulsing orbital signal.' },
 } as const

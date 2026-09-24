@@ -28,7 +28,7 @@ test('Territory Monuments: choices, three waves, repair, claim, reveal replay an
   await page.getByRole('button', { name: 'CONTINUE', exact: true }).tap()
   await expect(main).toHaveAttribute('data-monument-view', 'true')
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
-  for (const title of ['HELIOS SPIRE', 'CRATER CROWN', 'BASTION OBELISK', 'SIGNAL ARRAY']) {
+  for (const title of ['HELIOS SPIRE', 'CRATER CROWN', 'BASTION ZIGGURAT', 'SIGNAL ARRAY']) {
     await expect(page.getByRole('button', { name: new RegExp(title) })).toBeEnabled()
   }
   expect(await page.locator('.monument-choices > button').evaluateAll(items => items.every(item => item.getBoundingClientRect().bottom < innerHeight - 12))).toBe(true)

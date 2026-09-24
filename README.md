@@ -2,7 +2,7 @@
 
 Territory Monuments adds one saved endgame claim after successful Orbital Siege
 or the existing completed First Strike endpoint. Choose Helios Spire, Crater
-Crown, Bastion Obelisk, or Signal Array using stored outpost ore, generated solar
+Crown, Bastion Ziggurat, or Signal Array using stored outpost ore, generated solar
 power, and the same three operation robots. Three finite Octogonal attacks each
 wait for a Command Phase allocation. A breach leaves a repairable monument and
 production damage; completion reveals the claim from orbit. Prior campaign
