@@ -10,6 +10,9 @@ import { DEFENSE_HULL_SAVED, defenseShotHits } from '../domain/waveDefense.ts'
 
 export type MonumentAction = MonumentKind | MonumentOrder | 'repair' | 'fire'
 
+// Short completed-state label; the selection card keeps the fuller benefit text.
+const HELIOS_ONLINE_LABEL = 'HELIOS SPIRE ONLINE · +25% SOLAR OUTPUT'
+
 function MonumentGlyph({ kind }: { readonly kind: MonumentKind }) {
   return <svg viewBox="0 0 48 48" aria-hidden="true" className="monument-glyph">
     {kind === 'HELIOS_SPIRE' ? <path d="M17 42 22 8 26 8 31 42ZM24 2v9M18 6h12" /> :
@@ -52,7 +55,7 @@ export function TerritoryMonumentHud({ outpost, firstStrike, metrics, reveal, on
       })}</div>
       <p>Ore paid once. Labor shares your 3 robots at 2 kW each; defense reserves up to 6 kW more. Work needs an idle miner, completed module and siege work, and at least 6 kW solar. Construction and defense reduce mining.</p>
     </> : <>
-      {reveal ? <p role="status">TERRITORY CLAIMED · {spec!.benefit}</p> : <>
+      {reveal ? <p role="status">{m.kind === 'HELIOS_SPIRE' ? HELIOS_ONLINE_LABEL : `TERRITORY CLAIMED · ${spec!.benefit}`}</p> : <>
         <div className="monument-stats"><span>{repair ? 'REPAIR' : 'CONSTRUCTION'} {Math.floor(progress * 100)}%</span><span>HULL {m.health}% · {m.wavesResolved}/3 WAVES</span></div>
         <progress aria-label={repair ? 'Monument repair' : 'Monument construction'} value={progress} max={1} />
         {m.status !== 'complete' && m.status !== 'damaged' && m.status !== 'wave' ? <p className="monument-resources">
@@ -87,7 +90,7 @@ export function TerritoryMonumentHud({ outpost, firstStrike, metrics, reveal, on
             <p>2 robots · 4 kW · 15s at full power (60 kW·s, 30 robot-seconds). Repairs this monument and its production penalty; earlier campaign damage remains. No further attacks.</p></> : null}
         </> : null}
         {m.status === 'complete' ? <>
-          <p role="status">TERRITORY CLAIMED · PERMANENT<br />{spec!.benefit}</p>
+          <p role="status">{m.kind === 'HELIOS_SPIRE' ? HELIOS_ONLINE_LABEL : <>TERRITORY CLAIMED · PERMANENT<br />{spec!.benefit}</>}</p>
           <p className="monument-radio">“{OCTOGONALS.victory}”</p>
           <button type="button" onClick={onReplay}>REPLAY ORBITAL REVEAL</button>
         </> : null}

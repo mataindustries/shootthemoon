@@ -3250,6 +3250,11 @@ button {
 .siege-panel progress { width: 100%; height: 7px; accent-color: #88e1e7; }
 .siege-progress { display: flex; justify-content: space-between; font-size: 10px; }
 .siege-panel .siege-damage { color: #ffb39a; }
+.siege-benefit { color: #9ce4e2; font-weight: 700; letter-spacing: .04em; }
+.siege-stats { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.siege-detail { margin-top: -3px; }
+.siege-detail summary { min-height: 28px; display: flex; align-items: center; color: rgb(208 220 226 / 62%); font-size: 10px; letter-spacing: .08em; cursor: pointer; }
+.siege-detail p { padding-top: 3px; }
 .siege-command.counterstrike-command { position: static; transform: none; width: auto; max-height: none; padding: 8px; gap: 8px; }
 .siege-command .counterstrike-command__copy small { font-size: 11px; }
 .app-shell[data-siege-status="command"] .operations-panel { max-height: calc(100dvh - 110px); overflow-y: auto; }
@@ -3269,7 +3274,8 @@ button {
 .siege-outpost-controls[open] > .operations-controls { margin-bottom: 8px; }
 .app-shell[data-siege-status="none"] .siege-outpost-controls > summary { display: none; }
 
-.monument-entry { position: fixed; z-index: 14; top: max(88px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); min-height: 44px; padding: 10px 18px; border: 1px solid #bba078; background: #171e27; color: #f1d8b1; font: 600 11px/1.4 inherit; letter-spacing: .08em; cursor: pointer; }
+/* Styled as a compact tab in the same dark command system as .operations-panel, not a competing gold card. */
+.monument-entry { position: fixed; z-index: 14; top: max(88px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); min-height: 40px; padding: 8px 16px; border: 1px solid rgb(193 206 220 / 16%); border-left: 2px solid #bba078; background: linear-gradient(135deg, rgb(8 13 19 / 94%), rgb(4 7 11 / 90%)); color: #ddd0b8; font: 600 10px/1.4 inherit; letter-spacing: .1em; cursor: pointer; box-shadow: 0 10px 26px rgb(0 0 0 / 32%); }
 .app-shell[data-monument-view="true"] > .cinematic-hud,
 .app-shell[data-monument-view="true"] > .hud,
 .app-shell[data-monument-view="true"] > .rival-hud,

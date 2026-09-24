@@ -16,7 +16,7 @@ export const MONUMENT_REPAIR_WORK_MS = 30_000
 export const MONUMENT_REVEAL_MS = 6_000
 export const MONUMENTS = {
   HELIOS_SPIRE: { title: 'HELIOS SPIRE', ore: 80, laborMs: 36_000,
-    benefit: '+25% solar energy production.', form: 'An illuminated beacon above the lunar horizon.' },
+    benefit: 'Fusion reactor + lunar mass driver. +25% solar output.', form: 'An illuminated beacon above the lunar horizon.' },
   CRATER_CROWN: { title: 'CRATER CROWN', ore: 90, laborMs: 42_000,
     benefit: '+20% extraction at this territory’s selected terrain.', form: 'An industrial crown built into the existing impact scar.' },
   BASTION_OBELISK: { title: 'BASTION OBELISK', ore: 100, laborMs: 48_000,
