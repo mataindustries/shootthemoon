@@ -182,6 +182,19 @@ describe('Territory Monuments', () => {
     expect(monumentModifiers(begun(kind).monument).energy).toBe(1)
   })
 
+  it('keeps the persisted BASTION_OBELISK id while presenting the Bastion Ziggurat', () => {
+    const p = ready()
+    const result = finish('BASTION_OBELISK')
+    const raw = serializePrototypeSave({ ...p, outpost: result }, result.operations.lastUpdatedAtMs)
+    expect(JSON.parse(raw).outpost.monument.kind).toBe('BASTION_OBELISK')
+    const kind = deserializePrototypeSave(raw, result.operations.lastUpdatedAtMs)!.outpost.monument!.kind
+    expect(kind).toBe('BASTION_OBELISK')
+    expect(MONUMENTS[kind].title).toBe('BASTION ZIGGURAT')
+    // The copy must track the live modifiers: −25% damage, +50% repair, half production damage.
+    expect(monumentModifiers(result.monument)).toMatchObject({ damage: .75, repairSpeed: 1.5, damagePenalty: .5 })
+    expect(MONUMENTS[kind].benefit).toBe('Every step a wall. −25% siege damage · +50% repair · half production damage.')
+  })
+
   it('repair pays once, resumes from refresh, ends with a claim and retains earlier outcomes and losses', () => {
     const p = ready()
     const failed = finish('CRATER_CROWN', ['PRESERVE', 'PRESERVE', 'PRESERVE'])

@@ -1,5 +1,6 @@
 import type { MonumentKind } from '../domain/territoryMonument.ts'
 import type { AddPart } from '../render/octagonalKit.ts'
+import { authorBastionZiggurat } from './bastionZigguratModel.ts'
 
 const H = Math.PI / 2
 const EIGHT = Array.from({ length: 8 }, (_, i) => i * Math.PI / 4)
@@ -40,7 +41,8 @@ export function authorPlatform(add: AddPart) {
 }
 
 export function authorMonument(kind: MonumentKind, add: AddPart) {
-  if (kind !== 'CRATER_CROWN') {
+  // The Ziggurat's own terraces are its foundation; only spire-type monuments keep the round plinth.
+  if (kind === 'HELIOS_SPIRE' || kind === 'SIGNAL_ARRAY') {
     add('bevel', 'dark', [0, 2, 0], [17, 4, 17])
     add('ring', 'gold', [0, 3.5, 0], [15.8, 15.8, 6], [H, 0, 0])
     for (const angle of EIGHT.filter((_, i) => i % 2 === 0)) {
@@ -77,21 +79,7 @@ export function authorMonument(kind: MonumentKind, add: AddPart) {
       add('box', 'gold', [Math.sin(mid) * 39.8, 5.65, Math.cos(mid) * 39.8], [29, .4, .6], [0, mid, 0])
     }
   }
-  if (kind === 'BASTION_OBELISK') {
-    add('taper', 'dark', [0, 23, 0], [13, 38, 11])
-    add('bevel', 'dark', [0, 39, 0], [6.5, 10, 5.5])
-    add('bevel', 'gold', [0, 43.5, 0], [5.7, 1.8, 4.8])
-    for (const x of [-1, 1]) for (const z of [-1, 1]) {
-      add('bevel', 'dark', [x * 11, 15, z * 8], [4, 28, 4.5], [0, 0, x * .27])
-      add('bevel', 'gold', [x * 9.3, 26, z * 8], [2.9, 9, 4.1], [0, 0, x * .27])
-      add('box', 'amber', [x * 11.5, 8, z * 11.5], [1.1, 5, .6])
-    }
-    for (const side of [-1, 1]) {
-      add('bevel', 'dark', [0, 31, side * 7], [8, 5, 2.5])
-      add('box', 'amber', [0, 31.3, side * 9.4], [12, 1.15, .45])
-      add('box', 'cyan', [side * 2.2, 40, 5.2], [.6, 2.4, .3])
-    }
-  }
+  if (kind === 'BASTION_OBELISK') authorBastionZiggurat(add)
   if (kind === 'SIGNAL_ARRAY') {
     add('taper', 'dark', [0, 20, 0], [7.5, 32, 7.5])
     add('bevel', 'gold', [0, 28, 0], [4.8, 2, 4.8])

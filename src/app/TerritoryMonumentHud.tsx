@@ -10,14 +10,17 @@ import { DEFENSE_HULL_SAVED, defenseShotHits } from '../domain/waveDefense.ts'
 
 export type MonumentAction = MonumentKind | MonumentOrder | 'repair' | 'fire'
 
-// Short completed-state label; the selection card keeps the fuller benefit text.
-const HELIOS_ONLINE_LABEL = 'HELIOS SPIRE ONLINE · +25% SOLAR OUTPUT'
+// Short completed-state labels; the selection card keeps the fuller benefit text.
+const ONLINE_LABELS: Partial<Record<MonumentKind, string>> = {
+  HELIOS_SPIRE: 'HELIOS SPIRE ONLINE · +25% SOLAR OUTPUT',
+  BASTION_OBELISK: 'BASTION ZIGGURAT RAISED · −25% SIEGE DAMAGE',
+}
 
 function MonumentGlyph({ kind }: { readonly kind: MonumentKind }) {
   return <svg viewBox="0 0 48 48" aria-hidden="true" className="monument-glyph">
     {kind === 'HELIOS_SPIRE' ? <path d="M17 42 22 8 26 8 31 42ZM24 2v9M18 6h12" /> :
       kind === 'CRATER_CROWN' ? <path d="m5 19 6 9 8-15 5 12 7-12 6 15 6-9-5 20H10ZM12 40q12 6 24 0" /> :
-      kind === 'BASTION_OBELISK' ? <path d="m17 38 3-29 4-5 5 5 3 29ZM17 23 7 42h34L32 23M20 20h9" /> :
+      kind === 'BASTION_OBELISK' ? <path d="M4 42v-7h5v-7h5v-7h5v-8h10v8h5v7h5v7h5v7ZM19 13l-3-6M29 13l3-6M24 41V17" /> :
       <path d="m15 4-9 9v14l9 9h18l9-9V13l-9-9ZM6 20h36M24 4v32M10 8l28 24M38 8 10 32M20 36l-4 8h16l-4-8" />}
   </svg>
 }
@@ -55,7 +58,7 @@ export function TerritoryMonumentHud({ outpost, firstStrike, metrics, reveal, on
       })}</div>
       <p>Ore paid once. Labor shares your 3 robots at 2 kW each; defense reserves up to 6 kW more. Work needs an idle miner, completed module and siege work, and at least 6 kW solar. Construction and defense reduce mining.</p>
     </> : <>
-      {reveal ? <p role="status">{m.kind === 'HELIOS_SPIRE' ? HELIOS_ONLINE_LABEL : `TERRITORY CLAIMED · ${spec!.benefit}`}</p> : <>
+      {reveal ? <p role="status">{ONLINE_LABELS[m.kind] ?? `TERRITORY CLAIMED · ${spec!.benefit}`}</p> : <>
         <div className="monument-stats"><span>{repair ? 'REPAIR' : 'CONSTRUCTION'} {Math.floor(progress * 100)}%</span><span>HULL {m.health}% · {m.wavesResolved}/3 WAVES</span></div>
         <progress aria-label={repair ? 'Monument repair' : 'Monument construction'} value={progress} max={1} />
         {m.status !== 'complete' && m.status !== 'damaged' && m.status !== 'wave' ? <p className="monument-resources">
@@ -90,7 +93,7 @@ export function TerritoryMonumentHud({ outpost, firstStrike, metrics, reveal, on
             <p>2 robots · 4 kW · 15s at full power (60 kW·s, 30 robot-seconds). Repairs this monument and its production penalty; earlier campaign damage remains. No further attacks.</p></> : null}
         </> : null}
         {m.status === 'complete' ? <>
-          <p role="status">{m.kind === 'HELIOS_SPIRE' ? HELIOS_ONLINE_LABEL : <>TERRITORY CLAIMED · PERMANENT<br />{spec!.benefit}</>}</p>
+          <p role="status">{ONLINE_LABELS[m.kind] ?? <>TERRITORY CLAIMED · PERMANENT<br />{spec!.benefit}</>}</p>
           <p className="monument-radio">“{OCTOGONALS.victory}”</p>
           <button type="button" onClick={onReplay}>REPLAY ORBITAL REVEAL</button>
         </> : null}
