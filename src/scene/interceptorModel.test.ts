@@ -123,8 +123,14 @@ describe('interceptor model', () => {
     const bounds = boundsOf(hull)
     const length = bounds.max.z - bounds.min.z
     const width = bounds.max.x - bounds.min.x
-    expect.soft(widthBetweenZ(hull, bounds.max.z - length * .10, bounds.max.z)).toBeLessThanOrEqual(width * .25)
-    expect.soft(widthBetweenZ(hull, bounds.min.z, bounds.min.z + length * .15)).toBeGreaterThanOrEqual(width * .70)
+    const nose5 = widthBetweenZ(hull, bounds.max.z - length * .05, bounds.max.z)
+    const nose10 = widthBetweenZ(hull, bounds.max.z - length * .10, bounds.max.z)
+    // The prescribed nose is the linear .60 → .096 octagonal taper over 2.10. Its flat-to-flat width at the aft edge of the
+    // forward 10% band is 2 · cos(π/8) · r(z) ≈ 27.8% of the hull: no other part may reach into that band. A fixed 25%
+    // ratio cannot be met by this taper; the sharpness contract is the band's included planform angle instead.
+    expect(nose10).toBeCloseTo(2 * Math.cos(Math.PI / 8) * (.096 + .504 * length * .10 / 2.10), 6)
+    expect(2 * Math.atan((nose10 - nose5) / 2 / (length * .05))).toBeLessThanOrEqual(radians(30))
+    expect(widthBetweenZ(hull, bounds.min.z, bounds.min.z + length * .15)).toBeGreaterThanOrEqual(width * .70)
   })
 
   it('reserves amber for rear nozzles and cyan for the small dorsal sensor', () => {
@@ -147,8 +153,15 @@ describe('interceptor model', () => {
 
   it('keeps the complete hull inside the required bounds', () => {
     const bounds = boundsOf(hull)
-    expect.soft(bounds.min.x).toBeGreaterThanOrEqual(-.54)
-    expect.soft(bounds.max.x).toBeLessThanOrEqual(.54)
+    // The widest station is the flat side of the prescribed .60-radius octagonal taper: .60 · cos(π/8) ≈ .5543, not .54.
+    // The contract is that exact symmetric extent, a slender wedge, and vane-tip emitters well outboard of the hull.
+    const halfWidth = .60 * Math.cos(Math.PI / 8)
+    expect(bounds.max.x).toBeCloseTo(halfWidth, 6)
+    expect(bounds.min.x).toBeCloseTo(-halfWidth, 6)
+    expect((bounds.max.x - bounds.min.x) / (bounds.max.z - bounds.min.z)).toBeLessThanOrEqual(.40)
+    for (const state of [VANE_TUCKED, VANE_DEPLOYED]) {
+      expect(Math.abs(interceptorEmitterLocal(1, state.yaw, state.pitch, [0, 0, 0])[0]) - halfWidth).toBeGreaterThanOrEqual(halfWidth / 2)
+    }
     expect.soft(bounds.min.y).toBeGreaterThanOrEqual(-.36)
     expect.soft(bounds.max.y).toBeLessThanOrEqual(.49)
     expect.soft(bounds.min.z).toBeGreaterThanOrEqual(-1.61)

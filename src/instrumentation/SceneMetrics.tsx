@@ -45,6 +45,9 @@ export function SceneMetrics() {
       canvas.dataset.claimSignalVisible = String(visible('territory-claim-signal'))
       canvas.dataset.scarVisible = String(visible('permanent-lunar-scar'))
       canvas.dataset.octogonalsVisible = String(visible('octogonal-approach'))
+      canvas.dataset.octogonalThrustVisible = String(visible('octogonal-thrust'))
+      canvas.dataset.octogonalFireVisible = String(visible('octogonal-fire'))
+      canvas.dataset.octogonalImpactVisible = String(visible('octogonal-impact'))
       canvas.dataset.defenseBurstVisible = String(visible('octogonal-destruction'))
       canvas.dataset.defenseBeamVisible = String(visible('defense-beam'))
       const defenseFraming: Record<string, number[]> = {}

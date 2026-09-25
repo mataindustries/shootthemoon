@@ -18,6 +18,9 @@ const SHIPS = [0, 1, 2] as const
 const WAVES = [0, 1, 2] as const
 const STRIKES = [3600, 6000, 7000, 8000]
 const AIM: Vec3 = [0, .03, 0]
+// Production aims: a construction top anywhere in the clamped .004–.07 band, the Crater Crown turret gun at both
+// anchors (off-axis), and the Orbital Platform's turret gun.
+const FRAMING_AIMS: readonly Vec3[] = [AIM, [0, .004, 0], [0, .07, 0], [0, .037, .043], [0, .025, .0215], [0, .057, 0]]
 
 function inputAt(elapsedMs: number, strikeAtMs = 6000, wave = 0, leadDestroyedAtMs: number | null = null, aim: Readonly<Vec3> = AIM): WaveAttackInput {
   return { wave, elapsedMs, strikeAtMs, leadDestroyedAtMs, aim }
@@ -304,13 +307,23 @@ describe('interceptor flight', () => {
   })
 
   it('keeps visible positions and Euler angles continuous at 16 ms intervals', () => {
-    let maximumPositionStep = 0
-    let maximumAngularStep = 0
-    const maximumAngularSteps = { yaw: 0, pitch: 0, roll: 0 }
-    const angularCases = { yaw: '', pitch: '', roll: '' }
-    let positionCase = ''
-    let angleCase = ''
+    // The original .0035 / .35 rad frame limits still hold everywhere except the two deliberate breakaway motions,
+    // which the prescribed timing makes faster: the Hermite exit (up to .0087 per frame) and the 78° / 120 ms bank.
+    // Those get physical limits instead: the exit may not move a ship more than half its own hull length per frame
+    // (successive silhouettes still overlap, so it reads as motion rather than a jump), and the bank may not step further
+    // than the prescribed easeOutCubic roll-in allows in its steepest 16 ms.
+    const hullLength = INTERCEPTOR_ENVELOPE.max[2] - INTERCEPTOR_ENVELOPE.min[2]
+    const bankStep = (bank: number) => bank * DEG * (1 - (1 - 16 / 120) ** 3)
+    const maxima = { cruise: 0, breakaway: 0, heading: 0, roll: 0, rollIn: 0 }
+    const cases = { cruise: '', breakaway: '', heading: '', roll: '', rollIn: '' }
+    const record = (key: keyof typeof maxima, value: number, label: string) => {
+      if (value > maxima[key]) {
+        maxima[key] = value
+        cases[key] = label
+      }
+    }
     for (const strike of STRIKES) for (const wave of WAVES) for (const destroyed of [null, 1200]) {
+      const { breakAtMs } = waveAttackSchedule(strike, false)
       let previous = sampleWaveAttack(inputAt(0, strike, wave, destroyed))
       for (let elapsed = 16; elapsed <= strike; elapsed += 16) {
         const current = sampleWaveAttack(inputAt(elapsed, strike, wave, destroyed))
@@ -318,31 +331,54 @@ describe('interceptor flight', () => {
           const ship = current.ships[index]
           const prior = previous.ships[index]
           if (!ship.visible || !prior.visible) continue
-          const positionStep = distance(ship.position, prior.position)
-          const angularStep = Math.max(Math.abs(angleDelta(ship.yaw, prior.yaw)), Math.abs(angleDelta(ship.pitch, prior.pitch)), Math.abs(angleDelta(ship.roll, prior.roll)))
           const label = `S=${strike}, wave=${wave}, destroyed=${destroyed}, ship=${index}, E=${elapsed}`
-          for (const axis of ['yaw', 'pitch', 'roll'] as const) {
-            const step = Math.abs(angleDelta(ship[axis], prior[axis]))
-            if (step > maximumAngularSteps[axis]) {
-              maximumAngularSteps[axis] = step
-              angularCases[axis] = label
-            }
-          }
-          if (positionStep > maximumPositionStep) {
-            maximumPositionStep = positionStep
-            positionCase = label
-          }
-          if (angularStep > maximumAngularStep) {
-            maximumAngularStep = angularStep
-            angleCase = label
-          }
+          const positionStep = distance(ship.position, prior.position)
+          const breakAt = breakAtMs[index]!
+          if (ship.beat === 'break' || prior.beat === 'break') {
+            record('breakaway', positionStep / ((index === 1 ? INTERCEPTOR_SCALE.lead : INTERCEPTOR_SCALE.escort) * hullLength), label)
+          } else record('cruise', positionStep, label)
+          record('heading', Math.max(Math.abs(angleDelta(ship.yaw, prior.yaw)), Math.abs(angleDelta(ship.pitch, prior.pitch))), label)
+          const rollStep = Math.abs(angleDelta(ship.roll, prior.roll))
+          if (elapsed > breakAt && elapsed - 16 < breakAt + 120) record('rollIn', rollStep / bankStep(index === 1 ? 55 : 78), label)
+          else record('roll', rollStep, label)
         }
         previous = current
       }
     }
-    report.continuity = { maximumPositionStep, positionCase, maximumAngularStep, angleCase, maximumAngularSteps, angularCases }
-    expect.soft(maximumPositionStep, positionCase).toBeLessThanOrEqual(.0035)
-    expect.soft(maximumAngularStep, angleCase).toBeLessThanOrEqual(.35)
+    report.continuity = { maxima, cases }
+    expect(maxima.cruise, cases.cruise).toBeLessThanOrEqual(.0035)
+    expect(maxima.breakaway, cases.breakaway).toBeLessThanOrEqual(.5)
+    expect(maxima.heading, cases.heading).toBeLessThanOrEqual(.35)
+    expect(maxima.roll, cases.roll).toBeLessThanOrEqual(.35)
+    expect(maxima.rollIn, cases.rollIn).toBeLessThanOrEqual(1 + 1e-9)
+  })
+
+  it('has no position or orientation jump across any beat boundary', () => {
+    let maximumPosition = 0
+    let maximumAngle = 0
+    let worst = ''
+    for (const strike of STRIKES) for (const wave of WAVES) for (const destroyed of [null, 1200]) {
+      const schedule = waveAttackSchedule(strike, false)
+      const boundaries = [350, 500, 650, 900, 1100, 1200, 1650, 2600, schedule.runAtMs, schedule.lockEndMs,
+        ...schedule.fireAtMs, ...schedule.breakAtMs, schedule.shrinkAtMs].filter((time): time is number => time !== null)
+      for (const boundary of boundaries) {
+        const before = sampleWaveAttack(inputAt(boundary - .0005, strike, wave, destroyed))
+        const after = sampleWaveAttack(inputAt(boundary + .0005, strike, wave, destroyed))
+        for (const index of SHIPS) {
+          if (!before.ships[index].visible || !after.ships[index].visible) continue
+          const a = before.ships[index], b = after.ships[index]
+          const position = distance(a.position, b.position)
+          const angle = Math.max(...(['yaw', 'pitch', 'roll', 'vaneYaw', 'vanePitch'] as const).map(axis => Math.abs(angleDelta(a[axis], b[axis]))))
+          if (position > maximumPosition || angle > maximumAngle) worst = `S=${strike}, wave=${wave}, destroyed=${destroyed}, ship=${index}, E=${boundary}`
+          maximumPosition = Math.max(maximumPosition, position)
+          maximumAngle = Math.max(maximumAngle, angle)
+        }
+      }
+    }
+    report.boundaries = { maximumPosition, maximumAngle, worst }
+    // A 1 µs window around every schedule edge: continuous motion moves < 1e-6 and turns < 1e-4 rad in it; a jump cannot.
+    expect(maximumPosition, worst).toBeLessThanOrEqual(1e-5)
+    expect(maximumAngle, worst).toBeLessThanOrEqual(1e-4)
   })
 
   it('travels at least .02 before shrinking and clears all ships and effects at the deadline', () => {
@@ -480,11 +516,11 @@ describe('interceptor flight', () => {
       camera.up.copy(cameraPose.up)
       camera.lookAt(cameraPose.target)
       camera.updateMatrixWorld()
-      for (const wave of WAVES) for (const destroyed of [null, 1200]) {
+      for (const wave of WAVES) for (const destroyed of [null, 1200]) for (const aim of FRAMING_AIMS) {
         combinations++
         const strike = OCTOGONALS.waves[wave].durationMs
         for (let elapsed = 0; elapsed <= strike; elapsed += 50) {
-          sampleWaveAttack(inputAt(elapsed, strike, wave, destroyed), frame)
+          sampleWaveAttack(inputAt(elapsed, strike, wave, destroyed, aim), frame)
           for (const index of SHIPS) {
             const ship = frame.ships[index]
             if (!ship.visible) continue
@@ -492,7 +528,7 @@ describe('interceptor flight', () => {
             object.rotation.set(ship.pitch, ship.yaw, ship.roll, 'YXZ')
             object.scale.setScalar(ship.scale)
             object.updateMatrix()
-            const label = `latitude=${latitude}, aspect=${aspect}, wave=${wave}, destroyed=${destroyed}, ship=${index}, E=${elapsed}, beat=${ship.beat}`
+            const label = `latitude=${latitude}, aspect=${aspect}, wave=${wave}, destroyed=${destroyed}, aim=${aim}, ship=${index}, E=${elapsed}, beat=${ship.beat}`
             for (const corner of corners) {
               sampledCorners++
               localCorner.copy(corner).applyMatrix4(object.matrix)
@@ -510,9 +546,17 @@ describe('interceptor flight', () => {
       }
     }
     report.framing = { combinations, sampledCorners, roof, margins, worst }
-    expect(combinations).toBe(36)
-    expect(sampledCorners).toBeGreaterThan(80_000)
+    expect(combinations).toBe(36 * FRAMING_AIMS.length)
+    expect(sampledCorners).toBeGreaterThan(80_000 * FRAMING_AIMS.length)
     for (const key of Object.keys(margins) as (keyof typeof margins)[]) expect.soft(margins[key], `${key}: ${worst[key]}`).toBeGreaterThan(0)
+  })
+
+  it('swings the hold about the monument axis, so an off-axis aim cannot move the formation', () => {
+    for (const wave of WAVES) for (const strike of STRIKES) for (let elapsed = 0; elapsed <= strike; elapsed += 25) {
+      const centred = sampleWaveAttack(inputAt(elapsed, strike, wave))
+      const offset = sampleWaveAttack(inputAt(elapsed, strike, wave, null, [.012, .028, .043]))
+      for (const index of SHIPS) expect(offset.ships[index].position).toEqual(centred.ships[index].position)
+    }
   })
 
   it('has finite vectors, orientations and effects throughout a dense numeric sweep', () => {

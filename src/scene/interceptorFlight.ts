@@ -166,9 +166,10 @@ function samplePosition(
   if (e >= DEFENSE_FIRE_END_MS && e < run) {
     const u = (e - DEFENSE_FIRE_END_MS) / (run - DEFENSE_FIRE_END_MS)
     const angle = .35 * Math.sin(Math.PI * u) * Math.min(1, (run - DEFENSE_FIRE_END_MS) / 1500)
-    const dx = x - input.aim[0], dz = z - input.aim[2]
-    x = input.aim[0] + Math.cos(angle) * dx + Math.sin(angle) * dz
-    z = input.aim[2] - Math.sin(angle) * dx + Math.cos(angle) * dz
+    // Swing about the monument axis that r and s are measured from, so an off-axis aim cannot push the formation out of frame.
+    const dx = x, dz = z
+    x = Math.cos(angle) * dx + Math.sin(angle) * dz
+    z = -Math.sin(angle) * dx + Math.cos(angle) * dz
   }
   if (ship !== 1 && input.leadDestroyedAtMs !== null) {
     const a = (e - input.leadDestroyedAtMs) / JINK_MS
