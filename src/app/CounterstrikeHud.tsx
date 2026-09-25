@@ -255,7 +255,7 @@ export function CounterstrikeHud({
       showReady ? (
       <section className="counterstrike-ready" aria-label="Counterstrike available">
         <span>NULL MERIDIAN SIGNAL RECOVERED</span>
-        <strong>COUNTERSTRIKE AVAILABLE</strong>
+        <strong>SHE ANSWERED</strong>
         <button type="button" onClick={onBegin}>
           TRACK COUNTERSTRIKE
         </button>
@@ -376,7 +376,7 @@ export function CounterstrikeHud({
 
       {run.status === 'impact' ? (
         <section className="counterstrike-impact" role="status">
-          <span>SECONDARY IMPACT · PLAYER SITE</span>
+          <span>WARHEAD IMPACT · YOUR OUTPOST</span>
           <strong>OUTPOST TELEMETRY DEGRADED</strong>
         </section>
       ) : null}

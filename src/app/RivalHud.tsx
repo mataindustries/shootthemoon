@@ -20,9 +20,9 @@ interface RivalHudProps {
 
 const CINEMATIC_CAPTIONS: Readonly<Record<string, string>> = Object.freeze({
   'orbital-transition': 'TRACING SIGNAL BEYOND LOCAL HORIZON',
-  'capsule-approach': 'HOSTILE INSERTION VECTOR CONFIRMED',
-  impact: 'FOREIGN LANDING CONFIRMED',
-  'dual-sites': 'TWO CLAIMS DETECTED',
+  'capsule-approach': 'SECOND LANDER INBOUND',
+  impact: 'UNAUTHORIZED CLAIM DETECTED',
+  'dual-sites': 'TWO CLAIMS · ONE MOON',
   'rival-focus': 'FOCUSING NULL MERIDIAN SIGNAL',
 })
 
@@ -156,7 +156,7 @@ export function RivalHud({
   const caption = CINEMATIC_CAPTIONS[phase]
   const maySkip = presentation.replay && rival.skipEligible
   const strategicObjective = rivalDamaged
-    ? 'NULL MERIDIAN FOOTHOLD — DESTROYED'
+    ? 'NULL MERIDIAN FOOTHOLD · DESTROYED'
     : firstStrikeAvailable
       ? 'FIRST STRIKE PROTOCOL AVAILABLE'
       : identity.strategicLabels.lockedObjective
@@ -183,7 +183,7 @@ export function RivalHud({
           speaker={identity.commander}
           faction={identity.faction}
           body={identity.introTransmission}
-          action="HOLD THE CHANNEL"
+          action="IGNORE HER"
           onAdvance={onAdvance}
         />
       ) : null}

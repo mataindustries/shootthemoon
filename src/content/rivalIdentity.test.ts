@@ -37,13 +37,16 @@ describe('rival identity content', () => {
 
   it('preserves the selected authored dialogue exactly', () => {
     expect(VESPER_RIVAL_IDENTITY.introTransmission).toBe(
-      'Your extractor broke the silence. At last. Commander Vesper, Null Meridian. Keep building. I prefer a rival with something to lose.',
+      'First is not ownership. Remove your extractor from my Moon.',
     )
     expect(VESPER_RIVAL_IDENTITY.scanResponse).toBe(
-      'You found me. Good. Memorize the site; you will not see it unfinished again.',
+      'You found me. Good. Your extractor is still running. Final warning: shut it down.',
     )
     expect(VESPER_RIVAL_IDENTITY.territorialThreat).toBe(
       'The Moon has room for two claims. I do not.',
+    )
+    expect(VESPER_RIVAL_IDENTITY.finalStrikeTransmission).toBe(
+      'You fired first. I have your coordinates.',
     )
     expect(VESPER_RIVAL_IDENTITY.counterstrikeDefeatedTransmission).toContain(
       'Clean interception.',
@@ -51,6 +54,19 @@ describe('rival identity content', () => {
     expect(VESPER_RIVAL_IDENTITY.counterstrikeDamageTransmission).toContain(
       'Still standing.',
     )
+  })
+
+  it('keeps authored copy free of em dashes', () => {
+    const copy = [
+      VESPER_RIVAL_IDENTITY.introTransmission,
+      VESPER_RIVAL_IDENTITY.scanResponse,
+      VESPER_RIVAL_IDENTITY.finalStrikeTransmission,
+      VESPER_RIVAL_IDENTITY.counterstrikeDefeatedTransmission,
+      VESPER_RIVAL_IDENTITY.counterstrikeDamageTransmission,
+      VESPER_RIVAL_IDENTITY.territorialThreat,
+      ...Object.values(VESPER_RIVAL_IDENTITY.strategicLabels),
+    ]
+    for (const line of copy) expect(line).not.toContain('—')
   })
 
   it('keeps every transmission concise enough for a phone', () => {
@@ -62,6 +78,10 @@ describe('rival identity content', () => {
     )
     expect(
       wordCount(VESPER_RIVAL_IDENTITY.territorialThreat),
+    ).toBeLessThanOrEqual(12)
+    // Read mid-flight during a 3.2 s beat.
+    expect(
+      wordCount(VESPER_RIVAL_IDENTITY.finalStrikeTransmission),
     ).toBeLessThanOrEqual(12)
     expect(
       wordCount(VESPER_RIVAL_IDENTITY.counterstrikeDefeatedTransmission),

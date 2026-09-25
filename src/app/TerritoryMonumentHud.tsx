@@ -16,6 +16,14 @@ const ONLINE_LABELS: Partial<Record<MonumentKind, string>> = {
   BASTION_OBELISK: 'BASTION ZIGGURAT RAISED · −25% SIEGE DAMAGE',
 }
 
+// One command line per monument, shown under the benefit after the reveal; the compact reveal panel has no room.
+const COMPLETION_LINES: Record<MonumentKind, string> = {
+  HELIOS_SPIRE: 'The Moon has a gun now.',
+  CRATER_CROWN: 'Even the crater pays.',
+  BASTION_OBELISK: 'Let them try.',
+  SIGNAL_ARRAY: 'Nobody lands unannounced again.',
+}
+
 function MonumentGlyph({ kind }: { readonly kind: MonumentKind }) {
   return <svg viewBox="0 0 48 48" aria-hidden="true" className="monument-glyph">
     {kind === 'HELIOS_SPIRE' ? <path d="M17 42 22 8 26 8 31 42ZM24 2v9M18 6h12" /> :
@@ -66,7 +74,7 @@ export function TerritoryMonumentHud({ outpost, firstStrike, metrics, reveal, on
           {metrics.monumentAllocationKw.toFixed(1)} kW build + {metrics.defenseAllocationKw.toFixed(1)} kW defense · {metrics.productionPerMin.toFixed(1)} ore/min<br />
           {(m.workMs / 1000).toFixed(1)}/{spec!.laborMs / 1000} robot-seconds · {(m.workMs / 1000 * MONUMENT_WORKER_KW).toFixed(1)} kW·s used
         </p> : null}
-        {m.status === 'constructing' ? <p role="status">Foundation rising. Octogonal survey ships are approaching.</p> : null}
+        {m.status === 'constructing' ? <p role="status">Foundation rising. Octogonal interceptors inbound.</p> : null}
         {m.wavesResolved > 0 && m.status !== 'wave' ? <p className="wave-outcome" data-testid="wave-outcome" role="status">
           WAVE {m.wavesResolved} RESOLVED · {previousHit ? `HIT · ${DEFENSE_HULL_SAVED} HULL SAVED` : 'MISSED · ALLOCATION HELD'} · HULL {m.health}%
         </p> : null}
@@ -84,7 +92,7 @@ export function TerritoryMonumentHud({ outpost, firstStrike, metrics, reveal, on
         </div> : null}
         {m.status === 'wave' && wave ? <WaveDefenseHud view={m} durationMs={wave.durationMs}
           allocationText={`${MONUMENT_ORDERS[m.orders[m.wavesResolved]!].title} · ${allocation!.builders} BUILD · ${allocation!.defenders} DEFEND · ${metrics.activeRobots} MINE`}
-          hitDetail={`${DEFENSE_HULL_SAVED} hull damage prevented. Escorts breaking away.`} onFire={() => onAction('fire')} /> : null}
+          hitDetail={`${DEFENSE_HULL_SAVED} hull damage prevented. Escorts pressing the attack.`} onFire={() => onAction('fire')} /> : null}
         {m.status === 'activating' ? <p role="status">3/3 WAVES CLEARED · Finishing powered construction.</p> : null}
         {m.status === 'damaged' || repair ? <>
           <p className="monument-damage" role="status">{repair ? 'REPAIRING MONUMENT' : 'DAMAGED · REPAIRABLE'}<br />−30% production · −15% solar energy · {m.oreLost.toFixed(0)} stored ore lost. Monument benefit offline.</p>
@@ -94,6 +102,7 @@ export function TerritoryMonumentHud({ outpost, firstStrike, metrics, reveal, on
         </> : null}
         {m.status === 'complete' ? <>
           <p role="status">{ONLINE_LABELS[m.kind] ?? <>TERRITORY CLAIMED · PERMANENT<br />{spec!.benefit}</>}</p>
+          <p className="monument-motto">{COMPLETION_LINES[m.kind]}</p>
           <p className="monument-radio">“{OCTOGONALS.victory}”</p>
           <button type="button" onClick={onReplay}>REPLAY ORBITAL REVEAL</button>
         </> : null}

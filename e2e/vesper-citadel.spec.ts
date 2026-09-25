@@ -89,7 +89,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
     await expect(page.locator('.rival-transmission')).toContainText('COMMANDER VESPER')
     await setPresentation(page, 'intro-transmission', 1)
     await capture(page, prefix, '02-introduction')
-    await page.getByRole('button', { name: 'HOLD THE CHANNEL' }).tap()
+    await page.getByRole('button', { name: 'IGNORE HER' }).tap()
     await setPresentation(page, 'dual-sites', 1)
     await capture(page, prefix, '03-two-claims')
     await advance(page)

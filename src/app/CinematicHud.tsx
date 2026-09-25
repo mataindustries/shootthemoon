@@ -264,7 +264,7 @@ function phaseLabel(
         : 'OUTPOST SECURE · THREAT DEFEATED'
     }
     return counterstrikeState === 'warning'
-      ? 'HOSTILE SIGNAL · ORBITAL APPROACH'
+      ? 'INBOUND VECTOR DETECTED'
       : 'VESPER COUNTERSTRIKE · INTERCEPT ACTIVE'
   }
 
@@ -341,7 +341,7 @@ function ContextPrompt({
   readonly rivalSignalHeld: boolean
 }) {
   const message = rivalSignalHeld
-    ? 'SIGNAL HELD · RETURN TO ORBIT'
+    ? 'UNKNOWN SIGNAL · RETURN TO ORBIT'
     : outpostGuidance(outpost, selectedDepositId)
 
   return message === null ? null : (

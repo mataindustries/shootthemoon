@@ -2170,7 +2170,7 @@ function App() {
         <header className="monument-heading"><div><span>ORBITAL PLATFORM</span><h1>DEFEND THE CONSTRUCTION</h1></div></header>
         <div className="monument-stats"><span>ASSEMBLY {Math.round(outpost.orbitalSiege.progress * 100)}%</span><span>HULL {outpost.orbitalSiege.platformHealth}% · {outpost.orbitalSiege.wavesResolved}/3 WAVES</span></div>
         <WaveDefenseHud view={platformDefense} durationMs={DEFENSE_WINDOW_MS}
-          allocationText="ALLOCATION LOCKED · ASSEMBLY CONTINUES" hitDetail="Octogonal destroyed. Your allocation determines wave damage."
+          allocationText="ALLOCATION LOCKED · ASSEMBLY CONTINUES" hitDetail="Escorts pressing the attack. Your allocation decides wave damage."
           onFire={() => setPlatformShots(current => firePlatformDefense(outpost.orbitalSiege!, current, Date.now() - outpost.operations.lastUpdatedAtMs))} />
       </section> : null}
       {entryOpen || gateClosing ? (

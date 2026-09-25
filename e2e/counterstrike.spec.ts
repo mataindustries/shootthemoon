@@ -332,7 +332,7 @@ test('Counterstrike success is touch-fair, persistent, idle, and within budget',
 
   await expect(main).toHaveAttribute('data-counterstrike-available', 'true')
   await expect(page.locator('.counterstrike-ready')).toContainText(
-    'COUNTERSTRIKE AVAILABLE',
+    'SHE ANSWERED',
   )
   await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
   await page.getByRole('button', { name: /PRIORITIZE INTERCEPTOR/ }).click()
@@ -929,7 +929,7 @@ test('Territory Monuments defer their auto-open until an urgent Counterstrike fl
   await expect(main).toHaveAttribute('data-counterstrike-available', 'true')
   await expect(main).toHaveAttribute('data-monument-view', 'false')
   await expect(page.locator('.counterstrike-ready')).toContainText(
-    'COUNTERSTRIKE AVAILABLE',
+    'SHE ANSWERED',
   )
 
   // Deferred, not suppressed: the manual entry point still reaches monuments.

@@ -20,7 +20,7 @@ export function OrbitalSiegeHud({ outpost, metrics, onAction }: {
         siege.status === 'operational' ? 'ORBITAL CONTROL ACHIEVED' :
         siege.status === 'damaged' ? 'PLATFORM BREACHED · RECOVERABLE' :
         siege.status === 'repairing' ? 'REPAIRING PLATFORM' :
-        siege.status === 'constructing' ? 'ASSEMBLING ABOVE OUTPOST' : 'INCOMING DRONE SWARM'}</strong></header>
+        siege.status === 'constructing' ? 'ASSEMBLING ABOVE OUTPOST' : 'DIVIDER RAID INBOUND'}</strong></header>
       {siege === null ? <>
         <p className="siege-benefit">+20% ORE DELIVERY</p>
         <p className="siege-stats">{PLATFORM_ORE_COST} ORE · {PLATFORM_POWER_KW} kW · 2 ROBOTS</p>
@@ -35,12 +35,12 @@ export function OrbitalSiegeHud({ outpost, metrics, onAction }: {
         {metrics.defenseAllocationKw < metrics.defenseDemandKw ? <p className="siege-damage">DEFENSE UNDERPOWERED · Interception weakened; more damage per wave.</p> : null}
         {siege.status === 'waves' ? <p role="status">{SIEGE_ORDERS[siege.order!].title} · {siege.wavesResolved}/3 WAVES RESOLVED<br />Wave {siege.wavesResolved + 1} in {Math.ceil((SIEGE_WAVE_TIMES[siege.wavesResolved]! - siege.elapsedMs) / 1000)}s</p> : null}
         {siege.outpostDamage > 0 ? <p className="siege-damage">OUTPOST DAMAGE · −{siege.outpostDamage}% PRODUCTION{siege.energyLoss > 0 ? ` · −${siege.energyLoss * 100}% ENERGY · ${siege.oreLost.toFixed(0)} ORE LOST` : ''}</p> : null}
-        {siege.status === 'operational' ? <p role="status">3/3 WAVES CLEARED · +20% ORE DELIVERY ACTIVE</p> : null}
+        {siege.status === 'operational' ? <p role="status">3/3 WAVES CLEARED · AIRSPACE HELD<br />+20% ORE DELIVERY ACTIVE</p> : null}
         {siege.status === 'damaged' ? <p role="status">3/3 WAVES ENDED · Logistics offline. Repair restores siege damage; ore losses remain.</p> : null}
       </>}
       {siege?.status === 'command' ? <div className="siege-command counterstrike-command">
         <p>After platform reservation: {Math.max(0, metrics.energyGeneratedKw - 8).toFixed(1)} kW available for defense. Full interception needs 6 kW.</p>
-        <header role="alert"><span>INCOMING DRONE SWARM · THREE WAVES</span><strong>ISSUE ONE ORDER</strong></header>
+        <header role="alert"><span>DIVIDER RAID DETECTED · THREE WAVES</span><strong>ISSUE ONE ORDER</strong></header>
         <div className="counterstrike-command__countdown" role="timer">{Math.ceil((SIEGE_COMMAND_END_MS - siege.elapsedMs) / 1000)}s · THEN AUTO: HARDEN PLATFORM</div>
         <div className="counterstrike-command__choices">{(Object.keys(SIEGE_ORDERS) as SiegeOrder[]).map((order, index) => <button key={order} type="button" onClick={() => onAction(order)}><span className="counterstrike-command__number">{index + 1}</span><span className="counterstrike-command__copy"><strong>{SIEGE_ORDERS[order].title}</strong><small>{SIEGE_ORDERS[order].detail}</small></span></button>)}</div>
       </div> : null}

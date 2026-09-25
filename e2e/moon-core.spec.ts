@@ -1105,12 +1105,12 @@ test('complete migrated-save Rival Signal loop, restoration, reset, and performa
     'COMMANDER VESPER',
   )
   await expect(page.locator('.rival-transmission')).toContainText(
-    'something to lose',
+    'Remove your extractor from my Moon.',
   )
   await page.screenshot({
     path: RIVAL_CAMERA_SCREENSHOT_DIRECTORY + '/05-vesper-introduction.png',
   })
-  await page.getByRole('button', { name: 'HOLD THE CHANNEL' }).click()
+  await page.getByRole('button', { name: 'IGNORE HER' }).click()
   await expect(main).toHaveAttribute('data-rival-presentation', 'dual-sites')
   await setRivalPresentation(page, 'dual-sites', 1)
   await page.screenshot({
