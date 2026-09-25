@@ -60,7 +60,7 @@ const VESPER_STRATEGIC_LABELS: RivalStrategicLabels = Object.freeze({
   signalStrength: 'STRONG',
   threatAssessment: 'RAPID FORTIFICATION',
   contestedStatus: 'LUNAR CONTROL: CONTESTED',
-  lockedObjective: 'FIRST STRIKE PROTOCOL — LOCKED',
+  lockedObjective: 'FIRST STRIKE PROTOCOL · LOCKED',
 })
 
 export const VESPER_RIVAL_IDENTITY: RivalIdentityContent = Object.freeze({
@@ -73,15 +73,14 @@ export const VESPER_RIVAL_IDENTITY: RivalIdentityContent = Object.freeze({
   palette: VESPER_PALETTE,
   beaconRhythm: VESPER_BEACON_RHYTHM,
   introTransmission:
-    'Your extractor broke the silence. At last. Commander Vesper, Null Meridian. Keep building. I prefer a rival with something to lose.',
+    'First is not ownership. Remove your extractor from my Moon.',
   scanResponse:
-    'You found me. Good. Memorize the site; you will not see it unfinished again.',
-  finalStrikeTransmission:
-    'You found one foothold. Null Meridian survives—and I remember who fired.',
+    'You found me. Good. Your extractor is still running. Final warning: shut it down.',
+  finalStrikeTransmission: 'You fired first. I have your coordinates.',
   counterstrikeDefeatedTransmission:
-    'Clean interception. Keep watching the dark; Null Meridian does not repeat itself.',
+    'Clean interception. You are still on my Moon.',
   counterstrikeDamageTransmission:
-    'Still standing. Good. Count what survived before you count what is yours.',
+    'Still standing. You should have left when I asked.',
   territorialThreat: 'The Moon has room for two claims. I do not.',
   strategicLabels: VESPER_STRATEGIC_LABELS,
 })

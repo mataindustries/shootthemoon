@@ -16,8 +16,8 @@ export function WaveDefenseHud({ view: m, durationMs, allocationText, hitDetail,
   return <div className="wave-defense-card" data-phase={defense} aria-label="Active wave defense">
           <div className="wave-defense-heading"><strong>WAVE {m.wavesResolved + 1} / 3</strong><span>{wave.approach}</span></div>
           <div className="wave-defense-result" role="status">
-            <strong>{defense === 'approach' ? 'OCTOGONALS APPROACHING' : defense === 'targeting' ? 'TARGET LOCKED' :
-              defense === 'queued' ? 'SHOT QUEUED · TRACKING' : defense === 'hit' ? 'DIRECT HIT · THREAT DEFLECTED' : 'MISSED · ALLOCATION HOLDS'}</strong>
+            <strong>{defense === 'approach' ? 'DIVIDER RAID INBOUND' : defense === 'targeting' ? 'TARGET LOCKED' :
+              defense === 'queued' ? 'SHOT QUEUED · TRACKING' : defense === 'hit' ? 'DIVIDER LEAD DESTROYED' : 'MISSED · ALLOCATION HOLDS'}</strong>
             <span>{defense === 'hit' ? hitDetail :
               defense === 'miss' ? 'Your chosen allocation will resolve this wave.' :
                 'One tap fires the tracking laser. Early taps are queued.'}</span>

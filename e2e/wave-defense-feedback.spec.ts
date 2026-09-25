@@ -91,6 +91,9 @@ test('three mobile defense waves: hit, timeout miss, hit, saved claim and reveal
       // Hit the far edge of the actual button, not a test-only input hook.
       await page.touchscreen.tap(bounds.x + bounds.width - 8, bounds.y + bounds.height / 2)
       await expect(page.locator('.wave-defense-card')).toHaveAttribute('data-phase', 'hit')
+      // Surviving escorts jink, then still make their attack run; the copy must not claim they break off.
+      await expect(page.locator('.wave-defense-result')).toContainText('DIVIDER LEAD DESTROYED')
+      await expect(page.locator('.wave-defense-result')).toContainText('Escorts pressing the attack.')
       await page.clock.runFor(96)
       await expect(canvas).toHaveAttribute('data-defense-burst-visible', 'true')
       await expect(canvas).toHaveAttribute('data-defense-beam-visible', 'true')

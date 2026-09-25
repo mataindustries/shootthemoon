@@ -3304,6 +3304,7 @@ button {
 .monument-transmission small { color: #bdabc9; font-size: 9px; }
 .octogonal-seal { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%); background: #9b762f; color: #17141d; font-size: 20px; font-weight: 800; }
 .monument-panel .monument-radio { color: #cab5e0; font-style: italic; }
+.monument-panel .monument-motto { color: #f3d7ad; font-size: 12px; font-weight: 600; letter-spacing: .02em; }
 .monument-panel .monument-damage { color: #ffb398; }
 .monument-panel .counterstrike-command__choices button { padding: 8px; min-height: 52px; }
 .monument-panel .counterstrike-command__copy small { white-space: normal; font-size: 11px; letter-spacing: 0; }

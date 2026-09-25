@@ -56,9 +56,11 @@ export function LaunchGate({
           <span className="launch-gate__designation-rule" aria-hidden="true" />
         </div>
         <p className="launch-gate__lede">
-          Two supervillains claimed one Moon.
+          You landed first.
           <br />
-          You built first. You fired first.
+          Vesper landed anyway.
+          <br />
+          Neither intends to share.
         </p>
         <div className="launch-gate__actions">
           <button className="launch-gate__begin" type="button" onClick={onBegin}>
