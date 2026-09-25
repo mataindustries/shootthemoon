@@ -6,20 +6,6 @@ const H = Math.PI / 2
 const EIGHT = Array.from({ length: 8 }, (_, i) => i * Math.PI / 4)
 
 /** Model-space metres are visual only; no mesh dimension enters campaign state. */
-export function authorDrone(add: AddPart) {
-  add('bevel', 'dark', [0, 0, 0], [1, .48, 1.25])
-  add('ring', 'gold', [0, .15, 0], [.93, 1.16, .7], [H, 0, 0])
-  add('bevel', 'dark', [0, .3, -.08], [.54, .24, .66])
-  add('bevel', 'amber', [0, .44, -.23], [.22, .09, .32])
-  for (const side of [-1, 1]) {
-    add('bevel', 'dark', [side * 1.02, -.03, .32], [.4, .3, .96], [0, side * -.25, 0])
-    add('box', 'gold', [side * 1.11, .14, .3], [.065, .045, 1.17], [0, side * -.25, 0])
-    add('bevel', 'cyan', [side * .9, -.04, 1.12], [.21, .1, .17], [H, 0, 0])
-    add('taper', 'cyan', [side * .9, -.04, 1.4], [.13, .48, .13], [-H, 0, 0])
-  }
-  add('box', 'amber', [0, -.02, -1.15], [.55, .085, .09])
-}
-
 export function authorPlatform(add: AddPart) {
   add('bevel', 'dark', [0, 0, 0], [3, 1.5, 3])
   add('bevel', 'dark', [0, .9, 0], [2.2, .5, 2.2])

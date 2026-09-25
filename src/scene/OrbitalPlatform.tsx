@@ -9,7 +9,7 @@ import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { batchOctagonalModel, createOctagonalKit, disposeOctagonalKit } from '../render/octagonalKit.ts'
 import { OctagonalModel } from './OctagonalModel.tsx'
-import { authorDrone, authorPlatform } from './octagonalModels.ts'
+import { authorPlatform } from './octagonalModels.ts'
 
 /** Same outpost anchor, assembly clock and three passes; all dimensions are presentation. */
 export function OrbitalPlatform({ outpost, terrain, segments, defense }: {
@@ -22,14 +22,16 @@ export function OrbitalPlatform({ outpost, terrain, segments, defense }: {
   const ground = useMemo(() => sampleRenderedSurface(terrain, segments, 0, -6), [terrain, segments])
   const kit = useMemo(createOctagonalKit, [])
   const platform = useMemo(() => batchOctagonalModel(kit, authorPlatform), [kit])
-  const fleet = useMemo(() => batchOctagonalModel(kit, authorDrone), [kit])
   useEffect(() => () => disposeOctagonalKit(kit), [kit])
-  useEffect(() => () => [...platform, ...fleet].forEach(batch => batch.geometry.dispose()), [platform, fleet])
+  useEffect(() => () => platform.forEach(batch => batch.geometry.dispose()), [platform])
   const siege = outpost.orbitalSiege
   if (siege === null) return null
   const active = siegeIsActive(siege)
   const damaged = siege.platformHealth < 40
   const progress = siege.progress
+  const mount: [number, number, number] = [0, (11 * M + 2.45 * M * (.4 + progress * .6) + .00007) / .035, 0]
+  // The volleys converge on the platform's crown: the top of the defense gun, clear of its wider base.
+  const aim: [number, number, number] = [mount[0], mount[1] + .009, mount[2]]
   return <group position={transform.position} quaternion={transform.orientation} dispose={null}>
     <group position={[ground.x, ground.y, ground.z]} scale={M} name="orbital-platform">
       <group position={[0, 11, 0]} rotation-z={damaged ? -.22 : 0} scale-y={.4 + progress * .6}>
@@ -43,8 +45,7 @@ export function OrbitalPlatform({ outpost, terrain, segments, defense }: {
         geometry={kit.shapes.scar} material={kit.materials.dark} /> : null}
     </group>
     {defense ? <group position={[ground.x, ground.y, ground.z]} scale={.035}>
-      <WaveDefense view={defense} kit={kit} fleet={fleet} mount={[0, (11 * M + 2.45 * M * (.4 + progress * .6) + .00007) / .035, 0]}
-        sampledAtMs={outpost.operations.lastUpdatedAtMs} running />
+      <WaveDefense view={defense} kit={kit} mount={mount} aim={aim} sampledAtMs={outpost.operations.lastUpdatedAtMs} running />
     </group> : null}
   </group>
 }

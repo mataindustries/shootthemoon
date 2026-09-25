@@ -116,12 +116,24 @@ test('three mobile defense waves: hit, timeout miss, hit, saved claim and reveal
     const elapsed = (await save()).outpost.monument.phaseElapsedMs
     await step(Math.max(0, 3800 - elapsed))
     await expect(canvas).toHaveAttribute('data-defense-burst-visible', 'false')
-    await expect(canvas).toHaveAttribute('data-octogonals-visible', 'false')
+    // Survivors hold after the defense window, then make their attack run before the unchanged outcome boundary.
+    await expect(canvas).toHaveAttribute('data-octogonals-visible', 'true')
+    await expect(canvas).toHaveAttribute('data-octogonal-fire-visible', 'false')
     await expect(page.getByText('WAVE OUTCOME INCOMING', { exact: true })).toBeVisible()
-    await step([6000, 7000, 8000][wave]! - (await save()).outpost.monument.phaseElapsedMs + 50)
+    const strike = [6000, 7000, 8000][wave]!
+    await step(strike - 1000 + 450 - (await save()).outpost.monument.phaseElapsedMs)
+    await expect(canvas).toHaveAttribute('data-octogonal-fire-visible', 'true')
+    await expect(canvas).toHaveAttribute('data-octogonal-impact-visible', 'true')
+    await capture(`wave-${wave + 1}-attack`)
+    expect((await save()).outpost.monument.wavesResolved).toBe(wave)
+    await step(strike - (await save()).outpost.monument.phaseElapsedMs + 50)
+    await expect(canvas).toHaveAttribute('data-octogonal-fire-visible', 'false')
+    await expect(canvas).toHaveAttribute('data-octogonal-impact-visible', 'false')
     await expect(main).toHaveAttribute('data-monument-waves', String(wave + 1))
     await expect(main).toHaveAttribute('data-monument-health', String([99, 92, 87][wave]))
     await expect(page.getByTestId('wave-outcome')).toContainText(wave === 1 ? 'MISSED' : 'HIT · 4 HULL SAVED')
+    // The attack presentation owns no frame loop: the allocation pause returns to demand rendering.
+    if (wave < 2) await expect(main).toHaveAttribute('data-render-mode', 'demand')
     await capture(`wave-${wave + 1}-outcome`)
   }
   await step(4500)

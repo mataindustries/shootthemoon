@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { createLandingSite, createLunarLocation } from '../domain/lunarCoordinates.ts'
-import { baseDetailsVisible, octogonalApproach, sampleMonumentCamera } from './monumentPresentation.ts'
+import { baseDetailsVisible, sampleMonumentCamera } from './monumentPresentation.ts'
 import { OCTOGONALS } from '../content/octogonals.ts'
 import { PerspectiveCamera, Vector3 } from 'three'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { batchOctagonalModel, createOctagonalKit, disposeOctagonalKit } from '../render/octagonalKit.ts'
-import { authorDrone, authorMonument, authorPlatform } from './octagonalModels.ts'
+import { authorMonument, authorPlatform } from './octagonalModels.ts'
 import { MONUMENT_KINDS } from '../domain/territoryMonument.ts'
+import { authorInterceptorHull, authorInterceptorVane } from './interceptorModel.ts'
+import { sampleWaveAttack } from './interceptorFlight.ts'
+
+const approach = (wave: number, elapsedMs: number, ship: number) => new Vector3(...sampleWaveAttack({
+  wave, elapsedMs, strikeAtMs: OCTOGONALS.waves[wave]!.durationMs, leadDestroyedAtMs: null, aim: [0, .03, 0] }).ships[ship]!.position)
 
 describe('Territory Monument orbital presentation', () => {
   it('hides base geometry at orbital altitude while retaining surface detail below the cutoff', () => {
@@ -18,11 +23,13 @@ describe('Territory Monument orbital presentation', () => {
     expect(new Set(OCTOGONALS.waves.map(w => w.approach)).size).toBe(3)
     for (let wave = 0; wave < 3; wave++) {
       for (let i = 0; i <= 100; i++) {
-        const point = octogonalApproach(wave, i / 100, 1)
+        const elapsed = i / 100 * OCTOGONALS.waves[wave]!.durationMs
+        const point = approach(wave, elapsed, 1)
         expect(point.y).toBeGreaterThanOrEqual(.035)
-        expect(point).toEqual(octogonalApproach(wave, i / 100, 1))
+        expect(point).toEqual(approach(wave, elapsed, 1))
       }
-      expect(octogonalApproach(wave, 1, 1).toArray()).toEqual([0, .09, 0])
+      expect(approach(wave, 3000, 1).length()).toBeLessThan(approach(wave, 0, 1).length())
+      for (let other = 0; other < wave; other++) expect(approach(wave, 0, 1).distanceTo(approach(other, 0, 1))).toBeGreaterThan(.03)
     }
   })
   it('portrait and landscape reveal pulls back safely, keeps the claim centered and ends above base detail altitude', () => {
@@ -50,7 +57,7 @@ describe('Territory Monument orbital presentation', () => {
     camera.updateMatrixWorld()
     const points = [new Vector3(0, .105, 0), new Vector3(0, 0, 0)]
     for (let wave = 0; wave < 3; wave++) for (let ship = 0; ship < 3; ship++) {
-      points.push(octogonalApproach(wave, 0, ship), octogonalApproach(wave, .5, ship))
+      points.push(approach(wave, 0, ship), approach(wave, 1800, ship))
     }
     for (const point of points) {
       const projected = point.clone().applyQuaternion(transform.orientation).add(transform.position).project(camera)
@@ -93,7 +100,7 @@ describe('Territory Monument orbital presentation', () => {
       }
       batches.forEach(b => b.geometry.dispose())
     }
-    for (const author of [authorPlatform, authorDrone]) {
+    for (const author of [authorPlatform, authorInterceptorHull, authorInterceptorVane]) {
       const batches = batchOctagonalModel(kit, author)
       expect(batches.length).toBeLessThanOrEqual(4)
       expect(batches.reduce((sum, b) => sum + b.geometry.getAttribute('position').count / 3, 0)).toBeLessThan(3000)

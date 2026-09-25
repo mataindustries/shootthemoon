@@ -1,35 +1,52 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Color, Group, IcosahedronGeometry, InstancedMesh, Mesh, MeshBasicMaterial, Object3D, Quaternion, Vector3 } from 'three'
+import { AdditiveBlending, Color, Group, IcosahedronGeometry, InstancedMesh, Mesh, MeshBasicMaterial, Object3D, Quaternion, Vector3 } from 'three'
 import type { WaveDefenseView } from '../domain/waveDefense.ts'
 import { DEFENSE_BREAKUP_MS, DEFENSE_FIRE_END_MS, DEFENSE_WINDOW_MS, defenseImpactAt } from '../domain/waveDefense.ts'
-import { OCTOGONALS } from '../content/octogonals.ts'
-import { batchOctagonalModel, type ModelBatch, type OctagonalKit } from '../render/octagonalKit.ts'
+import { batchOctagonalModel, type OctagonalKit } from '../render/octagonalKit.ts'
 import { VISUAL_PALETTE as P } from '../render/visualSystem.ts'
 import { isSimulationTimePaused } from '../simulation/simulationTime.ts'
 import { OctagonalModel } from './OctagonalModel.tsx'
-import { defenseApproach, defenseElapsed } from './waveDefensePresentation.ts'
+import { authorInterceptorHull, authorInterceptorVane, type Vec3 } from './interceptorModel.ts'
+import { createWaveAttackFrame, sampleWaveAttack } from './interceptorFlight.ts'
+import { createWaveAttackScratch, defenseElapsed, poseWaveAttack, WAVE_ATTACK_CAPACITY as CAPACITY, waveAttackInput,
+  type WaveAttackMeshes } from './waveDefensePresentation.ts'
 
 const UP = new Vector3(0, 1, 0)
 const FORWARD = new Vector3(0, 0, 1)
 const FRAGMENTS = 16
+// The landed SurfacePatch is a depth-less transparent overlay at renderOrder 1; transient enemy effects draw after it.
+const EFFECT_ORDER = 2
 const DIRECTIONS = Array.from({ length: FRAGMENTS }, (_, i) => {
   const angle = i * 2.399963
   return new Vector3(Math.cos(angle), .22 + (i % 4) * .19, Math.sin(angle)).normalize()
 })
 
-/** A bounded, texture-free effect using the same dark armor and gold/cyan kit as the enemy. */
-export function WaveDefense({ view: m, kit, fleet, mount, sampledAtMs, running }: {
+/**
+ * A bounded, texture-free effect using the same dark armor and gold/cyan kit as the enemy. The simulation decides the
+ * outcome; the three DIVIDER interceptors only replay it: approach, lock, two violet volleys each, bank and break away.
+ */
+export function WaveDefense({ view: m, kit, mount, aim, strikeAtMs = DEFENSE_WINDOW_MS, sampledAtMs, running }: {
   readonly view: WaveDefenseView
   readonly kit: OctagonalKit
-  readonly fleet: ModelBatch[]
   readonly mount: readonly [number, number, number]
+  /** The visible player structure the volleys land on, in this component's frame. */
+  readonly aim: Readonly<Vec3>
+  /** When the existing simulation resolves this wave; the attack run ends just before it. */
+  readonly strikeAtMs?: number
   readonly sampledAtMs: number
   readonly running: boolean
 }) {
   const root = useRef<Group>(null)
   const { gl, camera, scene } = useThree()
-  const fleetRefs = useRef<(InstancedMesh | null)[]>([])
+  const hullRefs = useRef<(InstancedMesh | null)[]>([])
+  const vanes = useRef<InstancedMesh>(null)
+  const thrust = useRef<InstancedMesh>(null)
+  const fire = useRef<InstancedMesh>(null)
+  const impacts = useRef<InstancedMesh>(null)
+  const cores = useRef<InstancedMesh>(null)
+  const attackMeshes = useRef<WaveAttackMeshes | null>(null)
+  const attack = useMemo(() => ({ frame: createWaveAttackFrame(), scratch: createWaveAttackScratch() }), [])
   const approachGroup = useRef<Group>(null)
   const turret = useRef<Group>(null)
   const reticle = useRef<Mesh>(null)
@@ -50,7 +67,18 @@ export function WaveDefense({ view: m, kit, fleet, mount, sampledAtMs, running }
     flash: new MeshBasicMaterial({ color: P.defenseImpactCore, transparent: true, depthWrite: false }),
     energy: new MeshBasicMaterial({ color: P.monumentCyan, transparent: true, depthWrite: false }),
     smoke: new MeshBasicMaterial({ color: P.damageRim, transparent: true, opacity: .3, depthWrite: false }),
+    // Enemy fire is the only violet in the scene; contact reads violet-white, exhaust keeps the kit's amber.
+    fire: new MeshBasicMaterial({ color: P.octogonalViolet, transparent: true, depthWrite: false }),
+    hit: new MeshBasicMaterial({ color: new Color(P.octogonalViolet).lerp(new Color(P.defenseImpactCore), .3),
+      transparent: true, depthWrite: false }),
+    hitCore: new MeshBasicMaterial({ color: new Color(P.octogonalViolet).lerp(new Color(P.defenseImpactCore), .6),
+      transparent: true, depthWrite: false, blending: AdditiveBlending }),
+    exhaust: new MeshBasicMaterial({ color: P.monumentAmber, transparent: true, opacity: .8, depthWrite: false, blending: AdditiveBlending }),
   } }, [kit])
+  const interceptor = useMemo(() => ({
+    hull: batchOctagonalModel(kit, authorInterceptorHull),
+    vane: batchOctagonalModel(kit, authorInterceptorVane)[0]!,
+  }), [kit])
   const flashGeometry = useMemo(() => new IcosahedronGeometry(1, 1), [])
   const gun = useMemo(() => batchOctagonalModel(kit, add => {
     add('bevel', 'dark', [0, 0, 0], [.0065, .006, .007])
@@ -64,8 +92,13 @@ export function WaveDefense({ view: m, kit, fleet, mount, sampledAtMs, running }
   useEffect(() => () => {
     Object.values(materials).forEach(material => material.dispose())
     flashGeometry.dispose()
-    gun.forEach(batch => batch.geometry.dispose())
-  }, [materials, gun, flashGeometry])
+    ;[...gun, ...interceptor.hull, interceptor.vane].forEach(batch => batch.geometry.dispose())
+  }, [materials, gun, interceptor, flashGeometry])
+  useLayoutEffect(() => {
+    const hull = hullRefs.current.filter((mesh): mesh is InstancedMesh => mesh !== null)
+    attackMeshes.current = vanes.current && thrust.current && fire.current && impacts.current && cores.current
+      ? { hull, vanes: vanes.current, thrust: thrust.current, fire: fire.current, impacts: impacts.current, cores: cores.current } : null
+  }, [interceptor])
   useLayoutEffect(() => {
     // Armor plates, gold trim and cyan sparks share one instanced draw.
     for (let i = 0; i < FRAGMENTS + 16; i++) fragments.current?.setColorAt(i,
@@ -77,37 +110,15 @@ export function WaveDefense({ view: m, kit, fleet, mount, sampledAtMs, running }
 
   useFrame(({ camera }) => {
     const elapsed = defenseElapsed(m, sampledAtMs, Date.now(), running && !document.hidden && !isSimulationTimePaused())
-    if (approachGroup.current) approachGroup.current.visible = elapsed < DEFENSE_WINDOW_MS
-    if (elapsed >= DEFENSE_WINDOW_MS) {
-      if (reticle.current) reticle.current.visible = false
-      if (beam.current) beam.current.visible = false
-      if (burst.current) burst.current.visible = false
-      return
+    const frame = sampleWaveAttack(waveAttackInput(m, elapsed, strikeAtMs, aim), attack.frame)
+    if (attackMeshes.current && approachGroup.current) {
+      approachGroup.current.visible = poseWaveAttack(frame, m.wavesResolved, attackMeshes.current, attack.scratch).shipsVisible
     }
     const shot = m.defenseShots?.[m.wavesResolved]
     const impactAt = defenseImpactAt(shot)
     const hit = impactAt !== null && elapsed >= impactAt
-    const retreatAt = impactAt === null ? DEFENSE_FIRE_END_MS : impactAt + 120
-    const retreat = Math.max(0, Math.min(1, (elapsed - retreatAt) / (DEFENSE_WINDOW_MS - retreatAt)))
-    const target = scratch.target.copy(defenseApproach(m.wavesResolved, hit ? impactAt : elapsed, 1))
-    const wave = OCTOGONALS.waves[m.wavesResolved]!
-    const poses = fleetRefs.current
-    for (let ship = 0; ship < 3; ship++) {
-      const object = scratch.object
-      object.position.copy(defenseApproach(m.wavesResolved, Math.min(elapsed, retreatAt), ship))
-      // Survivors bank away and shrink into the distance before the result boundary.
-      object.position.x += wave.origin[0] * retreat * .02
-      object.position.z += wave.origin[2] * retreat * .02
-      object.position.y += retreat * .009
-      object.rotation.set(0, Math.atan2(wave.origin[0], wave.origin[2]) + retreat * 1.5, (ship - 1) * .12 + retreat * .5)
-      object.scale.setScalar(hit && ship === 1 ? 0 : (ship === 1 ? .008 : .0062) * (1 - retreat) ** 2)
-      object.updateMatrix()
-      for (const mesh of poses) mesh?.setMatrixAt(ship, object.matrix)
-    }
-    for (const mesh of poses) if (mesh) {
-      mesh.visible = elapsed < DEFENSE_WINDOW_MS
-      mesh.instanceMatrix.needsUpdate = true
-    }
+    // The turret tracks the sampled lead; a hit breaks it up at the sampler's exact kill point.
+    const target = scratch.target.fromArray(hit ? frame.killPoint : frame.ships[1].position)
 
     if (turret.current) {
       scratch.direction.copy(target).sub(turret.current.position).normalize()
@@ -184,9 +195,18 @@ export function WaveDefense({ view: m, kit, fleet, mount, sampledAtMs, running }
       <OctagonalModel batches={gun} kit={kit} />
     </group>
     <group ref={approachGroup} name="octogonal-approach">
-      {fleet.map((batch, i) => <instancedMesh key={batch.finish} ref={mesh => { fleetRefs.current[i] = mesh }}
-        args={[batch.geometry, kit.materials[batch.finish], 3]} frustumCulled={false} />)}
+      {interceptor.hull.map((batch, i) => <instancedMesh key={batch.finish} ref={mesh => { hullRefs.current[i] = mesh }}
+        args={[batch.geometry, kit.materials[batch.finish], CAPACITY.ships]} frustumCulled={false} />)}
+      <instancedMesh ref={vanes} args={[interceptor.vane.geometry, kit.materials.gold, CAPACITY.vanes]} frustumCulled={false} />
+      <instancedMesh ref={thrust} name="octogonal-thrust" visible={false} renderOrder={EFFECT_ORDER}
+        args={[kit.shapes.taper, materials.exhaust, CAPACITY.thrust]} frustumCulled={false} />
     </group>
+    <instancedMesh ref={fire} name="octogonal-fire" visible={false} renderOrder={EFFECT_ORDER}
+      args={[kit.shapes.box, materials.fire, CAPACITY.fire]} frustumCulled={false} />
+    <instancedMesh ref={impacts} name="octogonal-impact" visible={false} renderOrder={EFFECT_ORDER}
+      args={[flashGeometry, materials.hit, CAPACITY.impacts]} frustumCulled={false} />
+    <instancedMesh ref={cores} visible={false} renderOrder={EFFECT_ORDER + 1}
+      args={[flashGeometry, materials.hitCore, CAPACITY.cores]} frustumCulled={false} />
     <mesh ref={reticle} name="defense-target" geometry={kit.shapes.ring} material={kit.materials.cyan} />
     <mesh ref={beam} visible={false} name="defense-beam" geometry={kit.shapes.box} material={kit.materials.cyan} />
     <group ref={burst} visible={false} name="octogonal-destruction">

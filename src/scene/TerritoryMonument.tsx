@@ -3,6 +3,7 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { Group } from 'three'
 import type { LandingSite } from '../domain/lunarCoordinates.ts'
 import { MONUMENTS, type TerritoryMonumentSnapshot } from '../domain/territoryMonument.ts'
+import { OCTOGONALS } from '../content/octogonals.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { LOCAL_METRES_TO_RENDER_UNITS as M } from '../render/localSurface.ts'
 import { sampleRenderedSurface } from '../render/renderedSurface.ts'
@@ -10,7 +11,7 @@ import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { batchOctagonalModel, createOctagonalKit, disposeOctagonalKit } from '../render/octagonalKit.ts'
 import { baseDetailsVisible } from './monumentPresentation.ts'
 import { OctagonalModel } from './OctagonalModel.tsx'
-import { authorDrone, authorMonument } from './octagonalModels.ts'
+import { authorMonument } from './octagonalModels.ts'
 import { WaveDefense } from './WaveDefense.tsx'
 import { HeliosReactor } from './HeliosReactor.tsx'
 
@@ -56,14 +57,20 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
     }
     add(shape, finish, position, scale, rotation)
   })), [kit, monument.kind, monument.anchor, crown, crownScale, terrain, segments])
-  const fleet = useMemo(() => batchOctagonalModel(kit, authorDrone), [kit])
+  const modelTop = useMemo(() => Math.max(...model.map(batch => {
+    batch.geometry.computeBoundingBox()
+    return batch.geometry.boundingBox!.max.y
+  })), [model])
   useEffect(() => () => disposeOctagonalKit(kit), [kit])
   useEffect(() => () => model.forEach(batch => batch.geometry.dispose()), [model])
-  useEffect(() => () => fleet.forEach(batch => batch.geometry.dispose()), [fleet])
   useFrame(({ clock, camera }) => {
     if (signal.current) signal.current.scale.setScalar(Math.max(1, Math.min(4, camera.position.distanceTo(transform.position) / .65)) * (1 + Math.sin(clock.elapsedTime * 2) * .07))
   })
   const progress = monument.workMs / MONUMENTS[monument.kind].laborMs
+  // Enemy volleys land on what is visibly built: the construction's current top (held within the interceptor
+  // sampler's validated .07 aim band), or, since the Crown's ring encloses an empty crater, the top of its turret gun.
+  const defenseAim: [number, number, number] = crown ? [turretMount[0], turretMount[1] + .009, turretMount[2]]
+    : [0, Math.min(.07, .0007 + modelTop * .001 * Math.max(.08, progress)), 0]
   const complete = monument.status === 'complete'
   const damaged = monument.status === 'damaged' || monument.status === 'repairing'
   const height = monument.kind === 'HELIOS_SPIRE' ? .075 : .045
@@ -90,7 +97,8 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
       </group> : null}
     </group>
     {monument.status === 'command' || monument.status === 'wave' ? <WaveDefense
-      view={monument} kit={kit} fleet={fleet} mount={turretMount} sampledAtMs={sampledAtMs} running={running}
+      view={monument} kit={kit} mount={turretMount} aim={defenseAim} strikeAtMs={OCTOGONALS.waves[monument.wavesResolved]!.durationMs}
+      sampledAtMs={sampledAtMs} running={running}
     /> : null}
   </group>
 }
