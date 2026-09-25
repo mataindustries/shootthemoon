@@ -1,6 +1,7 @@
 import type { MonumentKind } from '../domain/territoryMonument.ts'
 import type { AddPart } from '../render/octagonalKit.ts'
 import { authorBastionZiggurat } from './bastionZigguratModel.ts'
+import { authorSignalArrayBase } from './signalArrayModel.ts'
 
 const H = Math.PI / 2
 const EIGHT = Array.from({ length: 8 }, (_, i) => i * Math.PI / 4)
@@ -27,8 +28,9 @@ export function authorPlatform(add: AddPart) {
 }
 
 export function authorMonument(kind: MonumentKind, add: AddPart) {
-  // The Ziggurat's own terraces are its foundation; only spire-type monuments keep the round plinth.
-  if (kind === 'HELIOS_SPIRE' || kind === 'SIGNAL_ARRAY') {
+  // The Ziggurat's terraces and the Signal Array's buried footings are their own foundations;
+  // only the Spire keeps the round plinth.
+  if (kind === 'HELIOS_SPIRE') {
     add('bevel', 'dark', [0, 2, 0], [17, 4, 17])
     add('ring', 'gold', [0, 3.5, 0], [15.8, 15.8, 6], [H, 0, 0])
     for (const angle of EIGHT.filter((_, i) => i % 2 === 0)) {
@@ -66,23 +68,6 @@ export function authorMonument(kind: MonumentKind, add: AddPart) {
     }
   }
   if (kind === 'BASTION_OBELISK') authorBastionZiggurat(add)
-  if (kind === 'SIGNAL_ARRAY') {
-    add('taper', 'dark', [0, 20, 0], [7.5, 32, 7.5])
-    add('bevel', 'gold', [0, 28, 0], [4.8, 2, 4.8])
-    // Two offset, open octagonal trusses. The aperture stays dark and see-through.
-    add('ring', 'dark', [0, 43, 0], [24, 24, 32], [-.25, 0, 0])
-    add('ring', 'gold', [0, 43, 1.7], [23.5, 23.5, 9], [-.25, 0, 0])
-    add('ring', 'dark', [0, 43, -3], [18.8, 18.8, 16], [-.25, 0, 0])
-    for (const [i, angle] of EIGHT.entries()) {
-      const x = Math.sin(angle) * 23.5, y = Math.cos(angle) * 23.5
-      if (i % 2 === 0) {
-        add('box', 'dark', [x / 2, 43 + y / 2, -.5 - y * .12], [1.5, 24, 1.8], [-.25, 0, -angle])
-        add('bevel', 'dark', [x, 43 + y, -y * .25], [3.4, 5.5, 3.4], [0, 0, -angle])
-      }
-      add('bevel', i % 2 ? 'amber' : 'cyan', [x, 43 + y, 2.5 - y * .25], [1.05, 2.4, 1.05], [0, 0, -angle])
-    }
-    add('bevel', 'dark', [0, 43, 0], [5.5, 4, 5.5], [H, 0, 0])
-    add('ring', 'gold', [0, 43, 2.2], [4.4, 4.4, 5])
-    add('bevel', 'cyan', [0, 43, 2.7], [2, 1, 2], [H, 0, 0])
-  }
+  // Static base only: the articulated head is posed by SignalArray.tsx.
+  if (kind === 'SIGNAL_ARRAY') authorSignalArrayBase(add)
 }
