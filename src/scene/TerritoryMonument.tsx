@@ -14,6 +14,7 @@ import { OctagonalModel } from './OctagonalModel.tsx'
 import { authorMonument } from './octagonalModels.ts'
 import { WaveDefense } from './WaveDefense.tsx'
 import { HeliosReactor } from './HeliosReactor.tsx'
+import { SignalArray } from './SignalArray.tsx'
 
 /** Orbital cameras never draw the detailed base kit, even during a return journey. */
 export function SurfaceDetail({ children, name }: { readonly children: ReactNode; readonly name: string }) {
@@ -86,6 +87,7 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
         <group scale={[.001 * crownScale, .001 * crownScale * Math.max(.08, progress), .001 * crownScale]} name="monument-construction">
           <OctagonalModel batches={model} kit={kit} />
           {complete && monument.kind === 'HELIOS_SPIRE' ? <HeliosReactor kit={kit} running={running} revealAtMs={revealAtMs} /> : null}
+          {monument.kind === 'SIGNAL_ARRAY' ? <SignalArray kit={kit} monument={monument} revealAtMs={revealAtMs} /> : null}
         </group>
         {!complete && !crown ? [-1, 1].map(x => <mesh key={x} geometry={kit.shapes.box} material={kit.materials.gold}
           scale={[.0007, height, .0007]} position={[x * .016, height / 2, -.012]} />) : null}
