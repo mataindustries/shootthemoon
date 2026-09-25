@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { createLandingSite, createLunarLocation } from '../domain/lunarCoordinates.ts'
-import { baseDetailsVisible, sampleMonumentCamera } from './monumentPresentation.ts'
+import { baseDetailsVisible, monumentDetailVisible, sampleMonumentCamera } from './monumentPresentation.ts'
 import { OCTOGONALS } from '../content/octogonals.ts'
 import { PerspectiveCamera, Vector3 } from 'three'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { batchOctagonalModel, createOctagonalKit, disposeOctagonalKit } from '../render/octagonalKit.ts'
 import { authorMonument, authorPlatform } from './octagonalModels.ts'
 import { heliosGroundY } from './heliosReactorModel.ts'
-import { MONUMENT_KINDS } from '../domain/territoryMonument.ts'
+import { MONUMENT_KINDS, MONUMENT_REPAIR_WORK_MS, MONUMENTS, monumentAllocation, monumentModifiers,
+  type TerritoryMonumentSnapshot } from '../domain/territoryMonument.ts'
 import { authorInterceptorHull, authorInterceptorVane } from './interceptorModel.ts'
 import { sampleWaveAttack } from './interceptorFlight.ts'
 
@@ -111,5 +112,45 @@ describe('Territory Monument orbital presentation', () => {
       batches.forEach(b => b.geometry.dispose())
     }
     disposeOctagonalKit(kit)
+  })
+})
+
+describe('Landed-outpost monument detail visibility policy', () => {
+  it('hides monument detail exactly where the close base-detail presentation takes over, and nowhere else', () => {
+    expect(monumentDetailVisible(1.01)).toBe(false)
+    expect(monumentDetailVisible(1.179)).toBe(false)
+    expect(monumentDetailVisible(1.18)).toBe(true)
+    expect(monumentDetailVisible(4.7)).toBe(true)
+  })
+  it('stays visible for the entire dedicated monument camera sweep — construction, command, wave, damage and reveal all ride this pose', () => {
+    for (const lat of [-1.5, 0, .248, 1.5]) for (const aspect of [390 / 844, 16 / 9]) {
+      const site = createLandingSite(createLunarLocation(lat, -.684, 18))
+      for (let i = 0; i <= 100; i++) {
+        const pose = sampleMonumentCamera(site, i / 100, aspect)
+        expect(monumentDetailVisible(pose.position.length())).toBe(true)
+      }
+    }
+  })
+  it('stays visible in claimed orbit, far beyond the close base-detail radius', () => {
+    // Matches CameraRig's desktop/portrait orbit distances.
+    expect(monumentDetailVisible(3.345)).toBe(true)
+    expect(monumentDetailVisible(4.7)).toBe(true)
+  })
+  it('leaves monument gameplay modifiers and allocation untouched by the presentation policy', () => {
+    for (const kind of MONUMENT_KINDS) {
+      const monument: TerritoryMonumentSnapshot = {
+        kind, anchor: 'outpost', status: 'complete', phaseElapsedMs: 0, workMs: MONUMENTS[kind].laborMs,
+        repairWorkMs: MONUMENT_REPAIR_WORK_MS, health: 100, wavesResolved: 3,
+        orders: ['DEFEND', 'DEFEND', 'DEFEND'], productionPenalty: 0, energyLoss: 0, oreLost: 0,
+        completedAtMs: 1, revealSeen: true,
+      }
+      const modifiersBefore = monumentModifiers(monument)
+      const allocationBefore = monumentAllocation(monument)
+      // Sampling the visibility policy at both the hidden and visible radii must not perturb gameplay state.
+      monumentDetailVisible(1.0)
+      monumentDetailVisible(2.0)
+      expect(monumentModifiers(monument)).toEqual(modifiersBefore)
+      expect(monumentAllocation(monument)).toEqual(allocationBefore)
+    }
   })
 })

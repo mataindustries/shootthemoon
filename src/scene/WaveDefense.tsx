@@ -210,10 +210,10 @@ export function WaveDefense({ view: m, kit, mount, aim, strikeAtMs = DEFENSE_WIN
     <mesh ref={reticle} name="defense-target" geometry={kit.shapes.ring} material={kit.materials.cyan} />
     <mesh ref={beam} visible={false} name="defense-beam" geometry={kit.shapes.box} material={kit.materials.cyan} />
     <group ref={burst} visible={false} name="octogonal-destruction">
-      <mesh ref={flash} geometry={flashGeometry} material={materials.flash} />
-      <mesh ref={ring} geometry={kit.shapes.ring} material={materials.energy} />
-      <instancedMesh ref={fragments} args={[kit.shapes.box, materials.fragments, FRAGMENTS + 16]} frustumCulled={false} />
-      <instancedMesh ref={smoke} args={[kit.shapes.bevel, materials.smoke, 4]} frustumCulled={false} />
+      <mesh ref={flash} geometry={flashGeometry} material={materials.flash} renderOrder={EFFECT_ORDER} />
+      <mesh ref={ring} geometry={kit.shapes.ring} material={materials.energy} renderOrder={EFFECT_ORDER} />
+      <instancedMesh ref={fragments} args={[kit.shapes.box, materials.fragments, FRAGMENTS + 16]} frustumCulled={false} renderOrder={EFFECT_ORDER} />
+      <instancedMesh ref={smoke} args={[kit.shapes.bevel, materials.smoke, 4]} frustumCulled={false} renderOrder={EFFECT_ORDER} />
     </group>
   </group>
 }

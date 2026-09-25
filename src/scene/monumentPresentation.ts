@@ -8,6 +8,11 @@ export function baseDetailsVisible(cameraRadius: number): boolean {
   return cameraRadius < 1 + BASE_DETAIL_ALTITUDE
 }
 
+/** Monument detail only competes with the close base view; every dedicated monument presentation sits beyond the cutoff. */
+export function monumentDetailVisible(cameraRadius: number): boolean {
+  return !baseDetailsVisible(cameraRadius)
+}
+
 export function territoryMonumentSite(outpost: OutpostSnapshot, strike: FirstStrikeSnapshot | null): LandingSite {
   return outpost.monument?.anchor === 'impact-scar' && strike?.scar ? strike.scar.site : outpost.site
 }
