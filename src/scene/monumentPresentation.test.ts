@@ -6,6 +6,7 @@ import { PerspectiveCamera, Vector3 } from 'three'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { batchOctagonalModel, createOctagonalKit, disposeOctagonalKit } from '../render/octagonalKit.ts'
 import { authorMonument, authorPlatform } from './octagonalModels.ts'
+import { heliosGroundY } from './heliosReactorModel.ts'
 import { MONUMENT_KINDS } from '../domain/territoryMonument.ts'
 import { authorInterceptorHull, authorInterceptorVane } from './interceptorModel.ts'
 import { sampleWaveAttack } from './interceptorFlight.ts'
@@ -66,7 +67,7 @@ describe('Territory Monument orbital presentation', () => {
       expect(projected.y).toBeGreaterThan(0)
     }
   })
-  it('keeps every authored monument vertex inside the unchanged mobile reveal and batches each model within budget', () => {
+  it('keeps every above-ground authored monument vertex inside the unchanged mobile reveal and batches each model within budget', () => {
     const kit = createOctagonalKit()
     const site = createLandingSite(createLunarLocation(.248, -.684, 18))
     const transform = landingSiteToRenderTransform(site)
@@ -86,7 +87,10 @@ describe('Territory Monument orbital presentation', () => {
         for (const batch of batches) {
           const positions = batch.geometry.getAttribute('position')
           for (let i = 0; i < positions.count; i++) {
-            vertex.fromBufferAttribute(positions, i).multiplyScalar(.001)
+            vertex.fromBufferAttribute(positions, i)
+            // Footings buried below the lunar datum are hidden by the Moon itself.
+            if (vertex.y < heliosGroundY(vertex.x, vertex.z)) continue
+            vertex.multiplyScalar(.001)
             vertex.y += .0007
             vertex.applyQuaternion(transform.orientation).add(transform.position).project(camera)
             maxX = Math.max(maxX, Math.abs(vertex.x))

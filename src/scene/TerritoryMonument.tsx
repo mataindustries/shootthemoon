@@ -15,6 +15,8 @@ import { authorMonument } from './octagonalModels.ts'
 import { WaveDefense } from './WaveDefense.tsx'
 import { HeliosReactor } from './HeliosReactor.tsx'
 import { SignalArray } from './SignalArray.tsx'
+import { CraterCrown } from './CraterCrown.tsx'
+import { CROWN_CLAIM_Y, CROWN_DAMAGE_TILT, craterCrownDefenseMount, craterCrownLift } from './craterCrownModel.ts'
 
 /** Orbital cameras never draw the detailed base kit, even during a return journey. */
 export function SurfaceDetail({ children, name }: { readonly children: ReactNode; readonly name: string }) {
@@ -40,24 +42,19 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
   // A legible perimeter around the smaller landing basin, within its terrain patch.
   // Only the presentation footprint changes; the saved territory/anchor stays canonical.
   const crownScale = crown && monument.anchor === 'outpost' ? .5 : 1
+  const unit = .001 * crownScale
+  const progress = monument.workMs / MONUMENTS[monument.kind].laborMs
+  const squash = Math.max(.08, progress)
+  // One rigid machine: a single lift seats the Crown's authored lunar datum on the rendered ground at its centre.
+  const crownLift = useMemo(() => crown ? craterCrownLift(monument.anchor === 'outpost' && terrain
+    ? sampleRenderedSurface(terrain, segments, 0, 0).y : 0, unit) : 0, [crown, monument.anchor, terrain, segments, unit])
   const turretMount = useMemo<[number, number, number]>(() => {
-    // Crown turret bolts to the existing front tower; other mounts seat on sampled terrain.
-    if (crown) {
-      const ground = monument.anchor === 'outpost' && terrain ? sampleRenderedSurface(terrain, segments, 0, .043 * crownScale / M).y : 0
-      return [0, ground + .026 * crownScale + .002, .043 * crownScale]
-    }
+    // The Crown turret sits on its cap and rises with the construction; other mounts seat on sampled terrain.
+    if (crown) return craterCrownDefenseMount(unit, squash, crownLift)
     const ground = terrain ? sampleRenderedSurface(terrain, segments, .022 / M, .013 / M).y : 0
     return [.022, ground + .0022, .013]
-  }, [crown, crownScale, monument.anchor, terrain, segments])
-  const model = useMemo(() => batchOctagonalModel(kit, add => authorMonument(monument.kind, (shape, finish, position, scale, rotation) => {
-    if (crown && monument.anchor === 'outpost' && terrain !== null) {
-      const unit = .001 * crownScale
-      const ground = sampleRenderedSurface(terrain, segments, position[0] * unit / M, position[2] * unit / M).y
-      // Footings start at model y=.6. Seat them on the rendered triangles + .5 m.
-      position = [position[0], position[1] - .6 + (ground + .5 * M - .0007) / unit, position[2]]
-    }
-    add(shape, finish, position, scale, rotation)
-  })), [kit, monument.kind, monument.anchor, crown, crownScale, terrain, segments])
+  }, [crown, unit, squash, crownLift, terrain, segments])
+  const model = useMemo(() => batchOctagonalModel(kit, add => authorMonument(monument.kind, add)), [kit, monument.kind])
   const modelTop = useMemo(() => Math.max(...model.map(batch => {
     batch.geometry.computeBoundingBox()
     return batch.geometry.boundingBox!.max.y
@@ -67,15 +64,14 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
   useFrame(({ clock, camera }) => {
     if (signal.current) signal.current.scale.setScalar(Math.max(1, Math.min(4, camera.position.distanceTo(transform.position) / .65)) * (1 + Math.sin(clock.elapsedTime * 2) * .07))
   })
-  const progress = monument.workMs / MONUMENTS[monument.kind].laborMs
   // Enemy volleys land on what is visibly built: the construction's current top (held within the interceptor
-  // sampler's validated .07 aim band), or, since the Crown's ring encloses an empty crater, the top of its turret gun.
+  // sampler's validated .07 aim band), or the top of the turret gun seated on the Crown's cap.
   const defenseAim: [number, number, number] = crown ? [turretMount[0], turretMount[1] + .009, turretMount[2]]
-    : [0, Math.min(.07, .0007 + modelTop * .001 * Math.max(.08, progress)), 0]
+    : [0, Math.min(.07, .0007 + modelTop * .001 * squash), 0]
   const complete = monument.status === 'complete'
   const damaged = monument.status === 'damaged' || monument.status === 'repairing'
   const height = monument.kind === 'HELIOS_SPIRE' ? .075 : .045
-  const signalHeight = crown ? .029 : monument.kind === 'SIGNAL_ARRAY' ? .084 : height + .016
+  const signalHeight = crown ? unit * (CROWN_CLAIM_Y + crownLift) : monument.kind === 'SIGNAL_ARRAY' ? .084 : height + .016
   const onClick = (event: ThreeEvent<MouseEvent>) => {
     if (event.delta > 10 || transform.position.dot(event.camera.position) < 1) return
     event.stopPropagation()
@@ -83,9 +79,10 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
   }
   return <group position={transform.position} quaternion={transform.orientation} name="territory-monument" onClick={onClick} dispose={null}>
     <group position-y={.0007}>
-      <group name="monument-detail" rotation-z={damaged ? -.08 : 0}>
-        <group scale={[.001 * crownScale, .001 * crownScale * Math.max(.08, progress), .001 * crownScale]} name="monument-construction">
-          <OctagonalModel batches={model} kit={kit} />
+      <group name="monument-detail" rotation-z={damaged ? crown ? CROWN_DAMAGE_TILT : -.08 : 0}>
+        <group scale={[unit, unit * squash, unit]} name="monument-construction">
+          {crown ? <CraterCrown kit={kit} model={model} monument={monument} revealAtMs={revealAtMs} lift={crownLift} />
+            : <OctagonalModel batches={model} kit={kit} />}
           {complete && monument.kind === 'HELIOS_SPIRE' ? <HeliosReactor kit={kit} running={running} revealAtMs={revealAtMs} /> : null}
           {monument.kind === 'SIGNAL_ARRAY' ? <SignalArray kit={kit} monument={monument} revealAtMs={revealAtMs} /> : null}
         </group>

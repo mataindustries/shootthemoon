@@ -311,7 +311,7 @@ describe('Crater Crown pure geometry and reveal', () => {
   it('aligns the chute and camera with the gap between all 32 fingers', () => {
     expect(CROWN_HERO_AZIMUTH).toBe(Math.PI / 8)
     expect(chutes).toHaveLength(2)
-    for (const { position: [x, , z] } of chutes) expect(Math.atan2(x, z)).toBe(Math.PI / 8)
+    for (const { position: [x, , z] } of chutes) expect(Math.atan2(x, z)).toBeCloseTo(Math.PI / 8, 12)
     expect(fingers).toHaveLength(32)
     const separations = fingers.map(({ position: [x, , z] }) => angleDifference(Math.atan2(x, z), CROWN_HERO_AZIMUTH))
     for (const separation of separations) expect(separation).toBeGreaterThanOrEqual(20 * Math.PI / 180)

@@ -1,6 +1,7 @@
 import type { MonumentKind } from '../domain/territoryMonument.ts'
 import type { AddPart } from '../render/octagonalKit.ts'
 import { authorBastionZiggurat } from './bastionZigguratModel.ts'
+import { authorCraterCrownStatic } from './craterCrownModel.ts'
 import { authorSignalArrayBase } from './signalArrayModel.ts'
 
 const H = Math.PI / 2
@@ -52,21 +53,8 @@ export function authorMonument(kind: MonumentKind, add: AddPart) {
     add('taper', 'dark', [0, 78, 0], [2.6, 9, 2.6])
     add('bevel', 'cyan', [0, 82.2, 0], [.85, 1, .85])
   }
-  if (kind === 'CRATER_CROWN') {
-    for (const [i, angle] of EIGHT.entries()) {
-      const s = Math.sin(angle), c = Math.cos(angle)
-      const y = 1.6 // Curved lunar datum at r=43, plus clearance above the scar rim.
-      const tall = i % 2 === 0 ? 4 : 0
-      add('bevel', 'dark', [s * 43, y + 3, c * 43], [6, 8, 7], [0, angle, 0])
-      add('taper', 'dark', [s * 43, y + 11 + tall / 2, c * 43], [5.4, 15 + tall, 6.4], [0, angle, 0])
-      add('bevel', 'gold', [s * 43, y + 15 + tall, c * 43], [3.8, 3, 4.8], [0, angle, 0])
-      add('box', 'amber', [s * 47, y + 14 + tall, c * 47], [3, 1.2, .8], [0, angle, 0])
-      add('bevel', 'cyan', [s * 43, y + 18.5 + tall, c * 43], [.7, 1, .7])
-      const mid = angle + Math.PI / 8
-      add('box', 'dark', [Math.sin(mid) * 39.8, 4, Math.cos(mid) * 39.8], [32.9, 3, 3], [0, mid, 0])
-      add('box', 'gold', [Math.sin(mid) * 39.8, 5.65, Math.cos(mid) * 39.8], [29, .4, .6], [0, mid, 0])
-    }
-  }
+  // Static rim clamps, fingers, hub and throat: the bore is posed by CraterCrown.tsx.
+  if (kind === 'CRATER_CROWN') authorCraterCrownStatic(add)
   if (kind === 'BASTION_OBELISK') authorBastionZiggurat(add)
   // Static base only: the articulated head is posed by SignalArray.tsx.
   if (kind === 'SIGNAL_ARRAY') authorSignalArrayBase(add)
