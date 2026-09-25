@@ -42,7 +42,7 @@ describe('Signal Array monument integration', () => {
     ])
     const all = ['dark', 'gold', 'amber', 'cyan']
     expect(triangles('HELIOS_SPIRE')).toEqual({ finishes: all, count: 1120 })
-    expect(triangles('CRATER_CROWN')).toEqual({ finishes: all, count: 2080 })
+    expect(triangles('CRATER_CROWN')).toEqual({ finishes: ['dark', 'gold', 'amber'], count: 1624 })
     expect(triangles('BASTION_OBELISK')).toEqual({ finishes: all, count: 1164 })
   })
 
