@@ -9,7 +9,7 @@ import { LOCAL_METRES_TO_RENDER_UNITS as M } from '../render/localSurface.ts'
 import { sampleRenderedSurface } from '../render/renderedSurface.ts'
 import type { SurfaceTerrainProfile } from '../render/surfaceTerrain.ts'
 import { batchOctagonalModel, createOctagonalKit, disposeOctagonalKit } from '../render/octagonalKit.ts'
-import { baseDetailsVisible } from './monumentPresentation.ts'
+import { baseDetailsVisible, monumentDetailVisible } from './monumentPresentation.ts'
 import { OctagonalModel } from './OctagonalModel.tsx'
 import { authorMonument } from './octagonalModels.ts'
 import { WaveDefense } from './WaveDefense.tsx'
@@ -37,6 +37,7 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
 }) {
   const transform = useMemo(() => landingSiteToRenderTransform(site), [site])
   const signal = useRef<Group>(null)
+  const detail = useRef<Group>(null)
   const kit = useMemo(createOctagonalKit, [])
   const crown = monument.kind === 'CRATER_CROWN'
   // A legible perimeter around the smaller landing basin, within its terrain patch.
@@ -63,6 +64,7 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
   useEffect(() => () => model.forEach(batch => batch.geometry.dispose()), [model])
   useFrame(({ clock, camera }) => {
     if (signal.current) signal.current.scale.setScalar(Math.max(1, Math.min(4, camera.position.distanceTo(transform.position) / .65)) * (1 + Math.sin(clock.elapsedTime * 2) * .07))
+    if (detail.current) detail.current.visible = monumentDetailVisible(camera.position.length())
   })
   // Enemy volleys land on what is visibly built: the construction's current top (held within the interceptor
   // sampler's validated .07 aim band), or the top of the turret gun seated on the Crown's cap.
@@ -79,7 +81,7 @@ export function TerritoryMonument({ monument, site, terrain, segments, onFocus, 
   }
   return <group position={transform.position} quaternion={transform.orientation} name="territory-monument" onClick={onClick} dispose={null}>
     <group position-y={.0007}>
-      <group name="monument-detail" rotation-z={damaged ? crown ? CROWN_DAMAGE_TILT : -.08 : 0}>
+      <group ref={detail} name="monument-detail" rotation-z={damaged ? crown ? CROWN_DAMAGE_TILT : -.08 : 0}>
         <group scale={[unit, unit * squash, unit]} name="monument-construction">
           {crown ? <CraterCrown kit={kit} model={model} monument={monument} revealAtMs={revealAtMs} lift={crownLift} />
             : <OctagonalModel batches={model} kit={kit} />}

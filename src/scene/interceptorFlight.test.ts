@@ -7,6 +7,7 @@ import { DEFENSE_FIRE_END_MS, DEFENSE_WINDOW_MS } from '../domain/waveDefense.ts
 import { batchOctagonalModel, createOctagonalKit, disposeOctagonalKit } from '../render/octagonalKit.ts'
 import { landingSiteToRenderTransform } from '../render/renderCoordinates.ts'
 import { authorMonument } from './octagonalModels.ts'
+import { craterCrownDefenseMount } from './craterCrownModel.ts'
 import { sampleMonumentCamera } from './monumentPresentation.ts'
 import { INTERCEPTOR_ENVELOPE, INTERCEPTOR_SCALE, VANE_DEPLOYED, VANE_TUCKED, interceptorEmitterLocal } from './interceptorModel.ts'
 import type { Vec3 } from './interceptorModel.ts'
@@ -18,9 +19,15 @@ const SHIPS = [0, 1, 2] as const
 const WAVES = [0, 1, 2] as const
 const STRIKES = [3600, 6000, 7000, 8000]
 const AIM: Vec3 = [0, .03, 0]
+// The final Crown's turret sits on-axis (TerritoryMonument's crownScale halves the unit at the outpost anchor,
+// doubling it at the impact-scar anchor); +.009 matches TerritoryMonument's turret-to-aim offset, at full squash.
+const crownAim = (crownScale: number): Vec3 => {
+  const mount = craterCrownDefenseMount(.001 * crownScale, 1, 0)
+  return [mount[0], mount[1] + .009, mount[2]]
+}
 // Production aims: a construction top anywhere in the clamped .004–.07 band, the Crater Crown turret gun at both
-// anchors (off-axis), and the Orbital Platform's turret gun.
-const FRAMING_AIMS: readonly Vec3[] = [AIM, [0, .004, 0], [0, .07, 0], [0, .037, .043], [0, .025, .0215], [0, .057, 0]]
+// anchors (on-axis), and the Orbital Platform's turret gun.
+const FRAMING_AIMS: readonly Vec3[] = [AIM, [0, .004, 0], [0, .07, 0], crownAim(.5), crownAim(1), [0, .057, 0]]
 
 function inputAt(elapsedMs: number, strikeAtMs = 6000, wave = 0, leadDestroyedAtMs: number | null = null, aim: Readonly<Vec3> = AIM): WaveAttackInput {
   return { wave, elapsedMs, strikeAtMs, leadDestroyedAtMs, aim }
