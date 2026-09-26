@@ -387,6 +387,79 @@ CAPTURE_FINAL_CONFIRM=RUN_FULL_RENDER \
 — a bare `npx playwright test` that happens to sweep this file up skips
 every test instantly instead of starting a multi-hour render.
 
+Every clip also writes `capture-health.json` (canvas buffer, page/console
+errors, WebGL state, per-frame timings) and an append-only
+`browser-errors.jsonl`; a clip with any unexpected page/console error or an
+unhealthy WebGL context now fails (via `assertCleanWebGl()`, the same bar
+`capture.spec.ts` holds) and is never marked complete.
+
+## Phase 5: rendering on GitHub Actions
+
+`.github/workflows/final-render.yml` runs the unchanged renderer on
+standard `ubuntu-latest` runners (4 vCPU / 16 GB for public repos) — no
+Codespaces, no larger runners. Manual trigger only:
+
+- **smoke** (Stage 1, default): one clip, default `c07`
+  (`first-strike-orbital-flight`, 144 frames, full 3840x2160 crop).
+- **full** (Stage 2): all 25 locked shot clips, one matrix job per act
+  (split further by whole clips only if an act's estimate exceeds 4.5h),
+  then a verification job. Requires `confirm_full=RENDER_FULL_REEL`.
+
+```
+capture/ci/
+  reelCi.ts            — pure: partitioning + measured cost model, expected
+                          source sizes, 1080p60 intermediate plan (ffmpeg
+                          filter per clip kind), whole-reel verifier
+  io.ts                — PNG header / hash / ffprobe / child-process helpers
+  plan.mjs             — prints + emits the Actions matrix
+  renderGroup.mjs      — per clip: finalRender.mjs --clip → verify → encode →
+                          re-verify → clip.json + contact JPEGs → delete PNGs
+  encoderSelfTest.mjs  — synthetic-frame check of every encode path
+  verifyReel.mjs       — cross-checks every clip.json; writes reel-manifest.json
+capture/ciPipeline.spec.ts — pure tests for reelCi.ts
+```
+
+**Crops.** Motion clips' PNGs already carry their (interpolated) locked crop
+— the engine screenshots with a `clip` — so ffmpeg only Lanczos-scales them
+to 1920x1080. Held stills are captured at `crop` only, so a still's
+`cropEnd` push (c21) is applied in ffmpeg (`zoompan` on a 2x-upsampled
+still, the same linear path as `interpolateCrop()`), and PORT stills are
+pillarboxed at 1080 high on black. Transitions, the head fade and the end
+card are **not** baked in: they belong to assembly and are recorded in each
+`clip.json` (`transitionOut`).
+
+**Intermediate.** H.264 High 4:4:4 (libx264, yuv444p 8-bit), CRF 10,
+preset slower, 0.5s closed GOPs, CFR 60, BT.709 limited range, no audio.
+Motion clips are one real frame per output frame (never retimed or
+interpolated); a held still is its one frame repeated for the clip's locked
+duration. Measured on the real c07 frames vs. a lossless 1080p reference:
+PSNR 58.3 dB avg / 57.1 min, SSIM 0.99904, 1.57 MB for 2.4s.
+
+**What leaves the runner.** Per clip: the `.mp4`, `clip.json` (git SHA,
+act, ids, source/output frame counts and sizes, duration, sha256 of the
+video and of the source PNG sequence, harness-bundle hash, timings, tool
+versions), `render.json`, `capture-health.json`, `frames.sha256`, and
+first/middle/last JPEGs + a strip sheet. Raw PNGs stay on the runner's disk,
+are deleted once their clip is encoded, and are excluded from the upload
+(the job also fails if a PNG is ever found in the upload directory).
+
+**Resume.** Within a job, a clip that fails or hits the renderer's 30-minute
+per-clip test timeout is re-invoked (up to 3 attempts); the renderer's own
+resume renders only missing/corrupt/frozen frames. Across attempts, "Re-run
+failed jobs" restores that job's earlier artifact and skips every clip
+already verified for the same SHA (hash-checked). One failing clip never
+stops the rest of its act.
+
+```sh
+# Everything the workflow runs, locally:
+node --experimental-strip-types --experimental-transform-types capture/ci/plan.mjs --mode=full
+node --experimental-strip-types --experimental-transform-types capture/ci/encoderSelfTest.mjs
+node --experimental-strip-types --experimental-transform-types \
+  capture/ci/renderGroup.mjs --group=smoke-c07 --clips=c07 --out=ci-out
+node --experimental-strip-types --experimental-transform-types \
+  capture/ci/verifyReel.mjs --dir=ci-out --expected=c07 --sha=$(git rev-parse HEAD)
+```
+
 ## The four Phase 1 proof shots
 
 | id | profile | fixture | mechanism | frames |

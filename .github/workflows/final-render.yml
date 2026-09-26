@@ -1,0 +1,245 @@
+# Final reel render on standard GitHub-hosted runners (no Codespaces).
+#
+# Manual only. Two modes:
+#   smoke — Stage 1: render ONE locked clip (default c07,
+#           first-strike-orbital-flight) end to end and prove the pipeline.
+#   full  — Stage 2: all 25 locked shot clips, one matrix job per act (split
+#           further by clip only if an act's measured estimate exceeds 4.5h),
+#           then a verification job over every clip's metadata. Requires
+#           confirm_full=RENDER_FULL_REEL.
+#
+# Every job uses the unchanged capture/finalRender.mjs --clip=<id>. Raw 4K PNG
+# sequences are written to the runner's local disk only and deleted as soon
+# as each clip is verified and encoded; only the 1080p60 intermediates, small
+# JSON metadata and contact JPEGs are uploaded. See capture/README.md
+# ("Phase 5: rendering on GitHub Actions").
+name: Final reel render
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'smoke = one clip (Stage 1); full = all 25 locked clips (Stage 2)'
+        type: choice
+        options: [smoke, full]
+        default: smoke
+      smoke_clip:
+        description: 'Timeline clip id for smoke mode'
+        type: string
+        default: c07
+      confirm_full:
+        description: 'Type RENDER_FULL_REEL to allow mode=full'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: final-render-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22.22.2'
+  NPM_VERSION: '11.19.0'
+
+defaults:
+  run:
+    # Explicit bash => `-eo pipefail` (the implicit default has no pipefail,
+    # which would let `verifyReel.mjs | tee` hide a failed verification).
+    shell: bash
+
+jobs:
+  plan:
+    name: Validate + plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      expected_clips: ${{ steps.plan.outputs.expected_clips }}
+    steps:
+      - name: Guard full render
+        if: inputs.mode == 'full' && inputs.confirm_full != 'RENDER_FULL_REEL'
+        run: |
+          echo "::error::mode=full renders all 25 clips across 7 runner jobs; re-run with confirm_full=RENDER_FULL_REEL."
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      # Every later job checks out exactly this SHA, even if the branch moves.
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm install -g npm@${{ env.NPM_VERSION }}
+      - run: npm ci
+
+      - name: Typecheck (capture/ + app)
+        run: |
+          npx tsc --noEmit -p capture/tsconfig.json
+          npm run typecheck
+
+      # Pure tests only — no browser is launched; the capture config's
+      # webServer still builds the e2e harness, which proves it compiles.
+      - name: Final-edit + final-render + CI pipeline tests
+        run: >
+          npx playwright test --config=capture/playwright.capture.config.ts
+          capture/finalEdit.spec.ts capture/finalRenderPlan.spec.ts capture/finalRenderResume.spec.ts
+          capture/finalRenderStorage.spec.ts capture/finalRenderCli.spec.ts capture/ciPipeline.spec.ts
+
+      - id: plan
+        name: Plan render matrix
+        env:
+          MODE: ${{ inputs.mode }}
+          SMOKE_CLIP: ${{ inputs.smoke_clip }}
+        run: >
+          node --experimental-strip-types --experimental-transform-types capture/ci/plan.mjs
+          "--mode=$MODE" "--clip=$SMOKE_CLIP"
+
+  render:
+    name: Render ${{ matrix.group }}
+    needs: plan
+    runs-on: ubuntu-latest
+    # GitHub's hard cap is 360 min; the render step stops at 300 so the
+    # already-finished clips are always uploaded.
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      max-parallel: 7
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm install -g npm@${{ env.NPM_VERSION }}
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium + system deps (pinned Playwright revision)
+        run: npx playwright install --with-deps chromium
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+
+      - name: Encoder self-test
+        run: node --experimental-strip-types --experimental-transform-types capture/ci/encoderSelfTest.mjs
+
+      # "Re-run failed jobs" resumes: an earlier attempt's verified clips
+      # (same SHA, hash-checked) are skipped instead of re-rendered.
+      - name: Restore clips from an earlier attempt
+        if: github.run_attempt != '1'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: render-${{ matrix.group }}
+          path: ci-out
+
+      - name: Render, verify and encode ${{ matrix.clips }} (~${{ matrix.estimated_minutes }} min est.)
+        timeout-minutes: 300
+        env:
+          GROUP: ${{ matrix.group }}
+          CLIPS: ${{ matrix.clips }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: >
+          node --experimental-strip-types --experimental-transform-types capture/ci/renderGroup.mjs
+          "--group=$GROUP" "--clips=$CLIPS" --out=ci-out "--sha=$SHA" --require-clean
+
+      - name: Guard — no raw frames in the upload
+        if: always()
+        run: |
+          mkdir -p ci-out
+          if find ci-out -name '*.png' | grep -q .; then echo "::error::PNG frames found in ci-out"; exit 1; fi
+          du -sh ci-out
+          df -h .
+
+      - name: Job summary
+        if: always()
+        env:
+          LABEL: ${{ matrix.label }}
+        run: |
+          {
+            echo "### $LABEL"
+            echo
+            echo "| clip | shot | src frames | src size | out frames | MB | render s | s/frame |"
+            echo "|---|---|---|---|---|---|---|---|"
+            for f in ci-out/*/clip.json; do
+              [ -f "$f" ] || continue
+              jq -r '"| \(.clipId) | \(.shotId) | \(.source.frames) | \(.source.width)x\(.source.height) | \(.output.frames) | \(.output.bytes/1e6*10|round/10) | \(.timing.renderSec|round) | \(.timing.steadySecPerFrameAvg) |"' "$f"
+            done
+            for f in ci-out/*/FAILED.json; do
+              [ -f "$f" ] || continue
+              jq -r '"| \(.clipId) | **FAILED** | \(.error|.[0:200]) | | | | | |"' "$f"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload intermediates + metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-${{ matrix.group }}
+          path: |
+            ci-out/
+            !ci-out/**/*.png
+          overwrite: true
+          compression-level: 0
+          retention-days: 30
+          if-no-files-found: warn
+
+  verify:
+    name: Verify reel footage
+    needs: [plan, render]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: render-*
+          path: reel-artifacts
+
+      - name: Verify all expected clips
+        env:
+          EXPECTED: ${{ needs.plan.outputs.expected_clips }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: >
+          node --experimental-strip-types --experimental-transform-types capture/ci/verifyReel.mjs
+          --dir=reel-artifacts "--expected=$EXPECTED" "--sha=$SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reel manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reel-manifest
+          path: reel-artifacts/reel-manifest.json
+          overwrite: true
+          retention-days: 30
+          if-no-files-found: warn
