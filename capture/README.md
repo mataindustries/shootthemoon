@@ -260,6 +260,133 @@ Before the final render, still to build (after the cut is approved):
 - A proof pass (first and last frame of every window) before committing to
   the full ~6h SwiftShader run.
 
+## Phase 4: the final-render pipeline
+
+```
+capture/
+  finalRender/
+    plan.ts        — pure: turns finalEdit.json into an ordered job list
+                      (frame counts come straight from finalEdit.ts's own
+                      deriveRenderPlan(); crop/cropEnd/act/order are rejoined
+                      from the original timeline/derivative items)
+    reachKinds.ts   — pure: shotId -> declared clock kind ('progress' |
+                      'elapsed-ms' | 'still'), a static cross-check table
+    reach.ts        — per-shot setup ("reach") functions: everything each
+                      shot's manifest.ts run() does BEFORE it starts
+                      sampling, returning a generic advance(value) instead of
+                      a hardcoded review window
+    engine.ts       — the capture loop: drives reach.advance() across the
+                      exact finalEdit.json window, screenshot timeout/retry
+                      policy, atomic (.tmp + rename) frame writes
+    resume.ts       — per-job output dirs, frame validation (missing /
+                      corrupt / frozen-duplicate), atomic completion markers
+    storage.ts      — expected-size estimate + free-disk-space preflight
+    summary.ts      — complete/incomplete/failed/frames/disk/elapsed rollup
+    cliArgs.ts       — --clip/--act/--profile/--all/--proof/--force parsing
+  finalRender.mjs              — CLI entry point (spawns the real Playwright run)
+  finalRender.spec.ts          — the full, resumable, storage-gated render
+  finalRenderProof.spec.ts     — proof-frame mode (first/mid/last only)
+  finalRenderContactSheet.mjs  — proof-pass HTML contact sheet, edit order
+  finalRenderPlan.spec.ts      — source-frame/60fps/slow-motion/crop tests
+  finalRenderResume.spec.ts    — resume/completion-marker/duplicate-frame tests
+  finalRenderStorage.spec.ts   — storage-preflight tests
+  finalRenderCli.spec.ts       — CLI-filter tests
+```
+
+Never modifies `src/`. Three small manifest.ts helpers
+(`counterstrikeRunDispatcher`, `setupCounterstrikeTracking`,
+`setupDividerFirstWave`) and two runner.ts internals (`readFrameCount`,
+`waitForFrameCountAbove`) were exported (previously module-private, same
+implementation) so this reuses the exact production-hook setup logic each
+manifest shot already uses, instead of re-implementing it.
+
+**Frame count.** `plan.ts` never invents its own number — it reads
+`deriveRenderPlan()`'s already-tested "destination duration × output fps"
+result per clip (independent of `speed`; slow motion is expressed by
+sampling that same frame count across a narrower source `[in, out]` window,
+never by rendering extra frames or interpolating). The locked cut recomputes
+to exactly **2,749 source frames across 25 shots** — see
+`finalRenderPlan.spec.ts`'s pinned assertion.
+
+**Sampling.** Frame `i` of `frames` lands at `t = i / (frames - 1)`
+(inclusive of both endpoints, not a video-frame-boundary offset) so the
+first and last captured frame sit exactly on the approved `in`/`out`
+boundary — the exact thing the proof pass exists to scrutinize.
+
+**Crops.** finalEdit.json crops are in screenshot/device pixels (CSS
+viewport × deviceScaleFactor). `toCssClip()` converts back to the CSS pixels
+Playwright's `page.screenshot({ clip })` expects; a `crop`→`cropEnd` clip
+interpolates linearly in device pixels first, then converts.
+
+**Prerequisites fixed (all four, generically — no shot-specific
+special-casing beyond what reach.ts's normal design already does):**
+1. Counterstrike's extended windows (`counterstrike-terminal-dive` 0.16→0.33,
+   `counterstrike-impact-contact` 0.3409→0.55 as a sweep) are just the
+   `in`/`out` values in finalEdit.json — `reach.ts` drives the same
+   `counterstrike:set-run` 'impact' dispatch across whatever window is asked
+   for, not the narrower review-only ranges manifest.ts's own shots sample.
+2. `bastion-held-hero`'s full +300ms→+6000ms pull-back is likewise just the
+   elapsed-ms window in finalEdit.json — no Bastion/camera change.
+3. Screenshot timeout/retry (`engine.ts`): a longer ceiling for a clip's
+   first frame (120s vs 60s), one retry at an even more generous ceiling
+   (150s) before giving up, and every screenshot is written to a `.tmp` path
+   and only renamed onto its real filename after it fully lands — a timed-out
+   attempt can never leave a corrupt/partial frame at its real path.
+4. Proof-frame mode (`finalRenderProof.spec.ts`): first/mid/last frame only,
+   the mandatory cheap gate before the expensive render.
+
+**Resume (`resume.ts`).** Each job gets its own
+`capture-final/<clipId>__<shotId>/` directory. `validateJobFrames()` scans
+for missing frames, zero-byte/corrupt frames, and frozen frames (a motion
+clip's adjacent frame byte-identical to its predecessor); only those
+indices are re-driven — both stepping mechanisms this codebase uses
+(direct progress-event dispatch, and Playwright's fake clock advanced
+forward via `advanceTo`) are safe to jump straight to an arbitrary needed
+index without re-visiting every one before it. A `.complete` marker is
+written (atomically: temp file + rename) only after a full validation pass
+finds every frame present, non-corrupt, and free of adjacent duplicates.
+One clip throwing never aborts the run — `finalRender.spec.ts`'s
+`test.describe` is deliberately not `.serial`, the same choice
+`capture.spec.ts` already made for the same reason.
+
+**Storage preflight (`storage.ts`).** Estimates bytes from each job's crop
+area × frame count × a bytes/pixel constant (documented as a starting
+estimate, replaced by `recalibrateBytesPerPixel()` fed real proof-pass frame
+sizes before trusting a full-render number), then refuses to start unless
+free disk space clears the estimate by a 25% margin or a flat 2 GiB floor,
+whichever is larger.
+
+### Running it
+
+```sh
+# Cheap gate — first/mid/last frame of every selected clip (run this first):
+node --experimental-strip-types --experimental-transform-types \
+  capture/finalRender.mjs --proof --all
+node --experimental-strip-types --experimental-transform-types \
+  capture/finalRenderContactSheet.mjs   # capture-final/proof-contact-sheet.html
+
+# Filtered proof passes:
+capture/finalRender.mjs --proof --clip=c07
+capture/finalRender.mjs --proof --act=FIRST_STRIKE
+capture/finalRender.mjs --proof --profile=PLATE
+
+# The full render (the ~6h run) — same filters, no --proof:
+capture/finalRender.mjs --all
+capture/finalRender.mjs --clip=c19
+capture/finalRender.mjs --act=DIVIDER
+capture/finalRender.mjs --profile=PLATE
+capture/finalRender.mjs --all --force   # re-render even already-complete clips
+
+# Direct Playwright invocation also works (finalRender.mjs just wraps this):
+CAPTURE_FINAL_CONFIRM=RUN_FULL_RENDER \
+  npx playwright test --config=capture/playwright.capture.config.ts capture/finalRender.spec.ts
+```
+
+`finalRender.spec.ts` refuses to do any work unless invoked with
+`CAPTURE_FINAL_CONFIRM=RUN_FULL_RENDER` set (only `finalRender.mjs` sets it)
+— a bare `npx playwright test` that happens to sweep this file up skips
+every test instantly instead of starting a multi-hour render.
+
 ## The four Phase 1 proof shots
 
 | id | profile | fixture | mechanism | frames |

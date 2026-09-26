@@ -186,7 +186,7 @@ function linearProgress(start: number, end: number, durationMs: number) {
  * confirmed empirically (see the comment on installCounterstrikeClockFreeze)
  * — so callers sweeping 'impact' must pass `beforeGoto:
  * installCounterstrikeClockFreeze` to preparePage first. */
-function counterstrikeRunDispatcher(status: string, extra: Record<string, unknown> = {}) {
+export function counterstrikeRunDispatcher(status: string, extra: Record<string, unknown> = {}) {
   return async (page: Page, progress: number): Promise<void> => {
     await freezeCounterstrikeClock(page)
     await page.evaluate(
@@ -197,7 +197,7 @@ function counterstrikeRunDispatcher(status: string, extra: Record<string, unknow
   }
 }
 
-async function setupCounterstrikeTracking(page: Page): Promise<void> {
+export async function setupCounterstrikeTracking(page: Page): Promise<void> {
   await dismissLaunchGate(page)
   await expect(page.locator('main')).toHaveAttribute('data-counterstrike-available', 'true')
   await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
@@ -216,7 +216,7 @@ const DIVIDER_DEMO_KIND_TITLE = MONUMENTS.SIGNAL_ARRAY.title
  * DEFEND order. Returns the clock stepper (already anchored to reveal-open)
  * and the elapsedMs the DEFEND order landed at, for callers to keep
  * advancing from. */
-async function setupDividerFirstWave(
+export async function setupDividerFirstWave(
   page: Page,
 ): Promise<{ stepper: FrameStepper; waveStartMs: number }> {
   const originMs = await openMonumentRevealAndReadOrigin(page)
