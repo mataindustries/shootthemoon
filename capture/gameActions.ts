@@ -117,59 +117,42 @@ export async function selectDefaultLandingSiteOnly(page: Page): Promise<void> {
   await expect(page.locator('.site-panel')).toBeVisible()
 }
 
-/** Reads whichever mineral deposit's projected position is currently on the
- * canvas (data-deposit-<id>-x/y, from src/scene/MineralDeposits.tsx), if
- * any — null if the claimed site has none nearby. */
-async function findProjectedDeposit(
-  page: Page,
-): Promise<{ readonly x: number; readonly y: number } | null> {
-  const canvas = page.locator('.scene-canvas canvas')
-  return canvas.evaluate((element: HTMLCanvasElement) => {
-    const xKey = Object.keys(element.dataset).find(
-      (key) => key.startsWith('deposit') && key.endsWith('X'),
-    )
-    if (xKey === undefined) return null
-    const yKey = xKey.slice(0, -1) + 'Y'
-    return { x: Number(element.dataset[xKey]), y: Number(element.dataset[yKey]) }
-  })
-}
-
 /**
- * From FRESH: claims the default (canvas-center) site and skips descent to
- * landed, then selects whichever deposit is projected onto the canvas
- * (mirrors e2e/moon-core.spec.ts's tapProjectedPoint), clicks MINE DEPOSIT,
- * and pauses the live simulation once the robot actually reaches 'mining' —
+ * Deterministic mining-closeup reach, from the EXTRACTOR capture fixture
+ * (e2e/rivalFixtures.ts's `createLegacyActiveExtractorSave`, wired as
+ * fixture id 'EXTRACTOR' in capture/fixtures.ts) — an already-landed save
+ * whose extractor is already built on deposit-alpha, at the same
+ * FIXTURE_SITE landing site e2e/firstStrikeFixtures.ts's own STRUCK/READY
+ * fixtures share. Targets deposit-beta, the exact second deposit
+ * e2e/mining-asset-pass.spec.ts's own 'mining assets remain visible...'
+ * test already taps at this same site/fixture — proven to always project
+ * onto the canvas (data-deposit-beta-x/y) and to still read "MINE DEPOSIT"
+ * rather than "EXTRACTOR ACTIVE" (src/app/CinematicHud.tsx), since the
+ * already-built extractor sits on the other deposit, deposit-alpha.
+ *
+ * Replaces an earlier FRESH + canvas-center-claim + "whichever deposit
+ * happens to project" approach: the default (canvas-center) landing site is
+ * not guaranteed to have a deposit nearby, so that approach could fail
+ * outright depending on where canvas-center happened to land. This fixture
+ * removes that gamble instead of searching around it.
+ *
+ * Pauses the live simulation once the robot actually reaches 'mining' —
  * mirrors e2e/mining-asset-pass.spec.ts's holdState() (a MutationObserver
  * dispatching first-outpost:set-simulation-paused on the state transition).
- *
- * Not every canvas-center site has a deposit close enough to be projected
- * (e2e/moon-core.spec.ts's own working 'deposit-gamma' example only finds
- * one after dragging the camera first, which this harness's shots don't
- * do); repositioning the orbit view first via moon-core:set-orbit-view
- * before any player interaction was tried and made site selection itself
- * unreliable (`controls.enabled` looks to gate that handler and isn't
- * necessarily true yet at that point), so this deliberately does not
- * attempt that. If no deposit is present, this throws a clearly labeled
- * error rather than silently producing a shot that doesn't show mining —
- * capture.spec.ts will report the failure for this shot to be revisited by
- * hand (e.g. picking a specific known-deposit fixture) rather than this
- * generic helper guessing further.
+ * Callers dismiss the launch gate first (the EXTRACTOR save already lands
+ * on data-phase="landed" without any claim/descent step).
  */
 export async function reachMiningCloseup(page: Page): Promise<void> {
-  await claimDefaultLandingSite(page)
-  await setCinematicProgress(page, 1)
   await expect(page.locator('main')).toHaveAttribute('data-phase', 'landed')
 
-  const point = await findProjectedDeposit(page)
-  if (point === null) {
-    throw new Error(
-      'No mineral deposit is projected onto the canvas at this landing site ' +
-        '(claimDefaultLandingSite picks whichever site is nearest canvas ' +
-        'center, which is not guaranteed to have one nearby).',
-    )
-  }
+  const canvas = page.locator('.scene-canvas canvas')
+  await expect(canvas).toHaveAttribute('data-deposit-beta-x', /\d/)
+  const point = await canvas.evaluate((element: HTMLCanvasElement) => ({
+    x: Number(element.dataset.depositBetaX),
+    y: Number(element.dataset.depositBetaY),
+  }))
   await page.mouse.click(point.x, point.y)
-  await expect(page.locator('main')).toHaveAttribute('data-selected-deposit', /^deposit-/)
+  await expect(page.locator('main')).toHaveAttribute('data-selected-deposit', 'deposit-beta')
 
   await page.evaluate(() => {
     const main = document.querySelector('main')
@@ -185,7 +168,7 @@ export async function reachMiningCloseup(page: Page): Promise<void> {
   })
   await page.getByRole('button', { name: 'MINE DEPOSIT' }).click()
   await expect(page.locator('main')).toHaveAttribute('data-robot-state', 'mining', { timeout: 20_000 })
-  await expect(page.locator('.scene-canvas canvas')).toHaveAttribute('data-mining-laser', 'contact')
+  await expect(canvas).toHaveAttribute('data-mining-laser', 'contact')
   await page.waitForTimeout(220)
 }
 
@@ -242,7 +225,87 @@ export interface CounterstrikeRunDetail {
   readonly progress: number
   readonly attemptNumber?: number
   readonly attemptsUsed?: number
+  readonly judgement?: 'EARLY' | 'VALID' | 'LATE'
   readonly outcome?: 'SUCCESS' | 'FAILURE'
+}
+
+/**
+ * Installs the exact `performance.now()`-freeze test hook
+ * e2e/counterstrike.spec.ts's own `openScene()` sets up
+ * (`window.__counterstrikeE2eClock`), as a `beforeGoto` for any Counterstrike
+ * shot that pins an exact progress inside the short, real-time-derived
+ * `impact` status (4,400ms — see COUNTERSTRIKE_TIMING.impactMs).
+ *
+ * Root cause this works around: `counterstrikeRun`'s camera pose is sampled
+ * every frame from `performance.now() - phaseStartedAtMs`, not from the raw
+ * `progress` argument passed to `counterstrike:set-run` (that argument only
+ * sets the initial `phaseStartedAtMs` anchor). The FIRST render of the
+ * `impact` status also has to compile brand-new geometry (crater, ejecta
+ * shards/grains) that nothing earlier in the run instantiates, and under 4K
+ * SwiftShader that first compile can itself take longer than the whole
+ * 4,400ms window. Left unfrozen, that real wall-clock delay is exactly what
+ * `getCounterstrikeRunProgress` measures, so by the time a screenshot lands,
+ * the sampled progress has already drifted to (or past) the end of the
+ * phase — every requested moment collapses onto the same final
+ * "damage-hold" pose (confirmed empirically: pinning progress 0.39 and 0.97
+ * both rendered the identical settled-crater frame without this fix).
+ * Freezing `performance.now()` right after each dispatch pins the sampled
+ * progress exactly at the requested value regardless of render latency —
+ * not a production hook, purely a browser-global override installed by test
+ * tooling, the same trick e2e/counterstrike.spec.ts already relies on.
+ */
+export async function installCounterstrikeClockFreeze(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const realNow = performance.now.bind(performance)
+    let frozenNow: number | null = null
+    Object.defineProperty(performance, 'now', {
+      configurable: true,
+      value: () => frozenNow ?? realNow(),
+    })
+    Object.defineProperty(window, '__counterstrikeE2eClock', {
+      configurable: true,
+      value: {
+        freeze: () => {
+          frozenNow = realNow()
+        },
+      },
+    })
+  })
+}
+
+/** Freezes the clock installed by installCounterstrikeClockFreeze, if
+ * present — a no-op on any page that didn't install it via beforeGoto. */
+export async function freezeCounterstrikeClock(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const testWindow = window as typeof window & {
+      __counterstrikeE2eClock?: { freeze: () => void }
+    }
+    testWindow.__counterstrikeE2eClock?.freeze()
+  })
+}
+
+async function readCounterstrikeFrameCount(page: Page): Promise<number> {
+  return page.locator('.scene-canvas canvas').evaluate((canvas: HTMLCanvasElement) => {
+    const value = canvas.dataset.frameCount
+    return value === undefined ? Number.NaN : Number(value)
+  })
+}
+
+/** Waits for the R3F frame counter to advance past its pre-dispatch value —
+ * confirms a real frame has actually committed at the just-frozen progress
+ * before a still screenshot is taken. Mirrors the same "wait for the
+ * framebuffer" guarantee runner.ts's captureFrames already makes for sweeps,
+ * needed here because captureStill only does a fixed real-time wait. */
+async function waitForNextCounterstrikeFrame(
+  page: Page,
+  previousCount: number,
+): Promise<void> {
+  const deadline = Date.now() + 8_000
+  let current = await readCounterstrikeFrameCount(page)
+  while ((Number.isNaN(current) || current <= previousCount) && Date.now() < deadline) {
+    await page.waitForTimeout(50)
+    current = await readCounterstrikeFrameCount(page)
+  }
 }
 
 /** Tracks the counterstrike and prioritizes the interceptor order (the same
@@ -250,7 +313,15 @@ export interface CounterstrikeRunDetail {
  * arbitrary status/progress via the same counterstrike:set-run test hook.
  * Generalizes reachCounterstrikeFireNow's single 'intercept-ready' pin to
  * any status e2e/counterstrike.spec.ts's own RunDetail supports (tracking,
- * intercept-ready, interceptor-launched, success, impact, ...). */
+ * intercept-ready, interceptor-launched, success, impact, ...).
+ *
+ * Freezes the page's performance.now() (see installCounterstrikeClockFreeze)
+ * immediately before dispatching and waits for a fresh frame to land before
+ * returning — required for 'impact', whose short real-time-derived duration
+ * is otherwise vulnerable to render-latency drift (see that function's
+ * comment); harmless for every other status, where it's a no-op freeze call
+ * plus a cheap frame-count poll. Callers that need this precision must pass
+ * `beforeGoto: installCounterstrikeClockFreeze` to preparePage first. */
 export async function reachCounterstrikeRun(
   page: Page,
   detail: CounterstrikeRunDetail,
@@ -258,11 +329,14 @@ export async function reachCounterstrikeRun(
   await expect(page.locator('main')).toHaveAttribute('data-counterstrike-available', 'true')
   await page.getByRole('button', { name: 'TRACK COUNTERSTRIKE' }).click()
   await page.getByRole('button', { name: /PRIORITIZE INTERCEPTOR/ }).click()
+  const previousCount = await readCounterstrikeFrameCount(page)
+  await freezeCounterstrikeClock(page)
   await page.evaluate(
     (value) => window.dispatchEvent(new CustomEvent('counterstrike:set-run', { detail: value })),
     detail,
   )
   await expect(page.locator('main')).toHaveAttribute('data-counterstrike-state', detail.status)
+  await waitForNextCounterstrikeFrame(page, previousCount)
 }
 
 // -- Act V: monument construction / DIVIDER wave defense ----------------------

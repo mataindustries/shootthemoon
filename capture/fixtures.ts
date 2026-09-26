@@ -39,6 +39,7 @@ export type FixtureId =
   | 'STRUCK'
   | 'CLAIM'
   | 'CLAIM_RICH'
+  | 'DIVIDER_SURVIVED'
   | `MON_${MonumentKind}`
 
 export { MONUMENT_KINDS }
@@ -52,6 +53,7 @@ export function buildFixtureSave(fixture: FixtureId, nowMs = Date.now()): string
   if (fixture === 'STRUCK') return createCompletedStrikeSave(nowMs)
   if (fixture === 'CLAIM') return createAcceptedCounterstrikeSave('SUCCESS', nowMs)
   if (fixture === 'CLAIM_RICH') return buildClaimRichSave(nowMs)
+  if (fixture === 'DIVIDER_SURVIVED') return buildDividerSurvivedSave(nowMs)
 
   const kind = fixture.slice('MON_'.length) as MonumentKind
   if (!MONUMENT_KINDS.includes(kind)) {
@@ -116,4 +118,30 @@ export function buildMonumentClaimSave(
 
   raw.outpost.monument = monument
   return JSON.stringify(raw)
+}
+
+/**
+ * A deliberately seeded equivalent of `divider-monument-survives`'s live
+ * end state: CLAIM_RICH, the SIGNAL_ARRAY monument (the manifest's own
+ * DIVIDER_DEMO_KIND), played through all three DIVIDER waves with a
+ * successful DEFEND each time. Reuses `buildMonumentClaimSave` exactly —
+ * the same domain shape (wavesResolved: 3, health 100, all DEFEND, no
+ * losses/penalty) already proven by the existing MON_<KIND> Act VI
+ * reveal-shot fixtures — with one difference: `revealSeen: true`, so
+ * dismissing the launch gate auto-opens the monument view directly onto
+ * the settled "complete" camera pose (progress=1; see the `!revealSeen`
+ * gate on the reveal-cinematic timer in src/App.tsx) instead of a reveal
+ * sweep or the live construction/combat flow.
+ *
+ * The point: the "held wide of the completed, undamaged monument" pose the
+ * live 3-wave capture ends on is a pure function of this same domain state
+ * (status/wavesResolved/etc.), not of how that state was reached. Loading
+ * it fresh — the same thing every MON_<KIND> Act VI shot already does at
+ * PLATE/4K without issue — skips the three waves' worth of accumulated
+ * live wave-defense VFX (missile fire, defense beams, debris) that made
+ * the original capture too expensive for a SwiftShader 4K readback,
+ * without changing the state being photographed at all.
+ */
+export function buildDividerSurvivedSave(nowMs = Date.now()): string {
+  return buildMonumentClaimSave('SIGNAL_ARRAY', true, nowMs)
 }

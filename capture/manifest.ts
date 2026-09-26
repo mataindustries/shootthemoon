@@ -40,6 +40,8 @@ import {
   claimDefaultLandingSite,
   fireDefenseAction,
   fireFirstStrike,
+  freezeCounterstrikeClock,
+  installCounterstrikeClockFreeze,
   issueDefendOrder,
   openMonumentRevealAndReadOrigin,
   reachCounterstrikeFireNow,
@@ -174,9 +176,19 @@ function linearProgress(start: number, end: number, durationMs: number) {
 /** Dispatches counterstrike:set-run with a fixed status + arbitrary fields,
  * varying only `progress` — the progress-event stepper shape, reused for
  * Counterstrike the same way setStrikePresentation/setRivalPresentation
- * already are for First Strike/Rival. */
+ * already are for First Strike/Rival.
+ *
+ * Freezes performance.now() (see installCounterstrikeClockFreeze in
+ * gameActions.ts) immediately before every dispatch: 'impact' samples its
+ * camera pose from real elapsed time since dispatch, and its whole duration
+ * (4,400ms) is short enough that ordinary render/IPC latency under 4K
+ * SwiftShader drifts the sampled progress well past what was requested —
+ * confirmed empirically (see the comment on installCounterstrikeClockFreeze)
+ * — so callers sweeping 'impact' must pass `beforeGoto:
+ * installCounterstrikeClockFreeze` to preparePage first. */
 function counterstrikeRunDispatcher(status: string, extra: Record<string, unknown> = {}) {
   return async (page: Page, progress: number): Promise<void> => {
+    await freezeCounterstrikeClock(page)
     await page.evaluate(
       (detail) => window.dispatchEvent(new CustomEvent('counterstrike:set-run', { detail })),
       { status, progress, ...extra },
@@ -416,25 +428,29 @@ const miningLaserCloseupShot: Shot = {
   id: 'mining-laser-closeup',
   name: 'Mining laser — close-up',
   profile: 'HUD',
-  fixture: 'FRESH',
+  fixture: 'EXTRACTOR',
   hud: { mode: 'visible' },
   notes:
-    'Claims the default canvas-center site, selects whichever deposit ' +
-    'projects onto the canvas there, clicks MINE DEPOSIT, and pauses the ' +
-    'live simulation the instant data-robot-state="mining". Camera auto-' +
-    "frames a close-up via CameraRig's surface-focus-mining mode — no " +
-    'manual zoom. KNOWN RISK: not every canvas-center site has a deposit ' +
-    'nearby (repositioning the orbit view first to a guaranteed-good site ' +
-    'was tried and made site selection itself unreliable instead, so this ' +
-    "deliberately doesn't attempt that) — see the failure-mode comment on " +
-    'reachMiningCloseup in gameActions.ts. If this shot fails, first check ' +
-    'whether the default site simply lacks a deposit this run.',
+    'EXTRACTOR fixture (createLegacyActiveExtractorSave, e2e/rivalFixtures.ts) ' +
+    '— an already-landed save with a built extractor on deposit-alpha at a ' +
+    'fixed known site, reused unmodified from the existing e2e fixture ' +
+    'architecture. Targets deposit-beta, the exact second deposit ' +
+    "e2e/mining-asset-pass.spec.ts's own passing test already taps at this " +
+    'same site/fixture (proven to always project onto the canvas and to ' +
+    'still read "MINE DEPOSIT" rather than "EXTRACTOR ACTIVE", since the ' +
+    'built extractor sits on the other deposit). Clicks MINE DEPOSIT and ' +
+    'pauses the live simulation the instant data-robot-state="mining". ' +
+    "Camera auto-frames a close-up via CameraRig's surface-focus-mining " +
+    'mode — no manual zoom. Replaces an earlier FRESH + canvas-center-claim ' +
+    'approach whose default site was not guaranteed to have a deposit ' +
+    'nearby — this fixture removes that gamble instead of searching around ' +
+    'it (see the full history on reachMiningCloseup in gameActions.ts).',
   editorial: {
     order: 6,
     act: 'ACT_I_ARRIVAL',
     workingTimecode: '0:06.6-0:07.8',
     editedDurationS: 1.2,
-    setupActions: 'dismissLaunchGate, reachMiningCloseup (claim, select deposit, MINE DEPOSIT).',
+    setupActions: 'dismissLaunchGate, reachMiningCloseup (select deposit-beta, MINE DEPOSIT).',
     stateAssertion:
       'main[data-robot-state="mining"], canvas[data-mining-laser="contact"], ' +
       'canvas[data-camera-mode="surface-focus-mining"]',
@@ -1109,11 +1125,22 @@ const counterstrikeTerminalDiveShot: Shot = {
   fixture: 'STRUCK',
   hud: { mode: 'hidden' },
   notes:
-    "counterstrike:set-run status='impact', sweeping the 'wide' camera beat " +
-    '(progress 0 -> wideHoldEndProgress) — the beat e2e/counterstrike.spec.ts ' +
-    "itself names '08a-terminal-wide-shot.png' at wideHoldEndProgress/2. " +
-    'Previously judged one of the strongest kinetic images in the project, ' +
-    'so several nearby candidates are generated rather than one sample.',
+    "counterstrike:set-run status='impact' (attemptNumber 2, attemptsUsed 2, " +
+    "judgement LATE, outcome FAILURE — the only combination 'impact' is ever " +
+    'legitimately reached with in production; both attempts miss before it), ' +
+    "sweeping the 'wide' camera beat (progress 0 -> wideHoldEndProgress) — " +
+    "the beat e2e/counterstrike.spec.ts itself names " +
+    "'08a-terminal-wide-shot.png' at wideHoldEndProgress/2. Requires " +
+    'installCounterstrikeClockFreeze (beforeGoto) + freezeCounterstrikeClock ' +
+    "per dispatch: 'impact' samples its camera pose from real elapsed time " +
+    'since dispatch, and its whole duration (4,400ms) is short enough that ' +
+    'ordinary render/IPC latency under 4K SwiftShader drifts the sampled ' +
+    'progress well past every requested value otherwise — confirmed the ' +
+    'unfrozen dispatch was the bug: every progress in the sweep rendered the ' +
+    'same settled/final "damage-hold" pose instead of the requested "wide" ' +
+    'beat. Previously judged one of the strongest kinetic images in the ' +
+    'project, so several nearby candidates are generated rather than one ' +
+    'sample.',
   editorial: {
     order: 24,
     act: 'ACT_IV_SHE_ANSWERED',
@@ -1128,13 +1155,19 @@ const counterstrikeTerminalDiveShot: Shot = {
     editNote: 'strongest kinetic candidate in the reel; cut to counterstrike-impact-contact',
     priority: 'REQUIRED',
   },
+  beforeGoto: installCounterstrikeClockFreeze,
   async run(page, outDir) {
     await setupCounterstrikeTracking(page)
     const fps = 8
     const durationMs = 1_200
     const stepper = createProgressEventStepper(
       page,
-      counterstrikeRunDispatcher('impact', { outcome: 'SUCCESS' }),
+      counterstrikeRunDispatcher('impact', {
+        outcome: 'FAILURE',
+        attemptNumber: 2,
+        attemptsUsed: 2,
+        judgement: 'LATE',
+      }),
       linearProgress(0, COUNTERSTRIKE_IMPACT_CAMERA_TIMING.wideHoldEndProgress, durationMs),
     )
     const result = await captureFrames({ page, outDir, fps, startMs: 0, endMs: durationMs, stepper })
@@ -1149,11 +1182,16 @@ const counterstrikeImpactContactShot: Shot = {
   fixture: 'STRUCK',
   hud: { mode: 'hidden' },
   notes:
-    "counterstrike:set-run status='impact', progress=contactProgress+0.045 — " +
-    "the exact 'contact' beat e2e/counterstrike.spec.ts itself names " +
-    "'08-rival-impact-near-outpost.png' (data-counterstrike-impact-effect=" +
-    '"structural-impact"). A single precise still, not a sweep, since the ' +
-    'test suite already verified this is the right frame.',
+    "counterstrike:set-run status='impact' (attemptNumber 2, attemptsUsed 2, " +
+    'judgement LATE, outcome FAILURE — the only legitimate way to reach ' +
+    "'impact'), progress=contactProgress+0.045 — the exact 'contact' beat " +
+    "e2e/counterstrike.spec.ts itself names '08-rival-impact-near-outpost.png' " +
+    '(data-counterstrike-impact-effect="structural-impact"). A single precise ' +
+    'still, not a sweep, since the test suite already verified this is the ' +
+    'right frame. Requires installCounterstrikeClockFreeze (beforeGoto) — see ' +
+    'the note on counterstrike-terminal-dive for why: without it this ' +
+    'progress rendered the identical settled "damage-hold" frame as ' +
+    'counterstrike-failed-impact-alt instead of the contact-beat explosion.',
   editorial: {
     order: 25,
     act: 'ACT_IV_SHE_ANSWERED',
@@ -1168,12 +1206,16 @@ const counterstrikeImpactContactShot: Shot = {
     editNote: 'flash-cut punch; cut to counterstrike-interception-success',
     priority: 'REQUIRED',
   },
+  beforeGoto: installCounterstrikeClockFreeze,
   async run(page, outDir) {
     await dismissLaunchGate(page)
     await reachCounterstrikeRun(page, {
       status: 'impact',
       progress: COUNTERSTRIKE_IMPACT_CAMERA_TIMING.contactProgress + 0.045,
-      outcome: 'SUCCESS',
+      outcome: 'FAILURE',
+      attemptNumber: 2,
+      attemptsUsed: 2,
+      judgement: 'LATE',
     })
     const filename = await captureStill(page, outDir)
     return stillOutcome(filename)
@@ -1226,9 +1268,20 @@ const counterstrikeFailedImpactAltShot: Shot = {
   fixture: 'STRUCK',
   hud: { mode: 'hidden' },
   notes:
-    "counterstrike:set-run status='impact', outcome='FAILURE', progress=" +
+    "counterstrike:set-run status='impact', outcome='FAILURE' (attemptNumber " +
+    "2, attemptsUsed 2, judgement LATE — the real end state of the two-miss " +
+    "path 'impact' is only ever reached through), progress=" +
     '(damageArrivalProgress+1)/2 — the settled damage-hold beat, matching ' +
-    "e2e/counterstrike.spec.ts's own '09-damaged-outpost.png'. Alternate " +
+    "e2e/counterstrike.spec.ts's own '09-damaged-outpost.png'. Requires " +
+    'installCounterstrikeClockFreeze (beforeGoto) — see the note on ' +
+    'counterstrike-terminal-dive for why: without it this shot and ' +
+    'counterstrike-impact-contact both drifted onto this exact same ' +
+    'damage-hold frame regardless of their different requested progress, ' +
+    'making this shot an accidental duplicate rather than a distinct ' +
+    'failure-impact alternate. data-outpost-damage-state/data-repairs-' +
+    "required only flip on real acceptance (after 'resolved'), not during " +
+    "presentation-only 'impact', so the state assertion below uses the " +
+    "transient attributes that actually gate this beat instead. Alternate " +
     'footage only — the approved plan keeps SUCCESS as the primary beat.',
   editorial: {
     order: 27,
@@ -1236,7 +1289,8 @@ const counterstrikeFailedImpactAltShot: Shot = {
     workingTimecode: 'n/a (alternate, not in master timeline)',
     editedDurationS: 0.6,
     setupActions: 'reachCounterstrikeRun({status:"impact", outcome:"FAILURE", progress: damageHoldProgress}).',
-    stateAssertion: 'main[data-outpost-damage-state="DAMAGED"], data-repairs-required="true"',
+    stateAssertion:
+      'main[data-counterstrike-state="impact"], canvas[data-counterstrike-camera-beat="damage-hold"], canvas[data-counterstrike-damage-field="persistent"]',
     captureMethod: 'real-time-still',
     captureWindow: 'status=impact, outcome=FAILURE, damage-hold beat (single verified frame)',
     cropGuidance: 'none',
@@ -1244,11 +1298,15 @@ const counterstrikeFailedImpactAltShot: Shot = {
     editNote: 'OPTIONAL alternate to counterstrike-interception-success if the edit wants stakes/failure beat',
     priority: 'OPTIONAL',
   },
+  beforeGoto: installCounterstrikeClockFreeze,
   async run(page, outDir) {
     await dismissLaunchGate(page)
     const damageHoldProgress = (COUNTERSTRIKE_IMPACT_CAMERA_TIMING.damageArrivalProgress + 1) / 2
     await reachCounterstrikeRun(page, {
       status: 'impact',
+      attemptNumber: 2,
+      attemptsUsed: 2,
+      judgement: 'LATE',
       progress: damageHoldProgress,
       outcome: 'FAILURE',
     })
@@ -1491,95 +1549,49 @@ const dividerDefenseInteractionShot: Shot = {
 const dividerMonumentSurvivesShot: Shot = {
   id: 'divider-monument-survives',
   name: 'DIVIDER — monument survives',
-  profile: 'HUD',
-  fixture: 'CLAIM_RICH',
+  profile: 'PLATE',
+  fixture: 'DIVIDER_SURVIVED',
   hud: { mode: 'visible' },
   notes:
-    'Plays through all three DIVIDER waves (DEFEND each), landing on ' +
-    'data-monument-status="complete" / data-territory-claimed="true" — the ' +
-    'held wide of the completed, undamaged monument. HUD (1080p) rather ' +
-    'than PLATE (4K): by this point the scene carries three waves’ worth ' +
-    'of accumulated wreckage/debris, and a 4K screenshot readback of it ' +
-    'was exceeding even a 60s ceiling under SwiftShader — confirmed, not a ' +
-    'guess. Re-capture at PLATE for the final render once this is either ' +
-    'faster hardware or the scene is lighter (e.g. after any wreckage-' +
-    'cleanup pass).',
+    'RECOVERED to PLATE/4K. Previously played through all three live ' +
+    'DIVIDER waves before screenshotting, which left the scene carrying ' +
+    'three waves’ worth of accumulated live wave-defense VFX (missile fire, ' +
+    'defense beams, debris) — expensive enough that a 4K screenshot ' +
+    'readback exceeded even a 60s ceiling under SwiftShader, so the shot was ' +
+    'downgraded to HUD/1080p. Root cause: that accumulated cost came from ' +
+    'the LIVE combat session, not from the completed-monument state itself. ' +
+    'The DIVIDER_SURVIVED fixture (capture/fixtures.ts) seeds the exact same ' +
+    'domain end state directly — SIGNAL ARRAY (the manifest’s own ' +
+    'DIVIDER_DEMO_KIND), status="complete", wavesResolved=3, all DEFEND, no ' +
+    'losses, the identical shape buildMonumentClaimSave already proves valid ' +
+    'for every MON_<KIND> Act VI reveal shot — with revealSeen=true so ' +
+    'dismissing the launch gate auto-opens the monument view straight onto ' +
+    'the settled "complete" camera pose (data-monument-reveal="false", no ' +
+    'cinematic sweep) instead of playing the fight that produced it. ' +
+    'Confirmed empirically: 7 draw calls / ~46k triangles (vs. a busy combat ' +
+    'scene) and a ~6s 4K screenshot readback, well inside budget, and the ' +
+    'same "TERRITORY CLAIMED · PERMANENT" / "HULL 100% · 3/3 WAVES" ' +
+    'composition the live sequence produced.',
   editorial: {
     order: 33,
     act: 'ACT_V_THIRD_PARTY',
     workingTimecode: '0:43.8-0:45.0',
     editedDurationS: 1.2,
-    setupActions:
-      'openMonumentRevealAndReadOrigin, chooseMonumentKind(SIGNAL ARRAY), then ' +
-      'for each of 3 waves: issueDefendOrder, advance to targeting, ' +
-      'fireDefenseAction, advance through resolution; final advance to complete.',
-    stateAssertion: 'main[data-monument-status="complete"], data-territory-claimed="true"',
-    captureMethod: 'clock-driven-sequence',
-    captureWindow: 'post-complete hold, ~600ms burst',
+    setupActions: 'dismissLaunchGate (DIVIDER_SURVIVED auto-opens the completed monument view).',
+    stateAssertion:
+      'main[data-monument-status="complete"], data-territory-claimed="true", ' +
+      'data-monument-reveal="false", canvas[data-camera-mode="territory-monument"]',
+    captureMethod: 'real-time-still',
+    captureWindow: 'single moment, post-auto-open settle',
     cropGuidance: 'none — held wide is the point',
     audioNote: 'claim secured sting',
     editNote: 'closes Act V; cut to the Act VI monument match-cut montage',
     priority: 'REQUIRED',
   },
   async run(page, outDir) {
-    // Wider step increments than the single-wave DIVIDER shots above: each
-    // step here forces a new full 4K PLATE render of a busy combat scene,
-    // and this shot searches across three whole waves in one run, so small
-    // steps multiply into enough real wall-clock rendering time to blow the
-    // per-test timeout. Coarser stepping trades search precision (irrelevant
-    // for a review capture) for enough headroom to finish the full loop.
-    const { stepper, waveStartMs } = await setupDividerFirstWave(page)
-    const main = page.locator('main')
-    let cursor = waveStartMs
-    for (let wave = 0; wave < 3; wave += 1) {
-      if (wave > 0) await issueDefendOrder(page)
-      cursor = await advanceStepperUntilAttribute(
-        stepper,
-        page.locator('.wave-defense-card'),
-        'data-phase',
-        'targeting',
-        cursor,
-        cursor + 2_000,
-        250,
-      )
-      await fireDefenseAction(page)
-      cursor = await advanceStepperUntilAttribute(
-        stepper,
-        main,
-        'data-monument-waves',
-        String(wave + 1),
-        cursor,
-        cursor + 9_000,
-        1_000,
-      )
-      if (wave < 2) {
-        cursor = await advanceStepperUntilAttribute(
-          stepper,
-          main,
-          'data-monument-status',
-          'command',
-          cursor,
-          cursor + 2_000,
-          500,
-        )
-      }
-    }
-    cursor = await advanceStepperUntilAttribute(
-      stepper,
-      main,
-      'data-monument-status',
-      'complete',
-      cursor,
-      cursor + 6_000,
-      1_000,
-    )
-    // A single still, not a frame sweep: by this point the scene carries
-    // three waves' worth of accumulated wreckage/debris, and a full-4K
-    // screenshot readback of it is already expensive on its own under
-    // SwiftShader — three of them back to back was blowing even a 60s
-    // per-screenshot ceiling. One settled frame is also the better match for
-    // a "held wide" hero beat anyway.
-    await stepper.advanceTo(cursor + 200)
+    await dismissLaunchGate(page)
+    await expect(page.locator('main')).toHaveAttribute('data-monument-view', 'true', { timeout: 10_000 })
+    await expect(page.locator('main')).toHaveAttribute('data-monument-status', 'complete')
     const filename = await captureStill(page, outDir)
     return stillOutcome(filename)
   },
