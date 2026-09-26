@@ -21,3 +21,7 @@ playwright-report
 # Capture harness output (regeneratable footage, never tracked)
 capture-output
 capture-final
+
+# Actions/local reel-render outputs (encoded intermediates + metadata, never tracked)
+ci-out
+reel-artifacts

@@ -14,8 +14,9 @@
  * (set by capture/finalRender.mjs's --clip/--act/--profile/--all).
  * CAPTURE_FINAL_FORCE=1 re-renders a clip even if already marked complete.
  */
-import { readFileSync } from 'node:fs'
-import { mkdir } from 'node:fs/promises'
+import { appendFileSync, readFileSync } from 'node:fs'
+import { mkdir, writeFile } from 'node:fs/promises'
+import path from 'node:path'
 import { test } from '@playwright/test'
 import { type FinalEdit, type ShotIndexEntry } from './finalEdit.ts'
 import { captureFinalRenderJob } from './finalRender/engine.ts'
@@ -35,9 +36,10 @@ import {
 } from './finalRender/resume.ts'
 import { buildFinalRenderSummary, formatFinalRenderSummary, type JobRunOutcome } from './finalRender/summary.ts'
 import { checkStoragePreflight, estimateStorage } from './finalRender/storage.ts'
-import { applyHudVisibility, preparePage } from './initCapture.ts'
+import { applyHudVisibility, filterKnownWarnings, preparePage, readWebGlState } from './initCapture.ts'
 import { SHOTS } from './manifest.ts'
 import { PROFILES } from './profiles.ts'
+import { assertCleanWebGl } from './runner.ts'
 
 const edit = JSON.parse(readFileSync(new URL('./finalEdit.json', import.meta.url), 'utf8')) as FinalEdit
 const shotIndex: ShotIndexEntry[] = SHOTS.map((shot) => ({ id: shot.id, profile: shot.profile, hudMode: shot.hud.mode }))
@@ -141,13 +143,47 @@ test.describe('final render — full locked-cut render', () => {
           })
           try {
             const page = await context.newPage()
-            await preparePage(page, {
+            // Append-only error log that survives a timed-out/killed attempt
+            // (preparePage's own watchers live only in memory), so a resumed
+            // clip can still prove no attempt saw a page/console error.
+            const errorLog = path.join(jobOutputDir(job), 'browser-errors.jsonl')
+            const logError = (kind: string, text: string) =>
+              appendFileSync(errorLog, JSON.stringify({ kind, text, atIso: new Date().toISOString() }) + '\n')
+            page.on('pageerror', (error) => logError('page', error.message))
+            page.on('console', (message) => {
+              if (message.type() === 'error' || /CONTEXT_LOST/i.test(message.text())) logError('console', message.text())
+            })
+            const prepared = await preparePage(page, {
               profile,
               fixture: shot.fixture,
               ...(shot.beforeGoto ? { beforeGoto: shot.beforeGoto } : {}),
             })
             await applyHudVisibility(page, shot.hud)
-            await captureFinalRenderJob(page, job, frameDir, { indices: indicesToRender })
+            const result = await captureFinalRenderJob(page, job, frameDir, { indices: indicesToRender })
+            // Browser health + per-frame timings for this pass, written before
+            // the clean-WebGL assertion so a failing clip still leaves its
+            // evidence behind. The same bar capture.spec.ts holds: any
+            // unexpected page/console error or a lost/erroring WebGL context
+            // fails the clip (it is then never marked complete).
+            await writeFile(
+              path.join(jobOutputDir(job), 'capture-health.json'),
+              JSON.stringify(
+                {
+                  jobId: job.jobId,
+                  shotId: job.shotId,
+                  canvasBuffer: prepared.actualBuffer,
+                  expectedCanvasBuffer: prepared.expectedBuffer,
+                  pageErrors: filterKnownWarnings(prepared.errors.page),
+                  consoleErrors: filterKnownWarnings(prepared.errors.console),
+                  webgl: await readWebGlState(page),
+                  frameTimings: result.frameOutcomes,
+                  writtenAtIso: new Date().toISOString(),
+                },
+                null,
+                2,
+              ) + '\n',
+            )
+            await assertCleanWebGl(page, prepared.errors)
           } finally {
             await context.close()
           }

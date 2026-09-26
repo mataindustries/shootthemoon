@@ -23,6 +23,7 @@ export default defineConfig({
     'finalRenderResume.spec.ts',
     'finalRenderStorage.spec.ts',
     'finalRenderCli.spec.ts',
+    'ciPipeline.spec.ts',
     'finalRenderProof.spec.ts',
     'finalRender.spec.ts',
   ],
