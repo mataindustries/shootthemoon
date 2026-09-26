@@ -124,6 +124,12 @@ export function frameFilename(index: number): string {
  * purely diagnostic visibility into which frames were expensive to render. */
 const SLOW_FRAME_THRESHOLD_MS = 500
 
+/** Ceiling for the screenshot readback itself (separate from
+ * FRAME_ADVANCE_TIMEOUT_MS, which only covers waiting for the frame counter
+ * to advance) — a 4K SwiftShader framebuffer readback for a visually busy
+ * scene can exceed Playwright's 30s default. */
+const SCREENSHOT_TIMEOUT_MS = 60_000
+
 /** Steps a continuous 3D phase frame-by-frame and writes sequentially
  * numbered PNGs. Never silently reuses a frame: it polls the render's own
  * frame counter (generously, since 4K SwiftShader frames are slow) and
@@ -165,7 +171,12 @@ export async function captureFrames(options: CaptureFramesOptions): Promise<Capt
     previousFrameCount = currentFrameCount
 
     const filename = frameFilename(index)
-    await page.screenshot({ path: path.join(frameDir, filename) })
+    // Generous, like FRAME_ADVANCE_TIMEOUT_MS above: reading back a 4K
+    // framebuffer under SwiftShader software rendering for a visually busy
+    // scene (many on-screen actors/effects at once) can genuinely exceed
+    // Playwright's 30s screenshot default — confirmed, not a guess, against
+    // the DIVIDER wave-defense shots' formation/volley moments.
+    await page.screenshot({ path: path.join(frameDir, filename), timeout: SCREENSHOT_TIMEOUT_MS })
     frameFilenames.push(filename)
   }
 
@@ -177,7 +188,7 @@ export async function captureStill(page: Page, outDir: string): Promise<string> 
   await mkdir(frameDir, { recursive: true })
   const filename = frameFilename(0)
   await page.waitForTimeout(160)
-  await page.screenshot({ path: path.join(frameDir, filename) })
+  await page.screenshot({ path: path.join(frameDir, filename), timeout: SCREENSHOT_TIMEOUT_MS })
   return filename
 }
 

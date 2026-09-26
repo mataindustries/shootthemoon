@@ -26,6 +26,15 @@ npx playwright test --config=capture/playwright.capture.config.ts capture/captur
 # Optional: static HTML contact sheet per shot (zero new dependencies)
 node capture/contactSheet.mjs            # all shots
 node capture/contactSheet.mjs <shot-id>  # one shot
+
+# Reel-level contact sheets (per act, monument match-cut, First Strike /
+# Counterstrike / DIVIDER candidates, mobile-proof, full storyboard) —
+# grouped from the manifest's own editorial metadata, so a new shot's
+# `editorial.act`/id prefix automatically slots it into the right sheet.
+# Needs Node's native TS support to import manifest.ts directly (no
+# ts-node/tsx dependency):
+node --experimental-strip-types --experimental-transform-types \
+  capture/reelContactSheets.mjs
 ```
 
 The webServer step always runs `VITE_E2E_HARNESS=1 npm run build` first (a
@@ -51,7 +60,9 @@ capture/
   runner.ts                    — generic frame-stepping engine + metadata writer (the "one generic runner")
   capture.spec.ts              — iterates the manifest through the runner
   integrity.spec.ts            — the 7 capture-tooling integrity checks
-  contactSheet.mjs             — zero-dependency HTML contact sheet generator
+  contactSheet.mjs             — zero-dependency HTML contact sheet generator (one shot)
+  reelContactSheets.mjs        — grouped, editorial-metadata-driven contact sheets (per act, etc.)
+  endCardFacts.ts               — verified END CARD source facts (not baked into footage)
   tsconfig.json                — standalone `tsc --noEmit` check for this directory (not wired into the root build)
 ```
 
@@ -178,6 +189,31 @@ all four monument kinds, then validates the result with the real
 | `STRUCK` | `createCompletedStrikeSave()` |
 | `CLAIM` | `createAcceptedCounterstrikeSave('SUCCESS')` |
 | `MON_<KIND>` | CLAIM + a completed `<KIND>` monument, `revealSeen: false` |
+
+## Phase 2: the full reel candidate manifest
+
+`capture/manifest.ts` now holds the complete ~46-shot candidate set for the
+approved six-act ~58s master (see the module doc comment at the top of that
+file), not just the four Phase 1 proof shots below. Every new shot follows
+the same "one manifest entry, generic runner" rule Phase 1 established —
+`runner.ts`, `capture.spec.ts`, and `playwright.capture.config.ts` are
+unchanged. Each `Shot` now also carries a required `editorial` field (act,
+proposed edit order, working timecode, intended edited duration, crop/reframe
+guidance, audio note, edit note, and a REQUIRED/ALT/OPTIONAL priority) —
+read only by `reelContactSheets.mjs` and by whoever cuts the final edit,
+never by the runner. Frame counts are deliberately review-sized (1 hero
+frame up to ~16 for a complicated reveal), never full-duration masters.
+
+One new fixture was added: `CLAIM_RICH` (CLAIM with `lunarOre` patched to
+230, the same direct-JSON-ore-patch precedent `e2e/wave-defense-feedback
+.spec.ts`/`e2e/territory-monuments.spec.ts` already use) — needed only by
+shots that actually walk the monument-construction/DIVIDER-wave-defense
+flow, since plain `CLAIM` alone (unpatched) only has enough ore to render
+the kind-choice panel, not to build one.
+
+`capture/endCardFacts.ts` records verified END CARD source facts (tech
+stack, test count, bundle size, "zero external model files") — data only,
+not design; the end card itself is out of scope for this phase.
 
 ## The four Phase 1 proof shots
 

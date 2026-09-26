@@ -38,6 +38,7 @@ export type FixtureId =
   | 'READY'
   | 'STRUCK'
   | 'CLAIM'
+  | 'CLAIM_RICH'
   | `MON_${MonumentKind}`
 
 export { MONUMENT_KINDS }
@@ -50,12 +51,29 @@ export function buildFixtureSave(fixture: FixtureId, nowMs = Date.now()): string
   if (fixture === 'READY') return createStrikeReadySave(nowMs)
   if (fixture === 'STRUCK') return createCompletedStrikeSave(nowMs)
   if (fixture === 'CLAIM') return createAcceptedCounterstrikeSave('SUCCESS', nowMs)
+  if (fixture === 'CLAIM_RICH') return buildClaimRichSave(nowMs)
 
   const kind = fixture.slice('MON_'.length) as MonumentKind
   if (!MONUMENT_KINDS.includes(kind)) {
     throw new Error(`Unknown monument kind in fixture id: ${fixture}`)
   }
   return buildMonumentClaimSave(kind, false, nowMs)
+}
+
+/**
+ * CLAIM with lunarOre patched up to comfortably cover any monument's ore
+ * cost (highest is BASTION_OBELISK at 100) — the same direct-JSON-ore-patch
+ * precedent already used by e2e/wave-defense-feedback.spec.ts (`raw.outpost.
+ * lunarOre = 230`) and e2e/territory-monuments.spec.ts (`= 230`). Needed for
+ * shots that actually walk the monument-construction/DIVIDER-wave-defense
+ * flow (not just the kind-choice panel, which CLAIM alone already renders).
+ */
+function buildClaimRichSave(nowMs: number): string {
+  const raw = JSON.parse(createAcceptedCounterstrikeSave('SUCCESS', nowMs)) as {
+    outpost: { lunarOre: number }
+  }
+  raw.outpost.lunarOre = 230
+  return JSON.stringify(raw)
 }
 
 /**
