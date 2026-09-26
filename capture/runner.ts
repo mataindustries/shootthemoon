@@ -75,7 +75,7 @@ export function createProgressEventStepper(
   }
 }
 
-async function readFrameCount(page: Page): Promise<number> {
+export async function readFrameCount(page: Page): Promise<number> {
   return page.locator('.scene-canvas canvas').evaluate((canvas: HTMLCanvasElement) => {
     const value = canvas.dataset.frameCount
     return value === undefined ? Number.NaN : Number(value)
@@ -87,7 +87,7 @@ async function readFrameCount(page: Page): Promise<number> {
  * can take far longer than a small default viewport, so this deliberately
  * waits rather than assuming a fixed settle time — the "wait for the
  * framebuffer before capture" requirement, made real instead of guessed. */
-async function waitForFrameCountAbove(
+export async function waitForFrameCountAbove(
   page: Page,
   previousCount: number,
   timeoutMs: number,
