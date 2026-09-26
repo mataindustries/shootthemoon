@@ -17,3 +17,6 @@ dist-ssr
 *.tsbuildinfo
 test-results
 playwright-report
+
+# Capture harness output (regeneratable footage, never tracked)
+capture-output
