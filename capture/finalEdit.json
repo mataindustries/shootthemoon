@@ -1,0 +1,1200 @@
+{
+  "version": 1,
+  "status": "LOCKED — pending approval; not rendered",
+  "title": "SHOOT THE MOON — portfolio reel, final cut",
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 60
+  },
+  "tempo": {
+    "bpm": 100,
+    "beatsPerBar": 4,
+    "gridMs": 300
+  },
+  "durationLimitsMs": {
+    "min": 55000,
+    "max": 60000
+  },
+  "shotCountLimits": {
+    "min": 18,
+    "max": 24
+  },
+  "headFadeFromBlackMs": 1200,
+  "resolvingShotIds": [
+    "bastion-held-hero",
+    "final-claimed-moon-wide"
+  ],
+  "timeline": [
+    {
+      "kind": "shot",
+      "id": "c01",
+      "act": "ARRIVAL",
+      "shotId": "descent-touchdown",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "moon-core:approach",
+        "phaseDurationMs": 6200,
+        "in": 0.12,
+        "out": 0.42
+      },
+      "destInMs": 0,
+      "destOutMs": 4800,
+      "speed": 0.3875,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 3840,
+        "h": 2160
+      },
+      "cropEnd": {
+        "x": 330,
+        "y": 178,
+        "w": 3200,
+        "h": 1800
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "drone-swell",
+      "rationale": "Cold open: the Moon swelling out of black under a 1.2s fade. Real approach camera, clear of the 0.55-0.85 LOD handoff band; a gentle 1.2x push adds intent to a slow in-engine move."
+    },
+    {
+      "kind": "shot",
+      "id": "c02",
+      "act": "ARRIVAL",
+      "shotId": "touchdown-dust",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "moon-core:approach",
+        "phaseDurationMs": 6200,
+        "in": 0.86,
+        "out": 0.97
+      },
+      "destInMs": 4800,
+      "destOutMs": 7200,
+      "speed": 0.2842,
+      "crop": {
+        "x": 800,
+        "y": 708,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "dip-black",
+        "durationMs": 600
+      },
+      "audioCue": "touchdown-thump",
+      "rationale": "The touchdown button: the orange touchdown ring blooms around the lander and expands out of a 2x punch-in. Only window where the dust/ring exists."
+    },
+    {
+      "kind": "shot",
+      "id": "c03",
+      "act": "RIVAL",
+      "shotId": "vesper-citadel-reveal",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "rival-signal:impact",
+        "phaseDurationMs": 2600,
+        "in": 0.75,
+        "out": 1.0
+      },
+      "destInMs": 7200,
+      "destOutMs": 9600,
+      "speed": 0.2708,
+      "crop": {
+        "x": 344,
+        "y": 273,
+        "w": 3072,
+        "h": 1728
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "vesper-sting",
+      "rationale": "The rival arrives on the night side: real in-engine push onto the Vesper Citadel. 1.25x crop recentres the fortress; skips the AVOIDed near-black capsule approach entirely."
+    },
+    {
+      "kind": "shot",
+      "id": "c04",
+      "act": "RIVAL",
+      "shotId": "vesper-transmission",
+      "profile": "HUD",
+      "hud": true,
+      "source": {
+        "clock": "progress",
+        "phase": "rival-signal:intro-transmission",
+        "phaseDurationMs": 7000,
+        "in": 0.3,
+        "out": 0.5
+      },
+      "destInMs": 9600,
+      "destOutMs": 12000,
+      "speed": 0.5833,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "vesper-line",
+      "rationale": "Vesper speaks in the game’s own words — “First is not ownership. Remove your extractor from my Moon.” — over the lit Citadel. Replaces TWO CLAIMS · ONE MOON, whose caption is ~12px at 1080p."
+    },
+    {
+      "kind": "shot",
+      "id": "c05",
+      "act": "FIRST_STRIKE",
+      "shotId": "first-strike-arm-dialog",
+      "profile": "HUD",
+      "hud": true,
+      "source": {
+        "clock": "still"
+      },
+      "destInMs": 12000,
+      "destOutMs": 13200,
+      "speed": null,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "arm-tone",
+      "rationale": "The player’s decision, in real UI: LAUNCH AT NULL MERIDIAN? [CANCEL] [FIRE]. Legible, red, one beat of agency before the spectacle."
+    },
+    {
+      "kind": "shot",
+      "id": "c06",
+      "act": "FIRST_STRIKE",
+      "shotId": "first-strike-liftoff",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "first-strike:launch",
+        "phaseDurationMs": 3200,
+        "in": 0.0,
+        "out": 0.24
+      },
+      "destInMs": 13200,
+      "destOutMs": 14400,
+      "speed": 0.64,
+      "crop": {
+        "x": 960,
+        "y": 1080,
+        "w": 1920,
+        "h": 1080
+      },
+      "cropEnd": {
+        "x": 960,
+        "y": 360,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "launch-roar",
+      "rationale": "Liftoff with a 2x crop tilting up with the warhead. At 16:9 the warhead leaves frame by ~0.30 progress, so everything after is empty ground (new AVOID)."
+    },
+    {
+      "kind": "shot",
+      "id": "c07",
+      "act": "FIRST_STRIKE",
+      "shotId": "first-strike-orbital-flight",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "first-strike:orbital-flight",
+        "phaseDurationMs": 3800,
+        "in": 0.0,
+        "out": 0.105
+      },
+      "destInMs": 14400,
+      "destOutMs": 16800,
+      "speed": 0.1663,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 3840,
+        "h": 2160
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "groove-opens",
+      "rationale": "THE hero shot and poster source: the warhead crossing the illuminated limb, held in real-frame slow motion (0.17x) so the poster moment (0.053) sits mid-clip."
+    },
+    {
+      "kind": "shot",
+      "id": "c08",
+      "act": "FIRST_STRIKE",
+      "shotId": "first-strike-orbital-flight",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "first-strike:orbital-flight",
+        "phaseDurationMs": 3800,
+        "in": 0.473684,
+        "out": 0.947368
+      },
+      "destInMs": 16800,
+      "destOutMs": 19200,
+      "speed": 0.75,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 3840,
+        "h": 2160
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "orbital-hum",
+      "rationale": "Second angle on the same flight: the warhead turns nose-down along the lit limb. Skips the 0.12-0.42 window where it shrinks to a speck in black."
+    },
+    {
+      "kind": "shot",
+      "id": "c09",
+      "act": "FIRST_STRIKE",
+      "shotId": "first-strike-target-approach",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "first-strike:target-approach",
+        "phaseDurationMs": 2200,
+        "in": 0.55,
+        "out": 1.0
+      },
+      "destInMs": 19200,
+      "destOutMs": 21600,
+      "speed": 0.4125,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 3840,
+        "h": 2160
+      },
+      "cropEnd": {
+        "x": 320,
+        "y": 180,
+        "w": 3200,
+        "h": 1800
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "flash-white",
+        "durationMs": 200
+      },
+      "audioCue": "descent-riser+drop",
+      "rationale": "Terminal approach over the dark limb with a creeping 1.2x push; the last 600ms plays in silence. Skips the first half, where the warhead is a dot in black."
+    },
+    {
+      "kind": "shot",
+      "id": "c10",
+      "act": "FIRST_STRIKE",
+      "shotId": "first-strike-impact-flash",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "first-strike:impact-flash",
+        "phaseDurationMs": 1300,
+        "in": 0.12,
+        "out": 0.85
+      },
+      "destInMs": 21600,
+      "destOutMs": 24000,
+      "speed": 0.3954,
+      "crop": {
+        "x": 384,
+        "y": 325,
+        "w": 3072,
+        "h": 1728
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "first-strike-impact",
+      "rationale": "FIRST STRIKE IMPACT on the bar-10 downbeat: the amber dome over the jagged crater. Starts past the dark pre-flash; the white flash transition covers the ignition."
+    },
+    {
+      "kind": "shot",
+      "id": "c11",
+      "act": "FIRST_STRIKE",
+      "shotId": "first-strike-ejecta",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "first-strike:ejecta",
+        "phaseDurationMs": 3400,
+        "in": 0.03,
+        "out": 0.53
+      },
+      "destInMs": 24000,
+      "destOutMs": 27000,
+      "speed": 0.5667,
+      "crop": {
+        "x": 384,
+        "y": 325,
+        "w": 3072,
+        "h": 1728
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "debris-rumble",
+      "rationale": "Debris plume and the expanding orange shock ring establish the crater the Crater Crown will later occupy. Stops before the >0.55 tail goes dark; crater-reveal is cut as a darker repeat of that tail."
+    },
+    {
+      "kind": "shot",
+      "id": "c12",
+      "act": "FIRST_STRIKE",
+      "shotId": "first-strike-ending-text",
+      "profile": "HUD",
+      "hud": true,
+      "source": {
+        "clock": "still"
+      },
+      "destInMs": 27000,
+      "destOutMs": 28800,
+      "speed": null,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "fade-black",
+        "durationMs": 600
+      },
+      "audioCue": "breath",
+      "rationale": "FIRST STRIKE COMPLETE · THE MOON REMEMBERS — the game’s own act card; “Its scar remains” sets up the Crater Crown payoff. Fades to black for the breath before the reversal."
+    },
+    {
+      "kind": "shot",
+      "id": "c13",
+      "act": "COUNTERSTRIKE",
+      "shotId": "counterstrike-fire-now",
+      "profile": "HUD",
+      "hud": true,
+      "source": {
+        "clock": "still"
+      },
+      "destInMs": 28800,
+      "destOutMs": 29400,
+      "speed": null,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "counterstrike-reversal",
+      "rationale": "The reversal slams in on the downbeat: VESPER COUNTERSTRIKE · FIRE NOW, reticle on the Moon. Desktop half of the mobile-motif pair."
+    },
+    {
+      "kind": "shot",
+      "id": "c14",
+      "act": "COUNTERSTRIKE",
+      "shotId": "counterstrike-fire-now-port",
+      "profile": "PORT",
+      "hud": true,
+      "source": {
+        "clock": "still"
+      },
+      "destInMs": 29400,
+      "destOutMs": 30000,
+      "speed": null,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 1170,
+        "h": 2532
+      },
+      "framing": "pillarbox-portrait",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "counterstrike-reversal",
+      "rationale": "Same moment on a real 390x844 phone viewport — the FIRE NOW thumb target. Mobile-first proof, pillarboxed, never cropped."
+    },
+    {
+      "kind": "shot",
+      "id": "c15",
+      "act": "COUNTERSTRIKE",
+      "shotId": "counterstrike-terminal-dive",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "counterstrike:impact",
+        "phaseDurationMs": 4400,
+        "in": 0.16,
+        "out": 0.33
+      },
+      "destInMs": 30000,
+      "destOutMs": 31200,
+      "speed": 0.6233,
+      "crop": {
+        "x": 790,
+        "y": 220,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "flash-white",
+        "durationMs": 200
+      },
+      "audioCue": "incoming-roar",
+      "rationale": "Repaired terminal dive, medium beat: the cyan-exhaust warhead falls out of the sky onto the lander. Outperforms the old sampled window (0-0.16, a static wide hold with a speck of a warhead)."
+    },
+    {
+      "kind": "shot",
+      "id": "c16",
+      "act": "COUNTERSTRIKE",
+      "shotId": "counterstrike-impact-contact",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "progress",
+        "phase": "counterstrike:impact",
+        "phaseDurationMs": 4400,
+        "in": 0.3409,
+        "out": 0.55
+      },
+      "destInMs": 31200,
+      "destOutMs": 33600,
+      "speed": 0.3834,
+      "crop": {
+        "x": 620,
+        "y": 380,
+        "w": 2560,
+        "h": 1440
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "counterstrike-impact",
+      "rationale": "Repaired contact beat swept through the white core, shock ring and debris spray beside the lander (the review still only caught +0.045). Replaces both interception-success and the settled damage-hold alternate."
+    },
+    {
+      "kind": "shot",
+      "id": "c17",
+      "act": "DIVIDER",
+      "shotId": "divider-incoming-formation",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "elapsed-ms",
+        "origin": "wave-targeting",
+        "inMs": 80,
+        "outMs": 480
+      },
+      "destInMs": 33600,
+      "destOutMs": 34800,
+      "speed": 0.3333,
+      "crop": {
+        "x": 1030,
+        "y": 60,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "divider-raid",
+      "rationale": "A third party: the octogonal lead and escort locked in the cyan reticle above the Signal Array under construction. The 2x DIVIDER crop crops the HUD card out."
+    },
+    {
+      "kind": "shot",
+      "id": "c18",
+      "act": "DIVIDER",
+      "shotId": "divider-fire-defense-port",
+      "profile": "PORT",
+      "hud": true,
+      "source": {
+        "clock": "still"
+      },
+      "destInMs": 34800,
+      "destOutMs": 36000,
+      "speed": null,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 1170,
+        "h": 2532
+      },
+      "framing": "pillarbox-portrait",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "target-lock",
+      "rationale": "The player’s answer on a real phone: SIGNAL ARRAY · WAVE 1/3 · TARGET LOCKED · FIRE DEFENSE. Second mobile-motif beat."
+    },
+    {
+      "kind": "shot",
+      "id": "c19",
+      "act": "DIVIDER",
+      "shotId": "divider-weapon-volley",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "elapsed-ms",
+        "origin": "octogonal-fire",
+        "inMs": 80,
+        "outMs": 680
+      },
+      "destInMs": 36000,
+      "destOutMs": 37800,
+      "speed": 0.3333,
+      "crop": {
+        "x": 1030,
+        "y": 60,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "divider-escalation",
+      "rationale": "DIVIDER escalation on the downbeat: violet fire streaks from the octogonals down onto the array, in the same 2x crop so ships and weapons read."
+    },
+    {
+      "kind": "shot",
+      "id": "c20",
+      "act": "DIVIDER",
+      "shotId": "divider-defense-interaction",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "elapsed-ms",
+        "origin": "wave-targeting",
+        "inMs": 80,
+        "outMs": 680
+      },
+      "destInMs": 37800,
+      "destOutMs": 39000,
+      "speed": 0.5,
+      "crop": {
+        "x": 1030,
+        "y": 60,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "defense-beam",
+      "rationale": "The cyan defense beam lands and the lead breaks apart inside its reticle — the fight the player wins."
+    },
+    {
+      "kind": "shot",
+      "id": "c21",
+      "act": "DIVIDER",
+      "shotId": "divider-monument-survives",
+      "profile": "PLATE",
+      "hud": true,
+      "source": {
+        "clock": "still"
+      },
+      "destInMs": 39000,
+      "destOutMs": 40800,
+      "speed": null,
+      "crop": {
+        "x": 480,
+        "y": 540,
+        "w": 2880,
+        "h": 1620
+      },
+      "cropEnd": {
+        "x": 960,
+        "y": 1080,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "claim-secured",
+      "rationale": "Payoff: push from the standing Signal Array into the real status card — HULL 100% · 3/3 WAVES · TERRITORY CLAIMED · PERMANENT."
+    },
+    {
+      "kind": "shot",
+      "id": "c22",
+      "act": "MONUMENTS",
+      "shotId": "helios-mechanical-peak",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "elapsed-ms",
+        "origin": "reveal-open",
+        "inMs": 3900,
+        "outMs": 4500
+      },
+      "destInMs": 40800,
+      "destOutMs": 42600,
+      "speed": 0.3333,
+      "crop": {
+        "x": 820,
+        "y": 100,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "montage-helios",
+      "rationale": "Montage opens on Helios Spire’s mass driver firing its slug off the rail (fire at +4200ms), 2x on the spire."
+    },
+    {
+      "kind": "shot",
+      "id": "c23",
+      "act": "MONUMENTS",
+      "shotId": "signal-array-mechanical-peak",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "elapsed-ms",
+        "origin": "reveal-open",
+        "inMs": 1900,
+        "outMs": 2700
+      },
+      "destInMs": 42600,
+      "destOutMs": 43800,
+      "speed": 0.6667,
+      "crop": {
+        "x": 890,
+        "y": 100,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "montage-signal",
+      "rationale": "Faster: the Signal Array’s amber vane fan at full deployment."
+    },
+    {
+      "kind": "shot",
+      "id": "c24",
+      "act": "MONUMENTS",
+      "shotId": "crater-crown-early-reveal",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "elapsed-ms",
+        "origin": "reveal-open",
+        "inMs": 300,
+        "outMs": 1200
+      },
+      "destInMs": 43800,
+      "destOutMs": 45600,
+      "speed": 0.5,
+      "crop": {
+        "x": 634,
+        "y": 0,
+        "w": 2560,
+        "h": 1440
+      },
+      "cropEnd": {
+        "x": 954,
+        "y": 180,
+        "w": 1920,
+        "h": 1080
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "cut",
+        "durationMs": 0
+      },
+      "audioCue": "montage-crown",
+      "rationale": "Payoff: the Crater Crown sits inside the jagged First Strike scar, pushing in until the scar polygons are unmistakable. Early reveal beats held-hero here — closer, scar clearer."
+    },
+    {
+      "kind": "shot",
+      "id": "c25",
+      "act": "CLAIMED_MOON",
+      "shotId": "bastion-held-hero",
+      "profile": "PLATE",
+      "hud": false,
+      "source": {
+        "clock": "elapsed-ms",
+        "origin": "reveal-open",
+        "inMs": 300,
+        "outMs": 6000
+      },
+      "destInMs": 45600,
+      "destOutMs": 52800,
+      "speed": 0.7917,
+      "crop": {
+        "x": 635,
+        "y": 98,
+        "w": 2560,
+        "h": 1440
+      },
+      "cropEnd": {
+        "x": 0,
+        "y": 0,
+        "w": 3840,
+        "h": 2160
+      },
+      "framing": "full-16x9",
+      "transitionOut": {
+        "type": "dip-black",
+        "durationMs": 1200
+      },
+      "audioCue": "resolution",
+      "rationale": "Resolution: one continuous in-engine pull-back from the Bastion Ziggurat and its claim beacon to the whole lit, claimed Moon. Ends on the same composition as final-claimed-moon-wide."
+    },
+    {
+      "kind": "end-card",
+      "id": "end",
+      "act": "CLAIMED_MOON",
+      "destInMs": 52800,
+      "destOutMs": 57600,
+      "title": "SHOOT THE MOON",
+      "factClaims": [
+        "Built with React, TypeScript, Three.js, and React Three Fiber",
+        "Code-authored 3D — zero external model files",
+        "Deterministic simulation",
+        "Mobile-first",
+        "Browser game"
+      ],
+      "audioCue": "final-chord",
+      "rationale": "Title and verified facts from capture/endCardFacts.ts over black, after the claimed Moon dips out. Designed later; no slogans over gameplay."
+    }
+  ],
+  "cues": [
+    {
+      "atMs": 0,
+      "kind": "riser",
+      "label": "drone-swell",
+      "note": "Low drone + air under the fade-in; no percussion yet."
+    },
+    {
+      "atMs": 4800,
+      "kind": "impact",
+      "label": "touchdown-thump",
+      "note": "Bar 3: first percussion hit lands with the touchdown ring."
+    },
+    {
+      "atMs": 7200,
+      "kind": "sting",
+      "label": "vesper-sting",
+      "note": "Bar 4: rival motif enters — cold, minor, cyan."
+    },
+    {
+      "atMs": 9600,
+      "kind": "downbeat",
+      "label": "vesper-line",
+      "note": "Bar 5: music ducks ~8 dB under the Vesper transmission card (text on screen, optional VO)."
+    },
+    {
+      "atMs": 12000,
+      "kind": "downbeat",
+      "label": "arm-tone",
+      "note": "Bar 6: UI arm tone; pulse enters at half-time."
+    },
+    {
+      "atMs": 13200,
+      "kind": "impact",
+      "label": "launch-roar",
+      "note": "Beat 3 of bar 6: launch roar, kick on every beat from here."
+    },
+    {
+      "atMs": 14400,
+      "kind": "downbeat",
+      "label": "groove-opens",
+      "note": "Bar 7: full groove opens under the hero orbital shot."
+    },
+    {
+      "atMs": 19200,
+      "kind": "riser",
+      "label": "descent-riser",
+      "note": "Bar 9: whine/riser builds through the terminal approach."
+    },
+    {
+      "atMs": 21000,
+      "kind": "drop",
+      "label": "silence-drop",
+      "note": "Hard cut to silence for 600ms — only the warhead whistle."
+    },
+    {
+      "atMs": 21600,
+      "kind": "impact",
+      "label": "first-strike-impact",
+      "note": "Bar 10: FIRST STRIKE IMPACT — sub drop + boom on the white flash."
+    },
+    {
+      "atMs": 27000,
+      "kind": "drop",
+      "label": "breath",
+      "note": "Music thins to a single pad under THE MOON REMEMBERS; fades out with the picture."
+    },
+    {
+      "atMs": 28800,
+      "kind": "reversal",
+      "label": "counterstrike-reversal",
+      "note": "Bar 13: COUNTERSTRIKE REVERSAL — alarm stab on FIRE NOW; rival motif returns inverted."
+    },
+    {
+      "atMs": 30000,
+      "kind": "riser",
+      "label": "incoming-roar",
+      "note": "Incoming-warhead roar swells under the dive."
+    },
+    {
+      "atMs": 31200,
+      "kind": "impact",
+      "label": "counterstrike-impact",
+      "note": "Bar 14: contact crack + low boom on the white flash."
+    },
+    {
+      "atMs": 33600,
+      "kind": "downbeat",
+      "label": "divider-raid",
+      "note": "Bar 15: DIVIDER RAID INBOUND — new violet motif, alarm pulse."
+    },
+    {
+      "atMs": 36000,
+      "kind": "escalation",
+      "label": "divider-escalation",
+      "note": "Bar 16: DIVIDER ESCALATION — violet volley, drums to double-time."
+    },
+    {
+      "atMs": 37800,
+      "kind": "impact",
+      "label": "defense-beam",
+      "note": "Cyan beam hit; drums hold."
+    },
+    {
+      "atMs": 39000,
+      "kind": "sting",
+      "label": "claim-secured",
+      "note": "Claim-secured sting as HULL 100% · 3/3 WAVES resolves."
+    },
+    {
+      "atMs": 40800,
+      "kind": "accelerate",
+      "label": "montage-helios",
+      "note": "Bar 18: monument montage — one hit per cut, cut rate accelerating."
+    },
+    {
+      "atMs": 42600,
+      "kind": "accelerate",
+      "label": "montage-signal",
+      "note": "Faster hit."
+    },
+    {
+      "atMs": 43800,
+      "kind": "accelerate",
+      "label": "montage-crown",
+      "note": "Softened callback of the First Strike boom as the Crown lands in the scar."
+    },
+    {
+      "atMs": 45600,
+      "kind": "resolve",
+      "label": "resolution",
+      "note": "Bar 20: RESOLUTION — full theme, sustained chord under the Bastion pull-back."
+    },
+    {
+      "atMs": 52800,
+      "kind": "resolve",
+      "label": "final-chord",
+      "note": "Bar 23: end card — final chord rings out to silence at 57.6s."
+    }
+  ],
+  "avoidWindows": [
+    {
+      "shotId": "descent-touchdown",
+      "in": 0.55,
+      "out": 0.85,
+      "reason": "audited Moon/SurfacePatch descent texture LOD handoff band"
+    },
+    {
+      "shotId": "first-strike-liftoff",
+      "in": 0.3,
+      "out": 1.0,
+      "reason": "at 16:9 the warhead has left frame — empty ground (manifest AVOIDed only 0.75-1.0)"
+    },
+    {
+      "shotId": "first-strike-orbital-flight",
+      "in": 0.12,
+      "out": 0.42,
+      "reason": "warhead shrinks to a speck in empty black"
+    },
+    {
+      "shotId": "first-strike-target-approach",
+      "in": 0.0,
+      "out": 0.5,
+      "reason": "warhead is a dot in black before the dark limb enters"
+    },
+    {
+      "shotId": "first-strike-impact-flash",
+      "in": 0.0,
+      "out": 0.1,
+      "reason": "dark pre-flash (0.0 is black; first bright review frame is 0.19)"
+    },
+    {
+      "shotId": "first-strike-ejecta",
+      "in": 0.55,
+      "out": 1.0,
+      "reason": "crater goes dark; debris only"
+    },
+    {
+      "shotId": "counterstrike-terminal-dive",
+      "in": 0.0,
+      "out": 0.15,
+      "reason": "'wide' hold beat: static frame, warhead a speck at 16:9"
+    },
+    {
+      "shotId": "counterstrike-interception-success",
+      "in": 0.0,
+      "out": 1.0,
+      "reason": "interception reads as a few-pixel ring on a full Moon at 16:9; camera discontinuity near 0.35"
+    }
+  ],
+  "derivatives": {
+    "heroReel": {
+      "file": "shoot-the-moon-reel-1080p60.mp4",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "encode": "H.264 High 4.2, CRF 16, preset slow, yuv420p, BT.709, closed GOP 1s, +faststart",
+      "audio": "AAC-LC 320 kb/s stereo 48 kHz, -14 LUFS integrated, -1 dBTP"
+    },
+    "webReel": {
+      "file": "shoot-the-moon-reel-1080p30-web.mp4",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "encode": "H.264 High, CRF 22, maxrate 6 Mb/s, bufsize 12 Mb/s, yuv420p, +faststart (target <= 25 MB)",
+      "audio": "AAC-LC 160 kb/s stereo 48 kHz"
+    },
+    "loop": {
+      "clipIds": [
+        "c07",
+        "c09",
+        "c10",
+        "c15",
+        "c16",
+        "c19",
+        "c20"
+      ],
+      "silent": true,
+      "fps": 30,
+      "note": "Silent autoplay loop, 13.8s: orbital hero -> approach -> First Strike impact -> dive -> contact -> violet volley -> cyan answer, looping back to the lit limb. No HUD, no text. H.264 + VP9/WebM, 1080p30, target <= 8 MB, muted/playsinline."
+    },
+    "poster": {
+      "id": "poster",
+      "shotId": "first-strike-orbital-flight",
+      "source": {
+        "clock": "progress",
+        "phase": "first-strike:orbital-flight",
+        "phaseDurationMs": 3800,
+        "in": 0.052632,
+        "out": 0.052632
+      },
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 3840,
+        "h": 2160
+      },
+      "note": "Warhead crossing the illuminated lunar limb; right third is clean black for title. Export 3840x2160 PNG master + 1920x1080 JPEG q90 + 1200x630 social crop."
+    },
+    "stills": [
+      {
+        "id": "still-first-strike-impact",
+        "shotId": "first-strike-impact-flash",
+        "source": {
+          "clock": "progress",
+          "phase": "first-strike:impact-flash",
+          "phaseDurationMs": 1300,
+          "in": 0.192308,
+          "out": 0.192308
+        },
+        "crop": {
+          "x": 384,
+          "y": 325,
+          "w": 3072,
+          "h": 1728
+        },
+        "note": "Amber impact dome over the jagged crater."
+      },
+      {
+        "id": "still-counterstrike-contact",
+        "shotId": "counterstrike-impact-contact",
+        "source": {
+          "clock": "progress",
+          "phase": "counterstrike:impact",
+          "phaseDurationMs": 4400,
+          "in": 0.35,
+          "out": 0.35
+        },
+        "crop": {
+          "x": 620,
+          "y": 380,
+          "w": 2560,
+          "h": 1440
+        },
+        "note": "White core and shock ring beside the lander."
+      },
+      {
+        "id": "still-divider-defense",
+        "shotId": "divider-defense-interaction",
+        "source": {
+          "clock": "elapsed-ms",
+          "origin": "wave-targeting",
+          "inMs": 80,
+          "outMs": 80
+        },
+        "crop": {
+          "x": 1030,
+          "y": 60,
+          "w": 1920,
+          "h": 1080
+        },
+        "note": "Cyan beam striking the octogonal lead above the Signal Array."
+      },
+      {
+        "id": "still-crater-crown-scar",
+        "shotId": "crater-crown-early-reveal",
+        "source": {
+          "clock": "elapsed-ms",
+          "origin": "reveal-open",
+          "inMs": 800,
+          "outMs": 800
+        },
+        "crop": {
+          "x": 954,
+          "y": 180,
+          "w": 1920,
+          "h": 1080
+        },
+        "note": "Crater Crown seated in the First Strike scar."
+      },
+      {
+        "id": "still-claimed-moon",
+        "shotId": "bastion-held-hero",
+        "source": {
+          "clock": "elapsed-ms",
+          "origin": "reveal-open",
+          "inMs": 5600,
+          "outMs": 5600
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "w": 3840,
+          "h": 2160
+        },
+        "note": "The claimed Moon: Bastion Ziggurat and claim beacon on the lit hemisphere."
+      }
+    ],
+    "mobileScreenshots": [
+      {
+        "id": "mobile-fire-now",
+        "shotId": "counterstrike-fire-now-port",
+        "source": {
+          "clock": "still"
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "w": 1170,
+          "h": 2532
+        },
+        "note": "FIRE NOW interceptor prompt, real 390x844 viewport."
+      },
+      {
+        "id": "mobile-fire-defense",
+        "shotId": "divider-fire-defense-port",
+        "source": {
+          "clock": "still"
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "w": 1170,
+          "h": 2532
+        },
+        "note": "DIVIDER wave 1/3 TARGET LOCKED with FIRE DEFENSE."
+      },
+      {
+        "id": "mobile-monument-choice",
+        "shotId": "monument-selection-port",
+        "source": {
+          "clock": "still"
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "w": 1170,
+          "h": 2532
+        },
+        "note": "LEAVE A PERMANENT MARK monument choice panel."
+      }
+    ]
+  }
+}

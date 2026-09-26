@@ -346,7 +346,7 @@ const claimConfirmedShot: Shot = {
  * frame spacing. Window is 0.12-0.42 progress, safely clear of the audited
  * 55-85% descent texture (Moon/SurfacePatch LOD) handoff band.
  */
-const DESCENT_APPROACH_DURATION_MS = 6_200
+export const DESCENT_APPROACH_DURATION_MS = 6_200
 const descentShot: Shot = {
   id: 'descent-touchdown',
   name: 'Descent / touchdown — early approach',

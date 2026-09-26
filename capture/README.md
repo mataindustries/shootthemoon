@@ -63,6 +63,9 @@ capture/
   contactSheet.mjs             — zero-dependency HTML contact sheet generator (one shot)
   reelContactSheets.mjs        — grouped, editorial-metadata-driven contact sheets (per act, etc.)
   endCardFacts.ts               — verified END CARD source facts (not baked into footage)
+  finalEdit.json               — the locked final cut (timeline, cues, AVOID windows, derivatives)
+  finalEdit.ts                 — edit types, validateFinalEdit(), deriveRenderPlan() (no src/ imports)
+  finalEdit.spec.ts            — validates finalEdit.json against the manifest and production timing
   tsconfig.json                — standalone `tsc --noEmit` check for this directory (not wired into the root build)
 ```
 
@@ -214,6 +217,48 @@ the kind-choice panel, not to build one.
 `capture/endCardFacts.ts` records verified END CARD source facts (tech
 stack, test count, bundle size, "zero external model files") — data only,
 not design; the end card itself is out of scope for this phase.
+
+## Phase 3: the locked final cut
+
+`capture/finalEdit.json` is the locked 57.6s edit (24 bars at 100 BPM): 25
+clips from 24 manifest shots plus the end card, the audio-cue map, documented
+AVOID windows, and the derivative-asset plan (hero reel, web reel, silent
+loop, poster, stills, mobile screenshots). It is plain data for the later
+ffmpeg/editor step and only references shot ids — no capture logic is
+duplicated. `capture/finalEdit.ts` holds its types, `validateFinalEdit()` and
+`deriveRenderPlan()`; it imports nothing from `src/`.
+
+```sh
+# Validates the cut (timeline continuity, 55-60s, shot references, crops,
+# end-card ordering, production phase durations, AVOID windows):
+npx playwright test --config=capture/playwright.capture.config.ts capture/finalEdit.spec.ts
+```
+
+Source windows are in each shot's native timeline (`progress` for the
+set-presentation/set-run hooks, `elapsed-ms` from a named fake-clock anchor,
+or `still`). Crops are in screenshot pixels — CSS viewport × deviceScaleFactor
+— so PORT is 1170×2532 even though its WebGL buffer is 585×1266.
+
+`deriveRenderPlan()` is the final-render shortlist: only referenced shots,
+only the windows the cut uses, one real frame per 60fps output frame (slow
+motion is never interpolated) and one frame per still — 2,749 frames across
+25 shots, against the 46-shot candidate set.
+
+Before the final render, still to build (after the cut is approved):
+
+- A final-render mode for `capture.spec.ts` that drives each planned shot
+  through its plan windows at 60fps; today every `run()` hardcodes its review
+  window.
+- Three windows go beyond what their manifest entry captures today:
+  `counterstrike-terminal-dive` uses impact progress 0.16–0.33 (the `medium`
+  push-in beat, not the static `wide` hold it samples now),
+  `counterstrike-impact-contact` becomes a 0.3409–0.55 sweep instead of one
+  still, and `bastion-held-hero` runs the whole +300→+6000ms reveal pull-back.
+- `divider-weapon-volley`'s first 4K frame took 71.5s to screenshot (shader
+  compile), over `SCREENSHOT_TIMEOUT_MS` (60s); later frames are far cheaper.
+  The final render needs a longer first-frame timeout or a warm-up frame.
+- A proof pass (first and last frame of every window) before committing to
+  the full ~6h SwiftShader run.
 
 ## The four Phase 1 proof shots
 

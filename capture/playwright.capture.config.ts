@@ -15,7 +15,7 @@ import { defineConfig } from '@playwright/test'
  */
 export default defineConfig({
   testDir: '.',
-  testMatch: ['capture.spec.ts', 'integrity.spec.ts'],
+  testMatch: ['capture.spec.ts', 'integrity.spec.ts', 'finalEdit.spec.ts'],
   fullyParallel: false,
   workers: 1,
   forbidOnly: true,
