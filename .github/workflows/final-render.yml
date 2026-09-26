@@ -41,7 +41,6 @@ concurrency:
 
 env:
   NODE_VERSION: '22.22.2'
-  NPM_VERSION: '11.19.0'
 
 defaults:
   run:
@@ -78,7 +77,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      - run: npm install -g npm@${{ env.NPM_VERSION }}
       - run: npm ci
 
       - name: Typecheck (capture/ + app)
@@ -124,7 +122,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      - run: npm install -g npm@${{ env.NPM_VERSION }}
       - run: npm ci
 
       - name: Cache Playwright browsers
