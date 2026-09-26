@@ -959,8 +959,30 @@ test('Territory Monuments defer their auto-open until an urgent Counterstrike fl
     'SUCCESS',
   )
 
-  // Only once the urgent flow has actually concluded does the deferred
-  // monument offer resurface, proving this is a defer and not a suppression.
+  // Acceptance is not the end of the flow: the outcome card is its payoff and
+  // must stay on screen, with the monument offer still held back.
+  await page.waitForTimeout(1_500)
+  await expect(main).toHaveAttribute('data-counterstrike-state', 'resolved')
+  await expect(main).toHaveAttribute('data-monument-view', 'false')
+  await expect(page.locator('.counterstrike-ending')).toContainText(
+    'COUNTERSTRIKE DEFEATED',
+  )
+
+  // The card carries the monument offer, so leaving it goes where its button
+  // says; the offer stays one tap away, proving a defer and not a suppression.
+  await page.getByRole('button', { name: 'VIEW OUTPOST OPERATIONS' }).click()
+  await expect(main).toHaveAttribute('data-counterstrike-state', 'dormant')
+  await page.getByRole('button', { name: 'REVISIT OUTPOST' }).click()
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent(
+    'moon-core:set-cinematic-progress', { detail: { progress: 1 } },
+  )))
+  await expect(main).toHaveAttribute('data-phase', 'landed')
+  await page.waitForTimeout(1_000)
+  await expect(main).toHaveAttribute('data-monument-view', 'false')
+  await expect(
+    page.getByRole('region', { name: 'Outpost operations', exact: true }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'TERRITORY MONUMENTS', exact: true }).click()
   await expect(main).toHaveAttribute('data-monument-view', 'true')
   await expect(page.locator('.monument-heading')).toContainText(
     'TERRITORY MONUMENTS',

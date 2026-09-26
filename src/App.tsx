@@ -317,6 +317,9 @@ function App() {
   // TRACK COUNTERSTRIKE prompt is up awaiting the player's action. Only the
   // latter must hold off the monument auto-open; the button stays reachable.
   const counterstrikeAwaitingTrack = counterstrikeRun.status === 'dormant' && counterstrike?.available === true && counterstrike.acceptedOutcome === null
+  // A run resolved by attempts in this session is showing its outcome card; a
+  // restored outcome (no attempts) still yields to the monument offer.
+  const counterstrikeOutcomeShowing = counterstrikeRun.status === 'resolved' && counterstrikeRun.attemptsUsed > 0
   const monumentAutoOpenSafe = monumentSafe && !counterstrikeAwaitingTrack
   const platformDefense = !entryOpen && state.phase === 'landed' && monumentSafe && !monumentView
     ? platformDefenseView(outpost?.orbitalSiege ?? null, platformShots) : null
@@ -1348,13 +1351,17 @@ function App() {
   }, [counterstrike, counterstrikeRun, outpost])
 
   useEffect(() => {
-    if (!entryOpen && monumentAutoOpenSafe && monumentAvailable && !monumentOfferedRef.current && !siegeIsActive(outpost?.orbitalSiege ?? null)) {
+    // The live outcome card keeps the screen and carries the TERRITORY MONUMENTS
+    // entry, so it spends this session's one-time offer instead of being replaced.
+    if (counterstrikeOutcomeShowing) {
+      monumentOfferedRef.current = true
+    } else if (!entryOpen && monumentAutoOpenSafe && monumentAvailable && !monumentOfferedRef.current && !siegeIsActive(outpost?.orbitalSiege ?? null)) {
       monumentOfferedRef.current = true
       setCounterstrikeRun(current => current.status === 'resolved' ? counterstrikeRunReducer(current, { type: 'reset', clockMs: performance.now() }) : current)
       setMonumentOpen(true)
       dispatchOutpost({ type: 'resumeSurface', nowMs: Date.now() })
     }
-  }, [entryOpen, monumentAutoOpenSafe, monumentAvailable, outpost?.orbitalSiege?.status])
+  }, [counterstrikeOutcomeShowing, entryOpen, monumentAutoOpenSafe, monumentAvailable, outpost?.orbitalSiege?.status])
 
   useEffect(() => {
     if (monumentView && outpost?.monument?.status === 'complete' && !outpost.monument.revealSeen && monumentRevealAtMs === null) {

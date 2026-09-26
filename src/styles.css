@@ -3314,6 +3314,9 @@ button {
 @media (max-height: 540px) and (orientation: landscape) { .monument-panel { left: auto; right: 12px; transform: none; width: 340px; max-height: calc(100dvh - 24px); } }
 .monument-entry { top: auto; bottom: max(24px, env(safe-area-inset-bottom)); font-family: inherit; font-weight: 600; font-size: 11px; line-height: 1.4; }
 .app-shell[data-phase="landed"] .monument-entry { top: 96px; bottom: auto; }
+/* Phone layouts put the ore and miner status row in that band; keep the entry clear of it. */
+@media (max-width: 719px) { .app-shell[data-phase="landed"] .monument-entry { top: max(170px, calc(env(safe-area-inset-top) + 164px)); } }
+@media (orientation: landscape) and (max-height: 560px) { .app-shell[data-phase="landed"] .monument-entry { top: 80px; left: max(32px, env(safe-area-inset-left)); transform: none; } }
 .monument-panel { max-height: 65dvh; }
 .monument-panel[data-status="command"] > .monument-stats,
 .monument-panel[data-status="command"] > progress,
