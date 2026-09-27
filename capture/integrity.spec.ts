@@ -8,11 +8,14 @@ import { readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { buildFixtureSave, MONUMENT_KINDS } from './fixtures.ts'
+import { openMonumentRevealAndReadOrigin } from './gameActions.ts'
 import { assertBufferMatches, preparePage } from './initCapture.ts'
 import { SHOTS } from './manifest.ts'
 import { expectedCanvasBufferSize, mirrorCalculateDpr, PROFILES } from './profiles.ts'
 import {
+  createClockStepper,
   frameFilename,
+  readFrameCount,
   validateCaptureMetadataShape,
   writeCaptureMetadata,
   CAPTURE_OUTPUT_ROOT,
@@ -228,6 +231,52 @@ test.describe('7. capture tooling does not mutate production state unexpectedly'
     } finally {
       await withHarness.close()
       await withoutHarness.close()
+    }
+  })
+})
+
+test.describe('8. fake-clock stepper guarantees a fresh render per advance', () => {
+  // Regression coverage for the run-#3 DIVIDER/MONUMENTS/CLAIMED_MOON
+  // failures: every locked "elapsed-ms" motion clip samples source time in
+  // steps well under one requestAnimationFrame tick (~16.7ms) — e.g.
+  // helios-mechanical-peak (c22) at ~5.6ms/frame — because they are all
+  // deliberate slow-motion beats (speed well below 1x). A single
+  // page.clock.runFor(left) reliably lands the fake clock's *time* at the
+  // target but does not by itself guarantee src/render/useDemandAnimation.ts's
+  // chained-rAF invalidate() loop actually committed a new frame in
+  // between, since that loop only re-fires on the fake clock's own ~16.7ms
+  // tick cadence. Before the fix, this stalled capture/finalRender/engine.ts's
+  // frame-counter poll deterministically (not a flake) on every attempt,
+  // because nothing re-advances a *paused* fake clock while that poll
+  // merely waits.
+  test('a sub-tick elapsed-ms delta still produces a new, distinct frame every time', async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: PROFILES.PLATE.cssWidth, height: PROFILES.PLATE.cssHeight },
+      deviceScaleFactor: PROFILES.PLATE.deviceScaleFactor,
+    })
+    try {
+      const page = await context.newPage()
+      await preparePage(page, {
+        profile: PROFILES.PLATE,
+        fixture: 'MON_HELIOS_SPIRE',
+        beforeGoto: async (p) => {
+          await p.clock.install()
+        },
+      })
+      const originMs = await openMonumentRevealAndReadOrigin(page)
+      const stepper = createClockStepper(page, originMs)
+
+      // Mirrors c22 (helios-mechanical-peak)'s real final-render sampling
+      // density: ~5.6ms of source time per output frame.
+      let previousCount = await readFrameCount(page)
+      for (let step = 1; step <= 6; step += 1) {
+        await stepper.advanceTo(step * 5.6)
+        const current = await readFrameCount(page)
+        expect(current, `step ${step}`).toBeGreaterThan(previousCount)
+        previousCount = current
+      }
+    } finally {
+      await context.close()
     }
   })
 })

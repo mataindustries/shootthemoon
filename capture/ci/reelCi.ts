@@ -12,9 +12,9 @@
  * buildFinalRenderJobs(), and each clip is rendered by the unchanged
  * capture/finalRender.mjs --clip=<id>.
  */
-import { ACT_ORDER, isShotClip, sourceFrameSize, type CropRect, type EditAct, type FinalEdit, type ShotClip } from '../finalEdit.ts'
+import { ACT_ORDER, isShotClip, type CropRect, type EditAct, type FinalEdit, type ShotClip } from '../finalEdit.ts'
 import { interpolateCrop, type FinalRenderJob } from '../finalRender/plan.ts'
-import type { CaptureProfileId } from '../profiles.ts'
+import { expectedCanvasBufferSize, PROFILES, type CaptureProfileId } from '../profiles.ts'
 
 // ---------------------------------------------------------------------------
 // Timeline clips (the 25 locked shots — the end card is not a render job)
@@ -239,9 +239,22 @@ export function checkSourceFrameSizes(job: FinalRenderJob, sizes: readonly Frame
   return problems
 }
 
-/** The full WebGL backing buffer the page must have rendered at. */
+/**
+ * The full WebGL backing buffer the page must have rendered at — NOT the
+ * same thing as a screenshot's pixel size (sourceFrameSize/crop space,
+ * CSS viewport x deviceScaleFactor). They coincide for PLATE/HUD (their
+ * capture/initCapture.ts DPR override keeps calculateDpr's megapixel cap
+ * from ever binding, so the live buffer lands exactly at
+ * cssWidth/cssHeight x deviceScaleFactor), but PORT deliberately runs the
+ * real, uncapped production DPR formula with no override: its
+ * megapixel-capped buffer (585x1266) is smaller than its 1170x2532
+ * screenshot. Mirrors the same expectedCanvasBufferSize() calculation
+ * capture/initCapture.ts's preparePage() already asserts live, in-browser,
+ * against this profile's actual canvas buffer.
+ */
 export function expectedCanvasBuffer(profile: CaptureProfileId): FrameSize {
-  return sourceFrameSize(profile)
+  const { width, height } = expectedCanvasBufferSize(PROFILES[profile])
+  return { width, height }
 }
 
 // ---------------------------------------------------------------------------

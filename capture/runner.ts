@@ -38,10 +38,42 @@ export interface FrameStepper {
   readonly advanceTo: (elapsedMs: number) => Promise<void>
 }
 
+/** Fine-grained fallback step for createClockStepper's post-runFor nudge
+ * loop: comfortably smaller than one requestAnimationFrame tick (~16.7ms
+ * under a real or faked 60fps clock) so it always lands inside whichever
+ * tick is next due, rather than possibly jumping clean over it. */
+const STEPPER_NUDGE_STEP_MS = 4
+/** Ceiling on how long advanceTo will keep nudging before giving up and
+ * returning control to the caller's own (slower, ~15s) stall detector —
+ * comfortably shorter than that, so a genuine failure (WebGL context loss,
+ * a truly wedged page) still surfaces via the existing clear error instead
+ * of this loop masking it. */
+const STEPPER_NUDGE_BUDGET_MS = 10_000
+
 /** page.clock-based stepper — the `seek()` idiom from
  * e2e/helios-reactor.spec.ts, generalized: fast-forward close to the
  * target, then run the remainder in real ticks so the last few frames
- * actually render before landing. */
+ * actually render before landing.
+ *
+ * A single runFor(left) reliably lands the fake clock's *time* at the
+ * target, but does not by itself guarantee a new frame actually rendered:
+ * this codebase's demand-render loop (src/render/useDemandAnimation.ts)
+ * only calls invalidate() from its own chained requestAnimationFrame
+ * callback, which under a faked clock fires at that clock's own ~16.7ms
+ * tick cadence — coarser than the sub-tick per-frame delta a deep-slow-
+ * motion final-render sample asks for (e.g. divider-incoming-formation
+ * samples every ~5.6ms of source time). A delta smaller than one tick can
+ * land between two scheduled ticks and advance nothing — confirmed
+ * empirically: capture/finalRender/engine.ts's frame-counter poll then
+ * exhausts its full timeout and fails, because nothing further advances a
+ * *paused* fake clock while that poll merely waits. Guarding against a
+ * zero/negative delta (as the one call site advancing from a shared
+ * stepper's last position already does, see manifest.ts's "+80ms" comment)
+ * only ever fixes a single isolated step, not a whole sequence of them, so
+ * the guarantee belongs here instead: nudge forward, in bounded small
+ * steps, until a genuinely new frame has committed — verified against the
+ * real R3F frame counter, never assumed from elapsed fake-clock time
+ * alone. */
 export function createClockStepper(page: Page, originMs: number): FrameStepper {
   return {
     async advanceTo(elapsedMs: number): Promise<void> {
@@ -53,6 +85,14 @@ export function createClockStepper(page: Page, originMs: number): FrameStepper {
       const left = atMs - (await page.evaluate(() => performance.now()))
       if (left > 0) {
         await page.clock.runFor(Math.ceil(left))
+      }
+
+      const beforeCount = await readFrameCount(page)
+      const deadline = Date.now() + STEPPER_NUDGE_BUDGET_MS
+      while (Date.now() < deadline) {
+        const current = await readFrameCount(page)
+        if (!Number.isNaN(current) && current > beforeCount) return
+        await page.clock.runFor(STEPPER_NUDGE_STEP_MS)
       }
     },
   }
