@@ -17,6 +17,7 @@ import {
   checkSourceFrameSizes,
   contactFrameIndices,
   estimateClipMinutes,
+  expectedCanvasBuffer,
   expectedSourceFrameSize,
   intermediateFfmpegArgs,
   outputFrameCount,
@@ -131,6 +132,35 @@ test.describe('source frame expectations', () => {
 
   test('a still with a crop push is captured at its start crop only', () => {
     expect(expectedSourceFrameSize(jobById('c21'), 0)).toEqual({ width: 2880, height: 1620 })
+  })
+})
+
+test.describe('expected canvas buffer', () => {
+  // Regression coverage for the run-#3 c18 failure: renderGroup.mjs's
+  // finishClip() compared the real (correct, DPR-capped) canvas buffer
+  // capture-health.json recorded against this function — which used to
+  // delegate to finalEdit.ts's sourceFrameSize(), the *screenshot* pixel
+  // size (CSS viewport x deviceScaleFactor, uncapped). That coincides with
+  // the real buffer for PLATE/HUD (their capture/initCapture.ts DPR
+  // override keeps the production megapixel cap from ever binding), which
+  // is exactly why the bug was invisible there and only ever fired for
+  // PORT, whose buffer is genuinely capped smaller than its screenshot.
+  test('PORT: capped by the forced-high-tier maxDpr, smaller than its screenshot size', () => {
+    expect(expectedCanvasBuffer('PORT')).toEqual({ width: 585, height: 1266 })
+    expect(expectedCanvasBuffer('PORT')).not.toEqual({ width: 1170, height: 2532 })
+  })
+
+  test('PLATE and HUD: the DPR override keeps the buffer equal to cssSize x deviceScaleFactor', () => {
+    expect(expectedCanvasBuffer('PLATE')).toEqual({ width: 3840, height: 2160 })
+    expect(expectedCanvasBuffer('HUD')).toEqual({ width: 1920, height: 1080 })
+  })
+
+  test('every clip in the locked timeline reports a real, matching canvas buffer', () => {
+    for (const job of jobs) {
+      const buffer = expectedCanvasBuffer(job.profile)
+      expect(buffer.width, job.jobId).toBeGreaterThan(0)
+      expect(buffer.height, job.jobId).toBeGreaterThan(0)
+    }
   })
 })
 
