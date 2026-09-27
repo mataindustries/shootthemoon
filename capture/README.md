@@ -158,6 +158,23 @@ suite — this harness doesn't invent new mechanisms, it generalizes them:
   whose timeline is computed from real `performance.now()` deltas rather
   than an explicit progress-override event.
 
+  For the **final render's** elapsed-ms clips the clock stepper's
+  `sampleAt()` replaces that idiom. Playwright's fake clock only fires
+  `requestAnimationFrame` on a fixed 16ms grid (`16 - ticks % 16`) and
+  `fastForward` can only delay timers, never pull one earlier, so a
+  slow-motion sample spacing of 5.6-13.2ms cannot be rendered on time by
+  stepping the clock alone (run #4's c19 drifted to +5952ms for a +680ms
+  request). `sampleAt` holds animation frames in a harness queue
+  (`installHeldAnimationFrames`), runs the paused clock to the exact target
+  tick with a plain `runFor` (the last 100ms one tick at a time, letting
+  React commit behind every timer so the app's 80ms simulation interval
+  re-arms on time), then flushes the held frame callbacks at that tick and
+  requires the frame counter to advance. Every frame records the source time
+  it rendered at (`renderedSourceMs` in `capture-health.json`). Review
+  captures and every reach still use `advanceTo`. Real-browser regression:
+  `capture/finalRenderSampling.spec.ts` (c19 at its full 108-frame density,
+  ~7 min).
+
 Both are wrapped by one generic `captureFrames()` in `runner.ts`, which:
 reads the R3F frame counter (`data-frame-count`, from the existing
 `SceneMetrics` instrumentation) before and after every step; nudges (re-steps,
@@ -399,21 +416,34 @@ unhealthy WebGL context now fails (via `assertCleanWebGl()`, the same bar
 standard `ubuntu-latest` runners (4 vCPU / 16 GB for public repos) — no
 Codespaces, no larger runners. Manual trigger only:
 
-- **smoke** (Stage 1, default): one clip, default `c07`
-  (`first-strike-orbital-flight`, 144 frames, full 3840x2160 crop).
-- **full** (Stage 2): all 25 locked shot clips, one matrix job per act
-  (split further by whole clips only if an act's estimate exceeds 4.5h),
-  then a verification job. Requires `confirm_full=RENDER_FULL_REEL`.
+- **final-preflight** (default): the gate to pass before another full run.
+  Four parallel jobs, ~15-20 min wall (capture/ci/preflight.mjs):
+  `c19-dense` (c19 at its real 108-frame density, full verify + encode, every
+  frame at its exact source time), `crops-port` (c24/c25/c16 first/mid/last
+  at their exact rasterized sizes + the c18 PORT still end to end),
+  `progress-c07` (12 spread c07 frames: exact 4K size and this runner's
+  per-frame cost, projected onto c01), `timeout-resume` (c22 with its first
+  attempt cut short by fault injection must still verify).
+- **smoke**: one clip, default `c07`.
+- **repair**: the listed clips (default: run #4's failures c01 c02 c03 c10
+  c16 c19 c24 c25), one runner job each, verified like a full run. Requires
+  `confirm_full=RENDER_FULL_REEL`.
+- **full**: all 25 locked shot clips — every progress-event clip in a runner
+  job of its own, stills and the fast elapsed-ms clips grouped per act
+  (`partitionForCi`) — then a verification job. Requires
+  `confirm_full=RENDER_FULL_REEL`.
 
 ```
 capture/ci/
-  reelCi.ts            — pure: partitioning + measured cost model, expected
-                          source sizes, 1080p60 intermediate plan (ffmpeg
-                          filter per clip kind), whole-reel verifier
+  reelCi.ts            — pure: partitioning + run #4-measured cost model,
+                          attempt budget + retry policy, expected source
+                          sizes, 1080p60 intermediate plan (ffmpeg filter per
+                          clip kind), whole-reel verifier, preflight checks
   io.ts                — PNG header / hash / ffprobe / child-process helpers
   plan.mjs             — prints + emits the Actions matrix
   renderGroup.mjs      — per clip: finalRender.mjs --clip → verify → encode →
                           re-verify → clip.json + contact JPEGs → delete PNGs
+  preflight.mjs        — one final-preflight part (see above)
   encoderSelfTest.mjs  — synthetic-frame check of every encode path
   verifyReel.mjs       — cross-checks every clip.json; writes reel-manifest.json
 capture/ciPipeline.spec.ts — pure tests for reelCi.ts
@@ -443,16 +473,32 @@ first/middle/last JPEGs + a strip sheet. Raw PNGs stay on the runner's disk,
 are deleted once their clip is encoded, and are excluded from the upload
 (the job also fails if a PNG is ever found in the upload directory).
 
-**Resume.** Within a job, a clip that fails or hits the renderer's 30-minute
-per-clip test timeout is re-invoked (up to 3 attempts); the renderer's own
-resume renders only missing/corrupt/frozen frames. Across attempts, "Re-run
-failed jobs" restores that job's earlier artifact and skips every clip
-already verified for the same SHA (hash-checked). One failing clip never
-stops the rest of its act.
+**Source sizes.** A screenshot clip's size is whole CSS pixels (Playwright
+floors it; so does Chromium's own `Page.captureScreenshot`), so at DPR 1.5 a
+2560px-wide crop — c16, and c24/c25's end of their crop push — rasterizes to
+exactly 2559px (the requested crop minus its last column; the origin is
+exact). `plan.ts rasterizedClipSize` models this and the size check expects
+the modeled size with zero tolerance at endpoints and static crops; the
+encode's fixed `scale=1920:1080` normalizes it like every other frame.
+
+**Time and resume.** A clip's attempt timeout is derived from the frames it
+still has to render and its source clock (`finalRender/timing.ts`: 90 s per
+progress-event frame, 20 s per elapsed-ms frame — twice run #4's worst
+averages — plus 10 min), capped by what is left of the job's
+`--budget-minutes=325` (step timeout 335, job 355, GitHub cap 360). A truly
+stuck render still fails within minutes on the per-frame watchdogs. A failed
+attempt is retried only per `decideRetry`: a progress-event clip resumes only
+missing/corrupt/frozen frames and stops after two attempts in a row without a
+new valid frame; an elapsed-ms clip is always re-rendered whole in one page
+session (its reach anchor varies by up to 16ms of source between sessions).
+Every attempt is recorded in `clip.json` / `FAILED.json`. Across workflow
+attempts, "Re-run failed jobs" restores that job's earlier artifact and skips
+every clip already verified for the same SHA (hash-checked).
 
 ```sh
 # Everything the workflow runs, locally:
 node --experimental-strip-types --experimental-transform-types capture/ci/plan.mjs --mode=full
+node --experimental-strip-types --experimental-transform-types capture/ci/preflight.mjs --part=c19-dense --out=ci-out
 node --experimental-strip-types --experimental-transform-types capture/ci/encoderSelfTest.mjs
 node --experimental-strip-types --experimental-transform-types \
   capture/ci/renderGroup.mjs --group=smoke-c07 --clips=c07 --out=ci-out

@@ -25,6 +25,7 @@ export default defineConfig({
     'finalRenderCli.spec.ts',
     'ciPipeline.spec.ts',
     'finalRenderProof.spec.ts',
+    'finalRenderSampling.spec.ts',
     'finalRender.spec.ts',
   ],
   fullyParallel: false,

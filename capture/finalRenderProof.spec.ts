@@ -7,6 +7,12 @@
  * --clip/--act/--profile/--all), or leave all three unset to proof every
  * selected clip.
  *
+ * CAPTURE_FINAL_PROOF_FRAMES=<n> (default 3) renders n evenly spaced frames,
+ * first and last included, instead — capture/ci/preflight.mjs uses it to
+ * sample a progress-event clip's real per-frame cost on the CI runner. Each
+ * clip's proof pass also writes proof.json (per-frame timings and, for
+ * elapsed-ms clips, the source time every frame actually rendered at).
+ *
  * Run directly via:
  *   npx playwright test --config=capture/playwright.capture.config.ts \
  *     capture/finalRenderProof.spec.ts
@@ -15,13 +21,14 @@
  *     capture/finalRender.mjs --proof --all
  */
 import { readFileSync } from 'node:fs'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { test } from '@playwright/test'
 import { isShotClip, type FinalEdit, type ShotIndexEntry } from './finalEdit.ts'
 import { captureFinalRenderJob } from './finalRender/engine.ts'
-import { buildFinalRenderJobs, type FinalRenderJob } from './finalRender/plan.ts'
+import { buildFinalRenderJobs, proofIndices, type FinalRenderJob } from './finalRender/plan.ts'
 import { jobOutputDir } from './finalRender/resume.ts'
+import { attemptCeilingMs } from './finalRender/timing.ts'
 import { applyHudVisibility, preparePage } from './initCapture.ts'
 import { SHOTS } from './manifest.ts'
 import { PROFILES } from './profiles.ts'
@@ -42,16 +49,13 @@ function matchesEnvFilter(job: FinalRenderJob): boolean {
 
 const selectedJobs = allJobs.filter(matchesEnvFilter)
 
-/** first/mid/last, deduplicated (a 1- or 2-frame job doesn't need 3 copies). */
-export function proofIndices(frames: number): number[] {
-  const indices = [0, Math.floor((frames - 1) / 2), frames - 1]
-  return [...new Set(indices)].filter((index) => index >= 0 && index < frames)
-}
+const proofFrameCount = Number(process.env.CAPTURE_FINAL_PROOF_FRAMES ?? '3')
 
 test.describe('final render — proof-frame gate', () => {
   for (const job of selectedJobs) {
     test(`${job.jobId} ${job.shotId} [${job.act}/${job.profile}]`, async ({ browser }) => {
-      test.setTimeout(180_000)
+      const indices = proofIndices(job.frames, proofFrameCount)
+      test.setTimeout(attemptCeilingMs(job, indices.length))
       const shot = SHOTS.find((candidate) => candidate.id === job.shotId)
       if (shot === undefined) throw new Error(`Shot "${job.shotId}" not found in manifest.`)
       const profile = PROFILES[job.profile]
@@ -75,8 +79,11 @@ test.describe('final render — proof-frame gate', () => {
         })
         await applyHudVisibility(page, shot.hud)
 
-        const indices = proofIndices(job.frames)
         const result = await captureFinalRenderJob(page, job, proofDir, { indices })
+        await writeFile(
+          path.join(jobOutputDir(job), 'proof', 'proof.json'),
+          JSON.stringify({ jobId: job.jobId, shotId: job.shotId, indices, frameOutcomes: result.frameOutcomes }, null, 2) + '\n',
+        )
 
         console.log(
           `[proof] ${job.jobId} (${job.shotId}): ${result.frameOutcomes.length}/${job.frames} frame(s) ` +

@@ -83,6 +83,15 @@ export function sourceValueAt(source: SourceWindow, t: number): number {
   return inValue + t * (outValue - inValue)
 }
 
+/** Proof-frame selection (capture/finalRenderProof.spec.ts): `count` evenly
+ * spaced indices, first and last included (count 3 = first/mid/last),
+ * deduplicated (a 1- or 2-frame job doesn't need copies). */
+export function proofIndices(frames: number, count = 3): number[] {
+  if (count <= 1 || frames <= 1) return [0]
+  const indices = Array.from({ length: count }, (_, step) => Math.floor((step * (frames - 1)) / (count - 1)))
+  return [...new Set(indices)].filter((index) => index >= 0 && index < frames)
+}
+
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t
 }
@@ -118,6 +127,40 @@ export function toCssClip(crop: CropRect, deviceScaleFactor: number): CssClip {
     y: crop.y / deviceScaleFactor,
     width: crop.w / deviceScaleFactor,
     height: crop.h / deviceScaleFactor,
+  }
+}
+
+/**
+ * The device-pixel extent (one axis) a `page.screenshot({ clip })` of
+ * `devicePx` actually rasterizes to at `deviceScaleFactor`.
+ *
+ * A clip's SIZE is quantized to whole CSS pixels before it is scaled back
+ * up: Playwright's Chromium screenshotter passes it through
+ * `enclosingIntSize` (`Math.floor(size + 1e-3)`), and Chromium's own
+ * Page.captureScreenshot floors a fractional CSS clip the same way (a raw
+ * CDP clip of 1706.667 CSS px at scale 1.5 also yields 2559). The scaled
+ * whole-CSS-px size then rounds half up (1707 x 1.5 = 2560.5 -> 2561;
+ * 2133 x 1.5 = 3199.5 -> 3200 — run #4's verified c09 end frame). The
+ * clip's ORIGIN is not quantized: the capture starts at exactly the
+ * requested device pixel and only loses trailing columns/rows.
+ *
+ * So at DPR 1.5 a device width is reachable only if it is round(1.5 k) for
+ * a whole k: 2560 (c16, and c24/c25's 2560x1440 end of their crop push) is
+ * not — 1706.667 CSS px floors to 1706 -> 2559, the rightmost column of the
+ * requested crop. Measured on Chromium 1194 across 18 PLATE/PORT crops
+ * (origins confirmed from coordinate-encoded pixels); the encode stage's
+ * fixed `scale=1920:1080` then normalizes every frame regardless.
+ */
+export function rasterizedClipExtent(devicePx: number, deviceScaleFactor: number): number {
+  const wholeCssPx = Math.floor(devicePx / deviceScaleFactor + 1e-3)
+  return Math.round(wholeCssPx * deviceScaleFactor)
+}
+
+/** rasterizedClipExtent for both axes of a crop. */
+export function rasterizedClipSize(crop: Pick<CropRect, 'w' | 'h'>, deviceScaleFactor: number): { width: number; height: number } {
+  return {
+    width: rasterizedClipExtent(crop.w, deviceScaleFactor),
+    height: rasterizedClipExtent(crop.h, deviceScaleFactor),
   }
 }
 

@@ -74,11 +74,20 @@ const STEPPER_NUDGE_BUDGET_MS = 10_000
  * steps, until a genuinely new frame has committed — verified against the
  * real R3F frame counter, never assumed from elapsed fake-clock time
  * alone. */
-export function createClockStepper(page: Page, originMs: number): FrameStepper {
+export function createClockStepper(page: Page, originMs: number): ClockStepper {
   return {
+    sampleAt: (elapsedMs) => sampleClockAt(page, originMs, elapsedMs),
     async advanceTo(elapsedMs: number): Promise<void> {
       const atMs = originMs + elapsedMs
-      const now = await page.evaluate(() => performance.now())
+      const { now, framesHeld } = await page.evaluate(() => ({
+        now: performance.now(),
+        framesHeld: '__captureHeldFrames' in window,
+      }))
+      if (framesHeld) {
+        // Once sampleAt has taken animation frames off the clock, nothing
+        // below could ever render a frame — fail loudly, never nudge idly.
+        throw new Error('advanceTo after sampleAt on the same page: animation frames are held; use sampleAt')
+      }
       if (atMs - now > 96) {
         await page.clock.fastForward(Math.floor(atMs - now - 64))
       }
@@ -96,6 +105,263 @@ export function createClockStepper(page: Page, originMs: number): FrameStepper {
       }
     },
   }
+}
+
+/** A clock stepper that can also deliver one frame at an exact source time —
+ * what capture/finalRender's elapsed-ms sampling uses. `advanceTo` (above)
+ * stays the reach/review-capture primitive. */
+export interface ClockStepper extends FrameStepper {
+  /** Lands the page clock on exactly `originMs + elapsedMs` (rounded up to
+   * the fake clock's 1ms tick resolution), then renders one frame AT that
+   * time. See sampleClockAt. */
+  readonly sampleAt: (elapsedMs: number) => Promise<ExactSample>
+}
+
+export interface ExactSample {
+  /** The page clock (performance.now()) the frame rendered at. */
+  readonly renderedAtMs: number
+  /** renderedAtMs relative to the stepper origin — the source time the
+   * frame actually shows (requested elapsedMs rounded up to a whole tick). */
+  readonly renderedElapsedMs: number
+  /** Held-frame flushes it took before the frame counter advanced (1 in
+   * steady state; 2 when R3F's own loop was idle and only got requested by
+   * the first flush's invalidate()). */
+  readonly flushes: number
+}
+
+/** The page-side registry installHeldAnimationFrames() adds. */
+export interface HeldAnimationFrames {
+  readonly pending: () => number
+  /** Runs every animation-frame callback pending at call time with the
+   * current page clock as its timestamp (callbacks they request run on the
+   * NEXT flush, as in a browser frame). Returns how many ran. */
+  readonly flush: () => number
+}
+
+export interface HeldFrameTarget {
+  requestAnimationFrame: (callback: FrameRequestCallback) => number
+  cancelAnimationFrame: (id: number) => void
+  readonly performance: { now: () => number }
+  readonly queueMicrotask: (callback: () => void) => void
+  __captureHeldFrames?: HeldAnimationFrames
+}
+
+/**
+ * Takes animation frames off Playwright's fake-clock grid for the rest of
+ * the page's life: requestAnimationFrame callbacks are queued instead of
+ * scheduled, and only run when the harness flushes them.
+ *
+ * Why: Playwright's fake clock schedules every requestAnimationFrame at the
+ * next multiple of 16 ticks (`16 - ticks % 16`, playwright-core's
+ * ClockController.getTimeToNextFrame) and `fastForward` can only delay a
+ * timer, never pull one earlier — so from any clock position the earliest
+ * possible render is the next 16ms grid point. The slow-motion elapsed-ms
+ * clips sample source time every 5.6-13.2ms, finer than that grid, so no
+ * sequence of runFor/fastForward calls can render them at their requested
+ * times. createClockStepper's nudge loop (above) therefore rendered each
+ * sample at the next grid point *after* the previous one — +16ms per frame
+ * instead of +5.6ms, and +80ms per frame (the monument sim interval) once
+ * the demand loop went idle: run #4's c19 ended at +5952ms instead of
+ * +680ms and produced 68 byte-identical post-volley frames.
+ *
+ * Holding frames changes when frames happen, never what a frame draws for a
+ * given time: every visual the elapsed-ms shots show is an absolute
+ * function of performance.now()/Date.now() (CameraRig's monument pose,
+ * WaveDefense's defenseElapsed), and timers (the 80ms simulation interval)
+ * still fire at their natural times via runFor.
+ *
+ * Self-contained (no closure over module scope) because it runs inside the
+ * page via page.evaluate; `target` defaults to the page's window there and
+ * is a stub in capture/finalRenderPlan.spec.ts's pure tests.
+ */
+export function installHeldAnimationFrames(target?: HeldFrameTarget): void {
+  const win = target ?? (window as unknown as HeldFrameTarget)
+  if (win.__captureHeldFrames !== undefined) return
+  const scheduledCancel = win.cancelAnimationFrame.bind(win)
+  const queue = new Map<number, FrameRequestCallback>()
+  // Callbacks of the flush in progress that have not run yet — cancelling
+  // one of them skips it, like a browser frame's cancelled callback.
+  let running = new Map<number, FrameRequestCallback>()
+  // Disjoint from the fake clock's own timer ids (which start at 1e12), so
+  // cancelAnimationFrame can tell a held id from a frame that was already
+  // scheduled on the clock before this was installed.
+  const heldIdBase = 1 << 30
+  let nextId = heldIdBase
+  win.requestAnimationFrame = (callback) => {
+    nextId += 1
+    queue.set(nextId, callback)
+    return nextId
+  }
+  win.cancelAnimationFrame = (id) => {
+    if (id > heldIdBase && id <= nextId) {
+      queue.delete(id)
+      running.delete(id)
+      return
+    }
+    scheduledCancel(id)
+  }
+  win.__captureHeldFrames = {
+    pending: () => queue.size,
+    flush: () => {
+      const timestamp = win.performance.now()
+      running = new Map(queue)
+      queue.clear()
+      let ran = 0
+      // Iterating the live map: an entry a callback cancels (deletes) before
+      // it is reached is simply never visited.
+      for (const [id, callback] of running) {
+        running.delete(id)
+        ran += 1
+        try {
+          callback(timestamp)
+        } catch (error) {
+          // A throwing callback must not skip the rest of the frame; report
+          // it the way the browser would (surfaces as a pageerror).
+          win.queueMicrotask(() => {
+            throw error
+          })
+        }
+      }
+      return ran
+    },
+  }
+}
+
+/** MessageChannel round trips per settle. React (react-dom and R3F's own
+ * reconciler) schedules render/commit/passive-effect work as MessageChannel
+ * tasks that can chain (a commit's layout effect schedules the R3F root's
+ * update; a commit schedules its passive effects); each hop lets one more
+ * link of such a chain run. */
+const SETTLE_HOPS = 4
+
+/** Lets the page's already-posted React scheduler work run to completion at
+ * the CURRENT fake time. The fake clock never advances while this waits
+ * (it is paused), so whatever React does here — commits, and the app's own
+ * passive effects re-arming its 80ms simulation setInterval — happens at the
+ * tick it was triggered at, as it would in a real browser within a
+ * millisecond. */
+async function settlePage(page: Page): Promise<void> {
+  await page.evaluate(async (hops) => {
+    for (let hop = 0; hop < hops; hop += 1) {
+      await new Promise<void>((resolve) => {
+        const channel = new MessageChannel()
+        channel.port1.onmessage = () => resolve()
+        channel.port2.postMessage(null)
+      })
+    }
+  }, SETTLE_HOPS)
+}
+
+/** Settles the page (settlePage), then flushes its held animation frames, so
+ * the frame sees every state update the preceding timers dispatched. */
+async function flushHeldFrames(page: Page): Promise<number> {
+  await settlePage(page)
+  return page.evaluate(() => {
+    const held = (window as unknown as { __captureHeldFrames?: HeldAnimationFrames }).__captureHeldFrames
+    if (held === undefined) throw new Error('held animation frames are not installed')
+    return held.flush()
+  })
+}
+
+/** The fake clock only lands on whole ticks (ClockController._runTo does
+ * `Math.ceil(to)`), so a fractional sample time resolves to the next whole
+ * millisecond — at most 1ms of source time, deterministically. */
+export function exactSampleTick(originMs: number, elapsedMs: number): number {
+  return Math.ceil(originMs + elapsedMs)
+}
+
+/** The last stretch before each sample is walked 1ms at a time with the
+ * page settled after every step (see planExactAdvance). Longer than the
+ * widest sample spacing any locked elapsed-ms clip uses (13.2ms, c25), so
+ * sequential sampling is always walked finely end to end, and longer than
+ * the app's 80ms simulation interval, so the tick feeding the first sample
+ * of a jump is re-armed at its natural time too. */
+export const FINE_APPROACH_MS = 100
+
+export interface ExactAdvancePlan {
+  /** One plain runFor over the part of the gap no sample depends on
+   * finely (every timer still fires at its own natural time); lands on the
+   * whole tick `targetTick - fineSteps`. */
+  readonly coarseMs: number
+  /** Then this many runFor(1) steps, each followed by settlePage(). */
+  readonly fineSteps: number
+}
+
+/** How to run the paused page clock from `nowTick` to land exactly on
+ * `targetTick`. Never fastForward: that fires each due timer once, at the
+ * destination, so the landing state would depend on where the jump started
+ * (with frames held, runFor over even seconds of source time costs only the
+ * timers). The final FINE_APPROACH_MS are walked 1ms at a time so React —
+ * whose work the fake clock does not control — commits each simulation tick
+ * and re-arms the app's interval at the tick's own time; a single runFor
+ * can run several timers ahead of React, which delays the next tick and
+ * lets WaveDefense's 80ms interpolation clamp freeze consecutive samples
+ * (the residual c19 duplicates). Refuses to go backwards. */
+export function planExactAdvance(nowTick: number, targetTick: number): ExactAdvancePlan {
+  if (targetTick < nowTick) {
+    throw new Error(
+      `exact sample at tick ${targetTick} is behind the page clock (${nowTick}) — ` +
+        'samples must be requested in increasing source time',
+    )
+  }
+  // The page clock can sit on a fractional tick (it synced to real time
+  // before pauseAt); the coarse runFor absorbs that fraction — the clock
+  // ceils every runFor target — so each fine step lands on a whole tick.
+  const gap = targetTick - nowTick
+  const fineSteps = Math.min(Math.floor(gap), FINE_APPROACH_MS)
+  return { coarseMs: gap - fineSteps, fineSteps }
+}
+
+/** At most this many held-frame flushes per sample before concluding the
+ * page requested no frame at all. */
+const MAX_SAMPLE_FLUSHES = 3
+
+/**
+ * Delivers one frame at exactly `originMs + elapsedMs` (whole-ms resolution,
+ * see exactSampleTick): holds animation frames (installHeldAnimationFrames),
+ * runs the paused fake clock to the target tick so every timer fires at its
+ * natural time and React settles behind each one (planExactAdvance), then
+ * flushes the pending frame callbacks at that tick and requires the R3F
+ * frame counter to advance.
+ *
+ * Throws — instead of nudging the clock past the requested time, which is
+ * what made run #4's elapsed-ms clips drift — if the page requested no
+ * frame at that instant.
+ */
+export async function sampleClockAt(page: Page, originMs: number, elapsedMs: number): Promise<ExactSample> {
+  // Passed by reference so its own source is what gets serialized into the
+  // page (Playwright calls it with an undefined arg -> the page's window).
+  await page.evaluate(installHeldAnimationFrames as (arg: void) => void)
+  const targetTick = exactSampleTick(originMs, elapsedMs)
+  const nowTick = await page.evaluate(() => performance.now())
+  const { coarseMs, fineSteps } = planExactAdvance(nowTick, targetTick)
+  if (coarseMs > 0) await page.clock.runFor(coarseMs)
+  for (let step = 0; step < fineSteps; step += 1) {
+    await page.clock.runFor(1)
+    await settlePage(page)
+  }
+  const landedTick = await page.evaluate(() => performance.now())
+  if (landedTick !== targetTick) {
+    throw new Error(`page clock landed on ${landedTick}, expected exactly ${targetTick} (elapsed ${elapsedMs}ms)`)
+  }
+
+  const beforeCount = await readFrameCount(page)
+  for (let flushes = 1; flushes <= MAX_SAMPLE_FLUSHES; flushes += 1) {
+    const ran = await flushHeldFrames(page)
+    const count = await readFrameCount(page)
+    if (!Number.isNaN(count) && count > beforeCount) {
+      const renderedAtMs = await page.evaluate(() => performance.now())
+      if (renderedAtMs !== targetTick) {
+        throw new Error(`frame rendered at ${renderedAtMs}, expected ${targetTick} (elapsed ${elapsedMs}ms)`)
+      }
+      return { renderedAtMs, renderedElapsedMs: renderedAtMs - originMs, flushes }
+    }
+    if (ran === 0) break
+  }
+  throw new Error(
+    `no frame rendered at elapsed ${elapsedMs}ms (tick ${targetTick}): the page requested no animation frame ` +
+      `there (frame counter still ${beforeCount})`,
+  )
 }
 
 /** Progress-override stepper: `toProgress` maps a shot-relative elapsed ms

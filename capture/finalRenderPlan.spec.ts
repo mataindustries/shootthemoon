@@ -12,11 +12,21 @@ import {
   buildFinalRenderJobs,
   frameProgressAt,
   interpolateCrop,
+  proofIndices,
   requiredSourceFrameCount,
   sourceValueAt,
+  rasterizedClipExtent,
+  rasterizedClipSize,
   toCssClip,
 } from './finalRender/plan.ts'
 import { REACH_KIND } from './finalRender/reachKinds.ts'
+import {
+  FINE_APPROACH_MS,
+  exactSampleTick,
+  installHeldAnimationFrames,
+  planExactAdvance,
+  type HeldFrameTarget,
+} from './runner.ts'
 import { SHOTS } from './manifest.ts'
 import { PROFILES } from './profiles.ts'
 
@@ -176,5 +186,188 @@ test.describe('finalEdit references', () => {
     }
     const monumentSelection = jobs.find((job) => job.shotId === 'monument-selection-port')
     expect(monumentSelection?.act).toBe('DERIVATIVES')
+  })
+})
+
+test.describe('screenshot clip rasterization (run #4: c24/c25 2559px)', () => {
+  const dpr = PROFILES.PLATE.deviceScaleFactor
+
+  test('2560 device px -> 1706.667 CSS px -> whole 1706 CSS px -> 2559 device px', () => {
+    const css = toCssClip({ x: 634, y: 0, w: 2560, h: 1440 }, dpr)
+    expect(css.width).toBeCloseTo(1706.6667, 3)
+    expect(css.height).toBe(960)
+    expect(Math.floor(css.width + 1e-3)).toBe(1706)
+    expect(rasterizedClipExtent(2560, dpr)).toBe(2559)
+    expect(rasterizedClipSize({ w: 2560, h: 1440 }, dpr)).toEqual({ width: 2559, height: 1440 })
+  })
+
+  test('matches every browser-measured case (Chromium 1194, coordinate-encoded pixels)', () => {
+    const measured: ReadonlyArray<readonly [number, number, number]> = [
+      // [requested device px, DPR, captured device px]
+      [2560, 1.5, 2559], [1440, 1.5, 1440], [1920, 1.5, 1920], [1080, 1.5, 1080], [3840, 1.5, 3840],
+      [2160, 1.5, 2160], [3200, 1.5, 3200], [1800, 1.5, 1800], [3072, 1.5, 3072], [1728, 1.5, 1728],
+      [2880, 1.5, 2880], [1620, 1.5, 1620], [2561, 1.5, 2561], [1441, 1.5, 1440], [2559, 1.5, 2559],
+      [1439, 1.5, 1439], [2558, 1.5, 2558], [1438, 1.5, 1437],
+      [1170, 3, 1170], [2532, 3, 2532], [1169, 3, 1167], [2531, 3, 2529], [1168, 3, 1167], [1171, 3, 1170],
+    ]
+    for (const [requested, scale, captured] of measured) {
+      expect(rasterizedClipExtent(requested, scale), `${requested}@${scale}`).toBe(captured)
+    }
+  })
+
+  test('at DPR 1.5 only widths that are round(1.5 k) exist; 2560 is not one of them', () => {
+    const reachable = new Set(Array.from({ length: 3000 }, (_, k) => Math.round(k * dpr)))
+    expect(reachable.has(2559)).toBe(true)
+    expect(reachable.has(2560)).toBe(false)
+    expect(reachable.has(2561)).toBe(true)
+    // The rasterized size never exceeds the request and loses at most
+    // ceil(dpr) - 1 px: the smallest possible deficit, never a guess.
+    for (let requested = 1; requested <= 4000; requested += 1) {
+      const got = rasterizedClipExtent(requested, dpr)
+      expect(requested - got).toBeGreaterThanOrEqual(0)
+      expect(requested - got).toBeLessThanOrEqual(Math.ceil(dpr) - 1)
+      expect(got === requested).toBe(reachable.has(requested))
+    }
+  })
+
+  test('only c16, c24 and c25 have a crop edge the browser cannot hit exactly', () => {
+    const timelineIds = new Set(clips.map((clip) => clip.id))
+    const affected = buildFinalRenderJobs(edit, shotIndex)
+      .filter((job) => timelineIds.has(job.jobId))
+      .filter((job) => {
+        const scale = PROFILES[job.profile].deviceScaleFactor
+        return [job.crop, job.cropEnd].some((crop) => {
+          const size = rasterizedClipSize(crop, scale)
+          return size.width !== crop.w || size.height !== crop.h
+        })
+      })
+      .map((job) => job.jobId)
+    expect(affected).toEqual(['c16', 'c24', 'c25'])
+  })
+})
+
+test.describe('exact elapsed-ms sampling (pure parts of capture/runner.ts)', () => {
+  test('sample ticks round fractional source times up to the fake clock\'s whole ms, never down', () => {
+    // c19: 108 frames over 80..680ms => 5.607ms apart; origin is a whole tick.
+    const c19 = buildFinalRenderJobs(edit, shotIndex).find((job) => job.jobId === 'c19')!
+    const ticks = Array.from({ length: c19.frames }, (_, index) =>
+      exactSampleTick(1_000, sourceValueAt(c19.source, frameProgressAt(index, c19.frames))),
+    )
+    expect(ticks[0]).toBe(1_080)
+    expect(ticks.at(-1)).toBe(1_680)
+    for (const [index, tick] of ticks.entries()) {
+      const requested = 1_000 + sourceValueAt(c19.source, frameProgressAt(index, c19.frames))
+      expect(tick - requested).toBeGreaterThanOrEqual(0)
+      expect(tick - requested).toBeLessThan(1)
+      if (index > 0) expect(tick).toBeGreaterThan(ticks[index - 1]!)
+    }
+  })
+
+  test('advance plans are exact runFor walks, fine for the last 100ms, and never go backwards', () => {
+    expect(planExactAdvance(1_000, 1_006)).toEqual({ coarseMs: 0, fineSteps: 6 })
+    expect(planExactAdvance(1_000, 1_000)).toEqual({ coarseMs: 0, fineSteps: 0 })
+    expect(planExactAdvance(0, 3_900)).toEqual({ coarseMs: 3_900 - FINE_APPROACH_MS, fineSteps: FINE_APPROACH_MS })
+    expect(() => planExactAdvance(1_010, 1_006)).toThrow(/behind the page clock/)
+    // A fractional page clock (synced to real time before pauseAt): the
+    // coarse step absorbs the fraction, so every fine step lands on a tick.
+    const fractional = planExactAdvance(1_000.678, 1_081)
+    expect(fractional.fineSteps).toBe(80)
+    expect(Math.ceil(1_000.678 + fractional.coarseMs)).toBe(1_081 - 80)
+    expect(planExactAdvance(1_080.4, 1_081)).toEqual({ coarseMs: 1_081 - 1_080.4, fineSteps: 0 })
+    // Wider than every locked elapsed-ms clip's sample spacing (c25: 13.2ms)
+    // and than the app's 80ms simulation interval.
+    expect(FINE_APPROACH_MS).toBeGreaterThan(80)
+  })
+
+  function stubWindow() {
+    let now = 0
+    const scheduled: number[] = []
+    const cancelledScheduled: number[] = []
+    const thrown: unknown[] = []
+    const target: HeldFrameTarget = {
+      requestAnimationFrame: () => {
+        scheduled.push(1e12 + scheduled.length)
+        return scheduled.at(-1)!
+      },
+      cancelAnimationFrame: (id) => {
+        cancelledScheduled.push(id)
+      },
+      performance: { now: () => now },
+      queueMicrotask: (callback) => {
+        try {
+          callback()
+        } catch (error) {
+          thrown.push(error)
+        }
+      },
+    }
+    return { target, scheduled, cancelledScheduled, thrown, setNow: (value: number) => (now = value) }
+  }
+
+  test('held frames run only on flush, at the flush time, with browser frame semantics', () => {
+    const stub = stubWindow()
+    installHeldAnimationFrames(stub.target)
+    installHeldAnimationFrames(stub.target) // idempotent
+    const held = stub.target.__captureHeldFrames!
+    const log: string[] = []
+    // A demand loop that re-requests itself, and R3F-style lazy start: the
+    // loop's frame requested FROM a frame callback runs on the NEXT flush.
+    const loop = (timestamp: number) => log.push(`loop@${timestamp}`)
+    const animate = (timestamp: number) => {
+      log.push(`animate@${timestamp}`)
+      stub.target.requestAnimationFrame(loop)
+      stub.target.requestAnimationFrame(animate)
+    }
+    stub.target.requestAnimationFrame(animate)
+    expect(held.pending()).toBe(1)
+    expect(log).toEqual([])
+    stub.setNow(1_086)
+    expect(held.flush()).toBe(1)
+    expect(log).toEqual(['animate@1086'])
+    stub.setNow(1_092)
+    expect(held.flush()).toBe(2)
+    expect(log).toEqual(['animate@1086', 'loop@1092', 'animate@1092'])
+    expect(stub.scheduled).toEqual([]) // nothing ever reached the fake clock's grid
+  })
+
+  test('cancelling a held frame (even mid-flush) skips it; pre-install ids pass through', () => {
+    const stub = stubWindow()
+    installHeldAnimationFrames(stub.target)
+    const held = stub.target.__captureHeldFrames!
+    const log: string[] = []
+    let second = 0
+    stub.target.requestAnimationFrame(() => {
+      log.push('first')
+      stub.target.cancelAnimationFrame(second)
+    })
+    second = stub.target.requestAnimationFrame(() => log.push('second'))
+    const third = stub.target.requestAnimationFrame(() => log.push('third'))
+    stub.target.cancelAnimationFrame(third)
+    expect(held.flush()).toBe(1)
+    expect(log).toEqual(['first'])
+    stub.target.cancelAnimationFrame(1e12 + 7)
+    expect(stub.cancelledScheduled).toEqual([1e12 + 7])
+  })
+
+  test('a throwing frame callback does not skip the rest of the frame and is reported', () => {
+    const stub = stubWindow()
+    installHeldAnimationFrames(stub.target)
+    const log: string[] = []
+    stub.target.requestAnimationFrame(() => {
+      throw new Error('boom')
+    })
+    stub.target.requestAnimationFrame(() => log.push('after'))
+    expect(stub.target.__captureHeldFrames!.flush()).toBe(2)
+    expect(log).toEqual(['after'])
+    expect(String(stub.thrown[0])).toMatch(/boom/)
+  })
+})
+
+test.describe('proof frame selection', () => {
+  test('3 = first/mid/last; n evenly spaced frames include both ends; deduplicated', () => {
+    expect(proofIndices(144)).toEqual([0, 71, 143])
+    expect(proofIndices(144, 12)).toEqual([0, 13, 26, 39, 52, 65, 78, 91, 104, 117, 130, 143])
+    expect(proofIndices(1)).toEqual([0])
+    expect(proofIndices(2, 3)).toEqual([0, 1])
   })
 })
