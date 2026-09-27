@@ -28,24 +28,41 @@
  * One failing clip never stops the others; the exit code is non-zero if any
  * clip in the group is not verified.
  *
+ * Time: --budget-minutes is the whole group's allowance (the workflow sets
+ * it below the step timeout). Every render attempt gets a timeout derived
+ * from the frames it still has to render and its source clock
+ * (capture/finalRender/timing.ts), capped so that it can still verify and
+ * encode inside the budget (reelCi.ts budgetedAttemptTimeoutMs). A failed
+ * attempt is retried only per reelCi.ts decideRetry — never just to wait
+ * out a timeout. Every attempt is recorded in clip.json / FAILED.json.
+ *
  * Usage:
  *   node --experimental-strip-types --experimental-transform-types \
  *     capture/ci/renderGroup.mjs --group=smoke-c07 --clips=c07 --out=ci-out \
  *       [--sha=<expected HEAD>] [--require-clean] [--keep-frames] [--skip-render]
+ *       [--budget-minutes=325] [--first-attempt-timeout-minutes=<m>]
+ *
+ * --first-attempt-timeout-minutes is fault injection for the final-preflight
+ * workflow mode only: it forces the first attempt of every clip to time out
+ * early, to prove a clip that outlives an attempt is still completed.
  */
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildFinalRenderJobs } from '../finalRender/plan.ts'
-import { isFullyValid, isJobComplete, jobFrameDir, jobOutputDir, readJobMetadata, validateJobFrames } from '../finalRender/resume.ts'
+import { indicesNeedingRender, isFullyValid, isJobComplete, jobFrameDir, jobOutputDir, readJobMetadata, validateJobFrames } from '../finalRender/resume.ts'
+import { attemptCeilingMs, rendersInOneSession } from '../finalRender/timing.ts'
 import { filterKnownWarnings } from '../initCapture.ts'
 import { SHOTS } from '../manifest.ts'
 import {
   CLIP_METADATA_SCHEMA,
   INTERMEDIATE,
+  RENDER_BUDGET_MINUTES,
+  budgetedAttemptTimeoutMs,
   checkSourceFrameSizes,
   contactFrameIndices,
+  decideRetry,
   expectedCanvasBuffer,
   intermediateFfmpegArgs,
   planIntermediate,
@@ -57,15 +74,26 @@ import { decodedAdjacentDuplicates, probeVideo, readJson, readPngSize, run, runO
 const REPO_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 process.chdir(REPO_ROOT)
 
-const RENDER_ATTEMPTS = 3
+function positiveMinutes(flag, value) {
+  const minutes = Number(value)
+  if (!Number.isFinite(minutes) || minutes <= 0) throw new Error(`${flag} must be a positive number of minutes, got "${value}"`)
+  return minutes
+}
 
 function parseArgs(argv) {
-  const options = { group: null, clips: [], out: 'ci-out', sha: null, requireClean: false, keepFrames: false, skipRender: false }
+  const options = {
+    group: null, clips: [], out: 'ci-out', sha: null, requireClean: false, keepFrames: false, skipRender: false,
+    budgetMinutes: RENDER_BUDGET_MINUTES, firstAttemptTimeoutMinutes: null,
+  }
   for (const arg of argv) {
     if (arg.startsWith('--group=')) options.group = arg.slice(8)
     else if (arg.startsWith('--clips=')) options.clips = arg.slice(8).split(/[,\s]+/).filter(Boolean)
     else if (arg.startsWith('--out=')) options.out = arg.slice(6)
     else if (arg.startsWith('--sha=')) options.sha = arg.slice(6)
+    else if (arg.startsWith('--budget-minutes=')) options.budgetMinutes = positiveMinutes('--budget-minutes', arg.slice(17))
+    else if (arg.startsWith('--first-attempt-timeout-minutes=')) {
+      options.firstAttemptTimeoutMinutes = positiveMinutes('--first-attempt-timeout-minutes', arg.slice(32))
+    }
     else if (arg === '--require-clean') options.requireClean = true
     else if (arg === '--keep-frames') options.keepFrames = true
     else if (arg === '--skip-render') options.skipRender = true
@@ -116,13 +144,68 @@ async function resumable(clipDir, sha) {
   return record
 }
 
-async function renderClip(clipId) {
+async function renderClip(clipId, timeoutMs) {
   const result = await run(
     'node',
     ['--experimental-strip-types', '--experimental-transform-types', 'capture/finalRender.mjs', `--clip=${clipId}`],
-    { echo: true },
+    { echo: true, env: { ...process.env, CAPTURE_FINAL_TIMEOUT_MS: String(timeoutMs) } },
   )
   return result.code
+}
+
+/** Frames of `job` that are on disk and valid (for decideRetry's progress
+ * check), and how many still need a render. */
+async function frameState(job) {
+  const validation = await validateJobFrames(job)
+  const toRender = indicesNeedingRender(validation)
+  return { valid: job.frames - toRender.length, toRender: toRender.length }
+}
+
+/**
+ * Renders one clip with as many attempts as reelCi.ts decideRetry allows
+ * inside the group's deadline. Returns the attempt log; throws if the clip
+ * never rendered completely.
+ */
+async function renderWithAttempts(job, options, deadlineMs) {
+  const attempts = []
+  for (;;) {
+    const remainingMinutes = (deadlineMs - Date.now()) / 60_000
+    const decision = decideRetry(job, attempts, remainingMinutes)
+    if (!decision.retry) {
+      if (attempts.at(-1)?.exitCode === 0) return attempts
+      const error = new Error(`finalRender.mjs failed after ${attempts.length} attempt(s): ${decision.reason}`)
+      error.attempts = attempts
+      throw error
+    }
+    const before = await frameState(job)
+    const framesToRender = rendersInOneSession(job) && before.toRender > 0 ? job.frames : before.toRender
+    let timeoutMs = budgetedAttemptTimeoutMs(attemptCeilingMs(job, framesToRender), remainingMinutes, job)
+    if (attempts.length === 0 && options.firstAttemptTimeoutMinutes !== null) {
+      timeoutMs = Math.min(timeoutMs, options.firstAttemptTimeoutMinutes * 60_000)
+      console.log(`[renderGroup] ${job.jobId}: FAULT INJECTION — first attempt capped at ${options.firstAttemptTimeoutMinutes} min`)
+    }
+    const attempt = attempts.length + 1
+    console.log(
+      `[renderGroup] ${job.jobId} (${job.shotId}): attempt ${attempt} — ${decision.reason}; ` +
+        `${framesToRender}/${job.frames} frame(s) to render, timeout ${(timeoutMs / 60_000).toFixed(1)} min, ` +
+        `${remainingMinutes.toFixed(0)} min of the group budget left`,
+    )
+    const startedAt = Date.now()
+    const exitCode = await renderClip(job.jobId, timeoutMs)
+    const after = await frameState(job)
+    attempts.push({
+      attempt,
+      exitCode,
+      timeoutMs,
+      elapsedMs: Date.now() - startedAt,
+      validBefore: before.valid,
+      validAfter: after.valid,
+    })
+    console.log(
+      `[renderGroup] ${job.jobId}: attempt ${attempt} exited ${exitCode} after ${((Date.now() - startedAt) / 60_000).toFixed(1)} min ` +
+        `(valid frames ${before.valid} -> ${after.valid} of ${job.frames})`,
+    )
+  }
 }
 
 async function finishClip(job, clipDir, context) {
@@ -288,6 +371,7 @@ async function finishClip(job, clipDir, context) {
       steadySecPerFrameMax: steady.length ? Math.max(...steady) : null,
       retriedFrames: health.frameTimings.filter((outcome) => outcome.retried).length,
       encodeSec,
+      attempts: context.attempts,
     },
     tools: context.tools,
     verifiedAtIso: new Date().toISOString(),
@@ -312,6 +396,7 @@ async function main() {
   })
 
   await mkdir(options.out, { recursive: true })
+  const deadlineMs = Date.now() + options.budgetMinutes * 60_000
   const results = []
   for (const job of selected) {
     const clipDir = path.join(options.out, `${job.jobId}__${job.shotId}`)
@@ -324,39 +409,31 @@ async function main() {
     await rm(clipDir, { recursive: true, force: true })
     await mkdir(clipDir, { recursive: true })
     const startedAt = Date.now()
+    let attempts = []
     try {
       if (!options.skipRender) {
-        // finalRender.spec.ts caps each clip at a 30-minute test timeout; a
-        // long clip (c25: 432 4K frames) on a slow runner can hit it. The
-        // renderer is resumable by design — a re-invocation validates what
-        // is on disk and renders only missing/corrupt/frozen indices — so a
-        // failed attempt is simply continued, up to RENDER_ATTEMPTS times.
         await rm(path.join(jobOutputDir(job), 'browser-errors.jsonl'), { force: true })
-        let code = 1
-        for (let attempt = 1; attempt <= RENDER_ATTEMPTS && code !== 0; attempt += 1) {
-          console.log(`[renderGroup] ${job.jobId} (${job.shotId}): rendering ${job.frames} frame(s), attempt ${attempt}/${RENDER_ATTEMPTS}`)
-          code = await renderClip(job.jobId)
-        }
-        if (code !== 0) throw new Error(`finalRender.mjs exited ${code} after ${RENDER_ATTEMPTS} resumed attempt(s)`)
+        attempts = await renderWithAttempts(job, options, deadlineMs)
       }
       const renderSec = (Date.now() - startedAt) / 1000
-      const record = await finishClip(job, clipDir, { sha, dirty: git.dirty, group: options.group, renderSec, tools })
+      const record = await finishClip(job, clipDir, { sha, dirty: git.dirty, group: options.group, renderSec, attempts, tools })
       console.log(
         `[renderGroup] ${job.jobId}: verified — ${record.source.frames} src ${record.source.width}x${record.source.height} -> ` +
           `${record.output.frames} @ ${record.output.width}x${record.output.height}/${record.output.fps}fps, ` +
           `${(record.output.bytes / 1e6).toFixed(1)} MB, render ${renderSec.toFixed(0)}s`,
       )
-      results.push({ clipId: job.jobId, status: 'verified', outputSha256: record.output.sha256 })
+      results.push({ clipId: job.jobId, status: 'verified', outputSha256: record.output.sha256, attempts })
       if (!options.keepFrames) await rm(jobOutputDir(job), { recursive: true, force: true })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      if (Array.isArray(error?.attempts)) attempts = error.attempts
       console.error(`[renderGroup] ${job.jobId}: FAILED — ${message}`)
       for (const name of ['render.json', 'capture-health.json', 'browser-errors.jsonl']) {
         await copyFile(path.join(jobOutputDir(job), name), path.join(clipDir, name)).catch(() => {})
       }
-      await atomicJson(path.join(clipDir, 'FAILED.json'), { clipId: job.jobId, gitSha: sha, error: message, atIso: new Date().toISOString() })
+      await atomicJson(path.join(clipDir, 'FAILED.json'), { clipId: job.jobId, gitSha: sha, error: message, attempts, atIso: new Date().toISOString() })
       await rm(path.join(clipDir, 'clip.json'), { force: true })
-      results.push({ clipId: job.jobId, status: 'failed', error: message })
+      results.push({ clipId: job.jobId, status: 'failed', error: message, attempts })
     }
   }
 

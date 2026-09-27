@@ -13,9 +13,12 @@
  * Filter with CAPTURE_FINAL_CLIP / CAPTURE_FINAL_ACT / CAPTURE_FINAL_PROFILE
  * (set by capture/finalRender.mjs's --clip/--act/--profile/--all).
  * CAPTURE_FINAL_FORCE=1 re-renders a clip even if already marked complete.
+ * CAPTURE_FINAL_TIMEOUT_MS caps one clip's attempt (capture/ci/renderGroup.mjs
+ * sets it from its job budget); unset, the ceiling is derived from the
+ * clip's frame count and source clock (capture/finalRender/timing.ts).
  */
 import { appendFileSync, readFileSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { test } from '@playwright/test'
 import { type FinalEdit, type ShotIndexEntry } from './finalEdit.ts'
@@ -36,6 +39,7 @@ import {
 } from './finalRender/resume.ts'
 import { buildFinalRenderSummary, formatFinalRenderSummary, type JobRunOutcome } from './finalRender/summary.ts'
 import { checkStoragePreflight, estimateStorage } from './finalRender/storage.ts'
+import { attemptTimeoutMs, rendersInOneSession } from './finalRender/timing.ts'
 import { applyHudVisibility, filterKnownWarnings, preparePage, readWebGlState } from './initCapture.ts'
 import { SHOTS } from './manifest.ts'
 import { PROFILES } from './profiles.ts'
@@ -100,7 +104,9 @@ test.describe('final render — full locked-cut render', () => {
 
   for (const job of selectedJobs) {
     test(`${job.jobId} ${job.shotId} [${job.act}/${job.profile}]`, async ({ browser }) => {
-      test.setTimeout(30 * 60_000)
+      // Provisional until the frames still to render are known (below);
+      // validating a clip's existing frames only hashes files.
+      test.setTimeout(attemptTimeoutMs(job, job.frames, process.env.CAPTURE_FINAL_TIMEOUT_MS))
       const jobStartedAtMs = Date.now()
       const frameDir = jobFrameDir(job)
 
@@ -117,8 +123,25 @@ test.describe('final render — full locked-cut render', () => {
         return
       }
 
-      const validationBefore = await validateJobFrames(job)
-      const indicesToRender = indicesNeedingRender(validationBefore)
+      let validationBefore = await validateJobFrames(job)
+      let indicesToRender = indicesNeedingRender(validationBefore)
+      if (rendersInOneSession(job) && indicesToRender.length > 0 && indicesToRender.length < job.frames) {
+        // An elapsed-ms clip is never spliced from two page sessions (see
+        // rendersInOneSession): discard the partial sequence, render it whole.
+        console.log(
+          `[final-render] ${job.jobId}: ${indicesToRender.length}/${job.frames} frame(s) invalid — ` +
+            're-rendering the whole elapsed-ms clip in one session',
+        )
+        await rm(frameDir, { recursive: true, force: true })
+        validationBefore = await validateJobFrames(job)
+        indicesToRender = indicesNeedingRender(validationBefore)
+      }
+      const timeoutMs = attemptTimeoutMs(job, indicesToRender.length, process.env.CAPTURE_FINAL_TIMEOUT_MS)
+      test.setTimeout(timeoutMs)
+      console.log(
+        `[final-render] ${job.jobId}: ${indicesToRender.length}/${job.frames} frame(s) to render, ` +
+          `attempt timeout ${(timeoutMs / 60_000).toFixed(1)} min`,
+      )
 
       let outcome: JobRunOutcome
       let thrown: Error | null = null

@@ -38,13 +38,15 @@ import {
   setupCounterstrikeTracking,
   setupDividerFirstWave,
 } from '../manifest.ts'
-import { createClockStepper } from '../runner.ts'
+import { createClockStepper, type ClockStepper, type ExactSample } from '../runner.ts'
 import { REACH_KIND } from './reachKinds.ts'
 
 export type ReachHandle =
   | { readonly clock: 'still' }
   | { readonly clock: 'progress'; readonly advance: (progress: number) => Promise<void> }
-  | { readonly clock: 'elapsed-ms'; readonly advance: (elapsedMs: number) => Promise<void> }
+  /** elapsed-ms: renders one frame at exactly the requested source time
+   * (createClockStepper's sampleAt) and reports where it rendered. */
+  | { readonly clock: 'elapsed-ms'; readonly advance: (elapsedMs: number) => Promise<ExactSample> }
 
 export type ReachFn = (page: Page) => Promise<ReachHandle>
 
@@ -52,8 +54,17 @@ const STILL: ReachHandle = { clock: 'still' }
 function progressReach(advance: (progress: number) => Promise<void>): ReachHandle {
   return { clock: 'progress', advance }
 }
-function elapsedMsReach(advance: (elapsedMs: number) => Promise<void>): ReachHandle {
+function elapsedMsReach(advance: (elapsedMs: number) => Promise<ExactSample>): ReachHandle {
   return { clock: 'elapsed-ms', advance }
+}
+/** An elapsed-ms handle whose source times are measured from `offsetMs`
+ * into `stepper`'s own timeline (e.g. the octogonal-fire moment), with the
+ * rendered-time evidence translated back into the clip's own source time. */
+function offsetElapsedMsReach(stepper: ClockStepper, offsetMs: number): ReachHandle {
+  return elapsedMsReach(async (ms) => {
+    const sample = await stepper.sampleAt(offsetMs + ms)
+    return { ...sample, renderedElapsedMs: sample.renderedElapsedMs - offsetMs }
+  })
 }
 
 const FAILED_IMPACT_DETAIL = {
@@ -164,7 +175,7 @@ const FINAL_RENDER_REACH_IMPL: Readonly<Record<string, ReachFn>> = Object.freeze
     // targetingMs and re-using the SAME stepper, never by anchoring a new
     // one at targetingMs (which would treat a small relative offset as if
     // it were an absolute clock reading and never actually advance).
-    return elapsedMsReach((ms) => stepper.advanceTo(targetingMs + ms))
+    return offsetElapsedMsReach(stepper, targetingMs)
   },
   'divider-fire-defense-port': async (page) => {
     const { stepper, waveStartMs } = await setupDividerFirstWave(page)
@@ -193,7 +204,7 @@ const FINAL_RENDER_REACH_IMPL: Readonly<Record<string, ReachFn>> = Object.freeze
     // See divider-incoming-formation above: reuse the same reveal-open
     // -anchored stepper, offset by fireMs, rather than anchoring a new one
     // at the (relative, not absolute) fireMs value.
-    return elapsedMsReach((ms) => stepper.advanceTo(fireMs + ms))
+    return offsetElapsedMsReach(stepper, fireMs)
   },
   'divider-defense-interaction': async (page) => {
     const { stepper, waveStartMs } = await setupDividerFirstWave(page)
@@ -208,7 +219,7 @@ const FINAL_RENDER_REACH_IMPL: Readonly<Record<string, ReachFn>> = Object.freeze
     )
     await fireDefenseAction(page)
     // See divider-incoming-formation above.
-    return elapsedMsReach((ms) => stepper.advanceTo(targetingMs + ms))
+    return offsetElapsedMsReach(stepper, targetingMs)
   },
   'divider-monument-survives': async (page) => {
     await dismissLaunchGate(page)
@@ -223,17 +234,17 @@ const FINAL_RENDER_REACH_IMPL: Readonly<Record<string, ReachFn>> = Object.freeze
   'helios-mechanical-peak': async (page) => {
     const originMs = await openMonumentRevealAndReadOrigin(page)
     const stepper = createClockStepper(page, originMs)
-    return elapsedMsReach((ms) => stepper.advanceTo(ms))
+    return offsetElapsedMsReach(stepper, 0)
   },
   'signal-array-mechanical-peak': async (page) => {
     const originMs = await openMonumentRevealAndReadOrigin(page)
     const stepper = createClockStepper(page, originMs)
-    return elapsedMsReach((ms) => stepper.advanceTo(ms))
+    return offsetElapsedMsReach(stepper, 0)
   },
   'crater-crown-early-reveal': async (page) => {
     const originMs = await openMonumentRevealAndReadOrigin(page)
     const stepper = createClockStepper(page, originMs)
-    return elapsedMsReach((ms) => stepper.advanceTo(ms))
+    return offsetElapsedMsReach(stepper, 0)
   },
   // Phase B prerequisite #2: supports the full approved +300ms..+6000ms
   // pull-back (MONUMENT_REVEAL_MS) — the manifest's own bastionHeldHeroShot
@@ -244,7 +255,7 @@ const FINAL_RENDER_REACH_IMPL: Readonly<Record<string, ReachFn>> = Object.freeze
   'bastion-held-hero': async (page) => {
     const originMs = await openMonumentRevealAndReadOrigin(page)
     const stepper = createClockStepper(page, originMs)
-    return elapsedMsReach((ms) => stepper.advanceTo(ms))
+    return offsetElapsedMsReach(stepper, 0)
   },
   'monument-selection-port': async (page) => {
     await dismissLaunchGate(page)

@@ -279,4 +279,47 @@ test.describe('8. fake-clock stepper guarantees a fresh render per advance', () 
       await context.close()
     }
   })
+
+  // Run #4: advanceTo's guarantee (a fresh frame per step) held, but the
+  // frame it guaranteed rendered on the fake clock's next 16ms
+  // requestAnimationFrame grid point, not at the requested time — each
+  // sub-tick sample drifted a further ~10ms, so every elapsed-ms clip was
+  // sampled at the wrong source times (c19 ended at +5952ms for +680ms).
+  // sampleAt must render exactly AT each requested time.
+  test('sampleAt renders exactly at each requested sub-tick source time, and after a long jump', async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: PROFILES.PLATE.cssWidth, height: PROFILES.PLATE.cssHeight },
+      deviceScaleFactor: PROFILES.PLATE.deviceScaleFactor,
+    })
+    try {
+      const page = await context.newPage()
+      await preparePage(page, {
+        profile: PROFILES.PLATE,
+        fixture: 'MON_HELIOS_SPIRE',
+        beforeGoto: async (p) => {
+          await p.clock.install()
+        },
+      })
+      const originMs = await openMonumentRevealAndReadOrigin(page)
+      const stepper = createClockStepper(page, originMs)
+
+      // c22's own window: 3900..4500ms of the reveal, 5.607ms apart.
+      const requested = [3_900, ...Array.from({ length: 12 }, (_, step) => 3_900 + ((step + 1) * 600) / 107)]
+      let previousCount = await readFrameCount(page)
+      for (const elapsedMs of requested) {
+        const sample = await stepper.sampleAt(elapsedMs)
+        expect(sample.renderedElapsedMs - elapsedMs, `${elapsedMs}ms`).toBeGreaterThanOrEqual(0)
+        expect(sample.renderedElapsedMs - elapsedMs, `${elapsedMs}ms`).toBeLessThan(1)
+        expect(await page.evaluate(() => performance.now())).toBe(sample.renderedAtMs)
+        const current = await readFrameCount(page)
+        expect(current, `${elapsedMs}ms`).toBeGreaterThan(previousCount)
+        previousCount = current
+      }
+      await expect(stepper.sampleAt(3_901)).rejects.toThrow(/behind the page clock/)
+      // With frames held, advanceTo could never render: it must refuse, not nudge idly.
+      await expect(stepper.advanceTo(4_200)).rejects.toThrow(/animation frames are held/)
+    } finally {
+      await context.close()
+    }
+  })
 })

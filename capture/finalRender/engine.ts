@@ -76,6 +76,13 @@ export interface FrameCaptureOutcome {
   readonly filename: string
   readonly tookMs: number
   readonly retried: boolean
+  /** The source value this frame was asked for (normalized progress or
+   * elapsed ms; 0 for a still). */
+  readonly requestedSource?: number
+  /** elapsed-ms clips only: the source time the frame actually rendered at
+   * (the page clock at render, relative to the shot origin) — evidence that
+   * the sample landed where the locked edit asked, not on a nearby RAF tick. */
+  readonly renderedSourceMs?: number
 }
 
 export interface JobCaptureResult {
@@ -91,10 +98,18 @@ export interface JobCaptureResult {
  *
  * Indices not in the requested set are never visited at all (not even their
  * `advance()` call): both stepping mechanisms this codebase uses — a direct
- * progress-event dispatch, and Playwright's fake clock stepped forward via
- * `advanceTo` — are safe to jump to an arbitrary target without having
- * visited every intermediate value, which is what makes resuming a partial
- * clip (Phase C) cheap: only the missing/invalid indices are re-driven.
+ * progress-event dispatch, and Playwright's fake clock run forward to an
+ * exact tick by the clock stepper's `sampleAt` (every timer firing at its
+ * natural time, animation frames held until that tick) — are safe to jump
+ * to an arbitrary target without having visited every intermediate value.
+ * That is what makes resuming a partial progress-event clip (Phase C) cheap:
+ * only the missing/invalid indices are re-driven. (An elapsed-ms clip is
+ * still re-rendered whole rather than spliced across page sessions — see
+ * capture/finalRender/timing.ts rendersInOneSession.)
+ *
+ * elapsed-ms frames carry `renderedSourceMs`, the source time the page clock
+ * actually rendered them at; a frame more than one whole-ms tick away from
+ * its request fails the clip here rather than being written.
  */
 export async function captureFinalRenderJob(
   page: Page,
@@ -127,7 +142,13 @@ export async function captureFinalRenderJob(
     const value = sourceValueAt(job.source, t)
     const beforeStep = previousFrameCount
     const startedAt = Date.now()
-    await advance(value)
+    const sample = await advance(value)
+    const renderedSourceMs = sample === undefined ? undefined : sample.renderedElapsedMs
+    if (renderedSourceMs !== undefined && Math.abs(renderedSourceMs - value) >= 1) {
+      throw new Error(
+        `${job.jobId} (${job.shotId}) frame ${index}: rendered at source ${renderedSourceMs}ms, requested ${value}ms`,
+      )
+    }
 
     const currentFrameCount = await waitForFrameCountAbove(page, beforeStep, FRAME_ADVANCE_TIMEOUT_MS)
     if (Number.isNaN(currentFrameCount) || currentFrameCount <= beforeStep) {
@@ -142,7 +163,28 @@ export async function captureFinalRenderJob(
     const clip = toCssClip(crop, deviceScaleFactor)
     const filename = frameFilename(index)
     const { retried } = await screenshotWithRetry(page, path.join(frameDir, filename), clip, index === 0)
-    frameOutcomes.push({ index, filename, tookMs: Date.now() - startedAt, retried })
+    const tookMs = Date.now() - startedAt
+    frameOutcomes.push({
+      index,
+      filename,
+      tookMs,
+      retried,
+      requestedSource: value,
+      ...(renderedSourceMs === undefined ? {} : { renderedSourceMs }),
+    })
+    logProgress(job, frameOutcomes.length, indices.length, index, tookMs)
   }
   return { jobId: job.jobId, frameOutcomes }
+}
+
+/** One console line every PROGRESS_EVERY captured frames (and the last), so
+ * a CI log alone shows per-clip throughput — run #4's only evidence of a
+ * 30-minute timeout was the timeout itself. */
+const PROGRESS_EVERY = 12
+
+function logProgress(job: FinalRenderJob, done: number, total: number, index: number, tookMs: number): void {
+  if (done % PROGRESS_EVERY !== 0 && done !== total) return
+  console.log(
+    `[final-render] ${job.jobId} ${done}/${total} frame(s) this pass (index ${index}, last ${(tookMs / 1000).toFixed(1)}s)`,
+  )
 }

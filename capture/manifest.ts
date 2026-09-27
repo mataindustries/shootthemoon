@@ -62,7 +62,7 @@ import {
   createClockStepper,
   createProgressEventStepper,
   type CaptureFramesResult,
-  type FrameStepper,
+  type ClockStepper,
 } from './runner.ts'
 
 export interface ShotOutcome {
@@ -218,7 +218,7 @@ const DIVIDER_DEMO_KIND_TITLE = MONUMENTS.SIGNAL_ARRAY.title
  * advancing from. */
 export async function setupDividerFirstWave(
   page: Page,
-): Promise<{ stepper: FrameStepper; waveStartMs: number }> {
+): Promise<{ stepper: ClockStepper; waveStartMs: number }> {
   const originMs = await openMonumentRevealAndReadOrigin(page)
   await chooseMonumentKind(page, DIVIDER_DEMO_KIND_TITLE)
   const stepper = createClockStepper(page, originMs)

@@ -1,17 +1,24 @@
 # Final reel render on standard GitHub-hosted runners (no Codespaces).
 #
-# Manual only. Two modes:
-#   smoke — Stage 1: render ONE locked clip (default c07,
-#           first-strike-orbital-flight) end to end and prove the pipeline.
-#   full  — Stage 2: all 25 locked shot clips, one matrix job per act (split
-#           further by clip only if an act's measured estimate exceeds 4.5h),
-#           then a verification job over every clip's metadata. Requires
-#           confirm_full=RENDER_FULL_REEL.
+# Manual only. Four modes:
+#   final-preflight — the cheap gate (~15-20 min wall, 4 parallel jobs) that
+#           must pass before another full run: c19 at its real 108-frame
+#           density, the 2559px crop quantization (c24/c25/c16), the PORT
+#           still (c18), a progress-clock sample (c07) and a forced
+#           first-attempt timeout (c22). See capture/ci/preflight.mjs.
+#   smoke — render ONE locked clip (default c07) end to end.
+#   repair — render the listed clips (default: run #4's failures), one runner
+#           job each, verified like a full run. Requires
+#           confirm_full=RENDER_FULL_REEL (it is hours of runner time).
+#   full  — all 25 locked shot clips: every progress-event clip in a runner
+#           job of its own, the cheap clips grouped per act (reelCi.ts
+#           partitionForCi), then a verification job over every clip's
+#           metadata. Requires confirm_full=RENDER_FULL_REEL.
 #
-# Every job uses the unchanged capture/finalRender.mjs --clip=<id>. Raw 4K PNG
-# sequences are written to the runner's local disk only and deleted as soon
-# as each clip is verified and encoded; only the 1080p60 intermediates, small
-# JSON metadata and contact JPEGs are uploaded. See capture/README.md
+# Every render uses the unchanged capture/finalRender.mjs --clip=<id>. Raw 4K
+# PNG sequences are written to the runner's local disk only and deleted as
+# soon as each clip is verified and encoded; only the 1080p60 intermediates,
+# small JSON metadata and contact JPEGs are uploaded. See capture/README.md
 # ("Phase 5: rendering on GitHub Actions").
 name: Final reel render
 
@@ -19,16 +26,20 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'smoke = one clip (Stage 1); full = all 25 locked clips (Stage 2)'
+        description: 'final-preflight = cheap gate; smoke = one clip; repair = listed clips; full = all 25 locked clips'
         type: choice
-        options: [smoke, full]
-        default: smoke
+        options: [final-preflight, smoke, repair, full]
+        default: final-preflight
       smoke_clip:
         description: 'Timeline clip id for smoke mode'
         type: string
         default: c07
+      repair_clips:
+        description: 'Comma-separated clip ids for repair mode'
+        type: string
+        default: c01,c02,c03,c10,c16,c19,c24,c25
       confirm_full:
-        description: 'Type RENDER_FULL_REEL to allow mode=full'
+        description: 'Type RENDER_FULL_REEL to allow mode=full or mode=repair'
         type: string
         default: ''
 
@@ -58,10 +69,10 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
       expected_clips: ${{ steps.plan.outputs.expected_clips }}
     steps:
-      - name: Guard full render
-        if: inputs.mode == 'full' && inputs.confirm_full != 'RENDER_FULL_REEL'
+      - name: Guard full / repair render
+        if: (inputs.mode == 'full' || inputs.mode == 'repair') && inputs.confirm_full != 'RENDER_FULL_REEL'
         run: |
-          echo "::error::mode=full renders all 25 clips across 7 runner jobs; re-run with confirm_full=RENDER_FULL_REEL."
+          echo "::error::mode=${{ inputs.mode }} is hours of runner time; re-run with confirm_full=RENDER_FULL_REEL."
           exit 1
 
       - uses: actions/checkout@v4
@@ -97,20 +108,22 @@ jobs:
         env:
           MODE: ${{ inputs.mode }}
           SMOKE_CLIP: ${{ inputs.smoke_clip }}
+          REPAIR_CLIPS: ${{ inputs.repair_clips }}
         run: >
           node --experimental-strip-types --experimental-transform-types capture/ci/plan.mjs
-          "--mode=$MODE" "--clip=$SMOKE_CLIP"
+          "--mode=$MODE" "--clip=$SMOKE_CLIP" "--clips=$REPAIR_CLIPS"
 
   render:
-    name: Render ${{ matrix.group }}
+    name: ${{ matrix.kind == 'preflight' && 'Preflight' || 'Render' }} ${{ matrix.group }}
     needs: plan
     runs-on: ubuntu-latest
-    # GitHub's hard cap is 360 min; the render step stops at 300 so the
-    # already-finished clips are always uploaded.
-    timeout-minutes: 345
+    # GitHub's hard cap is 360 min. The render step stops at 335 and
+    # renderGroup.mjs budgets 325 (reelCi.ts RENDER_* constants, asserted in
+    # capture/ciPipeline.spec.ts), so finished clips are always uploaded.
+    timeout-minutes: 355
     strategy:
       fail-fast: false
-      max-parallel: 7
+      max-parallel: 20
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
@@ -143,7 +156,7 @@ jobs:
       # "Re-run failed jobs" resumes: an earlier attempt's verified clips
       # (same SHA, hash-checked) are skipped instead of re-rendered.
       - name: Restore clips from an earlier attempt
-        if: github.run_attempt != '1'
+        if: matrix.kind == 'render' && github.run_attempt != '1'
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
@@ -151,14 +164,26 @@ jobs:
           path: ci-out
 
       - name: Render, verify and encode ${{ matrix.clips }} (~${{ matrix.estimated_minutes }} min est.)
-        timeout-minutes: 300
+        if: matrix.kind == 'render'
+        timeout-minutes: 335
         env:
           GROUP: ${{ matrix.group }}
           CLIPS: ${{ matrix.clips }}
           SHA: ${{ needs.plan.outputs.sha }}
         run: >
           node --experimental-strip-types --experimental-transform-types capture/ci/renderGroup.mjs
-          "--group=$GROUP" "--clips=$CLIPS" --out=ci-out "--sha=$SHA" --require-clean
+          "--group=$GROUP" "--clips=$CLIPS" --out=ci-out "--sha=$SHA" --require-clean --budget-minutes=325
+
+      - name: Preflight ${{ matrix.part }} (~${{ matrix.estimated_minutes }} min est.)
+        if: matrix.kind == 'preflight'
+        timeout-minutes: 60
+        env:
+          PART: ${{ matrix.part }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          mkdir -p ci-out
+          node --experimental-strip-types --experimental-transform-types capture/ci/preflight.mjs \
+            "--part=$PART" --out=ci-out "--sha=$SHA" --require-clean | tee ci-out/preflight-log.txt
 
       - name: Guard — no raw frames in the upload
         if: always()
@@ -176,15 +201,20 @@ jobs:
           {
             echo "### $LABEL"
             echo
-            echo "| clip | shot | src frames | src size | out frames | MB | render s | s/frame |"
-            echo "|---|---|---|---|---|---|---|---|"
+            for f in ci-out/preflight-*.json; do
+              [ -f "$f" ] || continue
+              jq -r '"**\(.part): \(if .ok then "PASSED" else "FAILED" end)** (\(.minutes*10|round/10) min)\n\n| check | result |\n|---|---|", (.checks[] | "| \(.name) | \(if .ok then "pass" else "**FAIL** — \(.problems[0:3]|join("; "))" end) |"), "", (.notes[] | "- \(.)")' "$f"
+              echo
+            done
+            echo "| clip | shot | src frames | src size | out frames | MB | render s | s/frame | attempts |"
+            echo "|---|---|---|---|---|---|---|---|---|"
             for f in ci-out/*/clip.json; do
               [ -f "$f" ] || continue
-              jq -r '"| \(.clipId) | \(.shotId) | \(.source.frames) | \(.source.width)x\(.source.height) | \(.output.frames) | \(.output.bytes/1e6*10|round/10) | \(.timing.renderSec|round) | \(.timing.steadySecPerFrameAvg) |"' "$f"
+              jq -r '"| \(.clipId) | \(.shotId) | \(.source.frames) | \(.source.width)x\(.source.height) | \(.output.frames) | \(.output.bytes/1e6*10|round/10) | \(.timing.renderSec|round) | \(.timing.steadySecPerFrameAvg) | \(.timing.attempts // [] | length) |"' "$f"
             done
             for f in ci-out/*/FAILED.json; do
               [ -f "$f" ] || continue
-              jq -r '"| \(.clipId) | **FAILED** | \(.error|.[0:200]) | | | | | |"' "$f"
+              jq -r '"| \(.clipId) | **FAILED** | \(.error|.[0:200]) | | | | | | \(.attempts // [] | length) |"' "$f"
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -204,7 +234,8 @@ jobs:
   verify:
     name: Verify reel footage
     needs: [plan, render]
-    if: always() && needs.plan.result == 'success'
+    # final-preflight verifies inside each part; there is no reel to assemble.
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.expected_clips != ''
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
