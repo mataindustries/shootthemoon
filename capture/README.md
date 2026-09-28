@@ -519,11 +519,13 @@ and scans the workflow to keep it that way). `final-render.yml` is unchanged.
 capture/ci/
   reelRelease.json          — the pinned release source: Final reel render run #6
                               (run id, SHA, the 18 artifacts with ids + zip digests)
+  end-card-1920x1080.png    — the approved end-card still (--end-card in the workflow)
   sourceRun.mjs             — finds that run by number through the API, validates it
                               against the pin, downloads its artifacts (digest-checked)
   assembly.ts               — pure: input verification, sequence/transition plan,
                               ffmpeg graphs, encode settings parsed from finalEdit.json,
-                              poster frame pick, output checks
+                              poster frame pick, output checks, and
+                              RELEASE_FRAME_OVERRIDES (declared one-frame repairs)
   assembleFinalReel.mjs     — verify -> reel -> loop -> stills -> check;
                               manifest.json + SHA256SUMS
   assembly.test.ts          — pure tests + static no-renderer guards (node --test)
@@ -541,33 +543,62 @@ filled in.
 
 | file | from finalEdit.json |
 |---|---|
-| `reel-57s-1080.mp4` | the whole timeline in order at exact frame counts (3,456 @ 60fps = 57.6s): `headFadeFromBlackMs`, each clip's `transitionOut` (flash-white/dip-black centered on the cut, fade-black outgoing only; applied in YUV, sampled at frame start like ffmpeg's `fade`), the end-card slot, `derivatives.heroReel.encode` |
+| `reel-57s-1080.mp4` | the whole timeline in order at exact frame counts (3,456 @ 60fps = 57.6s): `headFadeFromBlackMs`, each clip's `transitionOut` (flash-white/dip-black centered on the cut, fade-black outgoing only; applied in YUV, sampled at frame start like ffmpeg's `fade`), the end-card slot (the approved still, `capture/ci/end-card-1920x1080.png`), `derivatives.heroReel.encode`, and the declared release frame overrides (below) |
 | `loop-13s-1280.mp4` | `derivatives.loop`: its clip list and fps (every 2nd real frame, 414 @ 30fps = 13.8s), silent. A transition is kept only where the loop keeps its two clips adjacent (c09->c10, c15->c16 flash-white). 1280x720, `derivatives.webReel` encode |
 | `poster-1280.jpg` / `.webp` | `derivatives.poster`: the verified frame of the clip holding that shot/instant/crop (c07 frame 72, 0.89 ms of source time from the named instant; the render run renders timeline clips only) |
 | `og-home-1200x630.jpg` | the same frame, full width, trimmed equally top and bottom (the spec gives only the size and a clean right third) |
 
-Not in the repo, so not invented: the end card is black for its locked
-52.8-57.6s slot (`endCardFacts.ts`: not designed yet; `--end-card=<1920x1080
-still>` fills it), the reel has no audio stream (finalEdit.json holds a cue
-map, not a mix; `--audio=<final mix>` muxes one per `heroReel.audio`), and
-the social image has no title typography.
+The end card is the approved 1920x1080 still `capture/ci/end-card-1920x1080.png`,
+passed by the workflow as `--end-card` and held for the locked 52.8-57.6s
+slot (288 frames, entering on the edit's dip from black); without
+`--end-card` the slot stays black. Not in the repo, so not invented: the
+reel has no audio stream (finalEdit.json holds a cue map, not a mix;
+`--audio=<final mix>` muxes one per `heroReel.audio`), and the social image
+has no title typography.
+
+**Release frame overrides.** A defect baked into one frame of verified
+footage is repaired in assembly, never by re-rendering: `assembly.ts`
+`RELEASE_FRAME_OVERRIDES` declares each repaired reel frame with the source
+clip/frame the locked plan puts there, the replacement (the adjacent frame
+of the same clip) and the reason. Today there is exactly one:
+
+| reel frame | time | original | replacement | reason |
+|---|---|---|---|---|
+| 468 | 7.800s | c03#36 (vesper-citadel-reveal, rival-signal:impact progress 0.81294) | c03#37 (the frame shown at reel frame 469) | one-frame enemy-base scale/camera defect |
+
+An override is bound to the footage it was declared for (run #6's id and
+SHA, and the pinned digest of the `render-act2-rival-c03` artifact holding
+c03); for that SHA it must be confirmed from `--source` or assembly stops,
+and it never applies to other footage. It must match the locked plan,
+sit outside any transition, replace with the untouched neighbouring frame of
+the same shot clip, and name a clip in no other deliverable. In the ffmpeg
+graph the clip is only re-trimmed ([18,36) + [37,38) + [37,144) instead of
+[18,144)), so the reel keeps its 3,456 frames and every other frame its
+position; nothing is interpolated.
 
 Every output is ffprobe'd and fully decoded, and the reel and loop are
 checked frame by frame: each output frame's luma thumbnail must match its
 planned source frame with its planned fade (any reordering, dropped frame
-or shifted cut fails). `manifest.json` records the source run, artifact
-digests, edit hash, tools, plan and every output's size, codec, duration,
-audio and sha256.
+or shifted cut fails). The reel's plan is the locked plan with exactly the
+declared override frames swapped, so any undeclared substitution still
+fails; each override frame must also match its replacement, differ from the
+original, and the original must differ from the replacement by more than
+the tolerance (the check could not otherwise catch it undeclared).
+`manifest.json` records the source run, artifact digests, edit hash, tools,
+plan, the end card's sha256, every override with its check, and every
+output's size, codec, duration, audio and sha256.
 
 ```sh
 # Pure tests + guards (no ffmpeg needed):
 node --experimental-strip-types --experimental-transform-types --test capture/ci/assembly.test.ts
-# Full CLI on synthetic media (ffmpeg; ~4 min):
+# Full CLI on synthetic media, incl. a run #6 stand-in with a planted
+# c03#36 defect (ffmpeg, run #6's commit in history; ~10 min):
 ASSEMBLY_E2E=1 node --experimental-strip-types --experimental-transform-types --test capture/ci/assemblySynthetic.test.ts
 # The real thing, locally (GITHUB_TOKEN with actions:read):
 node --experimental-strip-types --experimental-transform-types capture/ci/sourceRun.mjs --run-number=6 --out=capture-final/run-6
 node --experimental-strip-types --experimental-transform-types capture/ci/assembleFinalReel.mjs \
-  --dir=capture-final/run-6 --source=capture-final/run-6/source-run.json --out=capture-final/deliverables
+  --dir=capture-final/run-6 --source=capture-final/run-6/source-run.json \
+  --end-card=capture/ci/end-card-1920x1080.png --out=capture-final/deliverables
 ```
 
 ## The four Phase 1 proof shots

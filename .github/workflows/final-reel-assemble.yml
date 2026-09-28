@@ -10,7 +10,9 @@
 #   2. download its existing artifacts, each zip checked against its digest
 #   3. capture/ci/assembleFinalReel.mjs: verify every locked clip (hashes,
 #      reel manifest, edit unchanged since the render), assemble with ffmpeg
-#      per capture/finalEdit.json, verify every output
+#      per capture/finalEdit.json — the approved end-card still in its locked
+#      slot, the declared release frame overrides for this footage — and
+#      verify every output
 #   4. upload ONE artifact: final-reel-deliverables
 #
 # See capture/README.md ("Phase 6: assembling the release media").
@@ -32,6 +34,7 @@ on:
       - capture/ci/assembleFinalReel.mjs
       - capture/ci/assembly.ts
       - capture/ci/assembly.test.ts
+      - capture/ci/end-card-1920x1080.png
       - capture/ci/io.ts
       - capture/ci/reelCi.ts
       - capture/ci/reelRelease.json
@@ -99,6 +102,7 @@ jobs:
         run: >
           node --experimental-strip-types --experimental-transform-types capture/ci/assembleFinalReel.mjs
           "--dir=capture-final/run-$SOURCE_RUN_NUMBER" "--source=capture-final/run-$SOURCE_RUN_NUMBER/source-run.json"
+          --end-card=capture/ci/end-card-1920x1080.png
           --out=capture-final/deliverables --work=capture-final/assembly-work
           | tee capture-final-assembly.log
 

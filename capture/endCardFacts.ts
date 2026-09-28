@@ -3,7 +3,10 @@
  *
  * This is deliberately NOT a Shot: the approved plan is explicit that the
  * final end card is not designed in this phase ("Do not bake these into
- * footage yet"). This module just records the facts that were fact-checked
+ * footage yet"). The approved end card is now a finished still,
+ * capture/ci/end-card-1920x1080.png, which release assembly places in the
+ * locked end-card slot (--end-card); nothing here is baked into footage.
+ * This module just records the facts that were fact-checked
  * against the live repo at the commit noted below, so whoever builds the
  * end card later doesn't have to re-derive them from scratch — and so any
  * claim that later goes stale is easy to re-verify against the same checks.

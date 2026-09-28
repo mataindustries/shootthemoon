@@ -13,14 +13,21 @@
  *                  footage was rendered from. Any problem: STOP.
  *   2. reel      — the whole locked timeline (assembly.ts planReel): the
  *                  25 clips in order at their exact frame counts, the edit's
- *                  head fade / flashes / dips / fade, the end-card slot,
- *                  derivatives.heroReel encode (+ the final mix via --audio)
+ *                  head fade / flashes / dips / fade, the end-card slot
+ *                  (black, or the designed still via --end-card),
+ *                  derivatives.heroReel encode (+ the final mix via --audio),
+ *                  and the declared RELEASE_FRAME_OVERRIDES for this footage
+ *                  (one-frame repairs; bound to the source run, validated
+ *                  against the locked plan, never rendered or interpolated)
  *   3. loop      — derivatives.loop's clips, silent, at its fps, 1280x720
  *   4. stills    — derivatives.poster's frame (from its verified clip) as
  *                  1280 JPEG + WebP, and its 1200x630 social crop
  *   5. check     — ffprobe/decode every output, frame-by-frame timeline
- *                  fidelity of reel and loop against their planned sources,
- *                  exact deliverable names; manifest.json + SHA256SUMS
+ *                  fidelity of reel and loop against their planned sources
+ *                  (the reel's plan differs from the locked one in exactly
+ *                  the declared override frames, each checked to hold its
+ *                  replacement), exact deliverable names; manifest.json +
+ *                  SHA256SUMS
  *
  * Usage:
  *   node --experimental-strip-types --experimental-transform-types capture/ci/assembleFinalReel.mjs \
@@ -33,12 +40,16 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  applyFrameOverrides,
+  changedFrames,
   checkDeliverableNames,
+  checkFrameOverrides,
   checkImageOutput,
   checkIntermediate,
   checkTimelineFidelity,
   checkVideoOutput,
   DELIVERABLES,
+  describeClipFrame,
   expectedFrames,
   loopFilterGraph,
   loopMaxBytes,
@@ -46,15 +57,18 @@ import {
   LOOP_SIZE,
   lockedShotClips,
   OG_SIZE,
+  overridesForSource,
   parseAudio,
   parseEncode,
   planLoop,
   planReel,
   POSTER_SIZE,
   reelFilterGraph,
+  RELEASE_FRAME_OVERRIDES,
   SCALE_FLAGS,
   selectPosterFrame,
   socialCrop,
+  validateFrameOverrides,
   verifyAssemblyInputs,
   aacArgs,
   x264Args,
@@ -185,6 +199,25 @@ async function main() {
   if (probeProblems.length > 0) stop('intermediates failed ffprobe', probeProblems)
   console.log(`verified ${inputs.clipFiles.size} locked clips from ${sha} (reel manifest ${path.relative(dir, manifestPath)})`)
 
+  // Declared one-frame repairs of this footage (assembly.ts
+  // RELEASE_FRAME_OVERRIDES): bound to the source run, validated against the
+  // locked plan. Anything unconfirmed stops; nothing is rendered to repair.
+  const reelPlan = planReel(edit)
+  const bound = overridesForSource(RELEASE_FRAME_OVERRIDES, sha, source, inputs.clipFiles)
+  if (bound.problems.length > 0) stop('release frame overrides', bound.problems)
+  const frameOverrides = bound.overrides
+  const overrideProblems = validateFrameOverrides(edit, reelPlan, frameOverrides)
+  if (overrideProblems.length > 0) stop('release frame overrides', overrideProblems)
+  const lockedReelFrames = expectedFrames(reelPlan)
+  const reelFrames = applyFrameOverrides(lockedReelFrames, frameOverrides)
+  const overriddenFrames = changedFrames(lockedReelFrames, reelFrames)
+  if (overriddenFrames.join(',') !== frameOverrides.map((override) => override.reelFrame).sort((a, b) => a - b).join(',')) {
+    stop('release frame overrides', [`plan differs from the locked plan at frames [${overriddenFrames.join(', ')}], declared [${frameOverrides.map((override) => override.reelFrame).join(', ')}]`])
+  }
+  for (const { reelFrame, original, replacement, reason } of frameOverrides) {
+    console.log(`frame override: reel frame ${reelFrame} (${(reelFrame / fps).toFixed(3)}s) ${original.clipId}#${original.frame} -> ${replacement.clipId}#${replacement.frame} — ${reason}`)
+  }
+
   // Optional finished inputs the edit calls for but the repo does not hold.
   let endCard = null
   if (args['end-card']) {
@@ -210,7 +243,6 @@ async function main() {
   const outPath = (name) => path.join(out, name)
 
   // --- 2. reel --------------------------------------------------------------
-  const reelPlan = planReel(edit)
   const heroEncode = parseEncode(edit.derivatives.heroReel)
   const heroAudio = audio === null ? null : parseAudio(edit.derivatives.heroReel)
   {
@@ -226,7 +258,7 @@ async function main() {
     if (endCard !== null) inputArgs.push('-loop', '1', '-framerate', String(fps), '-i', endCard)
     const audioIndex = audio === null ? null : next++
     if (audio !== null) inputArgs.push('-i', audio)
-    const graph = reelFilterGraph(edit, reelPlan, { shots, endCard: endCardLabel, width, height })
+    const graph = reelFilterGraph(edit, reelPlan, { shots, endCard: endCardLabel, width, height }, frameOverrides)
     console.log(`reel: ${reelPlan.segments.length} segments, ${reelPlan.frames} frames @ ${fps}fps …`)
     await ffmpeg([
       ...inputArgs,
@@ -302,14 +334,17 @@ async function main() {
   const sourceThumbs = new Map([['end', endThumb]])
   for (const clip of lockedShotClips(edit)) sourceThumbs.set(clip.id, await lumaThumbnails(clipPath(clip.id), clip.id))
 
-  const verifyVideo = async (name, expect, plan, step, tolerance) => {
+  const verifyVideo = async (name, expect, expected, tolerance, overrides = []) => {
     const file = outPath(name)
     const summary = await fileSummary(file)
     const probed = await probe(file)
     problems.push(...checkVideoOutput({ file: name, ...expect }, probed.streams, probed.durationSec, summary.bytes))
     await decodes(file, expect.frames)
-    const fidelity = checkTimelineFidelity(expectedFrames(plan, step), await lumaThumbnails(file, name), sourceThumbs, THUMB.width * THUMB.height, tolerance)
+    const thumbs = await lumaThumbnails(file, name)
+    const fidelity = checkTimelineFidelity(expected, thumbs, sourceThumbs, THUMB.width * THUMB.height, tolerance)
     problems.push(...fidelity.problems.map((problem) => `${name}: ${problem}`))
+    const overrideChecks = checkFrameOverrides(overrides, thumbs, sourceThumbs, THUMB.width * THUMB.height, tolerance)
+    problems.push(...overrideChecks.flatMap((check) => check.problems.map((problem) => `${name}: ${problem}`)))
     const video = probed.streams.find((stream) => stream.type === 'video')
     const audioStreams = probed.streams.filter((stream) => stream.type === 'audio')
     outputs.push({
@@ -322,10 +357,12 @@ async function main() {
       audioStreams: audioStreams.length,
       audioCodec: audioStreams[0]?.codec ?? null,
       timelineFidelity: { thumbnail: `${THUMB.width}x${THUMB.height} luma`, frames: fidelity.frames, meanAbsDiff: fidelity.meanAbsDiff, maxAbsDiff: fidelity.maxAbsDiff, worst: fidelity.worst, tolerance },
+      ...(overrides.length > 0 ? { frameOverrideChecks: overrideChecks } : {}),
     })
+    return overrideChecks
   }
-  await verifyVideo(DELIVERABLES.reel, { width, height, fps, frames: reelPlan.frames, audio: heroAudio }, reelPlan, 1, FIDELITY_TOLERANCE.reel)
-  await verifyVideo(DELIVERABLES.loop, { width: LOOP_SIZE.width, height: LOOP_SIZE.height, fps: loopPlan.fps, frames: loopPlan.frames, audio: null }, loopPlan.sequence, loopPlan.step, FIDELITY_TOLERANCE.loop)
+  const reelOverrideChecks = await verifyVideo(DELIVERABLES.reel, { width, height, fps, frames: reelPlan.frames, audio: heroAudio }, reelFrames, FIDELITY_TOLERANCE.reel, frameOverrides)
+  await verifyVideo(DELIVERABLES.loop, { width: LOOP_SIZE.width, height: LOOP_SIZE.height, fps: loopPlan.fps, frames: loopPlan.frames, audio: null }, expectedFrames(loopPlan.sequence, loopPlan.step), FIDELITY_TOLERANCE.loop)
   const loopBytes = outputs.find((output) => output.file === DELIVERABLES.loop).bytes
   if (loopBytes > loopMaxBytes(edit)) problems.push(`${DELIVERABLES.loop}: ${loopBytes} bytes, over the loop's ${loopMaxBytes(edit)} byte budget`)
 
@@ -360,7 +397,20 @@ async function main() {
     intermediates: lockedShotClips(edit).map((clip) => ({ clipId: clip.id, file: inputs.clipFiles.get(clip.id), sha256: located.find((entry) => entry.record.clipId === clip.id).record.output.sha256 })),
     reel: {
       segments: reelPlan.segments,
-      endCard: endCard === null ? 'black — the end card is not designed yet (capture/endCardFacts.ts: "Do not bake these into footage yet"); pass --end-card=<designed still> to fill the locked 52.8-57.6s slot' : path.basename(endCard),
+      endCard: endCard === null
+        ? 'black — no end-card still was passed; pass --end-card=<designed 1920x1080 still> to fill the locked 52.8-57.6s slot'
+        : { file: path.basename(endCard), sha256: await sha256File(endCard), slot: reelPlan.segments.find((segment) => segment.kind === 'end-card') },
+      frameOverrides: frameOverrides.map((override) => ({
+        reelFrame: override.reelFrame,
+        reelTimeSec: override.reelFrame / fps,
+        original: describeClipFrame(edit, override.original),
+        replacement: describeClipFrame(edit, override.replacement),
+        reason: override.reason,
+        source: override.source,
+        intermediate: { file: inputs.clipFiles.get(override.original.clipId), sha256: located.find((entry) => entry.record.clipId === override.original.clipId).record.output.sha256 },
+        check: reelOverrideChecks.find((check) => check.reelFrame === override.reelFrame),
+      })),
+      framesDifferingFromLockedPlan: overriddenFrames,
       audio: audio === null ? 'none — no final mix exists in the repo; finalEdit.json holds the cue map only. Pass --audio=<final mix> to mux it per derivatives.heroReel.audio' : path.basename(audio),
       encode: edit.derivatives.heroReel.encode,
     },
@@ -388,12 +438,15 @@ async function main() {
   for (const output of outputs.filter((entry) => entry.timelineFidelity)) {
     const { meanAbsDiff, maxAbsDiff, frames } = output.timelineFidelity
     console.log(`timeline fidelity ${output.file}: ${frames} frames, mean ${meanAbsDiff.toFixed(3)} / max ${maxAbsDiff.toFixed(3)} levels`)
+    for (const check of output.frameOverrideChecks ?? []) {
+      console.log(`  frame override @ ${check.reelFrame}: ${check.toReplacement.toFixed(3)} levels from its replacement, ${check.toOriginal.toFixed(3)} from the original${check.problems.length > 0 ? ' — FAILED' : ''}`)
+    }
   }
   if (problems.length > 0) {
     console.error(`ASSEMBLY VERIFICATION FAILED (${problems.length}):\n  ${problems.join('\n  ')}`)
     process.exitCode = 1
   } else {
-    console.log(`ASSEMBLY VERIFIED — ${Object.keys(DELIVERABLES).length} deliverables in ${out} (${Math.round((Date.now() - started) / 1000)}s, 0 frames rendered)`)
+    console.log(`ASSEMBLY VERIFIED — ${Object.keys(DELIVERABLES).length} deliverables in ${out} (${Math.round((Date.now() - started) / 1000)}s, 0 frames rendered, ${frameOverrides.length} declared frame override(s))`)
   }
 }
 
