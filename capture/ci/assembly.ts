@@ -11,7 +11,10 @@
  * Everything editorial comes from capture/finalEdit.json: clip order and
  * durations, transitions, the head fade, the end-card slot, the loop's clip
  * list and fps, the poster instant and crop, and the hero/web encode
- * settings. Nothing here restates a timeline.
+ * settings. Nothing here restates a timeline. The one exception is
+ * RELEASE_FRAME_OVERRIDES: declared, audited one-frame repairs of a
+ * verified render run's footage, bound to that run and checked against the
+ * locked plan (see "Release frame overrides" below).
  *
  * No browser, no filesystem, no child processes — unit-tested in
  * capture/ci/assembly.test.ts.
@@ -463,6 +466,206 @@ export function expectedFrames(plan: SequencePlan, step = 1): ExpectedFrame[] {
 }
 
 // ---------------------------------------------------------------------------
+// Release frame overrides: declared one-frame repairs of verified footage
+// ---------------------------------------------------------------------------
+
+export interface FrameRef {
+  readonly clipId: string
+  /** Frame index inside that clip's intermediate. */
+  readonly frame: number
+}
+
+/** The render-run footage an override was declared against. */
+export interface OverrideSource {
+  readonly runNumber: number
+  readonly runId: number
+  readonly headSha: string
+  /** The run artifact holding the repaired clip, and its pinned zip digest. */
+  readonly artifact: string
+  readonly artifactDigest: string
+}
+
+export interface ReleaseFrameOverride {
+  readonly source: OverrideSource
+  /** 0-based frame of the reel (reel-57s-1080.mp4) at the edit's fps. */
+  readonly reelFrame: number
+  /** What the locked plan puts on that reel frame; must match it exactly. */
+  readonly original: FrameRef
+  /** The verified neighbouring frame of the same clip shown instead. */
+  readonly replacement: FrameRef
+  readonly reason: string
+}
+
+/**
+ * Every frame of the release reel that does NOT show what the locked plan
+ * puts there. Each entry is a release-media repair of one defective source
+ * frame, never an edit: the reel keeps its locked frame count and timing,
+ * every other frame is untouched, nothing is rendered or interpolated, and
+ * the replacement is the adjacent frame of the same verified clip. An entry
+ * applies only to the footage it names (run, SHA and the pinned digest of
+ * the artifact holding the clip); the verifier expects exactly these frames
+ * to differ from the plan and still fails on any other difference.
+ */
+export const RELEASE_FRAME_OVERRIDES: readonly ReleaseFrameOverride[] = [
+  {
+    source: {
+      runNumber: 6,
+      runId: 36346715980,
+      headSha: 'd3301b4f01c3a27a42525b0876f3039ea66c55d9',
+      artifact: 'render-act2-rival-c03',
+      artifactDigest: 'sha256:90d96a7aebbcd2e312897d22e3b0f9e4a306ef9b41ebeacb373cc1a8323c3a15',
+    },
+    // 7.800s, c03 vesper-citadel-reveal. Source frame 36 was captured with
+    // the scene drawn at ~5/6 size into the top-left of the frame (the base
+    // visibly shrinks for one frame); frames 35 and 37 are correct.
+    reelFrame: 468,
+    original: { clipId: 'c03', frame: 36 },
+    replacement: { clipId: 'c03', frame: 37 },
+    reason: 'one-frame enemy-base scale/camera defect',
+  },
+]
+
+/** The validated render run the footage was downloaded from
+ * (source-run.json as capture/ci/sourceRun.mjs writes it; the subset read). */
+export interface SourceRunRecord {
+  readonly runId: number
+  readonly runNumber: number
+  readonly headSha: string
+  readonly artifacts: readonly { readonly name: string; readonly digest: string }[]
+}
+
+/**
+ * The overrides that apply to footage rendered at `sha`. An override
+ * declared for that SHA must be confirmed against the source run record
+ * (run id and number, the artifact's verified digest) and the clip's
+ * intermediate must come from that artifact; anything unconfirmed is a
+ * problem — a declared repair is never silently skipped, and never applied
+ * to other footage. Overrides for other SHAs do not apply.
+ */
+export function overridesForSource(
+  overrides: readonly ReleaseFrameOverride[],
+  sha: string,
+  source: SourceRunRecord | null,
+  clipFiles: ReadonlyMap<string, string>,
+): { readonly overrides: ReleaseFrameOverride[]; readonly problems: string[] } {
+  const applicable: ReleaseFrameOverride[] = []
+  const problems: string[] = []
+  for (const override of overrides) {
+    if (override.source.headSha !== sha) continue
+    const label = `frame override @ reel frame ${override.reelFrame}`
+    const before = problems.length
+    if (source === null) {
+      problems.push(`${label} is declared for run #${override.source.runNumber} @ ${sha}; pass --source=<source-run.json> so its footage can be confirmed`)
+    } else {
+      if (source.headSha !== override.source.headSha) problems.push(`${label}: source run is @ ${source.headSha}, override is for ${override.source.headSha}`)
+      if (source.runId !== override.source.runId || source.runNumber !== override.source.runNumber) {
+        problems.push(`${label}: source run is #${source.runNumber} (${source.runId}), override is for #${override.source.runNumber} (${override.source.runId})`)
+      }
+      const artifact = source.artifacts.find((entry) => entry.name === override.source.artifact)
+      if (artifact === undefined) problems.push(`${label}: source run has no artifact ${override.source.artifact}`)
+      else if (artifact.digest !== override.source.artifactDigest) problems.push(`${label}: ${override.source.artifact} digest ${artifact.digest}, override is for ${override.source.artifactDigest}`)
+    }
+    for (const ref of [override.original, override.replacement]) {
+      const file = clipFiles.get(ref.clipId)
+      if (file === undefined || !file.startsWith(`${override.source.artifact}/`)) {
+        problems.push(`${label}: ${ref.clipId} intermediate ${file ?? '(missing)'} is not from artifact ${override.source.artifact}`)
+      }
+    }
+    if (problems.length === before) applicable.push(override)
+  }
+  return { overrides: applicable, problems }
+}
+
+/**
+ * An override must be a one-frame repair inside the locked plan: its reel
+ * frame shows exactly `original` in the plan, outside any transition; the
+ * replacement is the adjacent frame of the same shot clip, itself shown
+ * untouched on the neighbouring reel frame; one override per frame, no
+ * chains; and the clip is in no other deliverable (the loop, the poster),
+ * which would otherwise keep the defect.
+ */
+export function validateFrameOverrides(edit: FinalEdit, plan: SequencePlan, overrides: readonly ReleaseFrameOverride[]): string[] {
+  const problems: string[] = []
+  const locked = expectedFrames(plan)
+  const targets = new Set<number>()
+  for (const override of overrides) {
+    const { reelFrame, original, replacement } = override
+    const label = `frame override @ reel frame ${reelFrame}`
+    if (!Number.isInteger(reelFrame) || reelFrame < 0 || reelFrame >= locked.length) {
+      problems.push(`${label}: outside the ${locked.length}-frame reel`)
+      continue
+    }
+    if (targets.has(reelFrame)) problems.push(`${label}: declared more than once`)
+    targets.add(reelFrame)
+    if (override.reason.trim() === '') problems.push(`${label}: no reason given`)
+    const planned = locked[reelFrame]!
+    if (planned.segment !== original.clipId || planned.frame !== original.frame) {
+      problems.push(`${label}: the locked plan shows ${planned.segment}#${planned.frame} there, the override declares ${original.clipId}#${original.frame}`)
+      continue
+    }
+    const segment = plan.segments.find((entry) => entry.id === original.clipId)!
+    if (segment.kind !== 'shot') problems.push(`${label}: ${original.clipId} is not a shot clip`)
+    if (planned.fade !== null) problems.push(`${label}: inside a ${planned.fade.color} transition`)
+    if (replacement.clipId !== original.clipId) problems.push(`${label}: replacement ${replacement.clipId}#${replacement.frame} is not from ${original.clipId}`)
+    else if (Math.abs(replacement.frame - original.frame) !== 1) problems.push(`${label}: replacement ${replacement.clipId}#${replacement.frame} is not adjacent to ${original.clipId}#${original.frame}`)
+    else {
+      const neighbour = locked[reelFrame + replacement.frame - original.frame]
+      if (neighbour === undefined || neighbour.segment !== replacement.clipId || neighbour.frame !== replacement.frame || neighbour.fade !== null) {
+        problems.push(`${label}: replacement ${replacement.clipId}#${replacement.frame} is not shown untouched on the neighbouring reel frame`)
+      }
+    }
+    if (edit.derivatives.loop.clipIds.includes(original.clipId)) problems.push(`${label}: ${original.clipId} is also in the loop, which would keep the defect`)
+    const poster = selectPosterFrame(edit)
+    if (poster.clipId === original.clipId && poster.frame === original.frame) problems.push(`${label}: ${original.clipId}#${original.frame} is also the poster frame`)
+  }
+  for (const override of overrides) {
+    if (targets.has(override.reelFrame + override.replacement.frame - override.original.frame)) {
+      problems.push(`frame override @ reel frame ${override.reelFrame}: its replacement's own reel frame is overridden too`)
+    }
+  }
+  return problems
+}
+
+/** The locked plan with exactly the declared frames swapped for their
+ * replacement (no fade: overrides never sit in a transition). Throws if an
+ * override does not match the plan — validateFrameOverrides reports why. */
+export function applyFrameOverrides(locked: readonly ExpectedFrame[], overrides: readonly ReleaseFrameOverride[]): ExpectedFrame[] {
+  const frames = [...locked]
+  for (const { reelFrame, original, replacement } of overrides) {
+    const planned = frames[reelFrame]
+    if (planned === undefined || planned.segment !== original.clipId || planned.frame !== original.frame || planned.fade !== null) {
+      throw new Error(`frame override @ reel frame ${reelFrame} does not match the locked plan`)
+    }
+    frames[reelFrame] = { segment: replacement.clipId, frame: replacement.frame, fade: null }
+  }
+  return frames
+}
+
+/** Reel frames whose expected source differs between two plans. */
+export function changedFrames(a: readonly ExpectedFrame[], b: readonly ExpectedFrame[]): number[] {
+  if (a.length !== b.length) throw new Error(`plans have ${a.length} and ${b.length} frames`)
+  const changed: number[] = []
+  a.forEach((frame, index) => {
+    const other = b[index]!
+    if (frame.segment !== other.segment || frame.frame !== other.frame || frame.fade?.color !== other.fade?.color || frame.fade?.amount !== other.fade?.amount) changed.push(index)
+  })
+  return changed
+}
+
+/** Where a clip frame sits in its source clock (for the audit record). */
+export function describeClipFrame(edit: FinalEdit, ref: FrameRef): { clipId: string; shotId: string; frame: number; clock: string; value: number | null; sourceMs: number | null } {
+  const clip = lockedShotClips(edit).find((entry) => entry.id === ref.clipId)
+  if (clip === undefined) throw new Error(`${ref.clipId} is not a locked shot clip`)
+  const window = clip.source
+  const frames = framesForMs(clip.destOutMs - clip.destInMs, edit.output.fps)
+  if (window.clock === 'still') return { clipId: clip.id, shotId: clip.shotId, frame: ref.frame, clock: 'still', value: null, sourceMs: null }
+  const value = sourceValueAt(window, frameProgressAt(ref.frame, frames))
+  const sourceMs = window.clock === 'progress' ? value * window.phaseDurationMs : value
+  const clock = window.clock === 'progress' ? `progress of ${window.phase}` : `elapsed-ms from ${window.origin}`
+  return { clipId: clip.id, shotId: clip.shotId, frame: ref.frame, clock, value, sourceMs }
+}
+
+// ---------------------------------------------------------------------------
 // ffmpeg filter graphs
 // ---------------------------------------------------------------------------
 
@@ -510,26 +713,72 @@ function segmentSource(segment: Segment, sources: GraphSources, fps: number): st
   )
 }
 
+/** One segment-local frame shown in place of another (a validated
+ * release frame override). */
+export interface FrameSubstitution {
+  readonly frame: number
+  readonly source: number
+}
+
+/** Release frame overrides as per-segment substitutions for the graph. */
+export function frameSubstitutions(plan: SequencePlan, overrides: readonly ReleaseFrameOverride[]): Map<string, FrameSubstitution[]> {
+  const locked = expectedFrames(plan)
+  const substitutions = new Map<string, FrameSubstitution[]>()
+  applyFrameOverrides(locked, overrides) // throws unless every override matches the plan
+  for (const { original, replacement } of overrides) {
+    substitutions.set(original.clipId, [...(substitutions.get(original.clipId) ?? []), { frame: original.frame, source: replacement.frame }])
+  }
+  return substitutions
+}
+
+interface SegmentPart {
+  /** Source frame range [start, end) of the segment's input. */
+  readonly start: number
+  readonly end: number
+  readonly fade: string | null
+}
+
+/** The segment's frames as consecutive trimmed parts: head fade, plain
+ * runs, tail fade — and, for a substituted frame, a one-frame part taken
+ * from its replacement, so every other frame keeps its position. */
+function segmentParts(segment: Segment, substitutions: readonly FrameSubstitution[]): SegmentPart[] {
+  const parts: SegmentPart[] = []
+  const headFrames = segment.head?.frames ?? 0
+  const tailFrames = segment.tail?.frames ?? 0
+  const bodyEnd = segment.frames - tailFrames
+  if (segment.head !== null) parts.push({ start: 0, end: headFrames, fade: fadeFilter(segment.head, 'head') })
+  let cursor = headFrames
+  for (const { frame, source } of [...substitutions].sort((a, b) => a.frame - b.frame)) {
+    if (frame < cursor || frame >= bodyEnd || source < 0 || source >= segment.frames) {
+      throw new Error(`${segment.id}#${frame} -> #${source}: a substitution must replace one untransitioned frame with another frame of the clip`)
+    }
+    if (frame > cursor) parts.push({ start: cursor, end: frame, fade: null })
+    parts.push({ start: source, end: source + 1, fade: null })
+    cursor = frame + 1
+  }
+  if (bodyEnd > cursor) parts.push({ start: cursor, end: bodyEnd, fade: null })
+  if (segment.tail !== null) parts.push({ start: bodyEnd, end: segment.frames, fade: fadeFilter(segment.tail, 'tail') })
+  return parts
+}
+
 /** Filter chains for a whole sequence; the concatenated result is `[seq]`
  * at the edit's fps with pts = frame index (so nothing downstream can drop
  * or duplicate a frame to "fix" timestamps). */
-export function sequenceChains(plan: SequencePlan, sources: GraphSources): string[] {
+export function sequenceChains(plan: SequencePlan, sources: GraphSources, substitutions: ReadonlyMap<string, readonly FrameSubstitution[]> = new Map()): string[] {
   const chains: string[] = []
   plan.segments.forEach((segment, index) => {
     const source = segmentSource(segment, sources, plan.fps)
     const out = `s${index}`
-    if (segment.head === null && segment.tail === null) {
+    const substituted = substitutions.get(segment.id) ?? []
+    if (substituted.length > 0 && segment.kind !== 'shot') throw new Error(`${segment.id}: only shot clips take frame substitutions`)
+    if (segment.head === null && segment.tail === null && substituted.length === 0) {
       chains.push(`${source}[${out}]`)
       return
     }
-    const parts: { start: number; end: number; fade: string | null }[] = []
-    const headFrames = segment.head?.frames ?? 0
-    const tailFrames = segment.tail?.frames ?? 0
-    if (segment.head !== null) parts.push({ start: 0, end: headFrames, fade: fadeFilter(segment.head, 'head') })
-    if (segment.frames - headFrames - tailFrames > 0) parts.push({ start: headFrames, end: segment.frames - tailFrames, fade: null })
-    if (segment.tail !== null) parts.push({ start: segment.frames - tailFrames, end: segment.frames, fade: fadeFilter(segment.tail, 'tail') })
-    // Parts are in frame order and concat drains them in the same order, so
-    // split never has to buffer more than the frame in flight.
+    const parts = segmentParts(segment, substituted)
+    // Parts are in output order and concat drains them in the same order;
+    // a substituted frame is adjacent to the one it replaces, so split never
+    // has to buffer more than a frame or two in flight.
     chains.push(`${source},split=${parts.length}${parts.map((_, part) => `[${out}p${part}]`).join('')}`)
     parts.forEach((part, partIndex) => {
       const fade = part.fade === null ? '' : `,${part.fade}`
@@ -549,8 +798,11 @@ export function deliveryScale(width: number, height: number): string {
   )
 }
 
-export function reelFilterGraph(edit: FinalEdit, plan: SequencePlan, sources: GraphSources): string {
-  return [...sequenceChains(plan, sources), `[seq]${deliveryScale(edit.output.width, edit.output.height)}[out]`].join(';')
+/** The reel: the locked plan, with exactly the given (validated) release
+ * frame overrides substituted. */
+export function reelFilterGraph(edit: FinalEdit, plan: SequencePlan, sources: GraphSources, overrides: readonly ReleaseFrameOverride[] = []): string {
+  const substitutions = frameSubstitutions(plan, overrides)
+  return [...sequenceChains(plan, sources, substitutions), `[seq]${deliveryScale(edit.output.width, edit.output.height)}[out]`].join(';')
 }
 
 export function loopFilterGraph(loop: LoopPlan, sources: GraphSources): string {
@@ -872,4 +1124,52 @@ export function checkTimelineFidelity(
   })
   const shown = problems.length > 20 ? [...problems.slice(0, 20), `…and ${problems.length - 20} more frame(s)`] : problems
   return { frames: expected.length, meanAbsDiff: total / expected.length, maxAbsDiff: max, worst, problems: shown }
+}
+
+export interface OverrideCheck {
+  readonly reelFrame: number
+  /** Mean |luma difference| of the output frame to its replacement and to
+   * the original (defective) source frame, in thumbnail levels. */
+  readonly toReplacement: number
+  readonly toOriginal: number
+  readonly problems: readonly string[]
+}
+
+/**
+ * Each declared override, on the finished output's luma thumbnails: the
+ * reel frame must be its replacement (within the fidelity tolerance) and
+ * must NOT be the original — and the original must differ from the
+ * replacement by more than the tolerance, so the global timeline check
+ * provably fails the frame whenever the override is not declared.
+ */
+export function checkFrameOverrides(
+  overrides: readonly ReleaseFrameOverride[],
+  output: Uint8Array,
+  sources: ReadonlyMap<string, Uint8Array>,
+  pixels: number,
+  maxMeanAbsDiff: number,
+): OverrideCheck[] {
+  const meanDiff = (frame: number, ref: FrameRef): number | null => {
+    const source = sources.get(ref.clipId)
+    if (source === undefined || source.length < (ref.frame + 1) * pixels || output.length < (frame + 1) * pixels) return null
+    let diff = 0
+    for (let pixel = 0; pixel < pixels; pixel += 1) diff += Math.abs(output[frame * pixels + pixel]! - source[ref.frame * pixels + pixel]!)
+    return diff / pixels
+  }
+  return overrides.map(({ reelFrame, original, replacement }) => {
+    const label = `frame override @ reel frame ${reelFrame}`
+    const toReplacement = meanDiff(reelFrame, replacement)
+    const toOriginal = meanDiff(reelFrame, original)
+    const problems: string[] = []
+    if (toReplacement === null || toOriginal === null) {
+      problems.push(`${label}: no thumbnail for the output frame or its source frames`)
+      return { reelFrame, toReplacement: Number.NaN, toOriginal: Number.NaN, problems }
+    }
+    if (toReplacement > maxMeanAbsDiff) problems.push(`${label}: output differs from replacement ${replacement.clipId}#${replacement.frame} by ${toReplacement.toFixed(2)} levels`)
+    if (toOriginal <= toReplacement) problems.push(`${label}: output is still the original ${original.clipId}#${original.frame}`)
+    if (toOriginal <= maxMeanAbsDiff) {
+      problems.push(`${label}: original ${original.clipId}#${original.frame} is within ${toOriginal.toFixed(2)} levels of the output — an undeclared substitution here would not be caught`)
+    }
+    return { reelFrame, toReplacement, toOriginal, problems }
+  })
 }

@@ -13,31 +13,42 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import type { FinalEdit } from '../finalEdit.ts'
 import {
+  applyFrameOverrides,
+  changedFrames,
   checkDeliverableNames,
+  checkFrameOverrides,
   checkImageOutput,
   checkTimelineFidelity,
   checkVideoOutput,
   DELIVERABLE_METADATA,
   DELIVERABLES,
+  describeClipFrame,
   expectedFrames,
   lockedShotClips,
   loopOutputArgs,
+  overridesForSource,
   parseEncode,
   planLoop,
   planReel,
   planSequence,
+  reelFilterGraph,
+  RELEASE_FRAME_OVERRIDES,
   selectPosterFrame,
   selectSourceRun,
   socialCrop,
+  validateFrameOverrides,
   validateSourceRun,
   verifyAssemblyInputs,
   x264Args,
   type ApiArtifact,
   type ApiWorkflowRun,
   type AssemblyClipRecord,
+  type ExpectedFrame,
   type LocatedRecord,
   type ReelManifest,
+  type ReleaseFrameOverride,
   type ReleasePin,
+  type SourceRunRecord,
 } from './assembly.ts'
 import { CLIP_METADATA_SCHEMA } from './reelCi.ts'
 
@@ -298,6 +309,201 @@ test('timeline fidelity catches a frame that is off by one', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Release frame overrides: the one declared repair, and nothing else
+// ---------------------------------------------------------------------------
+
+const [C03_REPAIR] = RELEASE_FRAME_OVERRIDES as [ReleaseFrameOverride]
+const RUN6_SOURCE: SourceRunRecord = {
+  runId: PIN.runId,
+  runNumber: PIN.runNumber,
+  headSha: PIN.headSha,
+  artifacts: PIN.artifacts.map(({ name, digest }) => ({ name, digest })),
+}
+const RUN6_CLIP_FILES = new Map(lockedShotClips(EDIT).map((clip) => [clip.id, `render-${clip.id}/${clip.id}__${clip.shotId}/${clip.id}__${clip.shotId}.mp4`]))
+RUN6_CLIP_FILES.set('c03', 'render-act2-rival-c03/c03__vesper-citadel-reveal/c03__vesper-citadel-reveal.mp4')
+const FIDELITY_TOLERANCE = 3 // assembleFinalReel.mjs FIDELITY_TOLERANCE.reel
+const THUMB_PIXELS = 4
+const FADE_LUMA = { black: 16, white: 235 } as const
+
+/** Distinct synthetic luma thumbnails for every reel segment: adjacent
+ * frames of a clip differ by 11 levels, well over the tolerance. */
+function syntheticSources(plan = planReel(EDIT)): Map<string, Uint8Array> {
+  return new Map(
+    plan.segments.map((segment, seed) => [
+      segment.id,
+      Uint8Array.from({ length: segment.frames * THUMB_PIXELS }, (_, index) => 20 + ((seed * 37 + Math.floor(index / THUMB_PIXELS) * 11 + (index % THUMB_PIXELS) * 3) % 200)),
+    ]),
+  )
+}
+
+/** What an assembler that shows exactly `frames` would output. */
+function renderThumbs(frames: readonly ExpectedFrame[], sources: ReadonlyMap<string, Uint8Array>): Uint8Array {
+  const output = new Uint8Array(frames.length * THUMB_PIXELS)
+  frames.forEach((entry, outputFrame) => {
+    const source = sources.get(entry.segment)!
+    for (let pixel = 0; pixel < THUMB_PIXELS; pixel += 1) {
+      let value = source[entry.frame * THUMB_PIXELS + pixel]!
+      if (entry.fade !== null) value += (FADE_LUMA[entry.fade.color] - value) * entry.fade.amount
+      output[outputFrame * THUMB_PIXELS + pixel] = Math.round(value)
+    }
+  })
+  return output
+}
+
+test('exactly one release frame override is declared: reel frame 468 (7.800s), c03#36 -> c03#37, bound to pinned run #6', () => {
+  assert.equal(RELEASE_FRAME_OVERRIDES.length, 1)
+  assert.deepEqual(
+    { reelFrame: C03_REPAIR.reelFrame, original: C03_REPAIR.original, replacement: C03_REPAIR.replacement, reason: C03_REPAIR.reason },
+    { reelFrame: 468, original: { clipId: 'c03', frame: 36 }, replacement: { clipId: 'c03', frame: 37 }, reason: 'one-frame enemy-base scale/camera defect' },
+  )
+  assert.equal(C03_REPAIR.reelFrame / EDIT.output.fps, 7.8)
+  // The binding is the pinned release source, verbatim.
+  assert.equal(C03_REPAIR.source.runNumber, PIN.runNumber)
+  assert.equal(C03_REPAIR.source.runId, PIN.runId)
+  assert.equal(C03_REPAIR.source.headSha, PIN.headSha)
+  assert.equal(C03_REPAIR.source.artifactDigest, PIN.artifacts.find((artifact) => artifact.name === C03_REPAIR.source.artifact)!.digest)
+  // c03 is the enemy-base shot; frame 36 of its 144 samples 0.75 + 0.25 * 36/143 of rival-signal:impact.
+  const original = describeClipFrame(EDIT, C03_REPAIR.original)
+  assert.equal(original.shotId, 'vesper-citadel-reveal')
+  assert.equal(original.clock, 'progress of rival-signal:impact')
+  assert.ok(Math.abs(original.value! - (0.75 + (0.25 * 36) / 143)) < 1e-12)
+  assert.ok(Math.abs(describeClipFrame(EDIT, C03_REPAIR.replacement).sourceMs! - original.sourceMs! - (0.25 * 2600) / 143) < 1e-9)
+})
+
+test('the override changes exactly one reel frame: still 3,456 frames / 57.6s, nothing after it shifts', () => {
+  const plan = planReel(EDIT)
+  assert.deepEqual(validateFrameOverrides(EDIT, plan, RELEASE_FRAME_OVERRIDES), [])
+  const locked = expectedFrames(plan)
+  const repaired = applyFrameOverrides(locked, RELEASE_FRAME_OVERRIDES)
+  assert.equal(plan.frames, 3456)
+  assert.equal(repaired.length, 3456)
+  assert.equal(repaired.length / EDIT.output.fps, 57.6)
+  assert.deepEqual(changedFrames(locked, repaired), [468])
+  assert.deepEqual(locked[468], { segment: 'c03', frame: 36, fade: null })
+  assert.deepEqual(repaired[468], { segment: 'c03', frame: 37, fade: null })
+  assert.deepEqual(repaired[469], { segment: 'c03', frame: 37, fade: null }) // the neighbour stays where it was
+  assert.deepEqual(repaired.slice(0, 468), locked.slice(0, 468))
+  assert.deepEqual(repaired.slice(469), locked.slice(469))
+  // The plan itself — segments, frame counts, transitions — is untouched.
+  assert.deepEqual(planReel(EDIT), plan)
+})
+
+test('the repaired reel graph only re-trims c03: every segment keeps its locked frame count, no new input, no interpolation', () => {
+  const plan = planReel(EDIT)
+  const sources = { shots: new Map(lockedShotClips(EDIT).map((clip, index) => [clip.id, `${index}:v`])), endCard: '25:v', width: 1920, height: 1080 }
+  const plain = reelFilterGraph(EDIT, plan, sources).split(';')
+  const repaired = reelFilterGraph(EDIT, plan, sources, RELEASE_FRAME_OVERRIDES).split(';')
+  const c03 = plan.segments.findIndex((segment) => segment.id === 'c03')
+  const touchesC03 = (chain: string) => new RegExp(`\\[s${c03}[pq]\\d+\\]`).test(chain)
+  assert.deepEqual(repaired.filter((chain) => !touchesC03(chain)), plain.filter((chain) => !touchesC03(chain)))
+
+  const trims = (chains: string[], index: number) =>
+    chains.flatMap((chain) => [...chain.matchAll(new RegExp(`^\\[s${index}p\\d+\\]trim=start_frame=(\\d+):end_frame=(\\d+)`, 'g'))].map((match) => [Number(match[1]), Number(match[2])]))
+  assert.deepEqual(trims(plain, c03), [[0, 18], [18, 144]])
+  assert.deepEqual(trims(repaired, c03), [[0, 18], [18, 36], [37, 38], [37, 144]])
+  plan.segments.forEach((segment, index) => {
+    const parts = trims(repaired, index)
+    const frames = parts.length === 0 ? segment.frames : parts.reduce((sum, [start, end]) => sum + end! - start!, 0)
+    assert.equal(frames, segment.frames, segment.id)
+  })
+
+  const inputs = (chains: string[]) => new Set(chains.flatMap((chain) => [...chain.matchAll(/\[(\d+:v)\]/g)].map((match) => match[1])))
+  assert.deepEqual(inputs(repaired), inputs(plain))
+  const count = (chains: string[], pattern: RegExp) => chains.join(';').match(pattern)?.length ?? 0
+  assert.equal(count(repaired, /trim=/g), count(plain, /trim=/g) + 2)
+  assert.equal(count(repaired, /geq=/g), count(plain, /geq=/g))
+  assert.equal(count(repaired, /color=/g), count(plain, /color=/g))
+  assert.ok(!/minterpolate|framerate=|tblend|blend=|mix=|tmix/.test(repaired.join(';')))
+})
+
+test('verification expects exactly the declared override; undeclared substitutions still fail', () => {
+  const plan = planReel(EDIT)
+  const sources = syntheticSources(plan)
+  const locked = expectedFrames(plan)
+  const repaired = applyFrameOverrides(locked, RELEASE_FRAME_OVERRIDES)
+  const output = renderThumbs(repaired, sources)
+
+  // The declared repair passes both the global check and the override check.
+  assert.deepEqual(checkTimelineFidelity(repaired, output, sources, THUMB_PIXELS, FIDELITY_TOLERANCE).problems, [])
+  const [check] = checkFrameOverrides(RELEASE_FRAME_OVERRIDES, output, sources, THUMB_PIXELS, FIDELITY_TOLERANCE)
+  assert.deepEqual(check!.problems, [])
+  assert.equal(check!.toReplacement, 0)
+  assert.ok(check!.toOriginal > FIDELITY_TOLERANCE)
+
+  // The same output against the locked plan — the override undeclared —
+  // fails at exactly reel frame 468.
+  const undeclared = checkTimelineFidelity(locked, output, sources, THUMB_PIXELS, FIDELITY_TOLERANCE).problems
+  assert.equal(undeclared.length, 1)
+  assert.match(undeclared[0]!, /^frame 468 \(c03#36\) differs from its planned source/)
+
+  // Any other substitution fails even with the declared one in place.
+  const extra = [...repaired]
+  extra[1000] = { segment: 'c07', frame: 137, fade: null } // c07#136 -> its neighbour
+  const failed = checkTimelineFidelity(repaired, renderThumbs(extra, sources), sources, THUMB_PIXELS, FIDELITY_TOLERANCE).problems
+  assert.equal(failed.length, 1)
+  assert.match(failed[0]!, /^frame 1000 \(c07#136\)/)
+
+  // Dropping the defective frame and shifting the rest up (same length)
+  // fails from the repair onwards.
+  const shifted = [...repaired.slice(0, 468), ...repaired.slice(469), repaired.at(-1)!]
+  assert.equal(shifted.length, 3456)
+  assert.ok(checkTimelineFidelity(repaired, renderThumbs(shifted, sources), sources, THUMB_PIXELS, FIDELITY_TOLERANCE).problems.length > 10)
+
+  // A declared override that was not actually applied fails.
+  const unrepaired = renderThumbs(locked, sources)
+  assert.ok(checkFrameOverrides(RELEASE_FRAME_OVERRIDES, unrepaired, sources, THUMB_PIXELS, FIDELITY_TOLERANCE)[0]!.problems.some((problem) => problem.includes('still the original')))
+  assert.equal(checkTimelineFidelity(repaired, unrepaired, sources, THUMB_PIXELS, FIDELITY_TOLERANCE).problems.length, 1)
+
+  // An override the thumbnails cannot tell apart from its original is
+  // refused: the verifier must be able to catch it undeclared.
+  const flat = new Map(sources)
+  const c03 = Uint8Array.from(sources.get('c03')!)
+  c03.copyWithin(36 * THUMB_PIXELS, 37 * THUMB_PIXELS, 38 * THUMB_PIXELS)
+  flat.set('c03', c03)
+  const invisible = checkFrameOverrides(RELEASE_FRAME_OVERRIDES, renderThumbs(repaired, flat), flat, THUMB_PIXELS, FIDELITY_TOLERANCE)[0]!.problems
+  assert.ok(invisible.some((problem) => problem.includes('would not be caught')))
+})
+
+test('a mis-declared frame override is refused before anything is assembled', () => {
+  const plan = planReel(EDIT)
+  const refused = (overrides: ReleaseFrameOverride[], pattern: RegExp) => {
+    const problems = validateFrameOverrides(EDIT, plan, overrides)
+    assert.ok(problems.some((problem) => pattern.test(problem)), `${pattern}: ${problems.join(' | ') || 'no problems'}`)
+  }
+  const with_ = (patch: Partial<ReleaseFrameOverride>): ReleaseFrameOverride => ({ ...C03_REPAIR, ...patch })
+  refused([with_({ original: { clipId: 'c03', frame: 35 } })], /locked plan shows c03#36 there/)
+  refused([with_({ replacement: { clipId: 'c03', frame: 40 } })], /not adjacent/)
+  refused([with_({ replacement: { clipId: 'c04', frame: 0 } })], /not from c03/)
+  refused([with_({ reelFrame: 440, original: { clipId: 'c03', frame: 8 }, replacement: { clipId: 'c03', frame: 9 } })], /inside a black transition/)
+  refused([with_({ reelFrame: 450, original: { clipId: 'c03', frame: 18 }, replacement: { clipId: 'c03', frame: 17 } })], /not shown untouched/)
+  refused([with_({ reelFrame: 3456 })], /outside the 3456-frame reel/)
+  refused([C03_REPAIR, C03_REPAIR], /declared more than once/)
+  refused([with_({ reason: ' ' })], /no reason/)
+  refused([with_({ reelFrame: 874, original: { clipId: 'c07', frame: 10 }, replacement: { clipId: 'c07', frame: 11 } })], /also in the loop/)
+  refused([with_({ reelFrame: 3200, original: { clipId: 'end', frame: 32 }, replacement: { clipId: 'end', frame: 33 } })], /not a shot clip/)
+  refused([C03_REPAIR, with_({ reelFrame: 469, original: { clipId: 'c03', frame: 37 }, replacement: { clipId: 'c03', frame: 38 } })], /replacement's own reel frame is overridden/)
+  assert.throws(() => applyFrameOverrides(expectedFrames(plan), [with_({ reelFrame: 469 })]), /does not match the locked plan/)
+  assert.throws(() => reelFilterGraph(EDIT, plan, { shots: new Map(), endCard: null, width: 1920, height: 1080 }, [with_({ reelFrame: 469 })]), /does not match the locked plan/)
+})
+
+test('an override applies only to the footage it names, and is never silently skipped for it', () => {
+  const applied = overridesForSource(RELEASE_FRAME_OVERRIDES, PIN.headSha, RUN6_SOURCE, RUN6_CLIP_FILES)
+  assert.deepEqual(applied, { overrides: [C03_REPAIR], problems: [] })
+  // Footage rendered at any other SHA: nothing applies.
+  assert.deepEqual(overridesForSource(RELEASE_FRAME_OVERRIDES, 'b'.repeat(40), null, RUN6_CLIP_FILES), { overrides: [], problems: [] })
+  // Run #6's SHA without its source run record, or with a different run,
+  // artifact digest or clip location: STOP.
+  const stops = (sha: string, source: SourceRunRecord | null, files = RUN6_CLIP_FILES) => overridesForSource(RELEASE_FRAME_OVERRIDES, sha, source, files)
+  assert.match(stops(PIN.headSha, null).problems.join('\n'), /pass --source=/)
+  assert.match(stops(PIN.headSha, { ...RUN6_SOURCE, runId: 1 }).problems.join('\n'), /source run is #6 \(1\)/)
+  const redigested = { ...RUN6_SOURCE, artifacts: RUN6_SOURCE.artifacts.map((a) => (a.name === 'render-act2-rival-c03' ? { ...a, digest: `sha256:${'0'.repeat(64)}` } : a)) }
+  assert.match(stops(PIN.headSha, redigested).problems.join('\n'), /render-act2-rival-c03 digest/)
+  const moved = new Map(RUN6_CLIP_FILES).set('c03', 'render-elsewhere/c03__vesper-citadel-reveal/c03__vesper-citadel-reveal.mp4')
+  assert.match(stops(PIN.headSha, RUN6_SOURCE, moved).problems.join('\n'), /is not from artifact render-act2-rival-c03/)
+  for (const result of [stops(PIN.headSha, null), stops(PIN.headSha, redigested), stops(PIN.headSha, RUN6_SOURCE, moved)]) assert.deepEqual(result.overrides, [])
+})
+
+// ---------------------------------------------------------------------------
 // Source run: the pinned run #6 only
 // ---------------------------------------------------------------------------
 
@@ -441,4 +647,39 @@ test('the assembly workflow renders nothing and uploads one artifact', () => {
   const uploads = [...workflow.matchAll(/uses: actions\/upload-artifact@v4[\s\S]*?name: ([\w-]+)/g)].map((match) => match[1])
   assert.deepEqual(uploads, ['final-reel-deliverables'])
   assert.equal([...workflow.matchAll(/^\s{2}[\w-]+:\n\s{4}(?:name|runs-on):/gm)].length, 1, 'exactly one job')
+})
+
+test('the workflow fills the end-card slot with the approved 1920x1080 still', () => {
+  const workflow = readFileSync(path.join(REPO, '.github/workflows/final-reel-assemble.yml'), 'utf8')
+  assert.match(workflow, /assembleFinalReel\.mjs[\s\S]*?--end-card=capture\/ci\/end-card-1920x1080\.png/)
+  assert.match(workflow, /^\s+- capture\/ci\/end-card-1920x1080\.png$/m) // a new still re-runs assembly on its PR
+  const png = readFileSync(path.join(CAPTURE, 'ci/end-card-1920x1080.png'))
+  assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  assert.equal(png.toString('ascii', 12, 16), 'IHDR')
+  assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [EDIT.output.width, EDIT.output.height])
+  // The slot it fills is the locked one: 4.8s from 52.8s, entered on the dip from black.
+  const end = planReel(EDIT).segments.at(-1)!
+  assert.deepEqual({ kind: end.kind, frames: end.frames, head: end.head, tail: end.tail }, { kind: 'end-card', frames: 288, head: { color: 'black', frames: 36 }, tail: null })
+  assert.equal(expectedFrames(planReel(EDIT)).findIndex((frame) => frame.segment === 'end'), 3168)
+})
+
+test('the frame override is applied by assembly alone: no renderer, Playwright or game path, zero frames rendered', () => {
+  // The override and everything that applies it live in the renderer-free
+  // modules the guards above already walk (assembly.ts, assembleFinalReel.mjs).
+  const cli = code('ci/assembleFinalReel.mjs')
+  assert.match(cli, /\bRELEASE_FRAME_OVERRIDES,[\s\S]*?\} from '\.\/assembly\.ts'/)
+  assert.match(cli, /reelFilterGraph\(edit, reelPlan, \{[^}]*\}, frameOverrides\)/)
+  assert.match(cli, /renderedFramesThisRun: 0,/)
+  for (const file of importGraph().keys()) assert.ok(ALLOWED_MODULES.has(file), file)
+  // Its data names nothing but footage already on disk: a run, an artifact
+  // digest, clip ids and frame indices.
+  const text = JSON.stringify(RELEASE_FRAME_OVERRIDES)
+  assert.ok(!RENDERER_TOKENS.test(text), text)
+  // The repair's ffmpeg graph only re-trims existing decoded input: no
+  // generated picture, no retiming.
+  const graph = reelFilterGraph(EDIT, planReel(EDIT), { shots: new Map(lockedShotClips(EDIT).map((clip, index) => [clip.id, `${index}:v`])), endCard: null, width: 1920, height: 1080 }, RELEASE_FRAME_OVERRIDES)
+  const c03Chain = graph.split(';').filter((chain) => /\[s2[pq]\d+\]/.test(chain)).join(';')
+  const filters = new Set([...c03Chain.matchAll(/(?:^|[,\]])([a-z_]+)=/g)].map((match) => match[1]))
+  assert.deepEqual([...filters].sort(), ['concat', 'format', 'geq', 'setpts', 'settb', 'split', 'trim'])
+  assert.ok(!/select=|minterpolate|framerate|tblend|freezeframes|loop=/.test(c03Chain), c03Chain)
 })
