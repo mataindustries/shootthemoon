@@ -1,0 +1,133 @@
+# Final reel ASSEMBLY — packages an already-rendered, already-verified
+# "Final reel render" run into the release media. It renders nothing: no
+# browser, no game build, no render matrix. The render workflow
+# (final-render.yml) is untouched and stays the only thing that can render.
+#
+#   1. locate the pinned render run (capture/ci/reelRelease.json: run #6)
+#      through the API and validate it (workflow, run number, success, main,
+#      SHA, the exact artifact set, digests, none expired) — never "latest",
+#      never a fallback
+#   2. download its existing artifacts, each zip checked against its digest
+#   3. capture/ci/assembleFinalReel.mjs: verify every locked clip (hashes,
+#      reel manifest, edit unchanged since the render), assemble with ffmpeg
+#      per capture/finalEdit.json, verify every output
+#   4. upload ONE artifact: final-reel-deliverables
+#
+# See capture/README.md ("Phase 6: assembling the release media").
+name: Final reel assembly
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_number:
+        description: 'Final reel render run number to assemble — must be the run pinned in capture/ci/reelRelease.json'
+        type: string
+        default: '6'
+  # Also runs on PRs that change the assembly pipeline, so the real
+  # assembly from the pinned footage is proven before merge
+  # (workflow_dispatch is only offered once this file is on main).
+  pull_request:
+    paths:
+      - .github/workflows/final-reel-assemble.yml
+      - capture/ci/assembleFinalReel.mjs
+      - capture/ci/assembly.ts
+      - capture/ci/assembly.test.ts
+      - capture/ci/io.ts
+      - capture/ci/reelCi.ts
+      - capture/ci/reelRelease.json
+      - capture/ci/sourceRun.mjs
+      - capture/finalEdit.json
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: final-reel-assembly-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22.22.2'
+  SOURCE_RUN_NUMBER: ${{ inputs.source_run_number || '6' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  assemble:
+    name: Assemble release media
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: assembly checks capture/finalEdit.json against the
+          # copy at the rendered SHA.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+
+      - name: Typecheck capture/
+        run: ./node_modules/.bin/tsc --noEmit -p capture/tsconfig.json
+
+      # Pure tests plus the static guards: assembly has no import or
+      # child-process path to the renderer, and this workflow renders nothing.
+      - name: Assembly tests
+        run: node --experimental-strip-types --experimental-transform-types --test capture/ci/assembly.test.ts
+
+      - name: Locate, validate and download the source render run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >
+          node --experimental-strip-types --experimental-transform-types capture/ci/sourceRun.mjs
+          "--run-number=$SOURCE_RUN_NUMBER" "--out=capture-final/run-$SOURCE_RUN_NUMBER"
+          | tee capture-final-source.log
+
+      - name: Assemble + verify release media
+        run: >
+          node --experimental-strip-types --experimental-transform-types capture/ci/assembleFinalReel.mjs
+          "--dir=capture-final/run-$SOURCE_RUN_NUMBER" "--source=capture-final/run-$SOURCE_RUN_NUMBER/source-run.json"
+          --out=capture-final/deliverables --work=capture-final/assembly-work
+          | tee capture-final-assembly.log
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Final reel assembly — source run #$SOURCE_RUN_NUMBER"
+            echo
+            echo '```'
+            cat capture-final-source.log 2>/dev/null || echo 'source run step did not run'
+            echo '```'
+            echo
+            grep -E '^\|' capture-final-assembly.log 2>/dev/null || true
+            echo
+            grep -vE '^\|' capture-final-assembly.log 2>/dev/null || true
+            if [ -f capture-final/deliverables/SHA256SUMS ]; then
+              echo
+              echo '```'
+              cat capture-final/deliverables/SHA256SUMS
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload final-reel-deliverables
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-reel-deliverables
+          path: capture-final/deliverables/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90

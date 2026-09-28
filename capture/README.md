@@ -506,6 +506,70 @@ node --experimental-strip-types --experimental-transform-types \
   capture/ci/verifyReel.mjs --dir=ci-out --expected=c07 --sha=$(git rev-parse HEAD)
 ```
 
+## Phase 6: assembling the release media (no rendering)
+
+`.github/workflows/final-reel-assemble.yml` ("Final reel assembly") turns the
+verified intermediates of a finished render run into the release media in
+minutes. It never renders: no browser, no harness build, no render matrix.
+Its code has no import or child-process path to the renderer (only ffmpeg,
+ffprobe, git and unzip; `capture/ci/assembly.test.ts` walks the import graph
+and scans the workflow to keep it that way). `final-render.yml` is unchanged.
+
+```
+capture/ci/
+  reelRelease.json          — the pinned release source: Final reel render run #6
+                              (run id, SHA, the 18 artifacts with ids + zip digests)
+  sourceRun.mjs             — finds that run by number through the API, validates it
+                              against the pin, downloads its artifacts (digest-checked)
+  assembly.ts               — pure: input verification, sequence/transition plan,
+                              ffmpeg graphs, encode settings parsed from finalEdit.json,
+                              poster frame pick, output checks
+  assembleFinalReel.mjs     — verify -> reel -> loop -> stills -> check;
+                              manifest.json + SHA256SUMS
+  assembly.test.ts          — pure tests + static no-renderer guards (node --test)
+  assemblySynthetic.test.ts — opt-in end-to-end run on synthetic test-pattern media
+```
+
+**Inputs are verified before anything is assembled.** The run's own
+`reel-manifest.json` must say verified at the rendered SHA; every locked
+shot clip must be present exactly once (the render workflow's own
+`verifyReelRecords`); every intermediate must re-hash to its `clip.json` and
+reel-manifest sha256 and ffprobe to 1920x1080 yuv444p at its exact frame
+count; and `capture/finalEdit.json` must be byte-identical to the copy at
+the rendered SHA. Any failure stops the job. A missing clip is never
+filled in.
+
+| file | from finalEdit.json |
+|---|---|
+| `reel-57s-1080.mp4` | the whole timeline in order at exact frame counts (3,456 @ 60fps = 57.6s): `headFadeFromBlackMs`, each clip's `transitionOut` (flash-white/dip-black centered on the cut, fade-black outgoing only; applied in YUV, sampled at frame start like ffmpeg's `fade`), the end-card slot, `derivatives.heroReel.encode` |
+| `loop-13s-1280.mp4` | `derivatives.loop`: its clip list and fps (every 2nd real frame, 414 @ 30fps = 13.8s), silent. A transition is kept only where the loop keeps its two clips adjacent (c09->c10, c15->c16 flash-white). 1280x720, `derivatives.webReel` encode |
+| `poster-1280.jpg` / `.webp` | `derivatives.poster`: the verified frame of the clip holding that shot/instant/crop (c07 frame 72, 0.89 ms of source time from the named instant; the render run renders timeline clips only) |
+| `og-home-1200x630.jpg` | the same frame, full width, trimmed equally top and bottom (the spec gives only the size and a clean right third) |
+
+Not in the repo, so not invented: the end card is black for its locked
+52.8-57.6s slot (`endCardFacts.ts`: not designed yet; `--end-card=<1920x1080
+still>` fills it), the reel has no audio stream (finalEdit.json holds a cue
+map, not a mix; `--audio=<final mix>` muxes one per `heroReel.audio`), and
+the social image has no title typography.
+
+Every output is ffprobe'd and fully decoded, and the reel and loop are
+checked frame by frame: each output frame's luma thumbnail must match its
+planned source frame with its planned fade (any reordering, dropped frame
+or shifted cut fails). `manifest.json` records the source run, artifact
+digests, edit hash, tools, plan and every output's size, codec, duration,
+audio and sha256.
+
+```sh
+# Pure tests + guards (no ffmpeg needed):
+node --experimental-strip-types --experimental-transform-types --test capture/ci/assembly.test.ts
+# Full CLI on synthetic media (ffmpeg; ~4 min):
+ASSEMBLY_E2E=1 node --experimental-strip-types --experimental-transform-types --test capture/ci/assemblySynthetic.test.ts
+# The real thing, locally (GITHUB_TOKEN with actions:read):
+node --experimental-strip-types --experimental-transform-types capture/ci/sourceRun.mjs --run-number=6 --out=capture-final/run-6
+node --experimental-strip-types --experimental-transform-types capture/ci/assembleFinalReel.mjs \
+  --dir=capture-final/run-6 --source=capture-final/run-6/source-run.json --out=capture-final/deliverables
+```
+
 ## The four Phase 1 proof shots
 
 | id | profile | fixture | mechanism | frames |

@@ -1,0 +1,104 @@
+{
+  "schema": "shootthemoon.reel-release-source/1",
+  "note": "The verified Final reel render run whose intermediates the release media are assembled from. Changing the release source is a reviewed edit to this file; capture/ci/sourceRun.mjs never falls back to another run.",
+  "repository": "mataindustries/shootthemoon",
+  "workflowName": "Final reel render",
+  "workflowPath": ".github/workflows/final-render.yml",
+  "runNumber": 6,
+  "runId": 36346715980,
+  "event": "workflow_dispatch",
+  "headBranch": "main",
+  "headSha": "d3301b4f01c3a27a42525b0876f3039ea66c55d9",
+  "artifacts": [
+    {
+      "name": "reel-manifest",
+      "id": 10946702945,
+      "digest": "sha256:98d6efad51d67601efab8182f6996794b344863b77d0d05d86eedf726be2af61"
+    },
+    {
+      "name": "render-act1-arrival-c01",
+      "id": 10943524181,
+      "digest": "sha256:68c19b2cc3b748b729a526d9dbd3a94d96e76b3b4115aed66cba3c2b32a1cca6"
+    },
+    {
+      "name": "render-act1-arrival-c02",
+      "id": 10947576456,
+      "digest": "sha256:0d2017385ad2b5f4c6d9230eb4bf078b2ffbc4927fa2b275e6d533e409950329"
+    },
+    {
+      "name": "render-act2-rival-c03",
+      "id": 10944097899,
+      "digest": "sha256:90d96a7aebbcd2e312897d22e3b0f9e4a306ef9b41ebeacb373cc1a8323c3a15"
+    },
+    {
+      "name": "render-act2-rival-c04",
+      "id": 10941806474,
+      "digest": "sha256:73d7653ad9b13926e9c7db2a9353e3b9cc759f452eeb1d097be06ab0e02474dd"
+    },
+    {
+      "name": "render-act3-first-strike",
+      "id": 10941156093,
+      "digest": "sha256:6d807c3fd035cc2cd662d3383a4e7a3bae5beb5f895a84070e30b024351a251d"
+    },
+    {
+      "name": "render-act3-first-strike-c06",
+      "id": 10941054853,
+      "digest": "sha256:66114ef85c4241305408bde5f295a55239b0867644fbb30b3bf5c2a61e41daeb"
+    },
+    {
+      "name": "render-act3-first-strike-c07",
+      "id": 10942395491,
+      "digest": "sha256:0fa5cec1c64b798f3554a63f0afb9699dcb86c5108ad77eb259ade7ff2f84e2f"
+    },
+    {
+      "name": "render-act3-first-strike-c08",
+      "id": 10941298299,
+      "digest": "sha256:d8a9f9035bde520c7375b4a13274021f07024799496a487174449b88674704a5"
+    },
+    {
+      "name": "render-act3-first-strike-c09",
+      "id": 10941910407,
+      "digest": "sha256:52321f740110e94584c3c0b653d12a2c0a3b879970039ed62b12c51b9eb77996"
+    },
+    {
+      "name": "render-act3-first-strike-c10",
+      "id": 10943271683,
+      "digest": "sha256:f044a035c4b2b54e97f89cc267c144d976e32fe98d7e7421000c925a45b42b7f"
+    },
+    {
+      "name": "render-act3-first-strike-c11",
+      "id": 10943790186,
+      "digest": "sha256:464cf069e19bac5d0fb860baf41c10f9be4342df174b9484b2e2b11d8fee002f"
+    },
+    {
+      "name": "render-act4-counterstrike",
+      "id": 10941226646,
+      "digest": "sha256:3fddf2205ef6928baee104ae3a056283cbf51e5236a77941e76430dd6c759f9b"
+    },
+    {
+      "name": "render-act4-counterstrike-c15",
+      "id": 10941269987,
+      "digest": "sha256:8890c19a435d07cac33bb16b6a90da7ac0945cf220445eacf05b0924abdc31fa"
+    },
+    {
+      "name": "render-act4-counterstrike-c16",
+      "id": 10943895252,
+      "digest": "sha256:23248ec31a38035605859111160f0c5cdb38cc1e4fc7d5853a925177f9fd0f89"
+    },
+    {
+      "name": "render-act5-divider",
+      "id": 10941098618,
+      "digest": "sha256:56efc503b5f93fca76886a417ad20c83ae85ebbc22f117b61d380f03d4b5f378"
+    },
+    {
+      "name": "render-act6-monuments",
+      "id": 10941525766,
+      "digest": "sha256:567a28941fdd7e68e4f799d0fba48c19ed8de7cc67e953cdd43a010a92be759e"
+    },
+    {
+      "name": "render-act7-claimed-moon",
+      "id": 10941313249,
+      "digest": "sha256:408f5e72848bcaa6f75402b4614af5264301ef27b137a45cc18240a669c67cb6"
+    }
+  ]
+}
