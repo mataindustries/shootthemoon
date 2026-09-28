@@ -1,58 +1,69 @@
-# Shoot the Moon — Territory Monuments
+# Shoot the Moon
 
-Territory Monuments adds one saved endgame claim after successful Orbital Siege
-or the existing completed First Strike endpoint. Choose Helios Spire, Crater
-Crown, Bastion Ziggurat, or Signal Array using stored outpost ore, generated solar
-power, and the same three operation robots. Three finite Octogonal attacks each
-wait for a Command Phase allocation. A breach leaves a repairable monument and
-production damage; completion reveals the claim from orbit. Prior campaign
-outcomes and paid Orbital Siege replays remain available.
+**Play it live: <https://shootthemoon.pages.dev/>**
 
-The focused verification and physical-device handoff are recorded in
-[artifacts/territory-monuments-device-test.md](./artifacts/territory-monuments-device-test.md).
+Shoot the Moon is a browser-based lunar strategy game, built for mobile and
+desktop. You claim a landing site, mine lunar ore, and build out a base while a
+rival AI commander, Null Meridian, escalates against you. You answer with
+Counterstrike missile launches and defend against attack waves. The
+conflict then moves into orbit with Orbital Siege, and the campaign ends with a
+permanent territory monument that is visible from orbit.
 
-Release-candidate visual implementation is integrated; final production
-verification and physical Android acceptance are still pending.
+- **Mining and base building:** land a capsule, deploy mining robots, build
+  extractors and outpost modules, and spend ore and generated power.
+- **Combat:** Counterstrike launches, wave defense, and Orbital Siege, with
+  operations allocated in a Command Phase.
+- **Rival AI:** Null Meridian is driven by the deterministic simulation.
+- **Endgame:** after a successful Orbital Siege (or the earlier First Strike
+  ending) you can claim one of four territory monuments: Helios Spire, Crater
+  Crown, Bastion Ziggurat, or Signal Array. Earlier campaign outcomes remain
+  available.
 
-First Strike completes Shoot the Moon's public prototype loop. Claim a site,
-land the capsule, deploy the miner, build the extractor, discover and scan
-Commander Vesper's Null Meridian foothold, then deliberately arm and launch one
-lunar warhead. The 26.1-second strike cinematic crosses a deterministic safe
-orbital arc, destroys the rival installation with a surface-bound lunar impact,
-and leaves a permanent canonical crater that survives refresh.
+## Technology
 
-The release-candidate presentation gives the two factions separate visual
-languages: the player's capsule, miner, extractor, and launcher share
-blackened industrial armor with restrained amber/red light, while Null
-Meridian uses a dark asymmetric skeleton and controlled cyan-white surgical
-machinery. The strike ends in a vacuum-appropriate ejecta event and a
-depth-producing scar with an irregular rim, altered regolith, and embedded
-wreckage, visible both close to the surface and from orbit.
+React, TypeScript, Three.js / React Three Fiber, and Vite. The game is a
+single-player client with no backend, accounts, or networking.
 
-The opening gate presents `SHOOT THE MOON / FIRST STRIKE` with `BEGIN INVASION`
-or `CONTINUE`. Strike authority remains an explicit arm, cancel, and confirm
-flow. After `FIRST STRIKE COMPLETE / THE MOON REMEMBERS`, the player can explore
-the scar, return to orbit, or replay only the presentation without mutating the
-completed save. Original synthesized Web Audio cues unlock only after a user
-gesture and can be disabled; optional feature-detected vibration is limited to
-ignition and impact.
+- **Deterministic simulation:** game rules live in pure simulation modules under
+  `src/simulation` and `src/domain`, separate from rendering. See
+  [ARCHITECTURE.md](./ARCHITECTURE.md).
+- **Saves:** progress is stored locally in versioned saves (current schema
+  version 9) with migrations from earlier versions
+  (`src/persistence/outpostSave.ts`).
+- **Testing:** Vitest unit tests for simulation, persistence, camera, and
+  presentation logic, plus Playwright browser tests against the production
+  build (`npm run check`, `npm run test:e2e`).
+- **Generated content:** structures are authored procedurally in TypeScript with
+  no external model files, and sound effects are synthesized with Web Audio after
+  a user gesture. The only third-party art is two NASA lunar textures, recorded
+  in [ASSETS.md](./ASSETS.md).
+- **Reel pipeline:** a deterministic capture and render pipeline under
+  [capture/](./capture/README.md), driven by GitHub Actions, produces the
+  portfolio reel and stills. The final render and assembly pipeline and its
+  deliverables now exist.
 
-The scope remains deliberately narrow: this is one authored single-player
-prototype ending, with no networking, accounts, multiplayer infrastructure,
-additional weapons, or larger economy. Territory Monuments extends it with one
-permanent territory claim. Camera and missile
-paths remain separate, both are sampled for radial lunar clearance, and static
-completed scenes return to demand rendering.
+## Status
 
-The before/after evidence protocol is documented in
-[artifacts/release-candidate/README.md](./artifacts/release-candidate/README.md).
-The untouched `d377cb5` MVP captures remain under `baseline/`; the 14 final
-captures and uninterrupted arming-to-ending recording are reserved for
-`final/` after the production verification pass.
+Automated production and release verification is complete. Physical Android
+device acceptance (frame pacing, thermals, real touch behavior) is still open:
+the repository contains no dated record of a completed device pass, and the
+device checklist is in [PERFORMANCE_BUDGET.md](./PERFORMANCE_BUDGET.md).
 
-Start with [PLAN.md](./PLAN.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and
-[PERFORMANCE_BUDGET.md](./PERFORMANCE_BUDGET.md). External art provenance is in
-[ASSETS.md](./ASSETS.md).
+Performance: the project was built against a written performance budget
+([PERFORMANCE_BUDGET.md](./PERFORMANCE_BUDGET.md)) that set a 400 KiB gzip
+ceiling for initial JavaScript. That target held through First Strike, but
+a later measured production build was about 433 kB gzip of JavaScript
+(recorded in `capture/endCardFacts.ts`), which exceeds the original target.
+
+## Documentation
+
+- [PLAN.md](./PLAN.md) and [ARCHITECTURE.md](./ARCHITECTURE.md): design and
+  milestone history. Older sections describe the First Strike-era prototype.
+- [PERFORMANCE_BUDGET.md](./PERFORMANCE_BUDGET.md): budgets and measurements.
+- [ASSETS.md](./ASSETS.md): external asset provenance.
+- [artifacts/release-candidate/README.md](./artifacts/release-candidate/README.md):
+  First Strike release-candidate capture evidence (baseline and final sets).
+- [capture/README.md](./capture/README.md): reel capture and assembly pipeline.
 
 ## Local commands
 
