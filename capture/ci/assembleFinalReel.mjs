@@ -16,9 +16,12 @@
  *                  head fade / flashes / dips / fade, the end-card slot
  *                  (black, or the designed still via --end-card),
  *                  derivatives.heroReel encode (+ the final mix via --audio),
- *                  and the declared RELEASE_FRAME_OVERRIDES for this footage
- *                  (one-frame repairs; bound to the source run, validated
- *                  against the locked plan, never rendered or interpolated)
+ *                  and the declared RELEASE_FRAME_OVERRIDES /
+ *                  RELEASE_INTERVAL_OVERRIDES for this footage (one-frame
+ *                  repairs, and whole portrait inserts covered frame for
+ *                  frame by an adjacent 16:9 frame; bound to the source run,
+ *                  validated against the locked plan, never rendered or
+ *                  interpolated)
  *   3. loop      — derivatives.loop's clips, silent, at its fps, 1280x720
  *   4. stills    — derivatives.poster's frame (from its verified clip) as
  *                  1280 JPEG + WebP, and its 1200x630 social crop
@@ -50,7 +53,9 @@ import {
   checkVideoOutput,
   DELIVERABLES,
   describeClipFrame,
+  expandIntervalOverrides,
   expectedFrames,
+  intervalsForSource,
   loopFilterGraph,
   loopMaxBytes,
   loopOutputArgs,
@@ -62,13 +67,16 @@ import {
   parseEncode,
   planLoop,
   planReel,
+  portraitReelFrames,
   POSTER_SIZE,
   reelFilterGraph,
   RELEASE_FRAME_OVERRIDES,
+  RELEASE_INTERVAL_OVERRIDES,
   SCALE_FLAGS,
   selectPosterFrame,
   socialCrop,
   validateFrameOverrides,
+  validateIntervalOverrides,
   verifyAssemblyInputs,
   aacArgs,
   x264Args,
@@ -199,23 +207,39 @@ async function main() {
   if (probeProblems.length > 0) stop('intermediates failed ffprobe', probeProblems)
   console.log(`verified ${inputs.clipFiles.size} locked clips from ${sha} (reel manifest ${path.relative(dir, manifestPath)})`)
 
-  // Declared one-frame repairs of this footage (assembly.ts
-  // RELEASE_FRAME_OVERRIDES): bound to the source run, validated against the
-  // locked plan. Anything unconfirmed stops; nothing is rendered to repair.
+  // Declared repairs of this footage (assembly.ts RELEASE_FRAME_OVERRIDES:
+  // one-frame repairs, RELEASE_INTERVAL_OVERRIDES: whole portrait inserts
+  // covered by an adjacent 16:9 frame): bound to the source run, validated
+  // against the locked plan. Anything unconfirmed stops; nothing is rendered
+  // to repair. An interval is the same per-frame override, so one plan check
+  // covers both.
   const reelPlan = planReel(edit)
   const bound = overridesForSource(RELEASE_FRAME_OVERRIDES, sha, source, inputs.clipFiles)
-  if (bound.problems.length > 0) stop('release frame overrides', bound.problems)
-  const frameOverrides = bound.overrides
-  const overrideProblems = validateFrameOverrides(edit, reelPlan, frameOverrides)
+  const boundIntervals = intervalsForSource(RELEASE_INTERVAL_OVERRIDES, sha, source, inputs.clipFiles)
+  if (bound.problems.length > 0 || boundIntervals.problems.length > 0) stop('release frame overrides', [...bound.problems, ...boundIntervals.problems])
+  const intervalOverrides = boundIntervals.intervals
+  const singleOverrides = bound.overrides
+  const frameOverrides = [...singleOverrides, ...expandIntervalOverrides(intervalOverrides)].sort((a, b) => a.reelFrame - b.reelFrame)
+  const overrideProblems = [...validateIntervalOverrides(edit, reelPlan, intervalOverrides), ...validateFrameOverrides(edit, reelPlan, frameOverrides)]
   if (overrideProblems.length > 0) stop('release frame overrides', overrideProblems)
   const lockedReelFrames = expectedFrames(reelPlan)
   const reelFrames = applyFrameOverrides(lockedReelFrames, frameOverrides)
   const overriddenFrames = changedFrames(lockedReelFrames, reelFrames)
-  if (overriddenFrames.join(',') !== frameOverrides.map((override) => override.reelFrame).sort((a, b) => a - b).join(',')) {
-    stop('release frame overrides', [`plan differs from the locked plan at frames [${overriddenFrames.join(', ')}], declared [${frameOverrides.map((override) => override.reelFrame).join(', ')}]`])
+  if (overriddenFrames.join(',') !== frameOverrides.map((override) => override.reelFrame).join(',')) {
+    stop('release frame overrides', [`plan differs from the locked plan at ${overriddenFrames.length} frames, declared ${frameOverrides.length}`])
   }
-  for (const { reelFrame, original, replacement, reason } of frameOverrides) {
+  // Where the release declares portrait covers, the reel stays 16:9 throughout.
+  const portraitFrames = intervalOverrides.length > 0 ? portraitReelFrames(edit, reelFrames) : []
+  if (portraitFrames.length > 0) stop('portrait frames remain in the reel', [`reel frames ${portraitFrames[0]}-${portraitFrames[portraitFrames.length - 1]} (${portraitFrames.length}) still show a pillarbox-portrait clip`])
+  for (const { reelFrame, original, replacement, reason } of singleOverrides) {
     console.log(`frame override: reel frame ${reelFrame} (${(reelFrame / fps).toFixed(3)}s) ${original.clipId}#${original.frame} -> ${replacement.clipId}#${replacement.frame} — ${reason}`)
+  }
+  for (const { reelFrame, frames, original, hold, reason } of intervalOverrides) {
+    const last = reelFrame + frames - 1
+    console.log(
+      `interval override: reel frames ${reelFrame}-${last} (${(reelFrame / fps).toFixed(3)}-${((last + 1) / fps).toFixed(3)}s, ${frames} frames) ` +
+        `${original.clipId}#${original.frame}-${original.frame + frames - 1} -> ${hold.clipId}#${hold.frame} held — ${reason}`,
+    )
   }
 
   // Optional finished inputs the edit calls for but the repo does not hold.
@@ -254,11 +278,17 @@ async function main() {
       inputArgs.push('-i', clipPath(segment.id))
     }
     let next = shots.size
+    // A covered portrait clip is read from a second input of its covering clip.
+    const covers = new Map()
+    for (const { original, hold } of intervalOverrides) {
+      covers.set(original.clipId, `${next++}:v`)
+      inputArgs.push('-i', clipPath(hold.clipId))
+    }
     const endCardLabel = endCard === null ? null : `${next++}:v`
     if (endCard !== null) inputArgs.push('-loop', '1', '-framerate', String(fps), '-i', endCard)
     const audioIndex = audio === null ? null : next++
     if (audio !== null) inputArgs.push('-i', audio)
-    const graph = reelFilterGraph(edit, reelPlan, { shots, endCard: endCardLabel, width, height }, frameOverrides)
+    const graph = reelFilterGraph(edit, reelPlan, { shots, endCard: endCardLabel, width, height, covers }, frameOverrides)
     console.log(`reel: ${reelPlan.segments.length} segments, ${reelPlan.frames} frames @ ${fps}fps …`)
     await ffmpeg([
       ...inputArgs,
@@ -400,7 +430,7 @@ async function main() {
       endCard: endCard === null
         ? 'black — no end-card still was passed; pass --end-card=<designed 1920x1080 still> to fill the locked 52.8-57.6s slot'
         : { file: path.basename(endCard), sha256: await sha256File(endCard), slot: reelPlan.segments.find((segment) => segment.kind === 'end-card') },
-      frameOverrides: frameOverrides.map((override) => ({
+      frameOverrides: singleOverrides.map((override) => ({
         reelFrame: override.reelFrame,
         reelTimeSec: override.reelFrame / fps,
         original: describeClipFrame(edit, override.original),
@@ -410,6 +440,21 @@ async function main() {
         intermediate: { file: inputs.clipFiles.get(override.original.clipId), sha256: located.find((entry) => entry.record.clipId === override.original.clipId).record.output.sha256 },
         check: reelOverrideChecks.find((check) => check.reelFrame === override.reelFrame),
       })),
+      intervalOverrides: intervalOverrides.map((interval) => {
+        const checks = reelOverrideChecks.filter((check) => check.reelFrame >= interval.reelFrame && check.reelFrame < interval.reelFrame + interval.frames)
+        const last = interval.reelFrame + interval.frames - 1
+        return {
+          reelFrames: { first: interval.reelFrame, last, count: interval.frames },
+          reelTimeSec: { start: interval.reelFrame / fps, end: (last + 1) / fps },
+          original: { ...describeClipFrame(edit, interval.original), throughFrame: interval.original.frame + interval.frames - 1 },
+          replacement: { ...describeClipFrame(edit, interval.hold), heldFrames: interval.frames },
+          reason: interval.reason,
+          source: interval.source,
+          intermediates: { original: inputs.clipFiles.get(interval.original.clipId), replacement: inputs.clipFiles.get(interval.hold.clipId) },
+          check: { frames: checks.length, maxLevelsFromReplacement: Math.max(...checks.map((check) => check.toReplacement)), minLevelsFromOriginal: Math.min(...checks.map((check) => check.toOriginal)) },
+        }
+      }),
+      portraitFramesRemaining: portraitReelFrames(edit, reelFrames).length,
       framesDifferingFromLockedPlan: overriddenFrames,
       audio: audio === null ? 'none — no final mix exists in the repo; finalEdit.json holds the cue map only. Pass --audio=<final mix> to mux it per derivatives.heroReel.audio' : path.basename(audio),
       encode: edit.derivatives.heroReel.encode,
@@ -438,15 +483,23 @@ async function main() {
   for (const output of outputs.filter((entry) => entry.timelineFidelity)) {
     const { meanAbsDiff, maxAbsDiff, frames } = output.timelineFidelity
     console.log(`timeline fidelity ${output.file}: ${frames} frames, mean ${meanAbsDiff.toFixed(3)} / max ${maxAbsDiff.toFixed(3)} levels`)
-    for (const check of output.frameOverrideChecks ?? []) {
+    for (const check of (output.frameOverrideChecks ?? []).filter((entry) => singleOverrides.some((override) => override.reelFrame === entry.reelFrame))) {
       console.log(`  frame override @ ${check.reelFrame}: ${check.toReplacement.toFixed(3)} levels from its replacement, ${check.toOriginal.toFixed(3)} from the original${check.problems.length > 0 ? ' — FAILED' : ''}`)
+    }
+    for (const interval of intervalOverrides.filter(() => output.file === DELIVERABLES.reel)) {
+      const checks = (output.frameOverrideChecks ?? []).filter((entry) => entry.reelFrame >= interval.reelFrame && entry.reelFrame < interval.reelFrame + interval.frames)
+      const failed = checks.filter((entry) => entry.problems.length > 0).length
+      console.log(
+        `  interval override @ ${interval.reelFrame}-${interval.reelFrame + interval.frames - 1}: ${checks.length} frames, max ${Math.max(...checks.map((entry) => entry.toReplacement)).toFixed(3)} levels from ` +
+          `${interval.hold.clipId}#${interval.hold.frame}, min ${Math.min(...checks.map((entry) => entry.toOriginal)).toFixed(3)} from ${interval.original.clipId}${failed > 0 ? ` — ${failed} FAILED` : ''}`,
+      )
     }
   }
   if (problems.length > 0) {
     console.error(`ASSEMBLY VERIFICATION FAILED (${problems.length}):\n  ${problems.join('\n  ')}`)
     process.exitCode = 1
   } else {
-    console.log(`ASSEMBLY VERIFIED — ${Object.keys(DELIVERABLES).length} deliverables in ${out} (${Math.round((Date.now() - started) / 1000)}s, 0 frames rendered, ${frameOverrides.length} declared frame override(s))`)
+    console.log(`ASSEMBLY VERIFIED — ${Object.keys(DELIVERABLES).length} deliverables in ${out} (${Math.round((Date.now() - started) / 1000)}s, 0 frames rendered, ${frameOverrides.length} declared frame override(s): ${singleOverrides.length} single, ${intervalOverrides.length} interval(s))`)
   }
 }
 

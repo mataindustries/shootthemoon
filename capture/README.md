@@ -525,7 +525,8 @@ capture/ci/
   assembly.ts               — pure: input verification, sequence/transition plan,
                               ffmpeg graphs, encode settings parsed from finalEdit.json,
                               poster frame pick, output checks, and
-                              RELEASE_FRAME_OVERRIDES (declared one-frame repairs)
+                              RELEASE_FRAME_OVERRIDES (declared one-frame repairs) and
+                              RELEASE_INTERVAL_OVERRIDES (the two portrait inserts, covered)
   assembleFinalReel.mjs     — verify -> reel -> loop -> stills -> check;
                               manifest.json + SHA256SUMS
   assembly.test.ts          — pure tests + static no-renderer guards (node --test)
@@ -543,7 +544,7 @@ filled in.
 
 | file | from finalEdit.json |
 |---|---|
-| `reel-57s-1080.mp4` | the whole timeline in order at exact frame counts (3,456 @ 60fps = 57.6s): `headFadeFromBlackMs`, each clip's `transitionOut` (flash-white/dip-black centered on the cut, fade-black outgoing only; applied in YUV, sampled at frame start like ffmpeg's `fade`), the end-card slot (the approved still, `capture/ci/end-card-1920x1080.png`), `derivatives.heroReel.encode`, and the declared release frame overrides (below) |
+| `reel-57s-1080.mp4` | the whole timeline in order at exact frame counts (3,456 @ 60fps = 57.6s): `headFadeFromBlackMs`, each clip's `transitionOut` (flash-white/dip-black centered on the cut, fade-black outgoing only; applied in YUV, sampled at frame start like ffmpeg's `fade`), the end-card slot (the approved still, `capture/ci/end-card-1920x1080.png`), `derivatives.heroReel.encode`, and the declared release frame + interval overrides (below) |
 | `loop-13s-1280.mp4` | `derivatives.loop`: its clip list and fps (every 2nd real frame, 414 @ 30fps = 13.8s), silent. A transition is kept only where the loop keeps its two clips adjacent (c09->c10, c15->c16 flash-white). 1280x720, `derivatives.webReel` encode |
 | `poster-1280.jpg` / `.webp` | `derivatives.poster`: the verified frame of the clip holding that shot/instant/crop (c07 frame 72, 0.89 ms of source time from the named instant; the render run renders timeline clips only) |
 | `og-home-1200x630.jpg` | the same frame, full width, trimmed equally top and bottom (the spec gives only the size and a clean right third) |
@@ -575,6 +576,33 @@ the same shot clip, and name a clip in no other deliverable. In the ffmpeg
 graph the clip is only re-trimmed ([18,36) + [37,38) + [37,144) instead of
 [18,144)), so the reel keeps its 3,456 frames and every other frame its
 position; nothing is interpolated.
+
+**Portrait interval overrides.** The locked cut holds two real 390x844 phone
+viewport stills as pillarboxed portrait clips (c14, c18), which flash a
+narrow portrait picture inside the 16:9 reel and break the aspect ratio on
+mobile. `RELEASE_INTERVAL_OVERRIDES` declares each as a compact interval of
+the same override mechanism (it expands to one ordinary per-frame override
+per reel frame, so the plan check and frame-by-frame verification below
+apply unchanged): the whole portrait clip's reel frames show one frame of
+the immediately adjacent full-16x9 shot clip, held. Frame for frame: the
+reel keeps its 3,456 frames and nothing after either interval moves.
+
+| reel frames | time | original | replacement |
+|---|---|---|---|
+| 1764-1799 (36) | 29.400-30.000s | c14 (counterstrike-fire-now-port, still, pillarboxed) | c13#35 held — the desktop FIRE NOW still of the same moment |
+| 2088-2159 (72) | 34.800-36.000s | c18 (divider-fire-defense-port, still, pillarboxed) | c17#71 held — the last, locked-on frame of the shot before it |
+
+An interval must cover exactly one whole `pillarbox-portrait` clip, be
+replaced by a frame of a `full-16x9` clip that is its immediate timeline
+neighbour (frame inside that clip), sit outside any transition, and name
+clips in no other deliverable; it is bound to run #6's id, SHA and the pinned
+digest of the artifact holding both clips (`render-act4-counterstrike`,
+`render-act5-divider`) exactly like the frame override. Assembly stops if a
+declared interval cannot be confirmed, or if any frame of a portrait clip
+would remain in the reel. In the graph the covered segment reads a second
+input of the covering clip (`trim` + `loop` of one existing frame): nothing
+is cropped, blurred, pillarboxed or rendered, and the loop, poster and stills
+do not use c14/c18, so they are unchanged.
 
 Every output is ffprobe'd and fully decoded, and the reel and loop are
 checked frame by frame: each output frame's luma thumbnail must match its

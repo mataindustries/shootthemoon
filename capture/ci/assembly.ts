@@ -12,9 +12,10 @@
  * durations, transitions, the head fade, the end-card slot, the loop's clip
  * list and fps, the poster instant and crop, and the hero/web encode
  * settings. Nothing here restates a timeline. The one exception is
- * RELEASE_FRAME_OVERRIDES: declared, audited one-frame repairs of a
- * verified render run's footage, bound to that run and checked against the
- * locked plan (see "Release frame overrides" below).
+ * RELEASE_FRAME_OVERRIDES and RELEASE_INTERVAL_OVERRIDES: declared, audited
+ * repairs of a verified render run's footage (one defective frame; two
+ * portrait inserts), bound to that run and checked against the locked plan
+ * (see "Release frame overrides" below).
  *
  * No browser, no filesystem, no child processes — unit-tested in
  * capture/ci/assembly.test.ts.
@@ -494,6 +495,9 @@ export interface ReleaseFrameOverride {
   /** The verified neighbouring frame of the same clip shown instead. */
   readonly replacement: FrameRef
   readonly reason: string
+  /** Set on the per-frame records a ReleaseIntervalOverride expands to: the
+   * replacement is a frame of another (16:9) shot clip, not a neighbour. */
+  readonly cover?: true
 }
 
 /**
@@ -524,6 +528,71 @@ export const RELEASE_FRAME_OVERRIDES: readonly ReleaseFrameOverride[] = [
     reason: 'one-frame enemy-base scale/camera defect',
   },
 ]
+
+/**
+ * A whole portrait insert replaced by a horizontal frame, frame for frame.
+ * The locked cut holds two real 390x844 phone-viewport stills (c14, c18) as
+ * pillarboxed portrait clips inside the 16:9 reel, which breaks the aspect
+ * ratio on mobile. Each interval covers exactly one portrait clip's reel
+ * frames and shows one frame of the immediately adjacent 16:9 shot clip on
+ * every one of them: the reel keeps its frame count and every other frame
+ * keeps its position. It expands to ordinary per-frame overrides
+ * (expandIntervalOverrides), so the plan check, the declared-frames check
+ * and the frame-by-frame verification treat it exactly like any other
+ * release override. Nothing is rendered, cropped, blurred or interpolated.
+ */
+export interface ReleaseIntervalOverride {
+  readonly source: OverrideSource
+  /** First reel frame and the number of reel frames covered. */
+  readonly reelFrame: number
+  readonly frames: number
+  /** The portrait clip frame the locked plan puts on `reelFrame` (its
+   * first frame); the following reel frames show its following frames. */
+  readonly original: FrameRef
+  /** The verified frame of the neighbouring 16:9 clip held on every frame. */
+  readonly hold: FrameRef
+  readonly reason: string
+}
+
+const RUN6_FOOTAGE = { runNumber: 6, runId: 36346715980, headSha: 'd3301b4f01c3a27a42525b0876f3039ea66c55d9' } as const
+
+export const RELEASE_INTERVAL_OVERRIDES: readonly ReleaseIntervalOverride[] = [
+  {
+    source: { ...RUN6_FOOTAGE, artifact: 'render-act4-counterstrike', artifactDigest: 'sha256:3fddf2205ef6928baee104ae3a056283cbf51e5236a77941e76430dd6c759f9b' },
+    // 29.400-30.000s. c14 (the FIRE NOW thumb target on a phone viewport)
+    // gives way to c13, the desktop still of the same moment that precedes
+    // it: its last frame, held.
+    reelFrame: 1764,
+    frames: 36,
+    original: { clipId: 'c14', frame: 0 },
+    hold: { clipId: 'c13', frame: 35 },
+    reason: 'portrait phone-viewport still breaks the 16:9 reel; the same FIRE NOW moment stays on the desktop frame',
+  },
+  {
+    source: { ...RUN6_FOOTAGE, artifact: 'render-act5-divider', artifactDigest: 'sha256:56efc503b5f93fca76886a417ad20c83ae85ebbc22f117b61d380f03d4b5f378' },
+    // 34.800-36.000s. c18 (TARGET LOCKED · FIRE DEFENSE on a phone viewport)
+    // gives way to the last frame of c17, the lock-on shot before it, held.
+    reelFrame: 2088,
+    frames: 72,
+    original: { clipId: 'c18', frame: 0 },
+    hold: { clipId: 'c17', frame: 71 },
+    reason: 'portrait phone-viewport still breaks the 16:9 reel; the locked-on formation frame of the adjacent shot is held instead',
+  },
+]
+
+/** The per-frame overrides an interval stands for. */
+export function expandIntervalOverrides(intervals: readonly ReleaseIntervalOverride[]): ReleaseFrameOverride[] {
+  return intervals.flatMap(({ source, reelFrame, frames, original, hold, reason }) =>
+    Array.from({ length: frames }, (_, offset): ReleaseFrameOverride => ({
+      source,
+      reelFrame: reelFrame + offset,
+      original: { clipId: original.clipId, frame: original.frame + offset },
+      replacement: hold,
+      reason,
+      cover: true,
+    })),
+  )
+}
 
 /** The validated render run the footage was downloaded from
  * (source-run.json as capture/ci/sourceRun.mjs writes it; the subset read). */
@@ -576,6 +645,69 @@ export function overridesForSource(
   return { overrides: applicable, problems }
 }
 
+/** overridesForSource for intervals: the same binding to the run, its
+ * artifact digest and the clips' intermediates, checked once per interval on
+ * a representative frame (both clips must come from the interval's artifact). */
+export function intervalsForSource(
+  intervals: readonly ReleaseIntervalOverride[],
+  sha: string,
+  source: SourceRunRecord | null,
+  clipFiles: ReadonlyMap<string, string>,
+): { readonly intervals: ReleaseIntervalOverride[]; readonly problems: string[] } {
+  const applicable: ReleaseIntervalOverride[] = []
+  const problems: string[] = []
+  for (const interval of intervals) {
+    const bound = overridesForSource([{ source: interval.source, reelFrame: interval.reelFrame, original: interval.original, replacement: interval.hold, reason: interval.reason }], sha, source, clipFiles)
+    problems.push(...bound.problems)
+    if (bound.overrides.length > 0) applicable.push(interval)
+  }
+  return { intervals: applicable, problems }
+}
+
+/**
+ * An interval must replace exactly one whole pillarbox-portrait clip of the
+ * locked plan (its first reel frame to its last, nothing before or after)
+ * with one frame of the immediately adjacent full-16x9 shot clip.
+ */
+export function validateIntervalOverrides(edit: FinalEdit, plan: SequencePlan, intervals: readonly ReleaseIntervalOverride[]): string[] {
+  const problems: string[] = []
+  const shots = new Map(lockedShotClips(edit).map((clip) => [clip.id, clip]))
+  const order = edit.timeline.map((item) => item.id)
+  for (const interval of intervals) {
+    const { reelFrame, frames, original, hold } = interval
+    const label = `interval override @ reel frames ${reelFrame}-${reelFrame + frames - 1}`
+    if (!Number.isInteger(reelFrame) || !Number.isInteger(frames) || frames < 1) {
+      problems.push(`${label}: not a whole, non-empty frame range`)
+      continue
+    }
+    if (interval.reason.trim() === '') problems.push(`${label}: no reason given`)
+    const clip = shots.get(original.clipId)
+    const cover = shots.get(hold.clipId)
+    if (clip === undefined || clip.framing !== 'pillarbox-portrait') problems.push(`${label}: ${original.clipId} is not a pillarbox-portrait shot clip`)
+    if (cover === undefined || cover.framing !== 'full-16x9') problems.push(`${label}: replacement ${hold.clipId} is not a full-16x9 shot clip`)
+    if (clip === undefined || cover === undefined) continue
+    if (Math.abs(order.indexOf(clip.id) - order.indexOf(cover.id)) !== 1) problems.push(`${label}: ${cover.id} is not the timeline neighbour of ${clip.id}`)
+    let start = 0
+    for (const segment of plan.segments) {
+      if (segment.id === clip.id) break
+      start += segment.frames
+    }
+    const clipFrames = plan.segments.find((segment) => segment.id === clip.id)!.frames
+    if (reelFrame !== start || frames !== clipFrames || original.frame !== 0) {
+      problems.push(`${label}: ${clip.id} occupies reel frames ${start}-${start + clipFrames - 1}, the interval must cover exactly that`)
+    }
+    const coverFrames = plan.segments.find((segment) => segment.id === cover.id)!.frames
+    if (!Number.isInteger(hold.frame) || hold.frame < 0 || hold.frame >= coverFrames) problems.push(`${label}: ${cover.id}#${hold.frame} is outside its ${coverFrames} frames`)
+  }
+  return problems
+}
+
+/** Reel frames that still show a pillarbox-portrait clip. */
+export function portraitReelFrames(edit: FinalEdit, frames: readonly ExpectedFrame[]): number[] {
+  const portrait = new Set(lockedShotClips(edit).filter((clip) => clip.framing === 'pillarbox-portrait').map((clip) => clip.id))
+  return frames.flatMap((frame, index) => (portrait.has(frame.segment) ? [index] : []))
+}
+
 /**
  * An override must be a one-frame repair inside the locked plan: its reel
  * frame shows exactly `original` in the plan, outside any transition; the
@@ -606,7 +738,10 @@ export function validateFrameOverrides(edit: FinalEdit, plan: SequencePlan, over
     const segment = plan.segments.find((entry) => entry.id === original.clipId)!
     if (segment.kind !== 'shot') problems.push(`${label}: ${original.clipId} is not a shot clip`)
     if (planned.fade !== null) problems.push(`${label}: inside a ${planned.fade.color} transition`)
-    if (replacement.clipId !== original.clipId) problems.push(`${label}: replacement ${replacement.clipId}#${replacement.frame} is not from ${original.clipId}`)
+    if (override.cover === true) {
+      // An interval frame: validateIntervalOverrides holds the interval rules.
+      if (replacement.clipId === original.clipId) problems.push(`${label}: a cover replacement must come from another clip`)
+    } else if (replacement.clipId !== original.clipId) problems.push(`${label}: replacement ${replacement.clipId}#${replacement.frame} is not from ${original.clipId}`)
     else if (Math.abs(replacement.frame - original.frame) !== 1) problems.push(`${label}: replacement ${replacement.clipId}#${replacement.frame} is not adjacent to ${original.clipId}#${original.frame}`)
     else {
       const neighbour = locked[reelFrame + replacement.frame - original.frame]
@@ -619,7 +754,7 @@ export function validateFrameOverrides(edit: FinalEdit, plan: SequencePlan, over
     if (poster.clipId === original.clipId && poster.frame === original.frame) problems.push(`${label}: ${original.clipId}#${original.frame} is also the poster frame`)
   }
   for (const override of overrides) {
-    if (targets.has(override.reelFrame + override.replacement.frame - override.original.frame)) {
+    if (override.cover !== true && targets.has(override.reelFrame + override.replacement.frame - override.original.frame)) {
       problems.push(`frame override @ reel frame ${override.reelFrame}: its replacement's own reel frame is overridden too`)
     }
   }
@@ -696,6 +831,11 @@ export interface GraphSources {
   readonly endCard: string | null
   readonly width: number
   readonly height: number
+  /** Input label per covered segment id: a second, independent input of the
+   * clip whose frame covers it (a release interval override), so the
+   * covering frame is read on its own and nothing is buffered across
+   * segments. Only needed for segments with cover substitutions. */
+  readonly covers?: ReadonlyMap<string, string>
 }
 
 function segmentSource(segment: Segment, sources: GraphSources, fps: number): string {
@@ -714,10 +854,12 @@ function segmentSource(segment: Segment, sources: GraphSources, fps: number): st
 }
 
 /** One segment-local frame shown in place of another (a validated
- * release frame override). */
+ * release frame override). With `clipId`, the frame is `source` of that
+ * other clip (a cover) instead of another frame of the segment's own. */
 export interface FrameSubstitution {
   readonly frame: number
   readonly source: number
+  readonly clipId?: string
 }
 
 /** Release frame overrides as per-segment substitutions for the graph. */
@@ -725,8 +867,9 @@ export function frameSubstitutions(plan: SequencePlan, overrides: readonly Relea
   const locked = expectedFrames(plan)
   const substitutions = new Map<string, FrameSubstitution[]>()
   applyFrameOverrides(locked, overrides) // throws unless every override matches the plan
-  for (const { original, replacement } of overrides) {
-    substitutions.set(original.clipId, [...(substitutions.get(original.clipId) ?? []), { frame: original.frame, source: replacement.frame }])
+  for (const { original, replacement, cover } of overrides) {
+    const substitution: FrameSubstitution = cover === true ? { frame: original.frame, source: replacement.frame, clipId: replacement.clipId } : { frame: original.frame, source: replacement.frame }
+    substitutions.set(original.clipId, [...(substitutions.get(original.clipId) ?? []), substitution])
   }
   return substitutions
 }
@@ -736,11 +879,15 @@ interface SegmentPart {
   readonly start: number
   readonly end: number
   readonly fade: string | null
+  /** A cover: frame `start` of another clip's input, held `repeat` times. */
+  readonly cover?: { readonly clipId: string; readonly repeat: number }
 }
 
 /** The segment's frames as consecutive trimmed parts: head fade, plain
  * runs, tail fade — and, for a substituted frame, a one-frame part taken
- * from its replacement, so every other frame keeps its position. */
+ * from its replacement, so every other frame keeps its position. A run of
+ * consecutive frames covered by one frame of another clip is a single held
+ * part. */
 function segmentParts(segment: Segment, substitutions: readonly FrameSubstitution[]): SegmentPart[] {
   const parts: SegmentPart[] = []
   const headFrames = segment.head?.frames ?? 0
@@ -748,13 +895,28 @@ function segmentParts(segment: Segment, substitutions: readonly FrameSubstitutio
   const bodyEnd = segment.frames - tailFrames
   if (segment.head !== null) parts.push({ start: 0, end: headFrames, fade: fadeFilter(segment.head, 'head') })
   let cursor = headFrames
-  for (const { frame, source } of [...substitutions].sort((a, b) => a.frame - b.frame)) {
-    if (frame < cursor || frame >= bodyEnd || source < 0 || source >= segment.frames) {
-      throw new Error(`${segment.id}#${frame} -> #${source}: a substitution must replace one untransitioned frame with another frame of the clip`)
+  const sorted = [...substitutions].sort((a, b) => a.frame - b.frame)
+  for (let index = 0; index < sorted.length; ) {
+    const { frame, source, clipId } = sorted[index]!
+    if (clipId === undefined) {
+      if (frame < cursor || frame >= bodyEnd || source < 0 || source >= segment.frames) {
+        throw new Error(`${segment.id}#${frame} -> #${source}: a substitution must replace one untransitioned frame with another frame of the clip`)
+      }
+      if (frame > cursor) parts.push({ start: cursor, end: frame, fade: null })
+      parts.push({ start: source, end: source + 1, fade: null })
+      cursor = frame + 1
+      index += 1
+      continue
+    }
+    let run = 1
+    while (sorted[index + run]?.clipId === clipId && sorted[index + run]!.source === source && sorted[index + run]!.frame === frame + run) run += 1
+    if (frame < cursor || frame + run > bodyEnd || source < 0) {
+      throw new Error(`${segment.id}#${frame}+${run} -> ${clipId}#${source}: a cover must replace untransitioned frames with one frame of another clip`)
     }
     if (frame > cursor) parts.push({ start: cursor, end: frame, fade: null })
-    parts.push({ start: source, end: source + 1, fade: null })
-    cursor = frame + 1
+    parts.push({ start: source, end: source + 1, fade: null, cover: { clipId, repeat: run } })
+    cursor = frame + run
+    index += run
   }
   if (bodyEnd > cursor) parts.push({ start: cursor, end: bodyEnd, fade: null })
   if (segment.tail !== null) parts.push({ start: bodyEnd, end: segment.frames, fade: fadeFilter(segment.tail, 'tail') })
@@ -776,12 +938,23 @@ export function sequenceChains(plan: SequencePlan, sources: GraphSources, substi
       return
     }
     const parts = segmentParts(segment, substituted)
+    const own = parts.flatMap((part, partIndex) => (part.cover === undefined ? [partIndex] : []))
     // Parts are in output order and concat drains them in the same order;
     // a substituted frame is adjacent to the one it replaces, so split never
-    // has to buffer more than a frame or two in flight.
-    chains.push(`${source},split=${parts.length}${parts.map((_, part) => `[${out}p${part}]`).join('')}`)
+    // has to buffer more than a frame or two in flight. A cover part reads a
+    // second input of its own, so it never touches the segment's split.
+    if (own.length > 0) chains.push(`${source},split=${own.length}${own.map((part) => `[${out}p${part}]`).join('')}`)
     parts.forEach((part, partIndex) => {
       const fade = part.fade === null ? '' : `,${part.fade}`
+      if (part.cover !== undefined) {
+        const label = sources.covers?.get(segment.id)
+        if (label === undefined) throw new Error(`no input for ${part.cover.clipId}, which covers ${segment.id}`)
+        chains.push(
+          `[${label}]settb=1/${plan.fps},setpts=N,format=yuv444p,trim=start_frame=${part.start}:end_frame=${part.end},setpts=PTS-STARTPTS,` +
+            `loop=loop=${part.cover.repeat - 1}:size=1:start=0,setpts=N[${out}q${partIndex}]`,
+        )
+        return
+      }
       chains.push(`[${out}p${partIndex}]trim=start_frame=${part.start}:end_frame=${part.end},setpts=PTS-STARTPTS${fade}[${out}q${partIndex}]`)
     })
     chains.push(`${parts.map((_, part) => `[${out}q${part}]`).join('')}concat=n=${parts.length}:v=1:a=0[${out}]`)

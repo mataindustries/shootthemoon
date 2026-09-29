@@ -23,7 +23,9 @@ import {
   DELIVERABLE_METADATA,
   DELIVERABLES,
   describeClipFrame,
+  expandIntervalOverrides,
   expectedFrames,
+  intervalsForSource,
   lockedShotClips,
   loopOutputArgs,
   overridesForSource,
@@ -31,12 +33,15 @@ import {
   planLoop,
   planReel,
   planSequence,
+  portraitReelFrames,
   reelFilterGraph,
   RELEASE_FRAME_OVERRIDES,
+  RELEASE_INTERVAL_OVERRIDES,
   selectPosterFrame,
   selectSourceRun,
   socialCrop,
   validateFrameOverrides,
+  validateIntervalOverrides,
   validateSourceRun,
   verifyAssemblyInputs,
   x264Args,
@@ -47,6 +52,7 @@ import {
   type LocatedRecord,
   type ReelManifest,
   type ReleaseFrameOverride,
+  type ReleaseIntervalOverride,
   type ReleasePin,
   type SourceRunRecord,
 } from './assembly.ts'
@@ -682,4 +688,177 @@ test('the frame override is applied by assembly alone: no renderer, Playwright o
   const filters = new Set([...c03Chain.matchAll(/(?:^|[,\]])([a-z_]+)=/g)].map((match) => match[1]))
   assert.deepEqual([...filters].sort(), ['concat', 'format', 'geq', 'setpts', 'settb', 'split', 'trim'])
   assert.ok(!/select=|minterpolate|framerate|tblend|freezeframes|loop=/.test(c03Chain), c03Chain)
+})
+
+// ---------------------------------------------------------------------------
+// Release interval overrides: the two portrait inserts covered frame for frame
+// ---------------------------------------------------------------------------
+
+const [C14_COVER, C18_COVER] = RELEASE_INTERVAL_OVERRIDES as [ReleaseIntervalOverride, ReleaseIntervalOverride]
+/** The intermediates' artifact folders in run #6 (render matrix: cheap clips share their act's job). */
+const RUN6_INTERVAL_FILES = new Map(RUN6_CLIP_FILES)
+for (const id of ['c13', 'c14']) RUN6_INTERVAL_FILES.set(id, RUN6_CLIP_FILES.get(id)!.replace(/^render-c1\d/, 'render-act4-counterstrike'))
+for (const id of ['c17', 'c18']) RUN6_INTERVAL_FILES.set(id, RUN6_CLIP_FILES.get(id)!.replace(/^render-c1\d/, 'render-act5-divider'))
+const ALL_OVERRIDES = [...RELEASE_FRAME_OVERRIDES, ...expandIntervalOverrides(RELEASE_INTERVAL_OVERRIDES)].sort((a, b) => a.reelFrame - b.reelFrame)
+
+test('the two portrait inserts are declared: c14 at 29.400-30.000s and c18 at 34.800-36.000s, each held on its horizontal neighbour', () => {
+  assert.equal(RELEASE_INTERVAL_OVERRIDES.length, 2)
+  const seconds = (interval: ReleaseIntervalOverride) => [interval.reelFrame / EDIT.output.fps, (interval.reelFrame + interval.frames) / EDIT.output.fps]
+  assert.deepEqual({ reelFrame: C14_COVER.reelFrame, frames: C14_COVER.frames, original: C14_COVER.original, hold: C14_COVER.hold, seconds: seconds(C14_COVER) }, {
+    reelFrame: 1764, frames: 36, original: { clipId: 'c14', frame: 0 }, hold: { clipId: 'c13', frame: 35 }, seconds: [29.4, 30],
+  })
+  assert.deepEqual({ reelFrame: C18_COVER.reelFrame, frames: C18_COVER.frames, original: C18_COVER.original, hold: C18_COVER.hold, seconds: seconds(C18_COVER) }, {
+    reelFrame: 2088, frames: 72, original: { clipId: 'c18', frame: 0 }, hold: { clipId: 'c17', frame: 71 }, seconds: [34.8, 36],
+  })
+  // The portrait clips are the edit's PORT stills; the covers are its 16:9 shots.
+  const shots = new Map(lockedShotClips(EDIT).map((clip) => [clip.id, clip]))
+  for (const interval of RELEASE_INTERVAL_OVERRIDES) {
+    assert.equal(shots.get(interval.original.clipId)!.framing, 'pillarbox-portrait')
+    assert.equal(shots.get(interval.hold.clipId)!.framing, 'full-16x9')
+    assert.equal(interval.source.runNumber, PIN.runNumber)
+    assert.equal(interval.source.runId, PIN.runId)
+    assert.equal(interval.source.headSha, PIN.headSha)
+    assert.equal(interval.source.artifactDigest, PIN.artifacts.find((artifact) => artifact.name === interval.source.artifact)!.digest)
+  }
+  assert.deepEqual(RELEASE_INTERVAL_OVERRIDES.map((interval) => interval.source.artifact), ['render-act4-counterstrike', 'render-act5-divider'])
+  assert.deepEqual(validateIntervalOverrides(EDIT, planReel(EDIT), RELEASE_INTERVAL_OVERRIDES), [])
+})
+
+test('the covers change exactly the 108 portrait frames (plus frame 468): 3,456 frames / 57.6s, nothing after either interval shifts, no portrait frame left', () => {
+  const plan = planReel(EDIT)
+  const locked = expectedFrames(plan)
+  assert.deepEqual(validateFrameOverrides(EDIT, plan, ALL_OVERRIDES), [])
+  assert.deepEqual(portraitReelFrames(EDIT, locked), [...Array.from({ length: 36 }, (_, index) => 1764 + index), ...Array.from({ length: 72 }, (_, index) => 2088 + index)])
+  const repaired = applyFrameOverrides(locked, ALL_OVERRIDES)
+  assert.equal(repaired.length, 3456)
+  assert.equal(repaired.length / EDIT.output.fps, 57.6)
+  assert.deepEqual(portraitReelFrames(EDIT, repaired), [])
+  const changed = changedFrames(locked, repaired)
+  assert.equal(changed.length, 1 + 36 + 72)
+  assert.deepEqual(changed, [468, ...Array.from({ length: 36 }, (_, index) => 1764 + index), ...Array.from({ length: 72 }, (_, index) => 2088 + index)])
+  for (let frame = 1764; frame < 1800; frame += 1) assert.deepEqual(repaired[frame], { segment: 'c13', frame: 35, fade: null })
+  for (let frame = 2088; frame < 2160; frame += 1) assert.deepEqual(repaired[frame], { segment: 'c17', frame: 71, fade: null })
+  // Everything on either side is exactly the locked plan: the neighbours, the
+  // end card in its 52.8-57.6s slot, and the head/dip/flash fades.
+  for (const [from, to] of [[0, 468], [469, 1764], [1800, 2088], [2160, 3456]] as const) assert.deepEqual(repaired.slice(from, to), locked.slice(from, to))
+  assert.equal(repaired.findIndex((frame) => frame.segment === 'end'), 3168)
+  assert.deepEqual(repaired.slice(3168), locked.slice(3168))
+  assert.deepEqual(repaired[468], { segment: 'c03', frame: 37, fade: null })
+  assert.deepEqual(planReel(EDIT), plan)
+})
+
+test('the covered reel graph keeps every segment at its locked frame count and holds an existing horizontal frame, nothing generated', () => {
+  const plan = planReel(EDIT)
+  const shots = new Map(lockedShotClips(EDIT).map((clip, index) => [clip.id, `${index}:v`]))
+  const covers = new Map([['c14', '26:v'], ['c18', '27:v']])
+  const sources = { shots, endCard: '25:v', width: 1920, height: 1080, covers }
+  const uncovered = { shots, endCard: '25:v', width: 1920, height: 1080 }
+  const plain = reelFilterGraph(EDIT, plan, uncovered, RELEASE_FRAME_OVERRIDES).split(';')
+  const covered = reelFilterGraph(EDIT, plan, sources, ALL_OVERRIDES).split(';')
+  const index = (id: string) => plan.segments.findIndex((segment) => segment.id === id)
+  const touched = new Set([index('c14'), index('c18')])
+  const chainsOf = (chains: string[], n: number) => chains.filter((chain) => new RegExp(`\\[s${n}(?:[pq]\\d+)?\\]`).test(chain) && !chain.endsWith('[seq]'))
+  // Every other segment's chains, and the final concat, are byte-identical to the one-frame-repair graph.
+  plan.segments.forEach((_, n) => {
+    if (!touched.has(n)) assert.deepEqual(chainsOf(covered, n), chainsOf(plain, n), `s${n}`)
+  })
+  assert.equal(covered.at(-1), plain.at(-1))
+  assert.equal(covered.length, plain.length + 2) // each portrait segment's 1 chain becomes a cover chain + its concat
+  const chain = (id: string) => covered.find((entry) => entry.startsWith(`[${covers.get(id)}]`))!
+  assert.equal(chain('c14'), '[26:v]settb=1/60,setpts=N,format=yuv444p,trim=start_frame=35:end_frame=36,setpts=PTS-STARTPTS,loop=loop=35:size=1:start=0,setpts=N[s13q0]')
+  assert.equal(chain('c18'), '[27:v]settb=1/60,setpts=N,format=yuv444p,trim=start_frame=71:end_frame=72,setpts=PTS-STARTPTS,loop=loop=71:size=1:start=0,setpts=N[s17q0]')
+  for (const id of ['c14', 'c18']) {
+    assert.deepEqual(chainsOf(covered, index(id)), [chain(id), `[s${index(id)}q0]concat=n=1:v=1:a=0[s${index(id)}]`], id)
+    assert.ok(!covered.join(';').includes(`[${shots.get(id)}]`), `the portrait ${id} input is never read`)
+  }
+  // The covering clips' own segments still read their own inputs (c13 = 12:v, c17 = 16:v).
+  assert.equal(shots.get('c13'), '12:v')
+  assert.equal(shots.get('c17'), '16:v')
+  const all = covered.join(';')
+  assert.ok(covered.some((entry) => entry.startsWith('[12:v]')) && covered.some((entry) => entry.startsWith('[16:v]')))
+  assert.ok(!/minterpolate|framerate=|tblend|blend=|mix=|tmix|crop=|boxblur|gblur|pad=|overlay|zoompan/.test(all), all)
+  assert.equal(all.match(/loop=loop=/g)!.length, 2)
+  assert.equal(all.match(/geq=/g)!.length, plain.join(';').match(/geq=/g)!.length)
+  const frames = (id: string) => [...chain(id).matchAll(/loop=loop=(\d+)/g)].map((match) => Number(match[1]) + 1)
+  assert.deepEqual([frames('c14'), frames('c18')], [[plan.segments[index('c14')]!.frames], [plan.segments[index('c18')]!.frames]])
+  // A cover with no input for its segment is refused rather than guessed.
+  assert.throws(() => reelFilterGraph(EDIT, plan, { ...sources, covers: new Map() }, ALL_OVERRIDES), /no input for c13, which covers c14/)
+})
+
+test('a mis-declared interval override is refused before anything is assembled', () => {
+  const plan = planReel(EDIT)
+  const refused = (interval: ReleaseIntervalOverride, pattern: RegExp) => {
+    const problems = [...validateIntervalOverrides(EDIT, plan, [interval]), ...validateFrameOverrides(EDIT, plan, expandIntervalOverrides([interval]))]
+    assert.ok(problems.some((problem) => pattern.test(problem)), `${pattern}: ${problems.join(' | ')}`)
+  }
+  refused({ ...C14_COVER, frames: 35 }, /must cover exactly that/) // leaves a portrait frame
+  refused({ ...C14_COVER, reelFrame: 1765 }, /must cover exactly that|locked plan shows/)
+  refused({ ...C14_COVER, original: { clipId: 'c14', frame: 1 } }, /must cover exactly that/)
+  refused({ ...C14_COVER, original: { clipId: 'c13', frame: 0 }, hold: { clipId: 'c12', frame: 0 } }, /not a pillarbox-portrait shot clip/)
+  refused({ ...C14_COVER, hold: { clipId: 'c18', frame: 0 } }, /not a full-16x9 shot clip/) // portrait replacement
+  refused({ ...C14_COVER, hold: { clipId: 'c12', frame: 0 } }, /not the timeline neighbour/)
+  refused({ ...C14_COVER, hold: { clipId: 'c13', frame: 36 } }, /outside its 36 frames/)
+  refused({ ...C14_COVER, hold: { clipId: 'c13', frame: -1 } }, /outside its 36 frames/)
+  refused({ ...C14_COVER, hold: { clipId: 'c14', frame: 35 } }, /not a full-16x9 shot clip/)
+  refused({ ...C18_COVER, hold: { clipId: 'c19', frame: 0 }, reason: ' ' }, /no reason given/)
+  refused({ ...C18_COVER, frames: 0 }, /non-empty frame range/)
+  // A whole-clip interval that also sits on a transition is refused per frame.
+  const overlap = [...expandIntervalOverrides([C14_COVER]), ...expandIntervalOverrides([C14_COVER])]
+  assert.ok(validateFrameOverrides(EDIT, plan, overlap).some((problem) => /declared more than once/.test(problem)))
+  // An override that no longer matches the plan cannot be applied at all.
+  assert.throws(() => applyFrameOverrides(expectedFrames(plan), expandIntervalOverrides([{ ...C14_COVER, reelFrame: 1765 }])), /does not match the locked plan/)
+})
+
+test('intervals apply only to the footage they name, and are never silently skipped for it', () => {
+  assert.deepEqual(intervalsForSource(RELEASE_INTERVAL_OVERRIDES, PIN.headSha, RUN6_SOURCE, RUN6_INTERVAL_FILES), { intervals: [...RELEASE_INTERVAL_OVERRIDES], problems: [] })
+  // Other footage: not applied, no complaint.
+  assert.deepEqual(intervalsForSource(RELEASE_INTERVAL_OVERRIDES, 'b'.repeat(40), null, RUN6_INTERVAL_FILES), { intervals: [], problems: [] })
+  const stops = (source: SourceRunRecord | null, files = RUN6_INTERVAL_FILES) => intervalsForSource(RELEASE_INTERVAL_OVERRIDES, PIN.headSha, source, files)
+  const redigested = { ...RUN6_SOURCE, artifacts: RUN6_SOURCE.artifacts.map((artifact) => (artifact.name === 'render-act5-divider' ? { ...artifact, digest: 'sha256:' + '0'.repeat(64) } : artifact)) }
+  const moved = new Map(RUN6_INTERVAL_FILES).set('c17', 'render-act3-first-strike/c17/c17.mp4')
+  assert.deepEqual(stops(null).intervals, []) // no --source: neither can be confirmed
+  assert.ok(stops(null).problems.length >= 2)
+  assert.match(stops(redigested).problems.join('\n'), /render-act5-divider digest sha256:0+, override is for/)
+  assert.match(stops(RUN6_SOURCE, moved).problems.join('\n'), /c17 intermediate render-act3-first-strike\/c17\/c17\.mp4 is not from artifact render-act5-divider/)
+  // Only the mismatched interval is withheld, and the problem stops the assembly.
+  assert.deepEqual(stops(redigested).intervals, [C14_COVER])
+  assert.deepEqual(stops(RUN6_SOURCE, moved).intervals, [C14_COVER])
+})
+
+test('verification expects exactly the declared frames: undeclared covers, a shifted frame or a leftover portrait fail', () => {
+  const plan = planReel(EDIT)
+  const sources = syntheticSources(plan)
+  // The portrait stills are pillarboxed: black bars either side of a bright picture.
+  for (const id of ['c14', 'c18']) sources.set(id, Uint8Array.from({ length: plan.segments.find((segment) => segment.id === id)!.frames * THUMB_PIXELS }, (_, index) => ([16, 235, 235, 16][index % THUMB_PIXELS]!)))
+  const locked = expectedFrames(plan)
+  const declared = applyFrameOverrides(locked, ALL_OVERRIDES)
+  const output = renderThumbs(declared, sources)
+  // The declared reel passes the global check and every per-frame override check.
+  assert.deepEqual(checkTimelineFidelity(declared, output, sources, THUMB_PIXELS, FIDELITY_TOLERANCE).problems, [])
+  const checks = checkFrameOverrides(ALL_OVERRIDES, output, sources, THUMB_PIXELS, FIDELITY_TOLERANCE)
+  assert.equal(checks.length, 109)
+  assert.deepEqual(checks.flatMap((check) => check.problems), [])
+  // The same output against the locked plan (covers undeclared) fails on every covered frame.
+  const undeclared = checkTimelineFidelity(locked, output, sources, THUMB_PIXELS, FIDELITY_TOLERANCE)
+  assert.ok(undeclared.problems.length > 0)
+  // The locked reel (portraits still in) fails the declared plan on exactly the covered frames.
+  const leftover = checkTimelineFidelity(declared, renderThumbs(locked, sources), sources, THUMB_PIXELS, FIDELITY_TOLERANCE)
+  assert.ok(leftover.problems.some((problem) => problem.includes('c13#35')))
+  assert.ok(checkFrameOverrides(ALL_OVERRIDES, renderThumbs(locked, sources), sources, THUMB_PIXELS, FIDELITY_TOLERANCE).some((check) => check.problems.some((problem) => problem.includes('still the original'))))
+  // A cover that is shifted by one frame (the timeline moved after it) fails.
+  const shifted = Uint8Array.from(output)
+  shifted.copyWithin(1800 * THUMB_PIXELS, 1801 * THUMB_PIXELS, 3456 * THUMB_PIXELS)
+  assert.ok(checkTimelineFidelity(declared, shifted, sources, THUMB_PIXELS, FIDELITY_TOLERANCE).problems.length > 0)
+})
+
+test('the interval overrides are assembly-only: renderer-free modules, no game footage rendered', () => {
+  const cli = code('ci/assembleFinalReel.mjs')
+  assert.match(cli, /\bRELEASE_INTERVAL_OVERRIDES,[\s\S]*?\} from '\.\/assembly\.ts'/)
+  assert.match(cli, /reelFilterGraph\(edit, reelPlan, \{[^}]*covers[^}]*\}, frameOverrides\)/)
+  assert.match(cli, /renderedFramesThisRun: 0,/)
+  for (const file of importGraph().keys()) assert.ok(ALLOWED_MODULES.has(file), file)
+  assert.ok(!RENDERER_TOKENS.test(JSON.stringify(RELEASE_INTERVAL_OVERRIDES)))
+  // The edit itself is untouched: the covers live in the release override definition.
+  assert.equal(EDIT.timeline.find((item) => item.id === 'c14')!.destInMs, 29400)
+  assert.equal(EDIT.timeline.find((item) => item.id === 'c18')!.destInMs, 34800)
 })
