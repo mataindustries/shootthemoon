@@ -6,9 +6,12 @@
  * real CLI assembles and verifies all five deliverables, and that it stops
  * before assembling anything when a locked clip is missing. A second run
  * stands in for the pinned render run #6 (its SHA, source-run record and
- * c03 artifact) with a planted one-frame defect at c03#36: the declared
- * release frame override must repair exactly that reel frame, the approved
- * end card must fill its slot, and run #6's SHA without --source must STOP.
+ * c03/c13/c14/c17/c18 artifacts) with a planted one-frame defect at c03#36
+ * and pillarboxed portrait stand-ins for c14/c18: the declared release
+ * overrides must repair exactly reel frame 468 and cover exactly the two
+ * portrait intervals with their adjacent 16:9 frames (nothing else moves),
+ * the approved end card must fill its slot, and run #6's SHA without
+ * --source must STOP.
  *
  * Slow (a full 57.6s 1080p60 encode) and needs ffmpeg, so opt-in:
  *   ASSEMBLY_E2E=1 node --experimental-strip-types --experimental-transform-types \
@@ -24,7 +27,7 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import type { FinalEdit } from '../finalEdit.ts'
-import { DELIVERABLE_METADATA, DELIVERABLES, lockedShotClips, RELEASE_FRAME_OVERRIDES, type ReleasePin } from './assembly.ts'
+import { DELIVERABLE_METADATA, DELIVERABLES, lockedShotClips, RELEASE_FRAME_OVERRIDES, RELEASE_INTERVAL_OVERRIDES, type ReleasePin } from './assembly.ts'
 import { CLIP_METADATA_SCHEMA } from './reelCi.ts'
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -55,7 +58,9 @@ function synthesizeRun(root: string, sha: string, options: SynthesisOptions = {}
     // A moving test pattern, offset in brightness per clip so every cut is visible.
     const brightness = (((index % 9) - 4) * 0.04).toFixed(2)
     const defects = (options.defects ?? []).filter((defect) => defect.clipId === clip.id)
-    const planted = defects.map((defect) => `,drawbox=x=0:y=0:w=iw:h=ih:color=white@0.6:t=fill:enable='eq(n,${defect.frame})'`).join('')
+    // The portrait stand-ins are pillarboxed like the real c14/c18: black bars either side of a ~500px picture.
+    const pillarbox = clip.framing === 'pillarbox-portrait' ? ',drawbox=x=0:y=0:w=710:h=ih:color=black:t=fill,drawbox=x=1210:y=0:w=iw-1210:h=ih:color=black:t=fill' : ''
+    const planted = pillarbox + defects.map((defect) => `,drawbox=x=0:y=0:w=iw:h=ih:color=white@0.6:t=fill:enable='eq(n,${defect.frame})'`).join('')
     execFileSync('ffmpeg', [
       '-hide_banner', '-nostdin', '-y', '-loglevel', 'error',
       '-f', 'lavfi', '-i', `testsrc2=s=${EDIT.output.width}x${EDIT.output.height}:r=${EDIT.output.fps},eq=brightness=${brightness}${planted},format=yuv444p`,
@@ -158,6 +163,7 @@ test('synthetic stand-in for run #6: the declared override repairs exactly reel 
     // CLI's edit check passes (needs that commit in the local history).
     const sha = PIN.headSha
     const artifactDirs = new Map([[override.original.clipId, override.source.artifact]])
+    for (const interval of RELEASE_INTERVAL_OVERRIDES) for (const id of [interval.original.clipId, interval.hold.clipId]) artifactDirs.set(id, interval.source.artifact)
     synthesizeRun(path.join(root, 'run'), sha, { artifactDirs, defects: [override.original] })
     // The record capture/ci/sourceRun.mjs writes after validating the run
     // against the pin and digest-checking every artifact zip.
@@ -180,10 +186,15 @@ test('synthetic stand-in for run #6: the declared override repairs exactly reel 
     process.stdout.write(result.stdout)
     assert.equal(result.status, 0, result.stderr)
     assert.match(result.stdout, /frame override: reel frame 468 \(7\.800s\) c03#36 -> c03#37 — one-frame enemy-base scale\/camera defect/)
+    assert.match(result.stdout, /interval override: reel frames 1764-1799 \(29\.400-30\.000s, 36 frames\) c14#0-35 -> c13#35 held/)
+    assert.match(result.stdout, /interval override: reel frames 2088-2159 \(34\.800-36\.000s, 72 frames\) c18#0-71 -> c17#71 held/)
     const manifest = JSON.parse(readFileSync(path.join(out, 'manifest.json'), 'utf8'))
     assert.equal(manifest.verified, true)
     assert.equal(manifest.renderedFramesThisRun, 0)
-    assert.deepEqual(manifest.reel.framesDifferingFromLockedPlan, [468])
+    assert.deepEqual(manifest.reel.framesDifferingFromLockedPlan, [468, ...Array.from({ length: 36 }, (_, index) => 1764 + index), ...Array.from({ length: 72 }, (_, index) => 2088 + index)])
+    assert.equal(manifest.reel.portraitFramesRemaining, 0)
+    assert.equal(manifest.reel.intervalOverrides.length, 2)
+    assert.deepEqual(manifest.reel.intervalOverrides.map((interval: { reelFrames: unknown }) => interval.reelFrames), [{ first: 1764, last: 1799, count: 36 }, { first: 2088, last: 2159, count: 72 }])
     assert.equal(manifest.reel.frameOverrides.length, 1)
     assert.equal(manifest.reel.frameOverrides[0].reelFrame, 468)
     assert.equal(manifest.reel.endCard.file, path.basename(END_CARD))
@@ -191,7 +202,8 @@ test('synthetic stand-in for run #6: the declared override repairs exactly reel 
     const reel = manifest.outputs.find((output: { file: string }) => output.file === DELIVERABLES.reel)
     assert.equal(reel.frames, 3456)
     assert.equal(reel.durationSec, 57.6)
-    assert.deepEqual(reel.frameOverrideChecks[0].problems, [])
+    assert.equal(reel.frameOverrideChecks.length, 109)
+    assert.deepEqual(reel.frameOverrideChecks.flatMap((check: { problems: string[] }) => check.problems), [])
 
     // Independently of the CLI: reel frame 468 is c03#37, not the planted
     // defect c03#36; its neighbours are untouched and nothing shifted.
@@ -202,6 +214,28 @@ test('synthetic stand-in for run #6: the declared override repairs exactly reel 
     assert.ok(frameDiff(reelFile, 467, c03, 35) < 3)
     assert.ok(frameDiff(reelFile, 469, c03, 37) < 3)
     assert.ok(frameDiff(reelFile, 500, c03, 68) < 3)
+    // The two portrait intervals show the adjacent 16:9 clip's frame, never the
+    // pillarboxed clip; the frames either side and after are the locked ones.
+    const clipFile = (artifact: string, id: string) => {
+      const clip = lockedShotClips(EDIT).find((entry) => entry.id === id)!
+      return path.join(root, 'run', artifact, `${id}__${clip.shotId}`, `${id}__${clip.shotId}.mp4`)
+    }
+    const [c13, c14, c15, c17, c18, c19] = [
+      clipFile('render-act4-counterstrike', 'c13'), clipFile('render-act4-counterstrike', 'c14'), clipFile('render-c15', 'c15'),
+      clipFile('render-act5-divider', 'c17'), clipFile('render-act5-divider', 'c18'), clipFile('render-c19', 'c19'),
+    ] as const
+    for (const frame of [1764, 1780, 1799]) {
+      assert.ok(frameDiff(reelFile, frame, c13, 35) < 3, `reel ${frame} is c13#35`)
+      assert.ok(frameDiff(reelFile, frame, c14, frame - 1764) > 10, `reel ${frame} is not the portrait c14`)
+    }
+    for (const frame of [2088, 2120, 2159]) {
+      assert.ok(frameDiff(reelFile, frame, c17, 71) < 3, `reel ${frame} is c17#71`)
+      assert.ok(frameDiff(reelFile, frame, c18, frame - 2088) > 10, `reel ${frame} is not the portrait c18`)
+    }
+    assert.ok(frameDiff(reelFile, 1763, c13, 35) < 3)
+    assert.ok(frameDiff(reelFile, 1800, c15, 0) < 3) // c15 starts exactly where it did
+    assert.ok(frameDiff(reelFile, 2087, c17, 71) < 3) // c17 still ends on its last frame
+    assert.ok(frameDiff(reelFile, 2160, c19, 0) < 3) // c19 starts exactly where it did
     // The end card holds its locked slot (after the dip from black).
     assert.ok(frameDiff(reelFile, 3455, END_CARD, 0) < 3)
   } finally {
