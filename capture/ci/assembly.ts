@@ -598,18 +598,23 @@ export const RELEASE_INTERVAL_OVERRIDES: readonly ReleaseIntervalOverride[] = [
     source: { ...RUN6_FOOTAGE, artifact: 'render-act2-rival-c03', artifactDigest: 'sha256:90d96a7aebbcd2e312897d22e3b0f9e4a306ef9b41ebeacb373cc1a8323c3a15' },
     // 7.200-9.600s. c03 (vesper-citadel-reveal) slows ~0.65s of live source
     // motion to 2.4s, which exaggerates the Citadel model's temporal flicker.
-    // PROVISIONAL FRAME — replaced after the Run #6 c03 frames are inspected.
+    // Held on c03#143 (reel frame 575, 9.583s in the unheld reel): the fully
+    // formed Vesper Citadel, clean, with no unwanted beam or flicker. All 144
+    // frames are replaced, the first 18 (the locked dip-black fade-in) too:
+    // c02 fades down to near-black and the reel hard-cuts at 7.2s to this
+    // full-brightness portrait — intentional, no moving c03 frame is kept.
     reelFrame: 432,
     frames: 144,
     original: { clipId: 'c03', frame: 0 },
     hold: { clipId: 'c03', frame: 143 },
-    reason: 'the slowed Citadel reveal flickers/shimmers; one stable frame of the mature Citadel is held as an intentional portrait',
+    reason: 'the slowed Citadel reveal flickers/shimmers; c03#143, the fully formed Citadel with no beam or flicker, is held as an intentional portrait, hard-cut in from c02\'s fade-down',
   },
   {
     source: { ...RUN6_FOOTAGE, artifact: 'render-act2-rival-c04', artifactDigest: 'sha256:73d7653ad9b13926e9c7db2a9353e3b9cc759f452eeb1d097be06ab0e02474dd' },
-    // 9.600-12.000s. c04 (vesper-transmission): the completed transmission
-    // card over a stable Citadel, held, after a hard cut from c03's portrait.
-    // PROVISIONAL FRAME — replaced after the Run #6 c04 frames are inspected.
+    // 9.600-12.000s. c04 (vesper-transmission), held on c04#143 (reel frame
+    // 719, 11.983s in the unheld reel): the Vesper transmission card fully
+    // rendered and readable over a stable Citadel, no model flicker — a hard
+    // cut from c03's portrait.
     reelFrame: 576,
     frames: 144,
     original: { clipId: 'c04', frame: 0 },

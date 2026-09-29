@@ -594,15 +594,20 @@ own footage:
 
 | reel frames | time | clip | held frame | note |
 |---|---|---|---|---|
-| 432-575 (144) | 7.200-9.600s | c03 vesper-citadel-reveal | c03#143 | the mature Citadel — an intentional portrait |
-| 576-719 (144) | 9.600-12.000s | c04 vesper-transmission | c04#143 | the completed transmission card — a hard cut from the c03 portrait |
+| 432-575 (144) | 7.200-9.600s | c03 vesper-citadel-reveal | c03#143 (unheld reel frame 575, 9.583s) | the fully formed Vesper Citadel, clean, no beam/flicker — an intentional portrait |
+| 576-719 (144) | 9.600-12.000s | c04 vesper-transmission | c04#143 (unheld reel frame 719, 11.983s) | the Vesper transmission card fully rendered and readable over a stable Citadel — a hard cut from the c03 portrait |
+
+The frames were chosen by inspecting the reel's own footage, not by rule; both
+are the last frame of their clip.
 
 A hold covers a `full-16x9` clip with a frame of that same clip (any frame of
 it, not an adjacent one). It replaces the clip's own transition frames too:
 c03's first 18 frames were the locked dip-black fade-in from c02, which the
-hold replaces with the held frame at full level — c02's own dip to black and
-every other transition are untouched (c04 has none, and c03 -> c04 is a hard
-cut in the locked plan).
+hold replaces with the held frame at full level. That is intentional: c02
+still fades down to near-black, then the reel hard-cuts at 7.2s to the clean,
+full-brightness Citadel — no moving c03 frame is kept to preserve the old
+fade-in. c02's own dip-out and every other transition are untouched (c04 has
+none, and c03 -> c04 is a hard cut in the locked plan).
 
 Because the held frame is a frame of the clip itself, the reel frame that
 already showed it is a no-op, and frames beside it look like it. The

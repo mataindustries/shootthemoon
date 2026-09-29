@@ -748,7 +748,7 @@ test('the two Citadel clips are declared as holds: c03 at 7.200-9.600s and c04 a
     assert.equal(interval.source.artifactDigest, PIN.artifacts.find((artifact) => artifact.name === interval.source.artifact)!.digest)
   }
   assert.deepEqual([C03_HOLD.source.artifact, C04_HOLD.source.artifact], ['render-act2-rival-c03', 'render-act2-rival-c04'])
-  // The exact frames selected from the inspected run #6 footage (recorded in the PR).
+  // The frames chosen by inspecting the reel's own footage: c03#143 (reel frame 575, 9.583s unheld) and c04#143 (reel frame 719, 11.983s unheld).
   assert.deepEqual({ c03: C03_HOLD.hold.frame, c04: C04_HOLD.hold.frame }, { c03: 143, c04: 143 })
   // c03 is held on a frame other than the defective c03#36 that the retired frame-468 override repaired.
   assert.notEqual(C03_HOLD.hold.frame, 36)
@@ -815,6 +815,10 @@ test('the holds and covers change exactly the declared frames: 3,456 frames / 57
   const changed = changedFrames(locked, repaired)
   const unchangedHolds = [432 + x, 576 + y].filter((frame) => locked[frame]!.fade === null)
   assert.deepEqual(unchangedHolds, [432 + x, 576 + y]) // both are mature-state frames, outside the 18-frame fade-in
+  // The chosen frames are the last frame of each clip: what the unheld reel showed at 575 (9.583s) and 719 (11.983s).
+  assert.deepEqual([x, y, 432 + x, 576 + y], [143, 143, 575, 719])
+  assert.deepEqual([locked[575], locked[719]], [{ segment: 'c03', frame: 143, fade: null }, { segment: 'c04', frame: 143, fade: null }])
+  assert.deepEqual([575 / EDIT.output.fps, 719 / EDIT.output.fps].map((seconds) => Math.round(seconds * 1000) / 1000), [9.583, 11.983])
   assert.deepEqual(changed, [...range(432, 144), ...range(576, 144), ...range(1764, 36), ...range(2088, 72)].filter((frame) => !unchangedHolds.includes(frame)))
   assert.deepEqual(changed, declaredChangedFrames(locked, ALL_OVERRIDES))
   // The retired frame-468 repair: frame 468 is now the held frame, and no reel frame shows the defective c03#36.
