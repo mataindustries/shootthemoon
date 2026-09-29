@@ -6,12 +6,14 @@
  * real CLI assembles and verifies all five deliverables, and that it stops
  * before assembling anything when a locked clip is missing. A second run
  * stands in for the pinned render run #6 (its SHA, source-run record and
- * c03/c13/c14/c17/c18 artifacts) with a planted one-frame defect at c03#36
- * and pillarboxed portrait stand-ins for c14/c18: the declared release
- * overrides must repair exactly reel frame 468 and cover exactly the two
- * portrait intervals with their adjacent 16:9 frames (nothing else moves),
- * the approved end card must fill its slot, and run #6's SHA without
- * --source must STOP.
+ * c03/c04/c13/c14/c17/c18 artifacts) with planted flicker in c03 and c04
+ * (including the retired frame-468 defect at c03#36) and pillarboxed portrait
+ * stand-ins for c14/c18: the declared release intervals must hold c03 and c04
+ * each on one of their own frames for their whole 144 frames (the planted
+ * flicker never shown, the retired frame-468 override audited but not
+ * applied) and cover exactly the two portrait intervals with their adjacent
+ * 16:9 frames (nothing else moves), the approved end card must fill its slot,
+ * and run #6's SHA without --source must STOP.
  *
  * Slow (a full 57.6s 1080p60 encode) and needs ffmpeg, so opt-in:
  *   ASSEMBLY_E2E=1 node --experimental-strip-types --experimental-transform-types \
@@ -27,7 +29,7 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import type { FinalEdit } from '../finalEdit.ts'
-import { DELIVERABLE_METADATA, DELIVERABLES, lockedShotClips, RELEASE_FRAME_OVERRIDES, RELEASE_INTERVAL_OVERRIDES, type ReleasePin } from './assembly.ts'
+import { DELIVERABLE_METADATA, DELIVERABLES, lockedShotClips, RELEASE_FRAME_OVERRIDES, RELEASE_INTERVAL_OVERRIDES, SUPERSEDED_FRAME_OVERRIDES, type ReleasePin } from './assembly.ts'
 import { CLIP_METADATA_SCHEMA } from './reelCi.ts'
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -154,23 +156,28 @@ test('synthetic intermediates assemble into the five verified deliverables', { s
   }
 })
 
-test('synthetic stand-in for run #6: the declared override repairs exactly reel frame 468, the end card fills its slot', { skip: !enabled && 'set ASSEMBLY_E2E=1 (needs ffmpeg; several minutes)', timeout: 30 * 60_000 }, () => {
-  const [override] = RELEASE_FRAME_OVERRIDES
-  assert.ok(override !== undefined)
+test('synthetic stand-in for run #6: c03 and c04 are held, the portrait inserts covered, the retired frame-468 override audited, the end card fills its slot', { skip: !enabled && 'set ASSEMBLY_E2E=1 (needs ffmpeg; several minutes)', timeout: 30 * 60_000 }, () => {
+  const [retired] = SUPERSEDED_FRAME_OVERRIDES
+  assert.ok(retired !== undefined)
+  assert.deepEqual(RELEASE_FRAME_OVERRIDES, []) // no single-frame override is in force
+  const hold = (id: string) => RELEASE_INTERVAL_OVERRIDES.find((interval) => interval.original.clipId === id)!
+  const [c03Hold, c04Hold] = [hold('c03'), hold('c04')]
   const root = mkdtempSync(path.join(os.tmpdir(), 'reel-assembly-run6-'))
   try {
     // Run #6's SHA: its capture/finalEdit.json is the locked edit, so the
     // CLI's edit check passes (needs that commit in the local history).
     const sha = PIN.headSha
-    const artifactDirs = new Map([[override.original.clipId, override.source.artifact]])
+    const artifactDirs = new Map<string, string>()
     for (const interval of RELEASE_INTERVAL_OVERRIDES) for (const id of [interval.original.clipId, interval.hold.clipId]) artifactDirs.set(id, interval.source.artifact)
-    synthesizeRun(path.join(root, 'run'), sha, { artifactDirs, defects: [override.original] })
+    // Planted flicker: the retired frame-468 defect and more, all in frames the holds do not hold.
+    const flicker = [retired.override.original, { clipId: 'c03', frame: 100 }, { clipId: 'c04', frame: 20 }, { clipId: 'c04', frame: 130 }].filter((defect) => !(defect.clipId === 'c03' && defect.frame === c03Hold.hold.frame) && !(defect.clipId === 'c04' && defect.frame === c04Hold.hold.frame))
+    synthesizeRun(path.join(root, 'run'), sha, { artifactDirs, defects: flicker })
     // The record capture/ci/sourceRun.mjs writes after validating the run
     // against the pin and digest-checking every artifact zip.
     const sourceRun = path.join(root, 'source-run.json')
     writeFileSync(sourceRun, JSON.stringify({ schema: 'shootthemoon.reel-source-run/1', runId: PIN.runId, runNumber: PIN.runNumber, headSha: sha, artifacts: PIN.artifacts.map(({ name, digest }) => ({ name, digest })) }))
 
-    // Run #6's SHA without its source record: the declared repair cannot
+    // Run #6's SHA without its source record: the declared overrides cannot
     // be confirmed, so assembly stops (it never ships the defect silently).
     const unbound = assemble(root, sha, path.join(root, 'deliverables-unbound'))
     assert.equal(unbound.status, 1)
@@ -185,41 +192,69 @@ test('synthetic stand-in for run #6: the declared override repairs exactly reel 
     )
     process.stdout.write(result.stdout)
     assert.equal(result.status, 0, result.stderr)
-    assert.match(result.stdout, /frame override: reel frame 468 \(7\.800s\) c03#36 -> c03#37 — one-frame enemy-base scale\/camera defect/)
+    const [x, y] = [c03Hold.hold.frame, c04Hold.hold.frame]
+    assert.match(result.stdout, new RegExp(`interval override: reel frames 432-575 \\(7\\.200-9\\.600s, 144 frames\\) c03#0-143 -> c03#${x} held`))
+    assert.match(result.stdout, new RegExp(`interval override: reel frames 576-719 \\(9\\.600-12\\.000s, 144 frames\\) c04#0-143 -> c04#${y} held`))
     assert.match(result.stdout, /interval override: reel frames 1764-1799 \(29\.400-30\.000s, 36 frames\) c14#0-35 -> c13#35 held/)
     assert.match(result.stdout, /interval override: reel frames 2088-2159 \(34\.800-36\.000s, 72 frames\) c18#0-71 -> c17#71 held/)
+    assert.match(result.stdout, /replaces 18 frame\(s\) of the locked black transition into c03/)
+    assert.match(result.stdout, /frame override superseded: reel frame 468 \(7\.800s\) c03#36 -> c03#37 is retired, not applied; interval override reel frames 432-575 replaces it/)
+    assert.match(result.stdout, /held interval @ 432-575: 144 frames/)
+    assert.match(result.stdout, /held interval @ 576-719: 144 frames/)
     const manifest = JSON.parse(readFileSync(path.join(out, 'manifest.json'), 'utf8'))
     assert.equal(manifest.verified, true)
     assert.equal(manifest.renderedFramesThisRun, 0)
-    assert.deepEqual(manifest.reel.framesDifferingFromLockedPlan, [468, ...Array.from({ length: 36 }, (_, index) => 1764 + index), ...Array.from({ length: 72 }, (_, index) => 2088 + index)])
+    const range = (from: number, count: number) => Array.from({ length: count }, (_, index) => from + index)
+    // Everything declared changes, except the frame where the locked plan already shows the held frame.
+    const declared = [...range(432, 144), ...range(576, 144), ...range(1764, 36), ...range(2088, 72)].filter((frame) => frame !== 432 + x && frame !== 576 + y)
+    assert.deepEqual(manifest.reel.framesDifferingFromLockedPlan, declared)
     assert.equal(manifest.reel.portraitFramesRemaining, 0)
-    assert.equal(manifest.reel.intervalOverrides.length, 2)
-    assert.deepEqual(manifest.reel.intervalOverrides.map((interval: { reelFrames: unknown }) => interval.reelFrames), [{ first: 1764, last: 1799, count: 36 }, { first: 2088, last: 2159, count: 72 }])
-    assert.equal(manifest.reel.frameOverrides.length, 1)
-    assert.equal(manifest.reel.frameOverrides[0].reelFrame, 468)
+    assert.equal(manifest.reel.intervalOverrides.length, 4)
+    assert.deepEqual(manifest.reel.intervalOverrides.map((interval: { kind: string; reelFrames: unknown }) => [interval.kind, interval.reelFrames]), [
+      ['hold', { first: 432, last: 575, count: 144 }],
+      ['hold', { first: 576, last: 719, count: 144 }],
+      ['cover', { first: 1764, last: 1799, count: 36 }],
+      ['cover', { first: 2088, last: 2159, count: 72 }],
+    ])
+    assert.deepEqual(manifest.reel.intervalOverrides.map((interval: { lockedTransitionFramesReplaced: unknown }) => interval.lockedTransitionFramesReplaced), [{ count: 18, color: 'black' }, { count: 0, color: null }, { count: 0, color: null }, { count: 0, color: null }])
+    for (const interval of manifest.reel.intervalOverrides.slice(0, 2)) {
+      assert.equal(interval.held.maxLevelsFromFirstFrame < 0.5, true, JSON.stringify(interval.held))
+      assert.equal(interval.held.firstFrameLevelsFromHeldSource < 2, true, JSON.stringify(interval.held))
+      assert.ok(interval.held.replacedSourceLevelsFromHeld.max > 2) // the unheld footage did move
+    }
+    assert.equal(manifest.reel.frameOverrides.length, 0)
+    assert.equal(manifest.reel.supersededFrameOverrides.length, 1)
+    assert.deepEqual(
+      { applied: manifest.reel.supersededFrameOverrides[0].applied, reelFrame: manifest.reel.supersededFrameOverrides[0].reelFrame, reelFrames: manifest.reel.supersededFrameOverrides[0].supersededBy.reelFrames },
+      { applied: false, reelFrame: 468, reelFrames: { first: 432, last: 575 } },
+    )
     assert.equal(manifest.reel.endCard.file, path.basename(END_CARD))
     assert.equal(manifest.reel.endCard.slot.frames, 288)
     const reel = manifest.outputs.find((output: { file: string }) => output.file === DELIVERABLES.reel)
     assert.equal(reel.frames, 3456)
     assert.equal(reel.durationSec, 57.6)
-    assert.equal(reel.frameOverrideChecks.length, 109)
+    assert.equal(reel.audioStreams, 0)
+    assert.equal(reel.width, 1920)
+    assert.equal(reel.height, 1080)
+    assert.equal(reel.fps, 60)
+    assert.equal(reel.frameOverrideChecks.length, 144 + 144 + 36 + 72)
     assert.deepEqual(reel.frameOverrideChecks.flatMap((check: { problems: string[] }) => check.problems), [])
 
-    // Independently of the CLI: reel frame 468 is c03#37, not the planted
-    // defect c03#36; its neighbours are untouched and nothing shifted.
-    const c03 = path.join(root, 'run', override.source.artifact, 'c03__vesper-citadel-reveal', 'c03__vesper-citadel-reveal.mp4')
-    const reelFile = path.join(out, DELIVERABLES.reel)
-    assert.ok(frameDiff(reelFile, 468, c03, 37) < 3)
-    assert.ok(frameDiff(reelFile, 468, c03, 36) > 10)
-    assert.ok(frameDiff(reelFile, 467, c03, 35) < 3)
-    assert.ok(frameDiff(reelFile, 469, c03, 37) < 3)
-    assert.ok(frameDiff(reelFile, 500, c03, 68) < 3)
-    // The two portrait intervals show the adjacent 16:9 clip's frame, never the
-    // pillarboxed clip; the frames either side and after are the locked ones.
+    // Independently of the CLI: c03 and c04 are each one held frame, the planted
+    // flicker (incl. the retired c03#36 defect) is never shown, and nothing shifted.
     const clipFile = (artifact: string, id: string) => {
       const clip = lockedShotClips(EDIT).find((entry) => entry.id === id)!
       return path.join(root, 'run', artifact, `${id}__${clip.shotId}`, `${id}__${clip.shotId}.mp4`)
     }
+    const reelFile = path.join(out, DELIVERABLES.reel)
+    const [c03, c04] = [clipFile(c03Hold.source.artifact, 'c03'), clipFile(c04Hold.source.artifact, 'c04')]
+    for (const frame of [432, 440, 449, 468, 500, 575]) assert.ok(frameDiff(reelFile, frame, c03, x) < 3, `reel ${frame} is c03#${x}`)
+    for (const frame of [576, 600, 650, 719]) assert.ok(frameDiff(reelFile, frame, c04, y) < 3, `reel ${frame} is c04#${y}`)
+    assert.ok(frameDiff(reelFile, 468, c03, 36) > 10) // the defective source frame is never shown
+    assert.ok(frameDiff(reelFile, 468, reelFile, 467) < 0.5 && frameDiff(reelFile, 500, reelFile, 431 + 30) < 0.5) // one stable picture
+    assert.ok(frameDiff(reelFile, 432, reelFile, 575) < 0.5 && frameDiff(reelFile, 576, reelFile, 719) < 0.5)
+    // The portrait intervals show the adjacent 16:9 clip's frame, never the
+    // pillarboxed clip; the frames either side and after are the locked ones.
     const [c13, c14, c15, c17, c18, c19] = [
       clipFile('render-act4-counterstrike', 'c13'), clipFile('render-act4-counterstrike', 'c14'), clipFile('render-c15', 'c15'),
       clipFile('render-act5-divider', 'c17'), clipFile('render-act5-divider', 'c18'), clipFile('render-c19', 'c19'),
@@ -232,6 +267,7 @@ test('synthetic stand-in for run #6: the declared override repairs exactly reel 
       assert.ok(frameDiff(reelFile, frame, c17, 71) < 3, `reel ${frame} is c17#71`)
       assert.ok(frameDiff(reelFile, frame, c18, frame - 2088) > 10, `reel ${frame} is not the portrait c18`)
     }
+    assert.ok(frameDiff(reelFile, 720, clipFile('render-c05', 'c05'), 0) < 3) // c05 starts exactly where it did
     assert.ok(frameDiff(reelFile, 1763, c13, 35) < 3)
     assert.ok(frameDiff(reelFile, 1800, c15, 0) < 3) // c15 starts exactly where it did
     assert.ok(frameDiff(reelFile, 2087, c17, 71) < 3) // c17 still ends on its last frame
