@@ -18,10 +18,12 @@
  *                  derivatives.heroReel encode (+ the final mix via --audio),
  *                  and the declared RELEASE_FRAME_OVERRIDES /
  *                  RELEASE_INTERVAL_OVERRIDES for this footage (one-frame
- *                  repairs, and whole portrait inserts covered frame for
- *                  frame by an adjacent 16:9 frame; bound to the source run,
- *                  validated against the locked plan, never rendered or
- *                  interpolated)
+ *                  repairs; whole portrait inserts covered frame for frame by
+ *                  an adjacent 16:9 frame; whole 16:9 clips held on one of
+ *                  their own verified frames; bound to the source run,
+ *                  validated against the locked plan, never rendered,
+ *                  smoothed or interpolated) — a retired override is
+ *                  validated and reported (SUPERSEDED_FRAME_OVERRIDES)
  *   3. loop      — derivatives.loop's clips, silent, at its fps, 1280x720
  *   4. stills    — derivatives.poster's frame (from its verified clip) as
  *                  1280 JPEG + WebP, and its 1200x630 social crop
@@ -29,7 +31,8 @@
  *                  fidelity of reel and loop against their planned sources
  *                  (the reel's plan differs from the locked one in exactly
  *                  the declared override frames, each checked to hold its
- *                  replacement), exact deliverable names; manifest.json +
+ *                  replacement; every held interval measured to be one
+ *                  stable picture), exact deliverable names; manifest.json +
  *                  SHA256SUMS
  *
  * Usage:
@@ -47,14 +50,18 @@ import {
   changedFrames,
   checkDeliverableNames,
   checkFrameOverrides,
+  checkHeldInterval,
   checkImageOutput,
   checkIntermediate,
   checkTimelineFidelity,
   checkVideoOutput,
+  declaredChangedFrames,
   DELIVERABLES,
   describeClipFrame,
   expandIntervalOverrides,
   expectedFrames,
+  HELD_SCALE,
+  intervalKind,
   intervalsForSource,
   loopFilterGraph,
   loopMaxBytes,
@@ -75,8 +82,10 @@ import {
   SCALE_FLAGS,
   selectPosterFrame,
   socialCrop,
+  SUPERSEDED_FRAME_OVERRIDES,
   validateFrameOverrides,
   validateIntervalOverrides,
+  validateSupersededOverrides,
   verifyAssemblyInputs,
   aacArgs,
   x264Args,
@@ -224,21 +233,42 @@ async function main() {
   if (overrideProblems.length > 0) stop('release frame overrides', overrideProblems)
   const lockedReelFrames = expectedFrames(reelPlan)
   const reelFrames = applyFrameOverrides(lockedReelFrames, frameOverrides)
+  // A hold's no-op frame (already the held frame in the locked plan) changes
+  // nothing, so the plan must differ from the locked one in exactly the
+  // declared frames that change.
   const overriddenFrames = changedFrames(lockedReelFrames, reelFrames)
-  if (overriddenFrames.join(',') !== frameOverrides.map((override) => override.reelFrame).join(',')) {
-    stop('release frame overrides', [`plan differs from the locked plan at ${overriddenFrames.length} frames, declared ${frameOverrides.length}`])
+  const declaredChanged = declaredChangedFrames(lockedReelFrames, frameOverrides)
+  if (overriddenFrames.join(',') !== declaredChanged.join(',')) {
+    stop('release frame overrides', [`plan differs from the locked plan at ${overriddenFrames.length} frames, declared ${declaredChanged.length} changing frames`])
   }
+  // A retired one-frame override must have nothing left to do: its reel frame
+  // lies inside the interval that replaced it and it is no longer declared.
+  const superseded = SUPERSEDED_FRAME_OVERRIDES.filter((entry) => entry.override.source.headSha === sha)
+  const supersededProblems = validateSupersededOverrides(reelPlan, superseded, intervalOverrides, frameOverrides)
+  if (supersededProblems.length > 0) stop('superseded frame overrides', supersededProblems)
   // Where the release declares portrait covers, the reel stays 16:9 throughout.
   const portraitFrames = intervalOverrides.length > 0 ? portraitReelFrames(edit, reelFrames) : []
   if (portraitFrames.length > 0) stop('portrait frames remain in the reel', [`reel frames ${portraitFrames[0]}-${portraitFrames[portraitFrames.length - 1]} (${portraitFrames.length}) still show a pillarbox-portrait clip`])
   for (const { reelFrame, original, replacement, reason } of singleOverrides) {
     console.log(`frame override: reel frame ${reelFrame} (${(reelFrame / fps).toFixed(3)}s) ${original.clipId}#${original.frame} -> ${replacement.clipId}#${replacement.frame} — ${reason}`)
   }
-  for (const { reelFrame, frames, original, hold, reason } of intervalOverrides) {
+  for (const interval of intervalOverrides) {
+    const { reelFrame, frames, original, hold, reason } = interval
     const last = reelFrame + frames - 1
     console.log(
       `interval override: reel frames ${reelFrame}-${last} (${(reelFrame / fps).toFixed(3)}-${((last + 1) / fps).toFixed(3)}s, ${frames} frames) ` +
         `${original.clipId}#${original.frame}-${original.frame + frames - 1} -> ${hold.clipId}#${hold.frame} held — ${reason}`,
+    )
+    const transition = lockedReelFrames.slice(reelFrame, reelFrame + frames).filter((frame) => frame.fade !== null)
+    if (transition.length > 0) {
+      console.log(`  replaces ${transition.length} frame(s) of the locked ${transition[0].fade.color} transition into ${original.clipId} with the held frame at full level (the neighbouring clip's half of the transition is untouched)`)
+    }
+  }
+  for (const { override, supersededBy, why } of superseded) {
+    const { reelFrame, original, replacement } = override
+    console.log(
+      `frame override superseded: reel frame ${reelFrame} (${(reelFrame / fps).toFixed(3)}s) ${original.clipId}#${original.frame} -> ${replacement.clipId}#${replacement.frame} is retired, ` +
+        `not applied; interval override reel frames ${supersededBy.reelFrame}-${supersededBy.reelFrame + supersededBy.frames - 1} replaces it — ${why}`,
     )
   }
 
@@ -392,6 +422,27 @@ async function main() {
     return overrideChecks
   }
   const reelOverrideChecks = await verifyVideo(DELIVERABLES.reel, { width, height, fps, frames: reelPlan.frames, audio: heroAudio }, reelFrames, FIDELITY_TOLERANCE.reel, frameOverrides)
+
+  // A held interval must be ONE picture: measured at HELD_SCALE luma (finer
+  // than the 64x36 timeline thumbnails) on the finished reel, against the
+  // source frame it holds — and against the clip's own frames it replaced.
+  const heldPixels = HELD_SCALE.width * HELD_SCALE.height
+  const heldLuma = async (file, name, select) => {
+    const target = path.join(work, `${name}.y8`)
+    await ffmpeg(['-i', file, '-map', '0:v:0', '-vf', `${select},extractplanes=y,scale=${HELD_SCALE.width}:${HELD_SCALE.height}:flags=area:in_range=tv:out_range=tv`, '-fps_mode', 'passthrough', '-f', 'rawvideo', '-pix_fmt', 'gray', target])
+    return new Uint8Array(await readFile(target))
+  }
+  const heldChecks = []
+  for (const interval of intervalOverrides.filter((entry) => intervalKind(entry) === 'hold')) {
+    const { reelFrame, frames, original, hold } = interval
+    const between = (from, count) => `select='between(n,${from},${from + count - 1})'`
+    const output = await heldLuma(outPath(DELIVERABLES.reel), `held-${original.clipId}-reel`, between(reelFrame, frames))
+    const heldSource = await heldLuma(clipPath(hold.clipId), `held-${hold.clipId}-source`, `select='eq(n,${hold.frame})'`)
+    const replaced = await heldLuma(clipPath(original.clipId), `held-${original.clipId}-replaced`, between(original.frame, frames))
+    const check = checkHeldInterval(interval, output, heldSource, replaced, heldPixels)
+    problems.push(...check.problems)
+    heldChecks.push(check)
+  }
   await verifyVideo(DELIVERABLES.loop, { width: LOOP_SIZE.width, height: LOOP_SIZE.height, fps: loopPlan.fps, frames: loopPlan.frames, audio: null }, expectedFrames(loopPlan.sequence, loopPlan.step), FIDELITY_TOLERANCE.loop)
   const loopBytes = outputs.find((output) => output.file === DELIVERABLES.loop).bytes
   if (loopBytes > loopMaxBytes(edit)) problems.push(`${DELIVERABLES.loop}: ${loopBytes} bytes, over the loop's ${loopMaxBytes(edit)} byte budget`)
@@ -443,7 +494,10 @@ async function main() {
       intervalOverrides: intervalOverrides.map((interval) => {
         const checks = reelOverrideChecks.filter((check) => check.reelFrame >= interval.reelFrame && check.reelFrame < interval.reelFrame + interval.frames)
         const last = interval.reelFrame + interval.frames - 1
+        const held = heldChecks.find((check) => check.reelFrame === interval.reelFrame)
+        const transition = lockedReelFrames.slice(interval.reelFrame, interval.reelFrame + interval.frames).filter((frame) => frame.fade !== null)
         return {
+          kind: intervalKind(interval),
           reelFrames: { first: interval.reelFrame, last, count: interval.frames },
           reelTimeSec: { start: interval.reelFrame / fps, end: (last + 1) / fps },
           original: { ...describeClipFrame(edit, interval.original), throughFrame: interval.original.frame + interval.frames - 1 },
@@ -451,9 +505,22 @@ async function main() {
           reason: interval.reason,
           source: interval.source,
           intermediates: { original: inputs.clipFiles.get(interval.original.clipId), replacement: inputs.clipFiles.get(interval.hold.clipId) },
+          lockedTransitionFramesReplaced: { count: transition.length, color: transition[0]?.fade?.color ?? null },
           check: { frames: checks.length, maxLevelsFromReplacement: Math.max(...checks.map((check) => check.toReplacement)), minLevelsFromOriginal: Math.min(...checks.map((check) => check.toOriginal)) },
+          ...(held === undefined ? {} : { held: { scale: `${HELD_SCALE.width}x${HELD_SCALE.height} luma`, maxLevelsFromFirstFrame: held.maxFromFirstFrame, firstFrameLevelsFromHeldSource: held.firstToHeldSource, replacedSourceLevelsFromHeld: held.sourceFromHeld } }),
         }
       }),
+      supersededFrameOverrides: superseded.map(({ override, supersededBy, why }) => ({
+        applied: false,
+        reelFrame: override.reelFrame,
+        reelTimeSec: override.reelFrame / fps,
+        original: describeClipFrame(edit, override.original),
+        replacement: describeClipFrame(edit, override.replacement),
+        reason: override.reason,
+        source: override.source,
+        supersededBy: { ...supersededBy, reelFrames: { first: supersededBy.reelFrame, last: supersededBy.reelFrame + supersededBy.frames - 1 } },
+        why,
+      })),
       portraitFramesRemaining: portraitReelFrames(edit, reelFrames).length,
       framesDifferingFromLockedPlan: overriddenFrames,
       audio: audio === null ? 'none — no final mix exists in the repo; finalEdit.json holds the cue map only. Pass --audio=<final mix> to mux it per derivatives.heroReel.audio' : path.basename(audio),
@@ -485,6 +552,12 @@ async function main() {
     console.log(`timeline fidelity ${output.file}: ${frames} frames, mean ${meanAbsDiff.toFixed(3)} / max ${maxAbsDiff.toFixed(3)} levels`)
     for (const check of (output.frameOverrideChecks ?? []).filter((entry) => singleOverrides.some((override) => override.reelFrame === entry.reelFrame))) {
       console.log(`  frame override @ ${check.reelFrame}: ${check.toReplacement.toFixed(3)} levels from its replacement, ${check.toOriginal.toFixed(3)} from the original${check.problems.length > 0 ? ' — FAILED' : ''}`)
+    }
+    for (const check of heldChecks.filter(() => output.file === DELIVERABLES.reel)) {
+      console.log(
+        `  held interval @ ${check.reelFrame}-${check.reelFrame + check.frames - 1}: ${check.frames} frames, max ${check.maxFromFirstFrame.toFixed(3)} levels from the first frame, ` +
+          `first frame ${check.firstToHeldSource.toFixed(3)} from its source frame (replaced source frames were up to ${check.sourceFromHeld.max.toFixed(3)}, mean ${check.sourceFromHeld.mean.toFixed(3)} levels from it)${check.problems.length > 0 ? ' — FAILED' : ''}`,
+      )
     }
     for (const interval of intervalOverrides.filter(() => output.file === DELIVERABLES.reel)) {
       const checks = (output.frameOverrideChecks ?? []).filter((entry) => entry.reelFrame >= interval.reelFrame && entry.reelFrame < interval.reelFrame + interval.frames)

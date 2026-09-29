@@ -13,9 +13,10 @@
  * list and fps, the poster instant and crop, and the hero/web encode
  * settings. Nothing here restates a timeline. The one exception is
  * RELEASE_FRAME_OVERRIDES and RELEASE_INTERVAL_OVERRIDES: declared, audited
- * repairs of a verified render run's footage (one defective frame; two
- * portrait inserts), bound to that run and checked against the locked plan
- * (see "Release frame overrides" below).
+ * repairs of a verified render run's footage (single defective frames; two
+ * portrait inserts covered by an adjacent frame; two unstable 16:9 clips held
+ * on one of their own frames), bound to that run and checked against the
+ * locked plan (see "Release frame overrides" below).
  *
  * No browser, no filesystem, no child processes — unit-tested in
  * capture/ci/assembly.test.ts.
@@ -495,61 +496,97 @@ export interface ReleaseFrameOverride {
   /** The verified neighbouring frame of the same clip shown instead. */
   readonly replacement: FrameRef
   readonly reason: string
-  /** Set on the per-frame records a ReleaseIntervalOverride expands to: the
-   * replacement is a frame of another (16:9) shot clip, not a neighbour. */
-  readonly cover?: true
+  /** Set on the per-frame records a ReleaseIntervalOverride expands to.
+   * 'cover': the replacement is a frame of another (16:9) shot clip, not a
+   * neighbour. 'hold': the replacement is one frame of the clip's own
+   * footage, held over every frame of the clip (its transition frames
+   * included). */
+  readonly interval?: 'cover' | 'hold'
 }
 
 /**
- * Every frame of the release reel that does NOT show what the locked plan
- * puts there. Each entry is a release-media repair of one defective source
- * frame, never an edit: the reel keeps its locked frame count and timing,
- * every other frame is untouched, nothing is rendered or interpolated, and
- * the replacement is the adjacent frame of the same verified clip. An entry
- * applies only to the footage it names (run, SHA and the pinned digest of
- * the artifact holding the clip); the verifier expects exactly these frames
- * to differ from the plan and still fails on any other difference.
+ * Every single frame of the release reel that does NOT show what the locked
+ * plan puts there. Each entry is a release-media repair of one defective
+ * source frame, never an edit: the reel keeps its locked frame count and
+ * timing, every other frame is untouched, nothing is rendered or
+ * interpolated, and the replacement is the adjacent frame of the same
+ * verified clip. An entry applies only to the footage it names (run, SHA and
+ * the pinned digest of the artifact holding the clip); the verifier expects
+ * exactly these frames to differ from the plan and still fails on any other
+ * difference.
+ *
+ * None is declared at present: the only one ever declared, the reel frame
+ * 468 repair, is retired (SUPERSEDED_FRAME_OVERRIDES) because the c03
+ * interval below now replaces every frame it repaired.
  */
-export const RELEASE_FRAME_OVERRIDES: readonly ReleaseFrameOverride[] = [
+export const RELEASE_FRAME_OVERRIDES: readonly ReleaseFrameOverride[] = []
+
+/** A retired one-frame override: kept, verbatim, as the audit record of a
+ * repair that a later interval override replaced. It is not applied; it is
+ * validated (validateSupersededOverrides) and reported in manifest.json. */
+export interface SupersededFrameOverride {
+  /** The retired declaration exactly as it was released. */
+  readonly override: ReleaseFrameOverride
+  /** The interval override whose reel frames now contain (and replace) it. */
+  readonly supersededBy: { readonly reelFrame: number; readonly frames: number }
+  readonly why: string
+}
+
+export const SUPERSEDED_FRAME_OVERRIDES: readonly SupersededFrameOverride[] = [
   {
-    source: {
-      runNumber: 6,
-      runId: 36346715980,
-      headSha: 'd3301b4f01c3a27a42525b0876f3039ea66c55d9',
-      artifact: 'render-act2-rival-c03',
-      artifactDigest: 'sha256:90d96a7aebbcd2e312897d22e3b0f9e4a306ef9b41ebeacb373cc1a8323c3a15',
+    override: {
+      source: {
+        runNumber: 6,
+        runId: 36346715980,
+        headSha: 'd3301b4f01c3a27a42525b0876f3039ea66c55d9',
+        artifact: 'render-act2-rival-c03',
+        artifactDigest: 'sha256:90d96a7aebbcd2e312897d22e3b0f9e4a306ef9b41ebeacb373cc1a8323c3a15',
+      },
+      // 7.800s, c03 vesper-citadel-reveal. Source frame 36 was captured with
+      // the scene drawn at ~5/6 size into the top-left of the frame (the base
+      // visibly shrinks for one frame); frames 35 and 37 are correct.
+      reelFrame: 468,
+      original: { clipId: 'c03', frame: 36 },
+      replacement: { clipId: 'c03', frame: 37 },
+      reason: 'one-frame enemy-base scale/camera defect',
     },
-    // 7.800s, c03 vesper-citadel-reveal. Source frame 36 was captured with
-    // the scene drawn at ~5/6 size into the top-left of the frame (the base
-    // visibly shrinks for one frame); frames 35 and 37 are correct.
-    reelFrame: 468,
-    original: { clipId: 'c03', frame: 36 },
-    replacement: { clipId: 'c03', frame: 37 },
-    reason: 'one-frame enemy-base scale/camera defect',
+    supersededBy: { reelFrame: 432, frames: 144 },
+    why:
+      'The c03 hold interval (reel frames 432-575) replaces every frame of c03 with one held Run #6 frame, so the defective c03#36 ' +
+      'is never shown any more and a c03#37 stand-in for it has nothing left to repair. Keeping both would declare reel frame 468 twice.',
   },
 ]
 
 /**
- * A whole portrait insert replaced by a horizontal frame, frame for frame.
- * The locked cut holds two real 390x844 phone-viewport stills (c14, c18) as
- * pillarboxed portrait clips inside the 16:9 reel, which breaks the aspect
- * ratio on mobile. Each interval covers exactly one portrait clip's reel
- * frames and shows one frame of the immediately adjacent 16:9 shot clip on
- * every one of them: the reel keeps its frame count and every other frame
- * keeps its position. It expands to ordinary per-frame overrides
- * (expandIntervalOverrides), so the plan check, the declared-frames check
- * and the frame-by-frame verification treat it exactly like any other
- * release override. Nothing is rendered, cropped, blurred or interpolated.
+ * A whole clip's reel frames replaced by one existing frame, held. It expands
+ * to ordinary per-frame overrides (expandIntervalOverrides), so the plan
+ * check, the declared-frames check and the frame-by-frame verification treat
+ * it exactly like any other release override. Nothing is rendered, cropped,
+ * blurred, smoothed or interpolated; the reel keeps its frame count and every
+ * frame outside the interval keeps its position. Two kinds, told apart by
+ * where the held frame comes from (intervalKind):
+ *
+ * - cover: a pillarbox-portrait insert. The locked cut holds two real 390x844
+ *   phone-viewport stills (c14, c18) as pillarboxed portrait clips inside the
+ *   16:9 reel, which breaks the aspect ratio on mobile. The interval covers
+ *   exactly one such clip and shows one frame of the immediately adjacent
+ *   full-16x9 shot clip on every frame.
+ * - hold: a 16:9 clip whose live footage is unstable (a model that flickers
+ *   under slow motion). The interval covers exactly one whole clip and shows
+ *   one verified frame of that same clip on every frame, replacing its own
+ *   transition frames too; the neighbouring clip's half of a shared
+ *   transition is untouched.
  */
 export interface ReleaseIntervalOverride {
   readonly source: OverrideSource
   /** First reel frame and the number of reel frames covered. */
   readonly reelFrame: number
   readonly frames: number
-  /** The portrait clip frame the locked plan puts on `reelFrame` (its
-   * first frame); the following reel frames show its following frames. */
+  /** The clip frame the locked plan puts on `reelFrame` (the clip's first
+   * frame); the following reel frames show its following frames. */
   readonly original: FrameRef
-  /** The verified frame of the neighbouring 16:9 clip held on every frame. */
+  /** The verified frame held on every frame: of the neighbouring 16:9 clip
+   * (cover) or of the same clip (hold). */
   readonly hold: FrameRef
   readonly reason: string
 }
@@ -557,6 +594,33 @@ export interface ReleaseIntervalOverride {
 const RUN6_FOOTAGE = { runNumber: 6, runId: 36346715980, headSha: 'd3301b4f01c3a27a42525b0876f3039ea66c55d9' } as const
 
 export const RELEASE_INTERVAL_OVERRIDES: readonly ReleaseIntervalOverride[] = [
+  {
+    source: { ...RUN6_FOOTAGE, artifact: 'render-act2-rival-c03', artifactDigest: 'sha256:90d96a7aebbcd2e312897d22e3b0f9e4a306ef9b41ebeacb373cc1a8323c3a15' },
+    // 7.200-9.600s. c03 (vesper-citadel-reveal) slows ~0.65s of live source
+    // motion to 2.4s, which exaggerates the Citadel model's temporal flicker.
+    // Held on c03#143 (reel frame 575, 9.583s in the unheld reel): the fully
+    // formed Vesper Citadel, clean, with no unwanted beam or flicker. All 144
+    // frames are replaced, the first 18 (the locked dip-black fade-in) too:
+    // c02 fades down to near-black and the reel hard-cuts at 7.2s to this
+    // full-brightness portrait — intentional, no moving c03 frame is kept.
+    reelFrame: 432,
+    frames: 144,
+    original: { clipId: 'c03', frame: 0 },
+    hold: { clipId: 'c03', frame: 143 },
+    reason: 'the slowed Citadel reveal flickers/shimmers; c03#143, the fully formed Citadel with no beam or flicker, is held as an intentional portrait, hard-cut in from c02\'s fade-down',
+  },
+  {
+    source: { ...RUN6_FOOTAGE, artifact: 'render-act2-rival-c04', artifactDigest: 'sha256:73d7653ad9b13926e9c7db2a9353e3b9cc759f452eeb1d097be06ab0e02474dd' },
+    // 9.600-12.000s. c04 (vesper-transmission), held on c04#143 (reel frame
+    // 719, 11.983s in the unheld reel): the Vesper transmission card fully
+    // rendered and readable over a stable Citadel, no model flicker — a hard
+    // cut from c03's portrait.
+    reelFrame: 576,
+    frames: 144,
+    original: { clipId: 'c04', frame: 0 },
+    hold: { clipId: 'c04', frame: 143 },
+    reason: 'the Citadel behind the transmission card flickers; the completed, readable card is held on a hard cut from the c03 portrait',
+  },
   {
     source: { ...RUN6_FOOTAGE, artifact: 'render-act4-counterstrike', artifactDigest: 'sha256:3fddf2205ef6928baee104ae3a056283cbf51e5236a77941e76430dd6c759f9b' },
     // 29.400-30.000s. c14 (the FIRE NOW thumb target on a phone viewport)
@@ -580,18 +644,36 @@ export const RELEASE_INTERVAL_OVERRIDES: readonly ReleaseIntervalOverride[] = [
   },
 ]
 
-/** The per-frame overrides an interval stands for. */
+/** cover: another clip's frame replaces a portrait insert; hold: a frame of
+ * the clip itself is held over the whole clip. */
+export function intervalKind(interval: Pick<ReleaseIntervalOverride, 'original' | 'hold'>): 'cover' | 'hold' {
+  return interval.hold.clipId === interval.original.clipId ? 'hold' : 'cover'
+}
+
+/** The per-frame overrides an interval stands for. A hold interval includes
+ * its own no-op frame (the one that already shows the held frame). */
 export function expandIntervalOverrides(intervals: readonly ReleaseIntervalOverride[]): ReleaseFrameOverride[] {
-  return intervals.flatMap(({ source, reelFrame, frames, original, hold, reason }) =>
-    Array.from({ length: frames }, (_, offset): ReleaseFrameOverride => ({
+  return intervals.flatMap((interval) => {
+    const { source, reelFrame, frames, original, hold, reason } = interval
+    const kind = intervalKind(interval)
+    return Array.from({ length: frames }, (_, offset): ReleaseFrameOverride => ({
       source,
       reelFrame: reelFrame + offset,
       original: { clipId: original.clipId, frame: original.frame + offset },
       replacement: hold,
       reason,
-      cover: true,
-    })),
-  )
+      interval: kind,
+    }))
+  })
+}
+
+/** The reel frames a set of overrides declares as changing: every declared
+ * frame except a hold's no-op frame, where the held frame is the very frame
+ * the locked plan already shows (same clip frame, no transition fade). */
+export function declaredChangedFrames(locked: readonly ExpectedFrame[], overrides: readonly ReleaseFrameOverride[]): number[] {
+  return overrides
+    .filter(({ reelFrame, original, replacement }) => original.clipId !== replacement.clipId || original.frame !== replacement.frame || locked[reelFrame]?.fade !== null)
+    .map((override) => override.reelFrame)
 }
 
 /** The validated render run the footage was downloaded from
@@ -665,9 +747,11 @@ export function intervalsForSource(
 }
 
 /**
- * An interval must replace exactly one whole pillarbox-portrait clip of the
- * locked plan (its first reel frame to its last, nothing before or after)
- * with one frame of the immediately adjacent full-16x9 shot clip.
+ * An interval must replace exactly one whole clip of the locked plan (its
+ * first reel frame to its last, nothing before or after) with one frame that
+ * exists in the run's footage: for a cover, a pillarbox-portrait clip gives
+ * way to one frame of the immediately adjacent full-16x9 shot clip; for a
+ * hold, a full-16x9 clip is held on one of its own frames.
  */
 export function validateIntervalOverrides(edit: FinalEdit, plan: SequencePlan, intervals: readonly ReleaseIntervalOverride[]): string[] {
   const problems: string[] = []
@@ -683,10 +767,12 @@ export function validateIntervalOverrides(edit: FinalEdit, plan: SequencePlan, i
     if (interval.reason.trim() === '') problems.push(`${label}: no reason given`)
     const clip = shots.get(original.clipId)
     const cover = shots.get(hold.clipId)
-    if (clip === undefined || clip.framing !== 'pillarbox-portrait') problems.push(`${label}: ${original.clipId} is not a pillarbox-portrait shot clip`)
+    if (intervalKind(interval) === 'hold') {
+      if (clip === undefined || clip.framing !== 'full-16x9') problems.push(`${label}: ${original.clipId} is not a full-16x9 shot clip (a portrait insert is covered by its neighbour, never held)`)
+    } else if (clip === undefined || clip.framing !== 'pillarbox-portrait') problems.push(`${label}: ${original.clipId} is not a pillarbox-portrait shot clip`)
     if (cover === undefined || cover.framing !== 'full-16x9') problems.push(`${label}: replacement ${hold.clipId} is not a full-16x9 shot clip`)
     if (clip === undefined || cover === undefined) continue
-    if (Math.abs(order.indexOf(clip.id) - order.indexOf(cover.id)) !== 1) problems.push(`${label}: ${cover.id} is not the timeline neighbour of ${clip.id}`)
+    if (intervalKind(interval) === 'cover' && Math.abs(order.indexOf(clip.id) - order.indexOf(cover.id)) !== 1) problems.push(`${label}: ${cover.id} is not the timeline neighbour of ${clip.id}`)
     let start = 0
     for (const segment of plan.segments) {
       if (segment.id === clip.id) break
@@ -709,12 +795,16 @@ export function portraitReelFrames(edit: FinalEdit, frames: readonly ExpectedFra
 }
 
 /**
- * An override must be a one-frame repair inside the locked plan: its reel
- * frame shows exactly `original` in the plan, outside any transition; the
- * replacement is the adjacent frame of the same shot clip, itself shown
- * untouched on the neighbouring reel frame; one override per frame, no
- * chains; and the clip is in no other deliverable (the loop, the poster),
- * which would otherwise keep the defect.
+ * An override must be a repair inside the locked plan: its reel frame shows
+ * exactly `original` in the plan; one override per frame, no chains; and the
+ * clip is in no other deliverable (the loop, the poster), which would
+ * otherwise keep the defect. A single-frame override sits outside any
+ * transition and its replacement is the adjacent frame of the same shot
+ * clip, itself shown untouched on the neighbouring reel frame. The frames of
+ * an interval are checked against the interval's own rules: a cover sits
+ * outside any transition and takes a frame of another clip; a hold takes any
+ * frame of its own clip and may replace that clip's own transition frames
+ * (it is the whole clip that is held).
  */
 export function validateFrameOverrides(edit: FinalEdit, plan: SequencePlan, overrides: readonly ReleaseFrameOverride[]): string[] {
   const problems: string[] = []
@@ -737,10 +827,13 @@ export function validateFrameOverrides(edit: FinalEdit, plan: SequencePlan, over
     }
     const segment = plan.segments.find((entry) => entry.id === original.clipId)!
     if (segment.kind !== 'shot') problems.push(`${label}: ${original.clipId} is not a shot clip`)
-    if (planned.fade !== null) problems.push(`${label}: inside a ${planned.fade.color} transition`)
-    if (override.cover === true) {
+    if (planned.fade !== null && override.interval !== 'hold') problems.push(`${label}: inside a ${planned.fade.color} transition`)
+    if (override.interval === 'cover') {
       // An interval frame: validateIntervalOverrides holds the interval rules.
       if (replacement.clipId === original.clipId) problems.push(`${label}: a cover replacement must come from another clip`)
+    } else if (override.interval === 'hold') {
+      if (replacement.clipId !== original.clipId) problems.push(`${label}: a held frame must come from ${original.clipId} itself, not ${replacement.clipId}`)
+      else if (!Number.isInteger(replacement.frame) || replacement.frame < 0 || replacement.frame >= segment.frames) problems.push(`${label}: held frame ${replacement.clipId}#${replacement.frame} is outside its ${segment.frames} frames`)
     } else if (replacement.clipId !== original.clipId) problems.push(`${label}: replacement ${replacement.clipId}#${replacement.frame} is not from ${original.clipId}`)
     else if (Math.abs(replacement.frame - original.frame) !== 1) problems.push(`${label}: replacement ${replacement.clipId}#${replacement.frame} is not adjacent to ${original.clipId}#${original.frame}`)
     else {
@@ -754,7 +847,7 @@ export function validateFrameOverrides(edit: FinalEdit, plan: SequencePlan, over
     if (poster.clipId === original.clipId && poster.frame === original.frame) problems.push(`${label}: ${original.clipId}#${original.frame} is also the poster frame`)
   }
   for (const override of overrides) {
-    if (override.cover !== true && targets.has(override.reelFrame + override.replacement.frame - override.original.frame)) {
+    if (override.interval === undefined && targets.has(override.reelFrame + override.replacement.frame - override.original.frame)) {
       problems.push(`frame override @ reel frame ${override.reelFrame}: its replacement's own reel frame is overridden too`)
     }
   }
@@ -762,13 +855,14 @@ export function validateFrameOverrides(edit: FinalEdit, plan: SequencePlan, over
 }
 
 /** The locked plan with exactly the declared frames swapped for their
- * replacement (no fade: overrides never sit in a transition). Throws if an
- * override does not match the plan — validateFrameOverrides reports why. */
+ * replacement (no fade: only a hold interval may sit in a transition, and it
+ * replaces the transition frames with the held frame at full level). Throws
+ * if an override does not match the plan — validateFrameOverrides reports why. */
 export function applyFrameOverrides(locked: readonly ExpectedFrame[], overrides: readonly ReleaseFrameOverride[]): ExpectedFrame[] {
   const frames = [...locked]
-  for (const { reelFrame, original, replacement } of overrides) {
+  for (const { reelFrame, original, replacement, interval } of overrides) {
     const planned = frames[reelFrame]
-    if (planned === undefined || planned.segment !== original.clipId || planned.frame !== original.frame || planned.fade !== null) {
+    if (planned === undefined || planned.segment !== original.clipId || planned.frame !== original.frame || (planned.fade !== null && interval !== 'hold')) {
       throw new Error(`frame override @ reel frame ${reelFrame} does not match the locked plan`)
     }
     frames[reelFrame] = { segment: replacement.clipId, frame: replacement.frame, fade: null }
@@ -855,11 +949,14 @@ function segmentSource(segment: Segment, sources: GraphSources, fps: number): st
 
 /** One segment-local frame shown in place of another (a validated
  * release frame override). With `clipId`, the frame is `source` of that
- * other clip (a cover) instead of another frame of the segment's own. */
+ * clip (a cover or hold) instead of another frame of the segment's own read
+ * through its own input; `holdsSegment` marks a hold interval, which
+ * replaces every frame of the segment, its transition frames included. */
 export interface FrameSubstitution {
   readonly frame: number
   readonly source: number
   readonly clipId?: string
+  readonly holdsSegment?: true
 }
 
 /** Release frame overrides as per-segment substitutions for the graph. */
@@ -867,8 +964,11 @@ export function frameSubstitutions(plan: SequencePlan, overrides: readonly Relea
   const locked = expectedFrames(plan)
   const substitutions = new Map<string, FrameSubstitution[]>()
   applyFrameOverrides(locked, overrides) // throws unless every override matches the plan
-  for (const { original, replacement, cover } of overrides) {
-    const substitution: FrameSubstitution = cover === true ? { frame: original.frame, source: replacement.frame, clipId: replacement.clipId } : { frame: original.frame, source: replacement.frame }
+  for (const { original, replacement, interval } of overrides) {
+    const substitution: FrameSubstitution =
+      interval === undefined
+        ? { frame: original.frame, source: replacement.frame }
+        : { frame: original.frame, source: replacement.frame, clipId: replacement.clipId, ...(interval === 'hold' ? { holdsSegment: true as const } : {}) }
     substitutions.set(original.clipId, [...(substitutions.get(original.clipId) ?? []), substitution])
   }
   return substitutions
@@ -887,15 +987,24 @@ interface SegmentPart {
  * runs, tail fade — and, for a substituted frame, a one-frame part taken
  * from its replacement, so every other frame keeps its position. A run of
  * consecutive frames covered by one frame of another clip is a single held
- * part. */
+ * part; a held interval (holdsSegment) is the whole segment as one held part,
+ * with no head or tail fade left. */
 function segmentParts(segment: Segment, substitutions: readonly FrameSubstitution[]): SegmentPart[] {
   const parts: SegmentPart[] = []
   const headFrames = segment.head?.frames ?? 0
   const tailFrames = segment.tail?.frames ?? 0
   const bodyEnd = segment.frames - tailFrames
+  const sorted = [...substitutions].sort((a, b) => a.frame - b.frame)
+  if (sorted.some((entry) => entry.holdsSegment === true)) {
+    const first = sorted[0]!
+    const whole = sorted.length === segment.frames && sorted.every((entry, index) => entry.holdsSegment === true && entry.frame === index && entry.clipId === first.clipId && entry.source === first.source)
+    if (!whole || first.source < 0 || first.clipId === undefined) {
+      throw new Error(`${segment.id}: a held interval must replace every frame of the clip with one and the same frame`)
+    }
+    return [{ start: first.source, end: first.source + 1, fade: null, cover: { clipId: first.clipId, repeat: segment.frames } }]
+  }
   if (segment.head !== null) parts.push({ start: 0, end: headFrames, fade: fadeFilter(segment.head, 'head') })
   let cursor = headFrames
-  const sorted = [...substitutions].sort((a, b) => a.frame - b.frame)
   for (let index = 0; index < sorted.length; ) {
     const { frame, source, clipId } = sorted[index]!
     if (clipId === undefined) {
@@ -1314,6 +1423,13 @@ export interface OverrideCheck {
  * must NOT be the original — and the original must differ from the
  * replacement by more than the tolerance, so the global timeline check
  * provably fails the frame whenever the override is not declared.
+ *
+ * A hold interval keeps the first two rules for every frame. The third
+ * cannot hold for a frame whose original already looks like the held frame
+ * (at least the held frame's own no-op frame, and the frames beside it), so
+ * for those the interval's own stronger proof applies instead: checkHeldInterval
+ * measures that every frame of the interval is the same picture, at a finer
+ * scale than these thumbnails.
  */
 export function checkFrameOverrides(
   overrides: readonly ReleaseFrameOverride[],
@@ -1329,7 +1445,7 @@ export function checkFrameOverrides(
     for (let pixel = 0; pixel < pixels; pixel += 1) diff += Math.abs(output[frame * pixels + pixel]! - source[ref.frame * pixels + pixel]!)
     return diff / pixels
   }
-  return overrides.map(({ reelFrame, original, replacement }) => {
+  return overrides.map(({ reelFrame, original, replacement, interval }) => {
     const label = `frame override @ reel frame ${reelFrame}`
     const toReplacement = meanDiff(reelFrame, replacement)
     const toOriginal = meanDiff(reelFrame, original)
@@ -1339,10 +1455,120 @@ export function checkFrameOverrides(
       return { reelFrame, toReplacement: Number.NaN, toOriginal: Number.NaN, problems }
     }
     if (toReplacement > maxMeanAbsDiff) problems.push(`${label}: output differs from replacement ${replacement.clipId}#${replacement.frame} by ${toReplacement.toFixed(2)} levels`)
-    if (toOriginal <= toReplacement) problems.push(`${label}: output is still the original ${original.clipId}#${original.frame}`)
-    if (toOriginal <= maxMeanAbsDiff) {
+    const lookalike = interval === 'hold' && toOriginal <= maxMeanAbsDiff
+    if (toOriginal <= toReplacement && !lookalike) problems.push(`${label}: output is still the original ${original.clipId}#${original.frame}`)
+    if (toOriginal <= maxMeanAbsDiff && !lookalike) {
       problems.push(`${label}: original ${original.clipId}#${original.frame} is within ${toOriginal.toFixed(2)} levels of the output — an undeclared substitution here would not be caught`)
     }
     return { reelFrame, toReplacement, toOriginal, problems }
   })
+}
+
+/** Held-interval tolerances, in 0-255 luma levels (mean |difference| over a
+ * HELD_SCALE luma frame). A held frame is one picture repeated, so the
+ * encoder only adds noise: every frame must sit within `stable` of the
+ * interval's first output frame, and that frame within `toSource` of the
+ * source frame it holds. */
+export const HELD_TOLERANCE = { stable: 0.5, toSource: 2 } as const
+export const HELD_SCALE = { width: 960, height: 540 } as const
+
+/** Mean |difference| of each frame of a packed luma sequence to `reference`. */
+export function lumaDiffs(frames: Uint8Array, reference: Uint8Array, pixels: number): number[] {
+  const count = frames.length / pixels
+  if (!Number.isInteger(count) || reference.length !== pixels) throw new Error(`luma frames are not ${pixels}-pixel frames`)
+  return Array.from({ length: count }, (_, frame) => {
+    let diff = 0
+    for (let pixel = 0; pixel < pixels; pixel += 1) diff += Math.abs(frames[frame * pixels + pixel]! - reference[pixel]!)
+    return diff / pixels
+  })
+}
+
+export interface HeldIntervalCheck {
+  readonly reelFrame: number
+  readonly frames: number
+  /** Largest mean |luma difference| of any output frame of the interval to
+   * the interval's first output frame: 0 means the same picture throughout. */
+  readonly maxFromFirstFrame: number
+  /** The interval's first output frame against the source frame it holds. */
+  readonly firstToHeldSource: number
+  /** How far the interval's ORIGINAL (unheld) source frames were from the
+   * held frame: the instability this hold removes. Informational. */
+  readonly sourceFromHeld: { readonly mean: number; readonly max: number }
+  readonly problems: readonly string[]
+}
+
+/**
+ * The proof that a hold interval is a stable held frame: the output's frames
+ * over the interval (`output`, packed luma, one frame per reel frame of the
+ * interval) are one and the same picture — each within HELD_TOLERANCE.stable
+ * of the first — and that picture is the held source frame (`held`) within
+ * HELD_TOLERANCE.toSource. `original` (the clip's own frames the interval
+ * replaced) is only measured against the held frame, so the report shows what
+ * was removed.
+ */
+export function checkHeldInterval(interval: ReleaseIntervalOverride, output: Uint8Array, held: Uint8Array, original: Uint8Array, pixels: number): HeldIntervalCheck {
+  const label = `held interval @ reel frames ${interval.reelFrame}-${interval.reelFrame + interval.frames - 1}`
+  const problems: string[] = []
+  const outputFrames = output.length / pixels
+  if (intervalKind(interval) !== 'hold') problems.push(`${label}: not a hold interval`)
+  if (!Number.isInteger(outputFrames) || outputFrames !== interval.frames) {
+    problems.push(`${label}: ${outputFrames} output frames, the interval covers ${interval.frames}`)
+    return { reelFrame: interval.reelFrame, frames: interval.frames, maxFromFirstFrame: Number.NaN, firstToHeldSource: Number.NaN, sourceFromHeld: { mean: Number.NaN, max: Number.NaN }, problems }
+  }
+  const first = output.subarray(0, pixels)
+  const fromFirst = lumaDiffs(output, first, pixels)
+  const maxFromFirstFrame = Math.max(...fromFirst)
+  const firstToHeldSource = lumaDiffs(first, held, pixels)[0]!
+  const fromHeld = lumaDiffs(original, held, pixels)
+  if (maxFromFirstFrame > HELD_TOLERANCE.stable) {
+    const at = fromFirst.findIndex((diff) => diff === maxFromFirstFrame)
+    problems.push(`${label}: reel frame ${interval.reelFrame + at} differs from the interval's first frame by ${maxFromFirstFrame.toFixed(3)} levels — the held frame is not stable (limit ${HELD_TOLERANCE.stable})`)
+  }
+  if (firstToHeldSource > HELD_TOLERANCE.toSource) {
+    problems.push(`${label}: the held picture differs from source ${interval.hold.clipId}#${interval.hold.frame} by ${firstToHeldSource.toFixed(3)} levels (limit ${HELD_TOLERANCE.toSource})`)
+  }
+  return {
+    reelFrame: interval.reelFrame,
+    frames: interval.frames,
+    maxFromFirstFrame,
+    firstToHeldSource,
+    sourceFromHeld: { mean: fromHeld.reduce((sum, diff) => sum + diff, 0) / fromHeld.length, max: Math.max(...fromHeld) },
+    problems,
+  }
+}
+
+/**
+ * The retired one-frame overrides must have nothing left to do: each one's
+ * reel frame lies inside the interval override that supersedes it (same
+ * clip, the interval covering exactly the recorded range), the locked plan
+ * still puts its original there, it is no longer declared next to the
+ * interval, and the interval never holds the defective frame it retired.
+ * `intervals` and `active` are the overrides in force for this footage.
+ */
+export function validateSupersededOverrides(
+  plan: SequencePlan,
+  superseded: readonly SupersededFrameOverride[],
+  intervals: readonly ReleaseIntervalOverride[],
+  active: readonly ReleaseFrameOverride[],
+): string[] {
+  const problems: string[] = []
+  const locked = expectedFrames(plan)
+  for (const { override, supersededBy, why } of superseded) {
+    const label = `superseded frame override @ reel frame ${override.reelFrame}`
+    if (why.trim() === '') problems.push(`${label}: no reason recorded for retiring it`)
+    const interval = intervals.find((entry) => entry.reelFrame === supersededBy.reelFrame && entry.frames === supersededBy.frames)
+    if (interval === undefined) {
+      problems.push(`${label}: no declared interval override covers reel frames ${supersededBy.reelFrame}-${supersededBy.reelFrame + supersededBy.frames - 1}`)
+      continue
+    }
+    if (override.reelFrame < interval.reelFrame || override.reelFrame >= interval.reelFrame + interval.frames) problems.push(`${label}: outside the interval that supersedes it`)
+    if (interval.original.clipId !== override.original.clipId) problems.push(`${label}: the interval replaces ${interval.original.clipId}, the retired override repaired ${override.original.clipId}`)
+    const planned = locked[override.reelFrame]
+    if (planned === undefined || planned.segment !== override.original.clipId || planned.frame !== override.original.frame) {
+      problems.push(`${label}: the locked plan shows ${planned?.segment}#${planned?.frame} there, the retired override recorded ${override.original.clipId}#${override.original.frame}`)
+    }
+    if (active.some((entry) => entry.reelFrame === override.reelFrame && entry.interval === undefined)) problems.push(`${label}: still declared as a single-frame override beside the interval that supersedes it`)
+    if (interval.hold.clipId === override.original.clipId && interval.hold.frame === override.original.frame) problems.push(`${label}: the interval holds the very frame ${override.original.clipId}#${override.original.frame} the retired override repaired`)
+  }
+  return problems
 }

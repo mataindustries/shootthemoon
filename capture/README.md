@@ -525,8 +525,9 @@ capture/ci/
   assembly.ts               — pure: input verification, sequence/transition plan,
                               ffmpeg graphs, encode settings parsed from finalEdit.json,
                               poster frame pick, output checks, and
-                              RELEASE_FRAME_OVERRIDES (declared one-frame repairs) and
-                              RELEASE_INTERVAL_OVERRIDES (the two portrait inserts, covered)
+                              RELEASE_FRAME_OVERRIDES (declared one-frame repairs; none now),
+                              RELEASE_INTERVAL_OVERRIDES (c03/c04 held, the two portrait
+                              inserts covered) and SUPERSEDED_FRAME_OVERRIDES (audit record)
   assembleFinalReel.mjs     — verify -> reel -> loop -> stills -> check;
                               manifest.json + SHA256SUMS
   assembly.test.ts          — pure tests + static no-renderer guards (node --test)
@@ -557,70 +558,119 @@ reel has no audio stream (finalEdit.json holds a cue map, not a mix;
 `--audio=<final mix>` muxes one per `heroReel.audio`), and the social image
 has no title typography.
 
-**Release frame overrides.** A defect baked into one frame of verified
-footage is repaired in assembly, never by re-rendering: `assembly.ts`
-`RELEASE_FRAME_OVERRIDES` declares each repaired reel frame with the source
-clip/frame the locked plan puts there, the replacement (the adjacent frame
-of the same clip) and the reason. Today there is exactly one:
+**Release frame overrides.** A defect baked into verified footage is
+repaired in assembly, never by re-rendering. `assembly.ts` has three
+declarations, all bound to the footage they were made for (run #6's id and
+SHA, and the pinned digest of the artifact holding the clip); for that SHA
+each must be confirmed from `--source` or assembly stops, and none applies to
+other footage. Nothing is blurred, smoothed, deflickered, interpolated,
+cropped or rendered: every replacement is a frame that already exists in a
+verified Run #6 intermediate.
 
-| reel frame | time | original | replacement | reason |
+- `RELEASE_FRAME_OVERRIDES` — single-frame repairs (the replacement is the
+  adjacent frame of the same clip, shown untouched next to it; outside any
+  transition). **None is declared now**; the mechanism stays.
+- `RELEASE_INTERVAL_OVERRIDES` — a whole clip's reel frames replaced by one
+  held frame, in two kinds (below). An interval expands to one ordinary
+  per-frame override per reel frame, so the plan check and the frame-by-frame
+  verification apply unchanged.
+- `SUPERSEDED_FRAME_OVERRIDES` — the audit record of a single-frame override
+  that an interval has since replaced. Not applied; validated on every run
+  (`validateSupersededOverrides`) and written into `manifest.json`.
+
+Every interval is bound to run #6 and must cover exactly one whole clip of the
+locked plan (its first reel frame to its last), name a reason, and name clips
+in no other deliverable (the loop, the poster). Assembly stops if a declared
+interval cannot be confirmed. In the ffmpeg graph an interval's segment is one
+part: a second input of the clip holding the frame (`trim` + `loop` of one
+existing frame). The segment keeps its locked frame count, so the reel keeps
+its 3,456 frames / 57.6s and no frame outside an interval moves.
+
+**Hold intervals (unstable 16:9 clips).** c03 (`vesper-citadel-reveal`)
+slows ~0.65s of live source motion to 2.4s and c04 (`vesper-transmission`)
+sits over the same Citadel; the Citadel model visibly flickers/shimmers
+across both. Each is held, for its whole clip, on one verified frame of its
+own footage:
+
+| reel frames | time | clip | held frame | note |
 |---|---|---|---|---|
-| 468 | 7.800s | c03#36 (vesper-citadel-reveal, rival-signal:impact progress 0.81294) | c03#37 (the frame shown at reel frame 469) | one-frame enemy-base scale/camera defect |
+| 432-575 (144) | 7.200-9.600s | c03 vesper-citadel-reveal | c03#143 (unheld reel frame 575, 9.583s) | the fully formed Vesper Citadel, clean, no beam/flicker — an intentional portrait |
+| 576-719 (144) | 9.600-12.000s | c04 vesper-transmission | c04#143 (unheld reel frame 719, 11.983s) | the Vesper transmission card fully rendered and readable over a stable Citadel — a hard cut from the c03 portrait |
 
-An override is bound to the footage it was declared for (run #6's id and
-SHA, and the pinned digest of the `render-act2-rival-c03` artifact holding
-c03); for that SHA it must be confirmed from `--source` or assembly stops,
-and it never applies to other footage. It must match the locked plan,
-sit outside any transition, replace with the untouched neighbouring frame of
-the same shot clip, and name a clip in no other deliverable. In the ffmpeg
-graph the clip is only re-trimmed ([18,36) + [37,38) + [37,144) instead of
-[18,144)), so the reel keeps its 3,456 frames and every other frame its
-position; nothing is interpolated.
+The frames were chosen by inspecting the reel's own footage, not by rule; both
+are the last frame of their clip.
 
-**Portrait interval overrides.** The locked cut holds two real 390x844 phone
-viewport stills as pillarboxed portrait clips (c14, c18), which flash a
-narrow portrait picture inside the 16:9 reel and break the aspect ratio on
-mobile. `RELEASE_INTERVAL_OVERRIDES` declares each as a compact interval of
-the same override mechanism (it expands to one ordinary per-frame override
-per reel frame, so the plan check and frame-by-frame verification below
-apply unchanged): the whole portrait clip's reel frames show one frame of
-the immediately adjacent full-16x9 shot clip, held. Frame for frame: the
-reel keeps its 3,456 frames and nothing after either interval moves.
+A hold covers a `full-16x9` clip with a frame of that same clip (any frame of
+it, not an adjacent one). It replaces the clip's own transition frames too:
+c03's first 18 frames were the locked dip-black fade-in from c02, which the
+hold replaces with the held frame at full level. That is intentional: c02
+still fades down to near-black, then the reel hard-cuts at 7.2s to the clean,
+full-brightness Citadel — no moving c03 frame is kept to preserve the old
+fade-in. c02's own dip-out and every other transition are untouched (c04 has
+none, and c03 -> c04 is a hard cut in the locked plan).
+
+Because the held frame is a frame of the clip itself, the reel frame that
+already showed it is a no-op, and frames beside it look like it. The
+per-frame check therefore does not require such a frame to differ from its
+original; the hold is instead proven on the finished reel by
+`checkHeldInterval` — every frame of the interval within 0.5 levels of the
+interval's first frame and that frame within 2 levels of the held source
+frame (mean |luma difference| at 960x540, an order of magnitude finer than
+the timeline thumbnails), with the replaced footage's distance from the held
+frame reported for the record. `manifest.json` carries these numbers per
+interval (`held`).
+
+**The retired frame-468 repair.** The one single-frame override ever declared
+was reel frame 468 (7.800s): c03#36 (vesper-citadel-reveal, rival-signal:impact
+progress 0.81294), drawn at ~5/6 size for one frame, was replaced by c03#37.
+Reel frame 468 lies inside the c03 hold, which now shows one held frame on
+all of 432-575, so c03#36 is never shown and the repair has nothing left to
+do. It is no longer declared (declaring it beside the interval would declare
+frame 468 twice, which validation refuses); its record is kept verbatim in
+`SUPERSEDED_FRAME_OVERRIDES` with the interval that replaced it and why, must
+still describe the locked plan truthfully, must sit inside that interval, and
+the interval must not hold the frame it repaired. The assembly log prints it
+as `frame override superseded: …` and `manifest.json` lists it under
+`reel.supersededFrameOverrides` with `applied: false`.
+
+**Portrait interval overrides (covers).** The locked cut holds two real
+390x844 phone-viewport stills as pillarboxed portrait clips (c14, c18), which
+flash a narrow portrait picture inside the 16:9 reel and break the aspect
+ratio on mobile. Each whole portrait clip's reel frames show one frame of the
+immediately adjacent full-16x9 shot clip, held:
 
 | reel frames | time | original | replacement |
 |---|---|---|---|
 | 1764-1799 (36) | 29.400-30.000s | c14 (counterstrike-fire-now-port, still, pillarboxed) | c13#35 held — the desktop FIRE NOW still of the same moment |
 | 2088-2159 (72) | 34.800-36.000s | c18 (divider-fire-defense-port, still, pillarboxed) | c17#71 held — the last, locked-on frame of the shot before it |
 
-An interval must cover exactly one whole `pillarbox-portrait` clip, be
-replaced by a frame of a `full-16x9` clip that is its immediate timeline
-neighbour (frame inside that clip), sit outside any transition, and name
-clips in no other deliverable; it is bound to run #6's id, SHA and the pinned
-digest of the artifact holding both clips (`render-act4-counterstrike`,
-`render-act5-divider`) exactly like the frame override. Assembly stops if a
-declared interval cannot be confirmed, or if any frame of a portrait clip
-would remain in the reel. In the graph the covered segment reads a second
-input of the covering clip (`trim` + `loop` of one existing frame): nothing
-is cropped, blurred, pillarboxed or rendered, and the loop, poster and stills
-do not use c14/c18, so they are unchanged.
+A cover's original must be a `pillarbox-portrait` clip and its replacement a
+frame of a `full-16x9` clip that is its immediate timeline neighbour; it sits
+outside any transition. Both clips must come from the artifact the interval
+is bound to (`render-act4-counterstrike`, `render-act5-divider`). Assembly
+also stops if any frame of a portrait clip would remain in the reel. The
+loop, poster and stills do not use c03/c04/c14/c18, so they are unchanged.
 
 Every output is ffprobe'd and fully decoded, and the reel and loop are
 checked frame by frame: each output frame's luma thumbnail must match its
 planned source frame with its planned fade (any reordering, dropped frame
 or shifted cut fails). The reel's plan is the locked plan with exactly the
-declared override frames swapped, so any undeclared substitution still
-fails; each override frame must also match its replacement, differ from the
-original, and the original must differ from the replacement by more than
-the tolerance (the check could not otherwise catch it undeclared).
-`manifest.json` records the source run, artifact digests, edit hash, tools,
-plan, the end card's sha256, every override with its check, and every
-output's size, codec, duration, audio and sha256.
+declared override frames swapped, and the plan must differ from the locked
+one in exactly the declared frames that change, so any undeclared
+substitution still fails; each override frame must also match its
+replacement, differ from the original, and the original must differ from the
+replacement by more than the tolerance (the check could not otherwise catch
+it undeclared) — except, for a hold, where the original already looks like the
+held frame (see above). `manifest.json` records the source run, artifact
+digests, edit hash, tools, plan, the end card's sha256, every override with
+its check, the held intervals' stability numbers, the superseded overrides,
+and every output's size, codec, duration, audio and sha256.
 
 ```sh
 # Pure tests + guards (no ffmpeg needed):
 node --experimental-strip-types --experimental-transform-types --test capture/ci/assembly.test.ts
-# Full CLI on synthetic media, incl. a run #6 stand-in with a planted
-# c03#36 defect (ffmpeg, run #6's commit in history; ~10 min):
+# Full CLI on synthetic media, incl. a run #6 stand-in with planted
+# flicker in c03/c04 (ffmpeg, run #6's commit in history; ~10 min):
 ASSEMBLY_E2E=1 node --experimental-strip-types --experimental-transform-types --test capture/ci/assemblySynthetic.test.ts
 # The real thing, locally (GITHUB_TOKEN with actions:read):
 node --experimental-strip-types --experimental-transform-types capture/ci/sourceRun.mjs --run-number=6 --out=capture-final/run-6
