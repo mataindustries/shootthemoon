@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- ORBITAL RECORD titles stage. Draws exactly the primitives titles.ts
+     sceneAt() resolved for one reel frame: no CSS animation or transition,
+     no timers, no clock reads. Fonts are injected as data URLs by
+     renderTitles.mjs. -->
+<style>
+/*FONTS*/
+html, body { margin: 0; padding: 0; background: transparent; }
+#stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+svg { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="svg" width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="lift" x="-20%" y="-60%" width="140%" height="220%">
+        <feDropShadow dx="0" dy="0" stdDeviation="0.6" flood-color="#000" flood-opacity="0.55"/>
+        <feDropShadow dx="0" dy="1" stdDeviation="6" flood-color="#000" flood-opacity="0.45"/>
+      </filter>
+      <filter id="rimglow" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="5"/>
+      </filter>
+      <linearGradient id="crescentFill" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0.55" stop-color="#F3E6CC"/>
+        <stop offset="1" stop-color="#EFAD58"/>
+      </linearGradient>
+    </defs>
+    <g id="plate"></g>
+    <g id="gfx"></g>
+  </svg>
+</div>
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+let gfx;
+function mk(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || gfx).appendChild(e);
+  return e;
+}
+function drawText(op, parent) {
+  const t = mk('text', { x: op.x, y: op.y, 'text-anchor': op.anchor, fill: op.fill, 'fill-opacity': op.fillOpacity }, parent);
+  t.style.fontFamily = `'${op.family}'`;
+  t.style.fontSize = op.size + 'px';
+  t.style.letterSpacing = op.spacingPx + 'px';
+  t.style.fontWeight = op.wght;
+  if (op.wdth !== null) t.style.fontVariationSettings = `'wdth' ${op.wdth}, 'wght' ${op.wght}`;
+  t.style.fontKerning = 'normal';
+  t.style.whiteSpace = 'pre';
+  if (op.shadow) t.setAttribute('filter', 'url(#lift)');
+  if (op.hideGlyph !== null) {
+    [...op.text].forEach((ch, i) => { const ts = mk('tspan', {}, t); ts.textContent = ch; if (i === op.hideGlyph) ts.setAttribute('fill-opacity', '0'); });
+  } else t.textContent = op.text;
+  return t;
+}
+/** Optional plate under the titles (style frames / contact sheets only):
+ * { href, scale, ax, ay } or { black: true }. The release track never has one. */
+function drawPlate(plate) {
+  const g = document.getElementById('plate');
+  g.replaceChildren();
+  if (!plate) return;
+  if (plate.black) { mk('rect', { x: 0, y: 0, width: 1920, height: 1080, fill: '#000' }, g); return; }
+  mk('image', { href: plate.href, x: 0, y: 0, width: 1920, height: 1080, preserveAspectRatio: 'none',
+    transform: `translate(${plate.ax} ${plate.ay}) scale(${plate.scale}) translate(${-plate.ax} ${-plate.ay})` }, g);
+}
+window.drawScene = function (frame, ops, plate) {
+  gfx = document.getElementById('gfx');
+  gfx.replaceChildren();
+  drawPlate(plate);
+  const hosts = {};
+  for (const op of ops) {
+    if (op.op === 'text') hosts[op.role] = { node: drawText(op), op };
+    else if (op.op === 'rect') {
+      const r = mk('rect', { x: op.x, y: op.y, width: op.w, height: op.h, fill: op.fill, 'fill-opacity': op.fillOpacity });
+      if (op.shadow) r.setAttribute('filter', 'url(#lift)');
+    } else if (op.op === 'path') {
+      const p = mk('path', { d: op.d, fill: 'none', stroke: op.stroke, 'stroke-width': op.strokeWidth, 'stroke-opacity': op.strokeOpacity, 'stroke-linecap': 'square' });
+      if (op.shadow) p.setAttribute('filter', 'url(#lift)');
+    } else if (op.op === 'hairline') {
+      const probe = drawText({ ...op.measure, fillOpacity: 0 });
+      const w = probe.getComputedTextLength() - op.measure.spacingPx;
+      probe.remove();
+      const cx = op.measure.x - op.measure.spacingPx / 2;
+      const x = op.side === 'left' ? cx - w / 2 - op.gapFromText - op.length : cx + w / 2 + op.gapFromText;
+      mk('rect', { x, y: op.y, width: op.length, height: op.height, fill: op.fill, 'fill-opacity': op.fillOpacity });
+    } else if (op.op === 'crescent') {
+      const host = hosts[op.hostRole];
+      if (!host) continue;
+      const size = host.op.size; const spacing = host.op.spacingPx;
+      const start = host.node.getStartPositionOfChar(op.glyph); const end = host.node.getEndPositionOfChar(op.glyph);
+      const cap = size * 0.7; const D = cap * op.diameterOfCap; const r = D / 2;
+      const cx = (start.x + end.x - spacing) / 2 + op.opticalShift * D;
+      const cy = host.op.y - cap / 2;
+      const id = 'm' + frame;
+      const mask = mk('mask', { id, maskUnits: 'userSpaceOnUse', x: cx - D, y: cy - D, width: 2 * D, height: 2 * D });
+      mk('circle', { cx, cy, r, fill: '#fff' }, mask);
+      mk('circle', { cx: cx + op.offset * D, cy, r: r * 1.005, fill: '#000' }, mask);
+      const glow = mk('g', { filter: 'url(#rimglow)', opacity: op.glowOpacity });
+      mk('circle', { cx, cy, r, fill: op.glowFill }, mk('g', { mask: `url(#${id})` }, glow));
+      mk('circle', { cx, cy, r, fill: 'url(#crescentFill)' }, mk('g', { mask: `url(#${id})` }));
+    }
+  }
+  return true;
+};
+</script>
+</body>
+</html>

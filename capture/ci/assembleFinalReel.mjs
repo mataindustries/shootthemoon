@@ -40,8 +40,15 @@
  *     --dir=capture-final/run-6 --source=capture-final/run-6/source-run.json \
  *     --out=capture-final/deliverables [--work=capture-final/assembly-work] \
  *     [--sha=<rendered sha, instead of --source>] [--end-card=<designed 1920x1080 still>] [--audio=<final mix>]
+ *     [--titles=<titles-track.mov> --titles-cues=capture/titles/reel-titles.cues.json]
+ *
+ * With --titles (the pre-rendered ORBITAL RECORD track, capture/titles/) the
+ * reel is also built titled — plate pushes, titles, black end-card slot for
+ * the typographic end card — as reel-57s-1080.mp4, and the clean reel above is
+ * kept, fully verified, as reel-57s-1080-clean.mp4. Without it, the outputs
+ * are exactly as before.
  */
-import { copyFile, mkdir, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -54,7 +61,9 @@ import {
   checkImageOutput,
   checkIntermediate,
   checkTimelineFidelity,
+  checkTitlesCues,
   checkVideoOutput,
+  CLEAN_REEL,
   declaredChangedFrames,
   DELIVERABLES,
   describeClipFrame,
@@ -83,6 +92,8 @@ import {
   selectPosterFrame,
   socialCrop,
   SUPERSEDED_FRAME_OVERRIDES,
+  titledChangedFrames,
+  titledReelFilterGraph,
   validateFrameOverrides,
   validateIntervalOverrides,
   validateSupersededOverrides,
@@ -289,6 +300,23 @@ async function main() {
     audio = args.audio
   }
 
+  let titles = null
+  if (args.titles || args['titles-cues']) {
+    if (!args.titles || !args['titles-cues']) stop('titles', ['pass --titles=<track> and --titles-cues=<cue sheet> together'])
+    const cues = await readJson(args['titles-cues'])
+    if (cues === null) stop('titles', [`${args['titles-cues']} is unreadable`])
+    const cueProblems = checkTitlesCues(edit, reelPlan, cues)
+    if (cueProblems.length > 0) stop('titles cue sheet', cueProblems)
+    const { streams } = await probe(args.titles)
+    const track = streams.find((stream) => stream.type === 'video')
+    if (streams.length !== 1 || track.width !== width || track.height !== height || track.frames !== reelPlan.frames || !/argb|rgba|bgra|yuva/.test(track.pixFmt)) {
+      stop('titles track', [`${args.titles} must be one ${width}x${height} video with alpha and ${reelPlan.frames} frames (is ${track?.width}x${track?.height} ${track?.pixFmt}, ${track?.frames} frames)`])
+    }
+    titles = { track: args.titles, cuesPath: args['titles-cues'], cues }
+  }
+  /** The clean reel's file name: the reel itself, or kept beside the titled one. */
+  const cleanReel = titles === null ? DELIVERABLES.reel : CLEAN_REEL
+
   const existing = await readdir(out).catch(() => [])
   if (existing.length > 0) stop('output', [`${out} is not empty — assembly never overwrites an earlier delivery`])
   await mkdir(out, { recursive: true })
@@ -299,7 +327,9 @@ async function main() {
   // --- 2. reel --------------------------------------------------------------
   const heroEncode = parseEncode(edit.derivatives.heroReel)
   const heroAudio = audio === null ? null : parseAudio(edit.derivatives.heroReel)
-  {
+  /** The reel's ffmpeg inputs: every shot clip, then each covering clip, then
+   * the end-card still (only when one is used). */
+  const reelInputs = (withEndCard) => {
     const inputArgs = []
     const shots = new Map()
     for (const segment of reelPlan.segments) {
@@ -314,14 +344,41 @@ async function main() {
       covers.set(original.clipId, `${next++}:v`)
       inputArgs.push('-i', clipPath(hold.clipId))
     }
-    const endCardLabel = endCard === null ? null : `${next++}:v`
-    if (endCard !== null) inputArgs.push('-loop', '1', '-framerate', String(fps), '-i', endCard)
+    const endCardLabel = !withEndCard || endCard === null ? null : `${next++}:v`
+    if (endCardLabel !== null) inputArgs.push('-loop', '1', '-framerate', String(fps), '-i', endCard)
+    return { inputArgs, shots, covers, endCardLabel, next }
+  }
+  {
+    const reel = reelInputs(true)
+    const { inputArgs, shots, covers, endCardLabel } = reel
+    let { next } = reel
     const audioIndex = audio === null ? null : next++
     if (audio !== null) inputArgs.push('-i', audio)
     const graph = reelFilterGraph(edit, reelPlan, { shots, endCard: endCardLabel, width, height, covers }, frameOverrides)
     console.log(`reel: ${reelPlan.segments.length} segments, ${reelPlan.frames} frames @ ${fps}fps …`)
     await ffmpeg([
       ...inputArgs,
+      '-filter_complex', graph,
+      '-map', '[out]',
+      ...(audioIndex === null ? ['-an'] : ['-map', `${audioIndex}:a:0`, ...aacArgs(heroAudio)]),
+      '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1',
+      '-r', String(fps), '-fps_mode', 'cfr',
+      ...x264Args(heroEncode, fps),
+      outPath(DELIVERABLES.reel),
+    ])
+  }
+  if (titles !== null) {
+    // The clean reel keeps every check below under its own name.
+    await rename(outPath(DELIVERABLES.reel), outPath(CLEAN_REEL))
+    const { inputArgs, shots, covers, next } = reelInputs(false)
+    const titlesLabel = `${next}:v`
+    const audioIndex = audio === null ? null : next + 1
+    const graph = titledReelFilterGraph(edit, reelPlan, { shots, endCard: null, width, height, covers }, titles.cues, titlesLabel, frameOverrides)
+    console.log(`titled reel: ${titles.cues.plateMoves.length} plate pushes, titles track ${titles.track} …`)
+    await ffmpeg([
+      ...inputArgs,
+      '-i', titles.track,
+      ...(audio === null ? [] : ['-i', audio]),
       '-filter_complex', graph,
       '-map', '[out]',
       ...(audioIndex === null ? ['-an'] : ['-map', `${audioIndex}:a:0`, ...aacArgs(heroAudio)]),
@@ -421,7 +478,7 @@ async function main() {
     })
     return overrideChecks
   }
-  const reelOverrideChecks = await verifyVideo(DELIVERABLES.reel, { width, height, fps, frames: reelPlan.frames, audio: heroAudio }, reelFrames, FIDELITY_TOLERANCE.reel, frameOverrides)
+  const reelOverrideChecks = await verifyVideo(cleanReel, { width, height, fps, frames: reelPlan.frames, audio: heroAudio }, reelFrames, FIDELITY_TOLERANCE.reel, frameOverrides)
 
   // A held interval must be ONE picture: measured at HELD_SCALE luma (finer
   // than the 64x36 timeline thumbnails) on the finished reel, against the
@@ -436,7 +493,7 @@ async function main() {
   for (const interval of intervalOverrides.filter((entry) => intervalKind(entry) === 'hold')) {
     const { reelFrame, frames, original, hold } = interval
     const between = (from, count) => `select='between(n,${from},${from + count - 1})'`
-    const output = await heldLuma(outPath(DELIVERABLES.reel), `held-${original.clipId}-reel`, between(reelFrame, frames))
+    const output = await heldLuma(outPath(cleanReel), `held-${original.clipId}-reel`, between(reelFrame, frames))
     const heldSource = await heldLuma(clipPath(hold.clipId), `held-${hold.clipId}-source`, `select='eq(n,${hold.frame})'`)
     const replaced = await heldLuma(clipPath(original.clipId), `held-${original.clipId}-replaced`, between(original.frame, frames))
     const check = checkHeldInterval(interval, output, heldSource, replaced, heldPixels)
@@ -463,6 +520,48 @@ async function main() {
     await decodes(file, null)
     const stream = probed.streams[0]
     outputs.push({ ...summary, kind: 'image', width: stream?.width, height: stream?.height, codec: stream?.codec, pixFmt: stream?.pixFmt, audio: false, audioStreams: 0 })
+  }
+
+  // The titled reel: identical to the verified clean reel on every frame it
+  // does not declare (titles, plate pushes, the end-card slot).
+  let titled = null
+  if (titles !== null) {
+    const summary = await fileSummary(outPath(DELIVERABLES.reel))
+    const probed = await probe(outPath(DELIVERABLES.reel))
+    problems.push(...checkVideoOutput({ file: DELIVERABLES.reel, width, height, fps, frames: reelPlan.frames, audio: heroAudio }, probed.streams, probed.durationSec, summary.bytes))
+    await decodes(outPath(DELIVERABLES.reel), reelPlan.frames)
+    const cleanThumbs = await lumaThumbnails(outPath(cleanReel), 'clean-reel')
+    const titledThumbs = await lumaThumbnails(outPath(DELIVERABLES.reel), 'titled-reel')
+    const declared = titledChangedFrames(reelPlan, titles.cues)
+    const pixels = THUMB.width * THUMB.height
+    let worst = { frame: -1, diff: 0 }
+    for (let frame = 0; frame < reelPlan.frames; frame++) {
+      if (declared.has(frame)) continue
+      let sum = 0
+      for (let i = frame * pixels; i < (frame + 1) * pixels; i++) sum += Math.abs(cleanThumbs[i] - titledThumbs[i])
+      const diff = sum / pixels
+      if (diff > worst.diff) worst = { frame, diff }
+      if (diff > FIDELITY_TOLERANCE.reel) problems.push(`${DELIVERABLES.reel}: frame ${frame} differs from ${cleanReel} by ${diff.toFixed(3)} levels but is not a declared titles/push/end-card frame`)
+    }
+    const video = probed.streams.find((stream) => stream.type === 'video')
+    titled = {
+      cues: { file: titles.cuesPath, sha256: await sha256File(titles.cuesPath), status: titles.cues.status },
+      track: { file: path.basename(titles.track), sha256: await sha256File(titles.track) },
+      plateMoves: titles.cues.plateMoves,
+      endCard: 'black slot + E8 typographic end card from the titles track',
+      declaredFrames: declared.size,
+      undeclaredFrames: { count: reelPlan.frames - declared.size, maxAbsDiffFromClean: worst.diff, worstFrame: worst.frame, tolerance: FIDELITY_TOLERANCE.reel },
+    }
+    outputs.push({
+      ...summary,
+      kind: 'video',
+      width: video?.width, height: video?.height, fps: video?.fps, frames: video?.frames,
+      durationSec: probed.durationSec,
+      codec: `${video?.codec} ${video?.profile}`, pixFmt: video?.pixFmt,
+      audio: probed.streams.some((stream) => stream.type === 'audio'),
+      audioStreams: probed.streams.filter((stream) => stream.type === 'audio').length,
+      titled: true,
+    })
   }
 
   // --- provenance -----------------------------------------------------------
@@ -526,6 +625,7 @@ async function main() {
       audio: audio === null ? 'none — no final mix exists in the repo; finalEdit.json holds the cue map only. Pass --audio=<final mix> to mux it per derivatives.heroReel.audio' : path.basename(audio),
       encode: edit.derivatives.heroReel.encode,
     },
+    ...(titled === null ? {} : { titled: { file: DELIVERABLES.reel, clean: CLEAN_REEL, ...titled } }),
     loop: { clipIds: edit.derivatives.loop.clipIds, fps: loopPlan.fps, frames: loopPlan.frames, durationMs: loopPlan.durationMs, size: `${LOOP_SIZE.width}x${LOOP_SIZE.height}`, encode: `derivatives.webReel: ${edit.derivatives.webReel.encode}`, silent: true },
     poster: { ...poster, crop: edit.derivatives.poster.crop, size: `${POSTER_SIZE.width}x${POSTER_SIZE.height}` },
     og: { crop: og, size: `${OG_SIZE.width}x${OG_SIZE.height}`, typography: 'none — no title treatment is specified; the right third is left clean for it' },
@@ -536,9 +636,9 @@ async function main() {
   }
   await writeFile(outPath('manifest.json'), JSON.stringify(deliveryManifest, null, 2) + '\n')
   const sums = []
-  for (const name of [...Object.values(DELIVERABLES), 'manifest.json', 'source-reel-manifest.json']) sums.push(`${await sha256File(outPath(name))}  ${name}`)
+  for (const name of [...Object.values(DELIVERABLES), ...(titles === null ? [] : [CLEAN_REEL]), 'manifest.json', 'source-reel-manifest.json']) sums.push(`${await sha256File(outPath(name))}  ${name}`)
   await writeFile(outPath('SHA256SUMS'), sums.join('\n') + '\n')
-  problems.push(...checkDeliverableNames(await readdir(out)))
+  problems.push(...checkDeliverableNames(await readdir(out), titles === null ? [] : [CLEAN_REEL]))
 
   console.log('')
   console.log('| file | size | duration | codec | audio | bytes | sha256 |')
@@ -553,13 +653,13 @@ async function main() {
     for (const check of (output.frameOverrideChecks ?? []).filter((entry) => singleOverrides.some((override) => override.reelFrame === entry.reelFrame))) {
       console.log(`  frame override @ ${check.reelFrame}: ${check.toReplacement.toFixed(3)} levels from its replacement, ${check.toOriginal.toFixed(3)} from the original${check.problems.length > 0 ? ' — FAILED' : ''}`)
     }
-    for (const check of heldChecks.filter(() => output.file === DELIVERABLES.reel)) {
+    for (const check of heldChecks.filter(() => output.file === cleanReel)) {
       console.log(
         `  held interval @ ${check.reelFrame}-${check.reelFrame + check.frames - 1}: ${check.frames} frames, max ${check.maxFromFirstFrame.toFixed(3)} levels from the first frame, ` +
           `first frame ${check.firstToHeldSource.toFixed(3)} from its source frame (replaced source frames were up to ${check.sourceFromHeld.max.toFixed(3)}, mean ${check.sourceFromHeld.mean.toFixed(3)} levels from it)${check.problems.length > 0 ? ' — FAILED' : ''}`,
       )
     }
-    for (const interval of intervalOverrides.filter(() => output.file === DELIVERABLES.reel)) {
+    for (const interval of intervalOverrides.filter(() => output.file === cleanReel)) {
       const checks = (output.frameOverrideChecks ?? []).filter((entry) => entry.reelFrame >= interval.reelFrame && entry.reelFrame < interval.reelFrame + interval.frames)
       const failed = checks.filter((entry) => entry.problems.length > 0).length
       console.log(

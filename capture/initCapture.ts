@@ -93,6 +93,18 @@ export async function dismissLaunchGate(page: Page): Promise<void> {
     await entry.click()
   }
   await expect(page.locator('main')).toHaveAttribute('data-entry-open', 'false')
+  // The gate stays mounted while .launch-gate--closing fades its opacity out
+  // (LAUNCH_GATE_TRANSITION_MS in App.tsx); a still taken in that window
+  // shows the title screen through any translucent HUD card. Polled from
+  // Node so a controlled page clock cannot stall the wait.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const gate = document.querySelector('.launch-gate')
+        return gate === null || getComputedStyle(gate).opacity === '0'
+      }),
+    )
+    .toBe(true)
 }
 
 async function detectFontFallback(page: Page): Promise<FontReport> {

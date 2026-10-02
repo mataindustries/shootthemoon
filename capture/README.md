@@ -679,6 +679,56 @@ node --experimental-strip-types --experimental-transform-types capture/ci/assemb
   --end-card=capture/ci/end-card-1920x1080.png --out=capture-final/deliverables
 ```
 
+## Phase 7: the titled reel (ORBITAL RECORD motion graphics)
+
+The motion-graphics treatment (Opus ORBITAL RECORD, championship direction)
+is a separate layer over the locked cut: nothing in `finalEdit.json`, any
+clip, override or transition changes, and the clean reel stays a
+deliverable of its own.
+
+```
+capture/titles/
+  reel-titles.cues.json   — the timing authority: 9 record entries (E1-E9), the
+                            6 plate pushes (P1-P6), the protected (forbidden) frames,
+                            tokens, layout, Astra's chapter hierarchy as metadata
+  titles.ts               — pure: per-frame state (sceneAt), validateCues, and the
+                            ffmpeg chains for the perspective pushes + composite
+  titles.test.ts          — pinned frames, protected frames, closing line, end card
+  overlay.html            — draws sceneAt()'s primitives; no animation, no clocks
+  renderTitles.mjs        — Chromium -> transparent titles-track.mov (qtrle argb,
+                            3,456 frames) + titles-manifest.json; --stills, --determinism
+  finishTitledReel.mjs    — titled reel from a finished clean reel (local path)
+  fonts/                  — Saira VF, IBM Plex Mono Light/Regular/Medium (SIL OFL)
+  style-frames/           — the approved treatment frames, for comparison
+```
+
+Plate pushes use `perspective` on a 2x upsample (sub-pixel, every frame), never
+`zoompan` (it steps every 3-4 frames). The titled reel's end-card slot is black
+and carries the typographic E8 card; the illustrated still stays in the clean
+reel only.
+
+```sh
+# Unit tests (no browser):
+node --experimental-strip-types --experimental-transform-types --test capture/titles/titles.test.ts
+# The titles track (Chromium; PLAYWRIGHT_CHROMIUM_PATH if needed):
+node --experimental-strip-types --experimental-transform-types capture/titles/renderTitles.mjs --out=capture-final/titles
+# Release: assembly builds both reels from the intermediates
+#   -> reel-57s-1080.mp4 (titled) + reel-57s-1080-clean.mp4 (verified exactly as before)
+node --experimental-strip-types --experimental-transform-types capture/ci/assembleFinalReel.mjs \
+  --dir=capture-final/run-6 --source=capture-final/run-6/source-run.json \
+  --end-card=capture/ci/end-card-1920x1080.png --out=capture-final/deliverables \
+  --titles=capture-final/titles/titles-track.mov --titles-cues=capture/titles/reel-titles.cues.json
+# Without the intermediates: finish over the released clean reel
+node --experimental-strip-types --experimental-transform-types capture/titles/finishTitledReel.mjs \
+  --clean=<released reel-57s-1080.mp4> --titles=capture-final/titles/titles-track.mov \
+  [--replace=c12:<re-captured still>] --out=capture-final/titled
+```
+
+`dismissLaunchGate` now also waits for the LaunchGate's closing fade to finish
+(gate unmounted or computed opacity 0): run #6's c12 still (FIRST STRIKE
+COMPLETE) caught the gate mid-fade and shows the title screen through the
+card. A re-render of c12 carries the fix into a release run.
+
 ## The four Phase 1 proof shots
 
 | id | profile | fixture | mechanism | frames |

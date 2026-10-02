@@ -1,0 +1,67 @@
+{
+  "schema": "shootthemoon.titled-reel/1",
+  "method": "finish over the clean reel (render intermediates unavailable): decode -> 4:4:4 -> black end-card slot -> replacements -> plate pushes -> titles -> heroReel encode",
+  "clean": {
+    "file": "reel-57s-1080-clean.mp4",
+    "source": "capture-final/release/reel-57s-1080-released.mp4",
+    "sha256": "34c2e6ade470d025cb4dd8ca39f49b1ce4c3c245b8ff6d1c986eded098525e2f"
+  },
+  "titled": {
+    "file": "reel-57s-1080.mp4",
+    "sha256": "7be8b4f8e896a0c639b3aad3be3a71e6c0be2a6fd09b6c9e9a0e408f9083c5fb",
+    "frames": 3456,
+    "durationSec": 57.6,
+    "codec": "h264",
+    "profile": "High",
+    "pixFmt": "yuv420p"
+  },
+  "titles": {
+    "file": "capture-final/titles/titles-track.mov",
+    "sha256": "6c49ee0bc02278c925a3f5fe448b1b2b6cbe23e977e74c53b0258881b0f95d81"
+  },
+  "cues": {
+    "file": "capture/titles/reel-titles.cues.json",
+    "sha256": "40566030e69607a5460f17d195e19dbb0c433b2f83d72b0f04430c4cbf08fab6"
+  },
+  "replacements": {
+    "c12": {
+      "file": "capture-final/c12__first-strike-ending-text/frames/000000.png",
+      "sha256": "c55ea3fba017d7d43b0a35c81829e2bd173b32f5949c11654dfc5e903d180567",
+      "reelFrames": [
+        1620,
+        1727
+      ]
+    }
+  },
+  "changedFrameClasses": {
+    "titles only": {
+      "frames": 992,
+      "maxDiff": 0.5
+    },
+    "push + titles": {
+      "frames": 215,
+      "maxDiff": 2.06
+    },
+    "push only": {
+      "frames": 289,
+      "maxDiff": 1.52
+    },
+    "c12 re-capture + push": {
+      "frames": 108,
+      "maxDiff": 0.85
+    },
+    "end card (E8 on black)": {
+      "frames": 288,
+      "maxDiff": 51.39
+    }
+  },
+  "undeclaredFrames": {
+    "count": 1564,
+    "worstDiff": 0.21,
+    "worstFrame": 3144,
+    "tolerance": 3
+  },
+  "protectedFramesWithZeroAlpha": 150,
+  "elapsedSec": 158,
+  "problems": []
+}

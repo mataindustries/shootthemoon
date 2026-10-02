@@ -1,0 +1,1188 @@
+{
+  "schema": "shootthemoon.reel-titles/1",
+  "status": "APPROVED — ORBITAL RECORD v1 (championship): Opus treatment primary; Astra's chapter hierarchy as organizing metadata; Astra's closing line as E9.",
+  "source": {
+    "reel": "reel-57s-1080.mp4 (assembled from capture/finalEdit.json + capture/ci/assembly.ts release overrides)",
+    "width": 1920,
+    "height": 1080,
+    "fps": 60,
+    "frames": 3456
+  },
+  "conventions": {
+    "frames": "0-based reel frame index at 60 fps. Frame f is shown at f/60 s.",
+    "fadeIn": "in {f, fade:n}: element first drawn at frame f; opacity = ease((k+1)/n) for k = frame-f in 0..n-1, then 1.",
+    "fadeOut": "out {f, fade:n}: opacity = 1-ease((k+1)/n) for k = frame-f in 0..n-1; not drawn from frame f+n-1 on.",
+    "hardOut": "out {f} without fade: not drawn from frame f on (use when the exit coincides with a picture cut).",
+    "track": "letter-spacing in em, interpolated from 'from' to 'to' over n frames starting at f, eased.",
+    "draw": "rule/hairline scaleX 0 -> 1 over n frames from f, eased, from its 'origin' end.",
+    "text": "a string, or [[frame, string], ...] swaps: each string is shown from its frame until the next swap.",
+    "counter": "{token} in text is replaced by v = v0 + (v1-v0)*(frame-f0)/(f1-f0), clamped to [min(v0,v1), max(v0,v1)], floored to 0.01, formatted SS.hh (two-digit seconds, two-digit hundredths).",
+    "positions": "x and y are 1920x1080 pixels. For text, y is the BASELINE; for rule, chip, segmentRule and hairline, y is the TOP edge. anchor 'start' = left edge of the first glyph at x; 'middle' = visual centre at x (compensate the trailing letter-spacing).",
+    "ease": "out = cubic-bezier(0.22, 1, 0.36, 1); inOut = cubic-bezier(0.65, 0, 0.35, 1); linear = linear. Default ease for fades/track/draw is out.",
+    "plateMoves": "Each plateMove scales the CLEAN reel picture of frames [from..to] about anchor by s(f) = scale[0] + (scale[1]-scale[0])*(f-from)/(to-from). Sub-pixel accurate (see MOTION_TREATMENT.md, implementation spec). Titles are composited after plate moves; brackets with followsPlate apply the same transform to their box.",
+    "chapter": "Astra's narrative hierarchy (ARRIVAL, CONTACT, OFFENSIVE, DEFENSE, TERRITORY), in that order. Organizing metadata for the system and for later music sync only: it is never drawn. Each chapter is named once, in order; events without one (the closing statement, the end card) sit outside it."
+  },
+  "tempo": {
+    "bpm": 100,
+    "framesPerBar": 144,
+    "framesPerBeat": 36,
+    "framesPerGrid": 18,
+    "framesPerUnit": 9,
+    "rule": "Every event starts on an 18-frame grid line (the edit's own 300 ms grid). Internal staggers are multiples of 9 frames. Exits end on a picture cut or immediately before a flash/dip."
+  },
+  "chapters": [
+    "ARRIVAL",
+    "CONTACT",
+    "OFFENSIVE",
+    "DEFENSE",
+    "TERRITORY"
+  ],
+  "tokens": {
+    "color": {
+      "ink": "#EDE8DF",
+      "amber": "#EFAD58",
+      "cyan": "#55C5CC",
+      "violet": "#AA7ED8"
+    },
+    "style": {
+      "primary": {
+        "family": "Saira",
+        "wdth": 110,
+        "wght": 500,
+        "size": 36,
+        "tracking": 0.16,
+        "fill": "ink",
+        "opacity": 0.96,
+        "case": "upper",
+        "shadow": "lift"
+      },
+      "kicker": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 16,
+        "tracking": 0.16,
+        "fill": "ink",
+        "opacity": 0.76,
+        "case": "upper",
+        "shadow": "lift"
+      },
+      "data": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 16,
+        "tracking": 0.08,
+        "fill": "ink",
+        "opacity": 0.66,
+        "case": "upper",
+        "shadow": "lift"
+      },
+      "digits": {
+        "family": "IBM Plex Mono",
+        "wght": 300,
+        "size": 72,
+        "tracking": 0.02,
+        "fill": "ink",
+        "opacity": 0.96,
+        "shadow": "lift"
+      },
+      "wordmark": {
+        "family": "Saira",
+        "wdth": 125,
+        "wght": 300,
+        "size": 128,
+        "tracking": 0.2,
+        "fill": "ink",
+        "opacity": 1
+      },
+      "wordmarkThe": {
+        "family": "Saira",
+        "wdth": 125,
+        "wght": 400,
+        "size": 26,
+        "tracking": 0.62,
+        "fill": "ink",
+        "opacity": 0.92
+      },
+      "tagline": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 19,
+        "tracking": 0.3,
+        "fill": "ink",
+        "opacity": 0.74
+      },
+      "cta": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 15,
+        "tracking": 0.26,
+        "fill": "ink",
+        "opacity": 0.62
+      },
+      "url": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 24,
+        "tracking": 0.06,
+        "fill": "amber",
+        "opacity": 0.94
+      },
+      "footer": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 13,
+        "tracking": 0.22,
+        "fill": "ink",
+        "opacity": 0.42
+      }
+    },
+    "rule": {
+      "thickness": 2,
+      "fill": "ink",
+      "opacity": 0.5
+    },
+    "chip": {
+      "size": 8
+    },
+    "shadow": {
+      "lift": "two drop shadows under record text only: (0,0) blur-radius 1px rgba(0,0,0,0.55) and (0,1px) blur-radius 12px rgba(0,0,0,0.45). Never a glow, never on the end card."
+    }
+  },
+  "layout": {
+    "record": {
+      "note": "The one anchor for every record entry. Fixed baselines per role; a missing role leaves its slot empty (nothing shifts).",
+      "x": 120,
+      "chipX": 100,
+      "chipY": 848,
+      "kickerY": 858,
+      "primaryY": 910,
+      "ruleY": 930,
+      "ruleWidth": 72,
+      "dataY": 962,
+      "countdownKickerY": 826,
+      "countdownChipY": 816
+    }
+  },
+  "forbidden": [
+    {
+      "from": 0,
+      "to": 35,
+      "why": "first beat of the head fade from black (c01): picture still near-black, nothing on screen"
+    },
+    {
+      "from": 414,
+      "to": 431,
+      "why": "c02 dip to black before the c03 hard cut"
+    },
+    {
+      "from": 1290,
+      "to": 1301,
+      "why": "First Strike white flash (c09 -> c10)"
+    },
+    {
+      "from": 1692,
+      "to": 1727,
+      "why": "c12 fade to black"
+    },
+    {
+      "from": 1866,
+      "to": 1877,
+      "why": "Counterstrike white flash (c15 -> c16)"
+    },
+    {
+      "from": 3132,
+      "to": 3167,
+      "why": "c25 dip to black (end-card titles may start at 3168, the plate is black)"
+    }
+  ],
+  "plateMoves": [
+    {
+      "id": "P1",
+      "clip": "c03 hold (vesper-citadel-reveal, held on c03#143)",
+      "from": 432,
+      "to": 575,
+      "scale": [
+        1.0,
+        1.04
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "P2",
+      "clip": "c04 hold (vesper-transmission, held on c04#143)",
+      "from": 576,
+      "to": 719,
+      "scale": [
+        1.0,
+        1.02
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "P3",
+      "clip": "c05 still (first-strike-arm-dialog)",
+      "from": 720,
+      "to": 791,
+      "scale": [
+        1.0,
+        1.012
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "P4",
+      "clip": "c12 still incl. its fade-black (first-strike-ending-text)",
+      "from": 1620,
+      "to": 1727,
+      "scale": [
+        1.0,
+        1.015
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "P5",
+      "clip": "c13 still + c14 cover (counterstrike-fire-now)",
+      "from": 1728,
+      "to": 1799,
+      "scale": [
+        1.0,
+        1.015
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "P6",
+      "clip": "c18 cover (held c17#71)",
+      "from": 2088,
+      "to": 2159,
+      "scale": [
+        1.0,
+        1.02
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    }
+  ],
+  "events": [
+    {
+      "id": "E1",
+      "name": "Cold open — the premise",
+      "chapter": "ARRIVAL",
+      "cue": "drone-swell",
+      "from": 36,
+      "to": 142,
+      "elements": [
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 910,
+          "text": "YOU LANDED FIRST.",
+          "in": {
+            "f": 36,
+            "fade": 9
+          },
+          "track": {
+            "f": 36,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 135,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 930,
+          "w": 72,
+          "draw": {
+            "f": 45,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 135,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "name": "Discovery — Null Meridian contact",
+      "chapter": "CONTACT",
+      "cue": "vesper-sting",
+      "from": 432,
+      "to": 574,
+      "elements": [
+        {
+          "role": "brackets",
+          "box": [
+            912,
+            184,
+            1236,
+            624
+          ],
+          "arm": 28,
+          "stroke": 2,
+          "fill": "ink",
+          "opacity": 0.82,
+          "in": {
+            "f": 432,
+            "fade": 18,
+            "scaleFrom": 1.08
+          },
+          "followsPlate": "P1",
+          "out": {
+            "f": 567,
+            "fade": 9
+          },
+          "note": "Four L-shaped corners on box [x0,y0,x1,y1] (frame pixels at plate scale 1.0). Entrance: box scaled about its own centre from scaleFrom to 1.0 while opacity rises, same ease and frames as the fade. Then the P1 plate transform is applied to the box every frame."
+        },
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 848,
+          "fill": "cyan",
+          "in": {
+            "f": 450,
+            "fade": 9
+          },
+          "out": {
+            "f": 567,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 858,
+          "text": "CONTACT · NULL MERIDIAN",
+          "in": {
+            "f": 450,
+            "fade": 9
+          },
+          "out": {
+            "f": 567,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 910,
+          "text": "VESPER LANDED ANYWAY.",
+          "in": {
+            "f": 468,
+            "fade": 9
+          },
+          "track": {
+            "f": 468,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 567,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 930,
+          "w": 72,
+          "draw": {
+            "f": 468,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 567,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "data",
+          "x": 120,
+          "y": 962,
+          "text": "40.608° S   94.607° E",
+          "in": {
+            "f": 486,
+            "fade": 9
+          },
+          "out": {
+            "f": 567,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "name": "Launch — FIRST STRIKE",
+      "chapter": "OFFENSIVE",
+      "cue": "launch-roar",
+      "from": 792,
+      "to": 863,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 848,
+          "fill": "amber",
+          "in": {
+            "f": 792,
+            "fade": 9
+          },
+          "out": {
+            "f": 864
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 858,
+          "text": "LAUNCH   T+{t}",
+          "counter": {
+            "token": "t",
+            "f0": 792,
+            "f1": 863,
+            "v0": 0.0,
+            "v1": 0.768
+          },
+          "in": {
+            "f": 792,
+            "fade": 9
+          },
+          "out": {
+            "f": 864
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 930,
+          "w": 72,
+          "draw": {
+            "f": 792,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 864
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 910,
+          "text": "FIRST STRIKE",
+          "in": {
+            "f": 801,
+            "fade": 9
+          },
+          "track": {
+            "f": 801,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 864
+          }
+        },
+        {
+          "role": "data",
+          "style": "data",
+          "x": 120,
+          "y": 962,
+          "text": "TARGET   40.608° S   94.607° E",
+          "in": {
+            "f": 810,
+            "fade": 9
+          },
+          "out": {
+            "f": 864
+          }
+        }
+      ]
+    },
+    {
+      "id": "E4",
+      "name": "Attack — time to impact",
+      "chapter": "OFFENSIVE",
+      "cue": "descent-riser + silence-drop",
+      "from": 1152,
+      "to": 1289,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 816,
+          "fill": "amber",
+          "in": {
+            "f": 1152,
+            "fade": 9
+          },
+          "out": {
+            "f": 1260,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 826,
+          "text": "TIME TO IMPACT",
+          "in": {
+            "f": 1152,
+            "fade": 9
+          },
+          "out": {
+            "f": 1260,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 930,
+          "w": 72,
+          "draw": {
+            "f": 1152,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 1260,
+            "fade": 9
+          }
+        },
+        {
+          "role": "digits",
+          "style": "digits",
+          "x": 116,
+          "y": 910,
+          "text": "{t}",
+          "counter": {
+            "token": "t",
+            "f0": 1152,
+            "f1": 1284,
+            "v0": 0.99,
+            "v1": 0.0
+          },
+          "in": {
+            "f": 1161,
+            "fade": 9
+          },
+          "out": {
+            "f": 1290
+          }
+        }
+      ]
+    },
+    {
+      "id": "E5",
+      "name": "Attack (reversal) — COUNTERSTRIKE",
+      "chapter": "OFFENSIVE",
+      "cue": "incoming-roar",
+      "from": 1800,
+      "to": 1864,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 848,
+          "fill": "cyan",
+          "in": {
+            "f": 1800,
+            "fade": 9
+          },
+          "out": {
+            "f": 1857,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 858,
+          "text": "INCOMING · NULL MERIDIAN",
+          "in": {
+            "f": 1800,
+            "fade": 9
+          },
+          "out": {
+            "f": 1857,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 930,
+          "w": 72,
+          "draw": {
+            "f": 1800,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 1857,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 910,
+          "text": "COUNTERSTRIKE",
+          "in": {
+            "f": 1809,
+            "fade": 9
+          },
+          "track": {
+            "f": 1809,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 1857,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "data",
+          "x": 120,
+          "y": 962,
+          "text": "TARGET   14.209° N   39.190° W",
+          "in": {
+            "f": 1818,
+            "fade": 9
+          },
+          "out": {
+            "f": 1857,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "E6",
+      "name": "Discovery — the third claimant",
+      "chapter": "DEFENSE",
+      "cue": "divider-raid",
+      "from": 2016,
+      "to": 2159,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 848,
+          "fill": "violet",
+          "in": {
+            "f": 2016,
+            "fade": 9
+          },
+          "out": {
+            "f": 2160
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 858,
+          "text": "CONTACT · THE OCTOGONALS",
+          "in": {
+            "f": 2016,
+            "fade": 9
+          },
+          "out": {
+            "f": 2160
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 930,
+          "w": 72,
+          "draw": {
+            "f": 2016,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 2160
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 910,
+          "text": "DIVIDER RAID",
+          "in": {
+            "f": 2025,
+            "fade": 9
+          },
+          "track": {
+            "f": 2025,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 2160
+          }
+        },
+        {
+          "role": "data",
+          "style": "data",
+          "x": 120,
+          "y": 962,
+          "text": "WAVE 1/3 — “UNREGISTERED STRUCTURE DETECTED.”",
+          "in": {
+            "f": 2034,
+            "fade": 9
+          },
+          "out": {
+            "f": 2160
+          }
+        }
+      ]
+    },
+    {
+      "id": "E7",
+      "name": "Feature roll-call — territory monuments",
+      "chapter": "TERRITORY",
+      "cue": "montage-helios / montage-signal / montage-crown / resolution",
+      "from": 2448,
+      "to": 2842,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 848,
+          "fill": "amber",
+          "in": {
+            "f": 2448,
+            "fade": 9
+          },
+          "out": {
+            "f": 2835,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 858,
+          "text": [
+            [
+              2448,
+              "TERRITORY MONUMENT · 1/4"
+            ],
+            [
+              2556,
+              "TERRITORY MONUMENT · 2/4"
+            ],
+            [
+              2628,
+              "TERRITORY MONUMENT · 3/4"
+            ],
+            [
+              2736,
+              "TERRITORY MONUMENT · 4/4"
+            ]
+          ],
+          "in": {
+            "f": 2448,
+            "fade": 9
+          },
+          "out": {
+            "f": 2835,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 910,
+          "text": [
+            [
+              2448,
+              "HELIOS SPIRE"
+            ],
+            [
+              2556,
+              "SIGNAL ARRAY"
+            ],
+            [
+              2628,
+              "CRATER CROWN"
+            ],
+            [
+              2736,
+              "BASTION ZIGGURAT"
+            ]
+          ],
+          "in": {
+            "f": 2457,
+            "fade": 9
+          },
+          "track": [
+            {
+              "f": 2457,
+              "from": 0.24,
+              "to": 0.16,
+              "n": 18
+            },
+            {
+              "f": 2556,
+              "from": 0.2,
+              "to": 0.16,
+              "n": 9
+            },
+            {
+              "f": 2628,
+              "from": 0.2,
+              "to": 0.16,
+              "n": 9
+            },
+            {
+              "f": 2736,
+              "from": 0.2,
+              "to": 0.16,
+              "n": 9
+            }
+          ],
+          "out": {
+            "f": 2835,
+            "fade": 9
+          }
+        },
+        {
+          "role": "segmentRule",
+          "x": 120,
+          "y": 930,
+          "w": 72,
+          "segments": 4,
+          "gap": 4,
+          "draws": [
+            {
+              "f": 2448,
+              "n": 9
+            },
+            {
+              "f": 2556,
+              "n": 9
+            },
+            {
+              "f": 2628,
+              "n": 9
+            },
+            {
+              "f": 2736,
+              "n": 9
+            }
+          ],
+          "unlitOpacity": 0.18,
+          "out": {
+            "f": 2835,
+            "fade": 9
+          },
+          "litFill": "amber",
+          "litOpacity": 0.9,
+          "unlitFill": "ink"
+        },
+        {
+          "role": "data",
+          "style": "data",
+          "x": 120,
+          "y": 962,
+          "text": [
+            [
+              2448,
+              "FUSION REACTOR + LUNAR MASS DRIVER"
+            ],
+            [
+              2556,
+              "+50% RIVAL SCAN SPEED"
+            ],
+            [
+              2628,
+              "BUILT INTO THE FIRST STRIKE SCAR"
+            ],
+            [
+              2736,
+              "EVERY STEP A WALL"
+            ]
+          ],
+          "in": {
+            "f": 2466,
+            "fade": 9
+          },
+          "out": {
+            "f": 2835,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "E9",
+      "name": "Closing statement — the premise completed",
+      "cue": "resolution",
+      "note": "The game's own third opening line (src/app/LaunchGate.tsx), completing E1 and E2. Same slot and settle as E1. Enters after 1.8 s of clean pull-back (E7 is gone at 2843) and is gone at 3095, one beat clear of the c25 dip (3132) and 73 frames before the end-card build.",
+      "from": 2952,
+      "to": 3094,
+      "elements": [
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 910,
+          "text": "NEITHER INTENDS TO SHARE.",
+          "in": {
+            "f": 2952,
+            "fade": 9
+          },
+          "track": {
+            "f": 2952,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 3087,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 930,
+          "w": 72,
+          "draw": {
+            "f": 2961,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 3087,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "E8",
+      "name": "End card — title lockup on black",
+      "cue": "final-chord",
+      "from": 3168,
+      "to": 3455,
+      "plate": "black: assemble the end-card slot without --end-card (the slot is already black in assembly.ts when no still is passed)",
+      "elements": [
+        {
+          "role": "wordmarkTop",
+          "style": "wordmark",
+          "x": 960,
+          "y": 452,
+          "anchor": "middle",
+          "text": "SHOOT",
+          "in": {
+            "f": 3168,
+            "fade": 36
+          },
+          "track": {
+            "f": 3168,
+            "from": 0.3,
+            "to": 0.2,
+            "n": 54
+          }
+        },
+        {
+          "role": "the",
+          "style": "wordmarkThe",
+          "x": 960,
+          "y": 516,
+          "anchor": "middle",
+          "text": "THE",
+          "in": {
+            "f": 3204,
+            "fade": 18
+          },
+          "track": {
+            "f": 3204,
+            "from": 0.8,
+            "to": 0.62,
+            "n": 27
+          }
+        },
+        {
+          "role": "hairline",
+          "side": "left",
+          "y": 507,
+          "length": 210,
+          "gapFromText": 34,
+          "stroke": 2,
+          "fill": "amber",
+          "opacity": 0.72,
+          "draw": {
+            "f": 3204,
+            "n": 27,
+            "origin": "inner"
+          }
+        },
+        {
+          "role": "hairline",
+          "side": "right",
+          "y": 507,
+          "length": 210,
+          "gapFromText": 34,
+          "stroke": 2,
+          "fill": "amber",
+          "opacity": 0.72,
+          "draw": {
+            "f": 3204,
+            "n": 27,
+            "origin": "inner"
+          }
+        },
+        {
+          "role": "wordmarkBottom",
+          "style": "wordmark",
+          "x": 960,
+          "y": 650,
+          "anchor": "middle",
+          "text": "MOON",
+          "hideGlyph": 2,
+          "in": {
+            "f": 3168,
+            "fade": 36
+          },
+          "track": {
+            "f": 3168,
+            "from": 0.3,
+            "to": 0.2,
+            "n": 54
+          }
+        },
+        {
+          "role": "crescent",
+          "inGlyphOf": "wordmarkBottom",
+          "glyph": 2,
+          "diameterOfCap": 1.06,
+          "litSide": "right",
+          "fill": [
+            "#F3E6CC",
+            "amber"
+          ],
+          "rimGlow": {
+            "color": "amber",
+            "sigma": 5,
+            "opacity": 0.55
+          },
+          "occluder": {
+            "f": 3240,
+            "n": 36,
+            "from": 0.0,
+            "to": -0.3,
+            "ease": "inOut"
+          },
+          "opticalShift": -0.1,
+          "note": "Circle of diameter D = diameterOfCap x cap height (cap height = 0.70 x font size), centred on the hidden glyph's advance box shifted by opticalShift x D, vertically at baseline - cap/2. Lit area = circle minus an equal occluder circle offset horizontally by occluder value x D (0 = new moon, invisible; -0.30 = final waxing crescent lit on the right). Fill: horizontal gradient #F3E6CC (55%) -> amber (100%). Rim glow: the same crescent shape blurred, behind it."
+        },
+        {
+          "role": "tagline",
+          "style": "tagline",
+          "x": 960,
+          "y": 724,
+          "anchor": "middle",
+          "text": "1v1 LUNAR TERRITORY WARFARE",
+          "in": {
+            "f": 3276,
+            "fade": 18
+          }
+        },
+        {
+          "role": "cta",
+          "style": "cta",
+          "x": 960,
+          "y": 872,
+          "anchor": "middle",
+          "text": "PLAY IN YOUR BROWSER",
+          "in": {
+            "f": 3312,
+            "fade": 18
+          }
+        },
+        {
+          "role": "url",
+          "style": "url",
+          "x": 960,
+          "y": 914,
+          "anchor": "middle",
+          "text": "shootthemoon.pages.dev",
+          "in": {
+            "f": 3312,
+            "fade": 18
+          }
+        },
+        {
+          "role": "footer",
+          "style": "footer",
+          "x": 960,
+          "y": 1012,
+          "anchor": "middle",
+          "text": "ALL FOOTAGE CAPTURED IN-GAME",
+          "in": {
+            "f": 3330,
+            "fade": 18
+          }
+        }
+      ]
+    }
+  ]
+}

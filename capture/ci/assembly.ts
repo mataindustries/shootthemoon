@@ -24,6 +24,7 @@
 import { isShotClip, type DeliveryFormat, type FinalEdit, type ShotClip } from '../finalEdit.ts'
 import { frameProgressAt, sourceValueAt } from '../finalRender/plan.ts'
 import { verifyReelRecords, type ClipRecord } from './reelCi.ts'
+import { drawnFrames, titledChains, validateCues, type Cues } from '../titles/titles.ts'
 
 // ---------------------------------------------------------------------------
 // Deliverables
@@ -47,8 +48,8 @@ export const OG_SIZE = { width: 1200, height: 630 } as const
 
 /** The deliverables directory must hold exactly the five media files plus
  * their metadata — never a raw frame sequence, never an intermediate. */
-export function checkDeliverableNames(names: readonly string[]): string[] {
-  const allowed = new Set<string>([...Object.values(DELIVERABLES), ...DELIVERABLE_METADATA])
+export function checkDeliverableNames(names: readonly string[], extra: readonly string[] = []): string[] {
+  const allowed = new Set<string>([...Object.values(DELIVERABLES), ...DELIVERABLE_METADATA, ...extra])
   const problems: string[] = []
   for (const name of names) {
     if (/\.png$/i.test(name)) problems.push(`raw frame/PNG in deliverables: ${name}`)
@@ -1085,6 +1086,55 @@ export function deliveryScale(width: number, height: number): string {
 export function reelFilterGraph(edit: FinalEdit, plan: SequencePlan, sources: GraphSources, overrides: readonly ReleaseFrameOverride[] = []): string {
   const substitutions = frameSubstitutions(plan, overrides)
   return [...sequenceChains(plan, sources, substitutions), `[seq]${deliveryScale(edit.output.width, edit.output.height)}[out]`].join(';')
+}
+
+/** With a titles track (--titles), the titled reel takes the reel's name and
+ * the clean reel is kept beside it under this one. */
+export const CLEAN_REEL = 'reel-57s-1080-clean.mp4'
+
+/**
+ * The titled reel (ORBITAL RECORD, capture/titles/): the same locked plan and
+ * overrides with the end-card slot black, then the cue sheet's plate pushes
+ * and the pre-rendered titles track over the 4:4:4 sequence, then the same
+ * delivery scale. `titles` is the input label of the full-length RGBA track.
+ */
+export function titledReelFilterGraph(
+  edit: FinalEdit,
+  plan: SequencePlan,
+  sources: GraphSources,
+  cues: Cues,
+  titles: string,
+  overrides: readonly ReleaseFrameOverride[] = [],
+): string {
+  const substitutions = frameSubstitutions(plan, overrides)
+  return [
+    ...sequenceChains(plan, { ...sources, endCard: null }, substitutions),
+    ...titledChains(cues, 'seq', titles, 'titled', plan.fps),
+    `[titled]${deliveryScale(edit.output.width, edit.output.height)}[out]`,
+  ].join(';')
+}
+
+/** Problems with a titles cue sheet for this plan (empty = usable). */
+export function checkTitlesCues(edit: FinalEdit, plan: SequencePlan, cues: Cues): string[] {
+  const problems = validateCues(cues)
+  const { source } = cues
+  if (source.frames !== plan.frames || source.fps !== plan.fps || source.width !== edit.output.width || source.height !== edit.output.height) {
+    problems.push(`cues are for ${source.width}x${source.height}@${source.fps} ${source.frames}f; the locked plan is ${edit.output.width}x${edit.output.height}@${plan.fps} ${plan.frames}f`)
+  }
+  return problems
+}
+
+/** Reel frames the titled reel may change against the clean plan: every
+ * drawn titles frame, every plate-push frame and the end-card slot. */
+export function titledChangedFrames(plan: SequencePlan, cues: Cues): Set<number> {
+  const changed = new Set(drawnFrames(cues))
+  for (const move of cues.plateMoves) for (let f = move.from; f <= move.to; f++) changed.add(f)
+  let start = 0
+  for (const segment of plan.segments) {
+    if (segment.kind === 'end-card') for (let f = start; f < start + segment.frames; f++) changed.add(f)
+    start += segment.frames
+  }
+  return changed
 }
 
 export function loopFilterGraph(loop: LoopPlan, sources: GraphSources): string {
