@@ -1,0 +1,6 @@
+P1: lossless push consecutive diff min 0.022 median 0.025 max 0.070 (max/median 2.83) | clean hold itself: median 0.000 max 0.052
+P2: lossless push consecutive diff min 0.037 median 0.041 max 0.095 (max/median 2.33) | clean hold itself: median 0.000 max 0.059
+P3: lossless push consecutive diff min 0.016 median 0.019 max 0.055 (max/median 2.93) | clean hold itself: median 0.000 max 0.042
+P4: lossless push consecutive diff min 0.064 median 0.066 max 0.133 (max/median 2.00) | clean hold itself: median 0.000 max 0.083
+P5: lossless push consecutive diff min 0.119 median 0.126 max 0.226 (max/median 1.79) | clean hold itself: median 0.000 max 0.139
+P6: lossless push consecutive diff min 0.079 median 0.085 max 0.209 (max/median 2.46) | clean hold itself: median 0.000 max 0.154

@@ -679,6 +679,97 @@ node --experimental-strip-types --experimental-transform-types capture/ci/assemb
   --end-card=capture/ci/end-card-1920x1080.png --out=capture-final/deliverables
 ```
 
+## Phase 7: the titled reel (ORBITAL RECORD motion graphics)
+
+The motion-graphics treatment (Opus ORBITAL RECORD, championship direction)
+is a separate layer over the locked cut: nothing in `finalEdit.json`, any
+clip, override or transition changes, and the clean reel stays a
+deliverable of its own.
+
+```
+capture/titles/
+  reel-titles.cues.json   — the timing authority: 9 record entries (E1-E9), the
+                            6 plate pushes (P1-P6), the protected (forbidden) frames,
+                            tokens, layout, Astra's chapter hierarchy as metadata
+  titles.ts               — pure: per-frame state (sceneAt), validateCues, and the
+                            ffmpeg chains for the perspective pushes + composite
+  titles.test.ts          — pinned frames, protected frames, closing line, end card
+  overlay.html            — draws sceneAt()'s primitives; no animation, no clocks
+  renderTitles.mjs        — Chromium -> transparent titles-track.mov (qtrle argb,
+                            3,456 frames) + titles-manifest.json; --stills, --determinism
+  finishTitledReel.mjs    — titled reel from a finished clean reel (local path)
+  fonts/                  — Saira VF, IBM Plex Mono Light/Regular/Medium (SIL OFL)
+  style-frames/           — the approved treatment frames, for comparison
+```
+
+Plate pushes use `perspective` on a 2x upsample (sub-pixel, every frame), never
+`zoompan` (it steps every 3-4 frames). The titled reel's end-card slot is black
+and carries the typographic E8 card; the illustrated still stays in the clean
+reel only.
+
+```sh
+# Unit tests (no browser):
+node --experimental-strip-types --experimental-transform-types --test capture/titles/titles.test.ts
+# The titles track (Chromium; PLAYWRIGHT_CHROMIUM_PATH if needed):
+node --experimental-strip-types --experimental-transform-types capture/titles/renderTitles.mjs --out=capture-final/titles
+# Release: assembly builds both reels from the intermediates
+#   -> reel-57s-1080.mp4 (titled) + reel-57s-1080-clean.mp4 (verified exactly as before)
+node --experimental-strip-types --experimental-transform-types capture/ci/assembleFinalReel.mjs \
+  --dir=capture-final/run-6 --source=capture-final/run-6/source-run.json \
+  --end-card=capture/ci/end-card-1920x1080.png --out=capture-final/deliverables \
+  --titles=capture-final/titles/titles-track.mov --titles-cues=capture/titles/reel-titles.cues.json
+# Without the intermediates: finish over the released clean reel
+node --experimental-strip-types --experimental-transform-types capture/titles/finishTitledReel.mjs \
+  --clean=<released reel-57s-1080.mp4> --titles=capture-final/titles/titles-track.mov \
+  [--replace=c12:<re-captured still>] --out=capture-final/titled
+```
+
+`dismissLaunchGate` now also waits for the LaunchGate's closing fade to finish
+(gate unmounted or computed opacity 0): run #6's c12 still (FIRST STRIKE
+COMPLETE) caught the gate mid-fade and shows the title screen through the
+card. A repeated dismissal checks `data-entry-open` before clicking, so a
+transparent but still mounted gate cannot cause a click timeout.
+
+Run #6 remains the pinned source for the other clips. Its c12 is replaced in
+**both clean and titled assembly** by `capture/ci/c12-first-strike-complete.png`,
+recaptured through `renderGroup.mjs` at `8f39c238937548080e3d4363bdf9957ee33400d2`.
+`reelRelease.json.c12Correction` pins the PNG and records the capture code,
+edit, harness and capture health. Assembly verifies the PNG, edit and health
+without requiring the capture branch's Git object after a squash merge, and
+converts the PNG to a
+lossless 4:4:4 working intermediate, retaining c12's original 108 frames and
+fade. This deliberately changes the clean reel's hash to remove the defect;
+loop/poster/still recipes and all other footage are unchanged. A full new
+game render is unnecessary. Future captures inherit the same gate fix.
+
+`.github/workflows/reel-titles.yml` proves the complete titled path on PRs and
+can rebuild it after merge. `titlesRelease.json` pins the cue sheet, renderer,
+licensed font binaries, Playwright and Chromium. The track is rebuilt from
+those checked-in inputs; no local-only MOV or "latest" artifact is needed.
+Assembly requires the adjacent `titles-manifest.json` (or
+`--titles-manifest=<file>`), checks its input/track hashes, then decodes all
+3,456 alpha frames. Protected and undeclared frames must have zero alpha.
+Output verification also checks every decoded timestamp and BT.709 limited
+range metadata. Pushes use `(on-1)` because FFmpeg's perspective counter is
+one-based; decoded endpoint tests verify all six specified start/end scales.
+The titled assembly first stores the locked sequence, including its fades
+and black end-card slot, in a lossless FFV1 4:4:4 working file. This separates
+the source decoders from the six 4K perspective filters and delivery encoder.
+Each decoder uses one thread; the filter graph and encoder use two. The
+working file is checked for the exact frame count/format and recorded in
+the manifest. It adds no lossy generation; the clean assembly is unchanged
+apart from the c12 correction above.
+The two output artifacts carry the verified media and title
+provenance separately; copying/deploying to digital-ziggurat follows merge and
+verification of the final output.
+
+The review MP4 is a visual reference, not a release master. Run #6's source
+intermediates are CRF 10 H.264 4:4:4; the titled release encodes directly from
+them. Reusing the already encoded clean delivery adds a lossy generation.
+The pinned run's Actions artifacts expire starting 2026-10-27: retain verified
+source archives before then if later rebuilds are required. The downloader
+fails on expired or changed artifacts and never substitutes another run.
+
 ## The four Phase 1 proof shots
 
 | id | profile | fixture | mechanism | frames |

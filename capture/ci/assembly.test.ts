@@ -39,6 +39,9 @@ import {
   planSequence,
   portraitReelFrames,
   reelFilterGraph,
+  titledReelFilterGraph,
+  titledChangedFrames,
+  checkTitlesCues,
   RELEASE_FRAME_OVERRIDES,
   RELEASE_INTERVAL_OVERRIDES,
   selectPosterFrame,
@@ -600,6 +603,7 @@ const ALLOWED_MODULES = new Set([
   'profiles.ts',
   'finalRender/plan.ts',
   'finalRender/timing.ts',
+  'titles/titles.ts',
 ])
 const RENDERER_TOKENS = /playwright|chromium|puppeteer|finalRender\.mjs|finalRender\.spec|renderGroup|preflight|engine\.ts|reach\.ts|runner\.ts|manifest\.ts|initCapture|gameActions|fixtures\.ts|vite|npx|npm /i
 
@@ -1064,4 +1068,38 @@ test('the interval overrides are assembly-only: renderer-free modules, no game f
   for (const file of importGraph().keys()) assert.ok(ALLOWED_MODULES.has(file), file)
   assert.ok(!RENDERER_TOKENS.test(JSON.stringify(RELEASE_INTERVAL_OVERRIDES)))
   assert.ok(!RENDERER_TOKENS.test(JSON.stringify(SUPERSEDED_FRAME_OVERRIDES)))
+})
+
+// ---------------------------------------------------------------------------
+// Titled reel (ORBITAL RECORD, capture/titles/)
+// ---------------------------------------------------------------------------
+
+test('the titled reel is the same locked sequence, end-card slot black, then perspective pushes and the titles track', () => {
+  const plan = planReel(EDIT)
+  const cues = JSON.parse(readFileSync(path.join(CAPTURE, 'titles/reel-titles.cues.json'), 'utf8'))
+  assert.deepEqual(checkTitlesCues(EDIT, plan, cues), [])
+  const sources = { shots: new Map(lockedShotClips(EDIT).map((clip, index) => [clip.id, `${index}:v`])), endCard: '25:v', width: 1920, height: 1080 }
+  const clean = reelFilterGraph(EDIT, plan, sources).split(';')
+  const titled = titledReelFilterGraph(EDIT, plan, sources, cues, '26:v').split(';')
+  // Every clip chain is the clean reel's own; only the end-card slot becomes black.
+  for (const [index, chain] of clean.slice(0, -1).entries()) {
+    if (chain.startsWith('[25:v]')) {
+      assert.match(titled[index]!, /^color=c=black:s=1920x1080:r=60,format=yuv444p,trim=end_frame=288,/)
+      assert.equal(titled[index]!.split('trim=end_frame=288')[1], chain.split('trim=end_frame=288')[1])
+    } else assert.equal(titled[index], chain)
+  }
+  const graph = titled.join(';')
+  assert.ok(!graph.includes('[25:v]'), 'the illustrated end-card still is not read')
+  assert.ok(!/zoompan/.test(graph))
+  assert.equal((graph.match(/perspective=/g) ?? []).length, 6)
+  assert.match(graph, /\[26:v\]settb=1\/60,setpts=N,scale=out_color_matrix=bt709:out_range=tv,format=yuva444p/)
+  assert.match(graph, /overlay=format=yuv444:alpha=straight/)
+  assert.ok(graph.endsWith(`[titled]${clean[clean.length - 1]!.replace(/^\[seq\]/, '')}`))
+  const declared = titledChangedFrames(plan, cues)
+  for (const range of cues.forbidden) {
+    for (let f = range.from; f <= range.to; f++) {
+      const pushed = cues.plateMoves.some((move: { from: number; to: number }) => f >= move.from && f <= move.to)
+      assert.equal(declared.has(f), pushed || f >= 3168, `protected frame ${f} is declared only where a plate push covers it`)
+    }
+  }
 })

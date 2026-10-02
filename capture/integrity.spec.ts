@@ -9,7 +9,7 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { buildFixtureSave, MONUMENT_KINDS } from './fixtures.ts'
 import { openMonumentRevealAndReadOrigin } from './gameActions.ts'
-import { assertBufferMatches, preparePage } from './initCapture.ts'
+import { assertBufferMatches, dismissLaunchGate, preparePage } from './initCapture.ts'
 import { SHOTS } from './manifest.ts'
 import { expectedCanvasBufferSize, mirrorCalculateDpr, PROFILES } from './profiles.ts'
 import {
@@ -51,6 +51,38 @@ test.describe('1. profile calculations are deterministic', () => {
     expect(port).toEqual({ width: 585, height: 1266, dpr: 1.5 })
     expect(mirrorCalculateDpr(390, 844, 3)).toBeCloseTo(1.5, 5)
   })
+})
+
+test.describe('LaunchGate capture waits for visual completion', () => {
+  for (const mode of ['normal', 'paused-clock', 'reduced-motion'] as const) {
+    test(mode, async ({ page }) => {
+      // Use the production CSS transition in a small native-DOM fixture.
+      // A helper returning as soon as data-entry-open flips fails this test.
+      if (mode === 'paused-clock') {
+        await page.clock.install()
+        await page.clock.pauseAt(new Date(Date.now() + 1000))
+      }
+      await page.emulateMedia({ reducedMotion: mode === 'reduced-motion' ? 'reduce' : 'no-preference' })
+      await page.setContent('<main data-entry-open="true"><div class="launch-gate"><button>CONTINUE</button></div></main>')
+      await page.addStyleTag({ content: await readFile(new URL('../src/styles.css', import.meta.url), 'utf8') })
+      await page.evaluate(() => {
+        document.querySelector('button')!.addEventListener('click', () => {
+          document.querySelector('main')!.setAttribute('data-entry-open', 'false')
+          document.querySelector('.launch-gate')!.classList.add('launch-gate--closing')
+          // Under a paused page clock this timer cannot unmount the gate.
+          setTimeout(() => document.querySelector('.launch-gate')?.remove(), 420)
+        })
+      })
+      await expect(page.locator('.launch-gate')).toHaveCSS('opacity', '1')
+      await dismissLaunchGate(page)
+      const invisible = await page.evaluate(() => {
+        const gate = document.querySelector('.launch-gate')
+        return gate === null || getComputedStyle(gate).opacity === '0'
+      })
+      expect(invisible).toBe(true)
+      await dismissLaunchGate(page) // Repeated dismissal is harmless.
+    })
+  }
 })
 
 test.describe('2. expected canvas size assertions work', () => {

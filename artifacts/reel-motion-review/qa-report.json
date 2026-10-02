@@ -1,0 +1,215 @@
+{
+  "platePushSmoothness": {
+    "P1": {
+      "frames": 144,
+      "consecutiveDiff": {
+        "min": 0.005,
+        "median": 0.012,
+        "max": 0.078
+      },
+      "maxStepRatio": 6.46,
+      "stairStep": true
+    },
+    "P2": {
+      "frames": 144,
+      "consecutiveDiff": {
+        "min": 0.06,
+        "median": 0.073,
+        "max": 0.154
+      },
+      "maxStepRatio": 2.06,
+      "stairStep": false
+    },
+    "P3": {
+      "frames": 72,
+      "consecutiveDiff": {
+        "min": 0.0,
+        "median": 0.003,
+        "max": 0.02
+      },
+      "maxStepRatio": 8.23,
+      "stairStep": true
+    },
+    "P4": {
+      "frames": 108,
+      "consecutiveDiff": {
+        "min": 0.08,
+        "median": 0.092,
+        "max": 0.132
+      },
+      "maxStepRatio": 1.57,
+      "stairStep": false
+    },
+    "P5": {
+      "frames": 72,
+      "consecutiveDiff": {
+        "min": 0.158,
+        "median": 0.17,
+        "max": 0.212
+      },
+      "maxStepRatio": 1.29,
+      "stairStep": false
+    },
+    "P6": {
+      "frames": 72,
+      "consecutiveDiff": {
+        "min": 0.015,
+        "median": 0.075,
+        "max": 0.267
+      },
+      "maxStepRatio": 4.48,
+      "stairStep": true
+    }
+  },
+  "platePushTransform": {
+    "P1": [
+      {
+        "frame": 432,
+        "scale": 1.0,
+        "meanAbsDiff": 0.051,
+        "vsPreviousFrameScale": null
+      },
+      {
+        "frame": 503,
+        "scale": 1.01986,
+        "meanAbsDiff": 0.082,
+        "vsPreviousFrameScale": 0.086
+      },
+      {
+        "frame": 575,
+        "scale": 1.04,
+        "meanAbsDiff": 0.078,
+        "vsPreviousFrameScale": 0.084
+      }
+    ],
+    "P2": [
+      {
+        "frame": 576,
+        "scale": 1.0,
+        "meanAbsDiff": 0.156,
+        "vsPreviousFrameScale": null
+      },
+      {
+        "frame": 647,
+        "scale": 1.00993,
+        "meanAbsDiff": 0.19,
+        "vsPreviousFrameScale": 0.251
+      },
+      {
+        "frame": 719,
+        "scale": 1.02,
+        "meanAbsDiff": 0.175,
+        "vsPreviousFrameScale": 0.224
+      }
+    ],
+    "P3": [
+      {
+        "frame": 720,
+        "scale": 1.0,
+        "meanAbsDiff": 0.013,
+        "vsPreviousFrameScale": null
+      },
+      {
+        "frame": 755,
+        "scale": 1.00592,
+        "meanAbsDiff": 0.025,
+        "vsPreviousFrameScale": 0.026
+      },
+      {
+        "frame": 791,
+        "scale": 1.012,
+        "meanAbsDiff": 0.019,
+        "vsPreviousFrameScale": 0.019
+      }
+    ],
+    "P5": [
+      {
+        "frame": 1728,
+        "scale": 1.0,
+        "meanAbsDiff": 0.211,
+        "vsPreviousFrameScale": null
+      },
+      {
+        "frame": 1763,
+        "scale": 1.00739,
+        "meanAbsDiff": 0.235,
+        "vsPreviousFrameScale": 0.377
+      },
+      {
+        "frame": 1799,
+        "scale": 1.015,
+        "meanAbsDiff": 0.228,
+        "vsPreviousFrameScale": 0.372
+      }
+    ],
+    "P6": [
+      {
+        "frame": 2088,
+        "scale": 1.0,
+        "meanAbsDiff": 0.066,
+        "vsPreviousFrameScale": null
+      },
+      {
+        "frame": 2123,
+        "scale": 1.00986,
+        "meanAbsDiff": 0.354,
+        "vsPreviousFrameScale": 0.378
+      },
+      {
+        "frame": 2159,
+        "scale": 1.02,
+        "meanAbsDiff": 0.313,
+        "vsPreviousFrameScale": 0.326
+      }
+    ]
+  },
+  "titlesTrack": {
+    "framesWithAlpha": 1490,
+    "protectedFramesChecked": 150,
+    "protectedFramesWithAlpha": [],
+    "alphaExtent_x1_x2_y1_y2": [
+      100,
+      1282,
+      160,
+      1011
+    ],
+    "outsideTitleSafe": [],
+    "outsideTitleSafeCount": 0
+  },
+  "frameCount": {
+    "clean": 3456,
+    "titled": 3456
+  },
+  "protectedIntervalsVsClean": [
+    {
+      "frames": "0-35",
+      "why": "first beat of the head fade from black (",
+      "maxDiff": 0.076
+    },
+    {
+      "frames": "414-431",
+      "why": "c02 dip to black before the c03 hard cut",
+      "maxDiff": 0.032
+    },
+    {
+      "frames": "1290-1301",
+      "why": "First Strike white flash (c09 -> c10)",
+      "maxDiff": 0.071
+    },
+    {
+      "frames": "1692-1727",
+      "why": "c12 fade to black",
+      "maxDiff": 0.851
+    },
+    {
+      "frames": "1866-1877",
+      "why": "Counterstrike white flash (c15 -> c16)",
+      "maxDiff": 0.082
+    },
+    {
+      "frames": "3132-3167",
+      "why": "c25 dip to black (end-card titles may st",
+      "maxDiff": 0.21
+    }
+  ]
+}

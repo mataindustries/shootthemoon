@@ -88,11 +88,26 @@ async function seedFixture(page: Page, fixture: FixtureId, nowMs: number): Promi
 }
 
 export async function dismissLaunchGate(page: Page): Promise<void> {
+  const main = page.locator('main')
   const entry = page.getByRole('button', { name: /^(BEGIN INVASION|CONTINUE)$/ })
-  if (await entry.isVisible()) {
+  // A transparent closing gate is still "visible" to Playwright while its
+  // pointer events are disabled. Never click it again after entry closes.
+  if ((await main.getAttribute('data-entry-open')) === 'true' && (await entry.isVisible())) {
     await entry.click()
   }
-  await expect(page.locator('main')).toHaveAttribute('data-entry-open', 'false')
+  await expect(main).toHaveAttribute('data-entry-open', 'false')
+  // The gate stays mounted while .launch-gate--closing fades its opacity out
+  // (LAUNCH_GATE_TRANSITION_MS in App.tsx); a still taken in that window
+  // shows the title screen through any translucent HUD card. Polled from
+  // Node so a controlled page clock cannot stall the wait.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const gate = document.querySelector('.launch-gate')
+        return gate === null || getComputedStyle(gate).opacity === '0'
+      }),
+    )
+    .toBe(true)
 }
 
 async function detectFontFallback(page: Page): Promise<FontReport> {

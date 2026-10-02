@@ -1,0 +1,19 @@
+{
+  "schema": "shootthemoon.titles-release/1",
+  "note": "Pins the reviewed title renderer, cue sheet and exact licensed font binaries. CI rebuilds the track from these inputs, records its hash and checks the manifest plus decoded alpha before assembly. No local-only title dependency or latest-artifact lookup. Output artifact hashes are recorded by each verified assembly.",
+  "previewSha256": "7be8b4f8e896a0c639b3aad3be3a71e6c0be2a6fd09b6c9e9a0e408f9083c5fb",
+  "playwright": "1.62.1",
+  "chromium": "151.0.7922.34",
+  "inputs": {
+    "capture/titles/reel-titles.cues.json": "40566030e69607a5460f17d195e19dbb0c433b2f83d72b0f04430c4cbf08fab6",
+    "capture/titles/titles.ts": "709800b32b586d2853ab46399fb33ba93d81f308f9bfafc3751a9180bd287e66",
+    "capture/titles/overlay.html": "d06ef0a1f295846bce35da6fbb5f9801a336bc0b6bb05a61ef56356ee5fcba01",
+    "capture/titles/renderTitles.mjs": "4db85080a76f792d8e5bd7b1d3817ebbed3f2e5755a99bd5568faff0b8e2c452",
+    "capture/titles/fonts/Saira-VF.ttf": "9d050fc5a01c85f74c4257c207d50b55d1e40c37308c642f974a2c5003231dde",
+    "capture/titles/fonts/IBMPlexMono-Light.ttf": "780bcf65509d72a35ec114b57bcbe220dc6b77d8ea2e9b25e294be3c570c5025",
+    "capture/titles/fonts/IBMPlexMono-Regular.ttf": "6a3412f058c7d8dfd9170c41e85ade48e5156ecb89356110ca57a0a27734af46",
+    "capture/titles/fonts/IBMPlexMono-Medium.ttf": "a9b4c49bb299e05b5f6c481e7fb5e78943d2793249a0c8874ab574a2d1ea6755",
+    "capture/titles/fonts/OFL-Saira.txt": "f2665d4718b452b3818a877191355ac884a6b9b419d35408fe7ee487e9e8f30f",
+    "capture/titles/fonts/OFL-IBMPlexMono.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+  }
+}
