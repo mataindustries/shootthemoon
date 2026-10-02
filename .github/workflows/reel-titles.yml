@@ -1,0 +1,96 @@
+# Prove the titled release from pinned source artifacts before merge.
+# The game is not re-rendered: c12's corrected PNG is pinned in reelRelease.json.
+name: Titled reel assembly
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/reel-titles.yml
+      - capture/titles/**
+      - capture/ci/**
+      - capture/finalEdit.json
+      - capture/initCapture.ts
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: reel-titles-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  assemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.2'
+          cache: npm
+      - run: npm ci
+      - name: Install pinned Chromium and ffmpeg
+        run: |
+          npx playwright install --with-deps chromium
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ffmpeg
+      - name: Typecheck and unit tests
+        run: |
+          ./node_modules/.bin/tsc --noEmit -p capture/tsconfig.json
+          node --experimental-strip-types --experimental-transform-types --test capture/titles/titles.test.ts capture/titles/titlesFfmpeg.test.ts capture/ci/assembly.test.ts
+      - name: Check title rendering determinism
+        run: >
+          node --experimental-strip-types --experimental-transform-types capture/titles/renderTitles.mjs
+          --determinism=100,530,863,1230,2556,3000,3455 --out=capture-final/title-determinism
+      - name: Check gate wait boundaries
+        run: >
+          npx playwright test --config=capture/playwright.capture.config.ts
+          capture/integrity.spec.ts -g 'LaunchGate capture'
+      - name: Rebuild pinned title track
+        run: >
+          node --experimental-strip-types --experimental-transform-types capture/titles/renderTitles.mjs
+          --out=capture-final/titles --jobs=4
+      - name: Download pinned footage and verify artifact digests
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >
+          node --experimental-strip-types --experimental-transform-types capture/ci/sourceRun.mjs
+          --run-number=6 --out=capture-final/run-6
+      - name: Assemble and verify both reels and derivatives
+        run: >
+          node --experimental-strip-types --experimental-transform-types capture/ci/assembleFinalReel.mjs
+          --dir=capture-final/run-6 --source=capture-final/run-6/source-run.json
+          --end-card=capture/ci/end-card-1920x1080.png
+          --titles=capture-final/titles/titles-track.mov
+          --titles-cues=capture/titles/reel-titles.cues.json
+          --out=capture-final/deliverables --work=capture-final/titled-work
+      - name: Upload verified release media
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-reel-titled-deliverables
+          path: capture-final/deliverables/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+      - name: Upload title provenance and reusable track
+        uses: actions/upload-artifact@v4
+        with:
+          name: reel-titles-track
+          path: |
+            capture-final/titles/titles-track.mov
+            capture-final/titles/titles-manifest.json
+            capture/titles/titlesRelease.json
+            capture/ci/reelRelease.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90

@@ -727,7 +727,48 @@ node --experimental-strip-types --experimental-transform-types capture/titles/fi
 `dismissLaunchGate` now also waits for the LaunchGate's closing fade to finish
 (gate unmounted or computed opacity 0): run #6's c12 still (FIRST STRIKE
 COMPLETE) caught the gate mid-fade and shows the title screen through the
-card. A re-render of c12 carries the fix into a release run.
+card. A repeated dismissal checks `data-entry-open` before clicking, so a
+transparent but still mounted gate cannot cause a click timeout.
+
+Run #6 remains the pinned source for the other clips. Its c12 is replaced in
+**both clean and titled assembly** by `capture/ci/c12-first-strike-complete.png`,
+recaptured through `renderGroup.mjs` at `8f39c238937548080e3d4363bdf9957ee33400d2`.
+`reelRelease.json.c12Correction` pins the PNG and records the capture code,
+edit, harness and capture health. Assembly verifies the PNG, edit and health
+without requiring the capture branch's Git object after a squash merge, and
+converts the PNG to a
+lossless 4:4:4 working intermediate, retaining c12's original 108 frames and
+fade. This deliberately changes the clean reel's hash to remove the defect;
+loop/poster/still recipes and all other footage are unchanged. A full new
+game render is unnecessary. Future captures inherit the same gate fix.
+
+`.github/workflows/reel-titles.yml` proves the complete titled path on PRs and
+can rebuild it after merge. `titlesRelease.json` pins the cue sheet, renderer,
+licensed font binaries, Playwright and Chromium. The track is rebuilt from
+those checked-in inputs; no local-only MOV or "latest" artifact is needed.
+Assembly requires the adjacent `titles-manifest.json` (or
+`--titles-manifest=<file>`), checks its input/track hashes, then decodes all
+3,456 alpha frames. Protected and undeclared frames must have zero alpha.
+Output verification also checks every decoded timestamp and BT.709 limited
+range metadata. Pushes use `(on-1)` because FFmpeg's perspective counter is
+one-based; decoded endpoint tests verify all six specified start/end scales.
+The titled assembly first stores the locked sequence, including its fades
+and black end-card slot, in a lossless FFV1 4:4:4 working file. This separates
+the source decoders from the six 4K perspective filters and delivery encoder.
+Each decoder uses one thread; the filter graph and encoder use two. The
+working file is checked for the exact frame count/format and recorded in
+the manifest. It adds no lossy generation; the clean assembly is unchanged
+apart from the c12 correction above.
+The two output artifacts carry the verified media and title
+provenance separately; copying/deploying to digital-ziggurat follows merge and
+verification of the final output.
+
+The review MP4 is a visual reference, not a release master. Run #6's source
+intermediates are CRF 10 H.264 4:4:4; the titled release encodes directly from
+them. Reusing the already encoded clean delivery adds a lossy generation.
+The pinned run's Actions artifacts expire starting 2026-10-27: retain verified
+source archives before then if later rebuilds are required. The downloader
+fails on expired or changed artifacts and never substitutes another run.
 
 ## The four Phase 1 proof shots
 

@@ -16,6 +16,72 @@
 
 export const CUES_SCHEMA = 'shootthemoon.reel-titles/1'
 
+/** Checked-in inputs of the titles renderer, relative to the repo root. */
+export const TITLES_INPUT_FILES = [
+  'capture/titles/reel-titles.cues.json',
+  'capture/titles/titles.ts',
+  'capture/titles/overlay.html',
+  'capture/titles/renderTitles.mjs',
+  'capture/titles/fonts/Saira-VF.ttf',
+  'capture/titles/fonts/IBMPlexMono-Light.ttf',
+  'capture/titles/fonts/IBMPlexMono-Regular.ttf',
+  'capture/titles/fonts/IBMPlexMono-Medium.ttf',
+  'capture/titles/fonts/OFL-Saira.txt',
+  'capture/titles/fonts/OFL-IBMPlexMono.txt',
+] as const
+
+export interface TitlesReleasePin {
+  readonly schema: string
+  readonly inputs: Readonly<Record<string, string>>
+  readonly playwright: string
+  readonly chromium: string
+}
+
+export interface TitlesManifest {
+  readonly schema: string
+  readonly cues: { readonly sha256: string }
+  readonly inputs: Readonly<Record<string, string>>
+  readonly fonts: Readonly<Record<string, string>>
+  readonly browser: string
+  readonly playwright: string
+  readonly alpha: 'straight'
+  readonly track: { readonly sha256: string; readonly codec: string; readonly pixFmt: string; readonly fps: number; readonly frames: number }
+}
+
+/** Fail closed on a stale pin, substituted font, or track from another render. */
+export function checkTitlesProvenance(pin: TitlesReleasePin, actual: Readonly<Record<string, string>>, manifest?: TitlesManifest, trackHash?: string): string[] {
+  const problems: string[] = []
+  if (pin.schema !== 'shootthemoon.titles-release/1') problems.push('unknown titles release pin schema')
+  for (const file of TITLES_INPUT_FILES) {
+    if (!/^[a-f0-9]{64}$/.test(pin.inputs?.[file] ?? '') || pin.inputs[file] !== actual[file]) problems.push(`titles input differs from release pin: ${file}`)
+    if (manifest && manifest.inputs?.[file] !== actual[file]) problems.push(`titles manifest input differs: ${file}`)
+    if (manifest && file.endsWith('.ttf') && manifest.fonts?.[file.split('/').pop()!] !== actual[file]) problems.push(`titles manifest font differs: ${file}`)
+  }
+  if (manifest) {
+    if (manifest.schema !== 'shootthemoon.reel-titles-track/1' || manifest.alpha !== 'straight') problems.push('titles manifest must declare a straight-alpha titles track')
+    if (manifest.cues?.sha256 !== actual['capture/titles/reel-titles.cues.json']) problems.push('titles manifest cue hash differs')
+    if (manifest.browser !== `chromium ${pin.chromium}` || manifest.playwright !== pin.playwright) problems.push('titles renderer/browser differs from release pin')
+    if (manifest.track?.sha256 !== trackHash || !/^[a-f0-9]{64}$/.test(trackHash ?? '')) problems.push('titles track hash differs from its manifest')
+    if (manifest.track?.codec !== 'qtrle' || manifest.track?.pixFmt !== 'argb' || manifest.track?.fps !== 60 || manifest.track?.frames !== 3456) problems.push('titles manifest track format differs from the locked reel')
+  }
+  return problems
+}
+
+/** Actual decoded alpha maxima: every protected or undeclared frame is empty. */
+export function checkTitlesAlpha(cues: Cues, maxima: readonly number[]): string[] {
+  const problems: string[] = []
+  if (maxima.length !== cues.source.frames) return [`titles alpha decoded ${maxima.length} frames, expected ${cues.source.frames}`]
+  for (let f = 0; f < maxima.length; f++) {
+    const ops = sceneAt(cues, f)
+    const protectedFrame = cues.forbidden.some((range) => f >= range.from && f <= range.to)
+    if (!Number.isFinite(maxima[f]) || maxima[f]! < 0 || maxima[f]! > 255) problems.push(`frame ${f}: invalid title alpha`)
+    if ((protectedFrame || ops.length === 0) && maxima[f] !== 0) problems.push(`frame ${f}: title alpha on a protected or undeclared frame`)
+    const visible = ops.some((op) => ('fillOpacity' in op ? op.fillOpacity : 'strokeOpacity' in op ? op.strokeOpacity : 1) >= 0.01)
+    if (visible && maxima[f] === 0) problems.push(`frame ${f}: declared title is missing`)
+  }
+  return problems
+}
+
 export interface Spec {
   readonly f: number
   readonly fade?: number
@@ -535,7 +601,8 @@ export function platePushFilter(move: PlateMove, width: number, height: number):
   const H2 = height * 2
   const AX = num(move.anchor[0] * 2)
   const AY = num(move.anchor[1] * 2)
-  const S = `(${num(move.scale[0])}+${num(move.scale[1] - move.scale[0])}*on/${move.to - move.from})`
+  // perspective's output counter is one-based; the trimmed move is zero-based.
+  const S = `(${num(move.scale[0])}+${num(move.scale[1] - move.scale[0])}*(on-1)/${move.to - move.from})`
   const left = `${AX}-${AX}/${S}`
   const right = `${AX}+(W-${AX})/${S}`
   const top = `${AY}-${AY}/${S}`

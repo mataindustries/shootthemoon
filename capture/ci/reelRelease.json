@@ -100,5 +100,32 @@
       "id": 10941313249,
       "digest": "sha256:408f5e72848bcaa6f75402b4614af5264301ef27b137a45cc18240a669c67cb6"
     }
-  ]
+  ],
+  "c12Correction": {
+    "file": "capture/ci/c12-first-strike-complete.png",
+    "sha256": "3b4a77776c6435c98db95ae6e0431e031737291e5a5115826c857c3f23b3594c",
+    "reason": "Remove LaunchGate content caught mid-fade. Both clean and titled future run-6 assemblies use this verified capture; the locked duration and fade are unchanged.",
+    "capture": {
+      "gitSha": "8f39c238937548080e3d4363bdf9957ee33400d2",
+      "initCaptureSha256": "760e1ccb05939ee369a0a233a443e91173684fee837ffba490d6369212762ece",
+      "finalEditSha256": "4f0c7e3f7e625e8fc39bc5f5973430121b08ed1153ae3b11642aae7417a7999e",
+      "clipId": "c12",
+      "shotId": "first-strike-ending-text",
+      "sourceFrames": 1,
+      "harnessBuildSha256": "86b382fcc3995acd1048e02b8438955a89137ab8d669ed64e989d52ef95b350f",
+      "sourceSequenceSha256": "7a87559233e445de42b31f4cc3b23a62ccf2d74a43a73a8dcf7292d42008c043",
+      "worktreeDirty": false,
+      "pageErrors": 0,
+      "consoleErrors": 0,
+      "webgl": {
+        "contextLost": false,
+        "error": 0
+      },
+      "tools": {
+        "node": "v24.14.0",
+        "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+        "playwright": "1.62.1"
+      }
+    }
+  }
 }

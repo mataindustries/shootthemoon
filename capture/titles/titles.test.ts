@@ -5,6 +5,8 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
+  checkTitlesAlpha,
+  checkTitlesProvenance,
   drawnFrames,
   formatClock,
   opacityAt,
@@ -12,9 +14,12 @@ import {
   platePushFilter,
   sceneAt,
   textAt,
+  TITLES_INPUT_FILES,
   validateCues,
   type Cues,
   type TextOp,
+  type TitlesManifest,
+  type TitlesReleasePin,
 } from './titles.ts'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -113,6 +118,45 @@ test('plate pushes use perspective, never zoompan, and keep every frame in place
   }
   assert.equal(cursor, cues.source.frames)
   const p1 = platePushFilter(cues.plateMoves[0]!, 1920, 1080)
-  assert.match(p1, /\(1\+0\.04\*on\/143\)/)
+  assert.match(p1, /\(1\+0\.04\*\(on-1\)\/143\)/)
   assert.match(p1, /sense=source:eval=frame/)
+})
+
+test('the entire native UI, impact and destruction intervals stay title-free', () => {
+  // Independent locked-shot boundaries, not ranges supplied by the cue sheet.
+  for (const [from, to] of [[144, 431], [576, 791], [864, 1151], [1290, 1799], [1865, 2015], [2160, 2447], [3095, 3167]]) {
+    for (let f = from!; f <= to!; f++) assert.deepEqual(sceneAt(cues, f), [], `clean native frame ${f}`)
+  }
+})
+
+test('decoded alpha rejects contamination at every protected boundary and missing titles', () => {
+  const maxima: number[] = Array.from({ length: cues.source.frames }, (_, f) => sceneAt(cues, f).length > 0 ? 255 : 0)
+  assert.deepEqual(checkTitlesAlpha(cues, maxima), [])
+  for (const range of cues.forbidden) {
+    for (const f of [range.from, range.to]) {
+      const bad = [...maxima]
+      bad[f] = 1 // Even one level of alpha must fail.
+      assert.ok(checkTitlesAlpha(cues, bad).some((p) => p.startsWith(`frame ${f}:`)))
+    }
+  }
+  const missing = [...maxima]
+  missing[3455] = 0
+  assert.ok(checkTitlesAlpha(cues, missing).some((p) => p.includes('3455')))
+  assert.ok(checkTitlesAlpha(cues, maxima.slice(1)).length > 0)
+})
+
+test('title provenance rejects another cue sheet, font, renderer, browser or track', () => {
+  const inputs = Object.fromEntries(TITLES_INPUT_FILES.map((file) => [file, 'a'.repeat(64)]))
+  const pin: TitlesReleasePin = { schema: 'shootthemoon.titles-release/1', inputs, playwright: '1.62.1', chromium: '151.0.7922.34' }
+  const manifest: TitlesManifest = {
+    schema: 'shootthemoon.reel-titles-track/1', inputs, alpha: 'straight', playwright: pin.playwright, browser: `chromium ${pin.chromium}`,
+    cues: { sha256: inputs['capture/titles/reel-titles.cues.json']! },
+    fonts: Object.fromEntries(TITLES_INPUT_FILES.filter((file) => file.endsWith('.ttf')).map((file) => [path.basename(file), inputs[file]!])),
+    track: { sha256: 'b'.repeat(64), codec: 'qtrle', pixFmt: 'argb', fps: 60, frames: 3456 },
+  }
+  assert.deepEqual(checkTitlesProvenance(pin, inputs, manifest, manifest.track.sha256), [])
+  for (const file of TITLES_INPUT_FILES) assert.ok(checkTitlesProvenance(pin, { ...inputs, [file]: 'c'.repeat(64) }, manifest, manifest.track.sha256).length > 0, file)
+  assert.ok(checkTitlesProvenance(pin, inputs, manifest, 'd'.repeat(64)).length > 0)
+  assert.ok(checkTitlesProvenance(pin, inputs, { ...manifest, browser: 'another browser' }, manifest.track.sha256).length > 0)
+  assert.ok(checkTitlesProvenance(pin, inputs, { ...manifest, track: { ...manifest.track, frames: 3455 } }, manifest.track.sha256).length > 0)
 })

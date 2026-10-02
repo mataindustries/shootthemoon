@@ -35,6 +35,7 @@ on:
       - capture/ci/assembly.ts
       - capture/ci/assembly.test.ts
       - capture/ci/end-card-1920x1080.png
+      - capture/ci/c12-first-strike-complete.png
       - capture/ci/io.ts
       - capture/ci/reelCi.ts
       - capture/ci/reelRelease.json

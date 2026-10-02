@@ -65,10 +65,12 @@ import {
   checkVideoOutput,
   CLEAN_REEL,
   declaredChangedFrames,
+  deliveryScale,
   DELIVERABLES,
   describeClipFrame,
   expandIntervalOverrides,
   expectedFrames,
+  frameSubstitutions,
   HELD_SCALE,
   intervalKind,
   intervalsForSource,
@@ -89,11 +91,11 @@ import {
   RELEASE_FRAME_OVERRIDES,
   RELEASE_INTERVAL_OVERRIDES,
   SCALE_FLAGS,
+  sequenceChains,
   selectPosterFrame,
   socialCrop,
   SUPERSEDED_FRAME_OVERRIDES,
   titledChangedFrames,
-  titledReelFilterGraph,
   validateFrameOverrides,
   validateIntervalOverrides,
   validateSupersededOverrides,
@@ -102,6 +104,7 @@ import {
   x264Args,
 } from './assembly.ts'
 import { readJson, run, runOrThrow, sha256File, toolVersion } from './io.ts'
+import { checkTitlesAlpha, checkTitlesProvenance, titledChains, TITLES_INPUT_FILES } from '../titles/titles.ts'
 
 const REPO_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const EDIT_PATH = 'capture/finalEdit.json'
@@ -147,7 +150,7 @@ function ratio(value) {
 async function probe(file) {
   const { stdout } = await runOrThrow('ffprobe', [
     '-v', 'error', '-count_frames',
-    '-show_entries', 'stream=codec_type,codec_name,profile,pix_fmt,width,height,r_frame_rate,nb_read_frames,sample_rate,channels:format=duration',
+    '-show_entries', 'stream=codec_type,codec_name,profile,pix_fmt,width,height,r_frame_rate,avg_frame_rate,time_base,color_space,color_range,color_transfer,color_primaries,nb_read_frames,sample_rate,channels:format=duration',
     '-of', 'json', file,
   ])
   const data = JSON.parse(stdout)
@@ -159,6 +162,11 @@ async function probe(file) {
     width: stream.width,
     height: stream.height,
     fps: stream.codec_type === 'video' ? ratio(stream.r_frame_rate) : undefined,
+    avgFps: stream.codec_type === 'video' ? ratio(stream.avg_frame_rate) : undefined,
+    colorSpace: stream.color_space,
+    colorRange: stream.color_range,
+    colorTransfer: stream.color_transfer,
+    colorPrimaries: stream.color_primaries,
     frames: stream.nb_read_frames === undefined ? undefined : Number(stream.nb_read_frames),
     sampleRate: stream.sample_rate === undefined ? undefined : Number(stream.sample_rate),
     channels: stream.channels,
@@ -177,6 +185,18 @@ async function lumaThumbnails(file, name) {
 
 async function fileSummary(file) {
   return { file: path.basename(file), bytes: (await stat(file)).size, sha256: await sha256File(file) }
+}
+
+/** Header rates alone can hide VFR or shifted frames. Check every decoded PTS. */
+async function deliveryTimingProblems(file, expect, streams) {
+  const problems = []
+  const video = streams.find((stream) => stream.type === 'video')
+  if (video?.avgFps !== expect.fps || video?.colorSpace !== 'bt709' || video?.colorRange !== 'tv' || video?.colorTransfer !== 'bt709' || video?.colorPrimaries !== 'bt709') problems.push(`${path.basename(file)}: delivery rate/color metadata differs from the locked BT.709 limited-range output`)
+  const { stdout } = await runOrThrow('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_frames', '-show_entries', 'stream=time_base:frame=best_effort_timestamp', '-of', 'json', file])
+  const data = JSON.parse(stdout)
+  const [num, den] = data.streams[0].time_base.split('/').map(Number)
+  if (data.frames.length !== expect.frames || data.frames.some((frame, index) => Number(frame.best_effort_timestamp) * num * expect.fps !== index * den)) problems.push(`${path.basename(file)}: decoded timestamps are not exactly frames 0-${expect.frames - 1} at ${expect.fps}fps`)
+  return problems
 }
 
 async function main() {
@@ -221,7 +241,8 @@ async function main() {
   const inputs = verifyAssemblyInputs(edit, sha, manifest, located, failures)
   if (inputs.problems.length > 0) stop('render intermediates failed verification — nothing is rendered to fill a gap', inputs.problems)
 
-  const clipPath = (clipId) => path.join(dir, inputs.clipFiles.get(clipId))
+  const correctedClips = new Map()
+  const clipPath = (clipId) => correctedClips.get(clipId) ?? path.join(dir, inputs.clipFiles.get(clipId))
   const probeProblems = []
   for (const clip of lockedShotClips(edit)) probeProblems.push(...checkIntermediate(edit, clip, (await probe(clipPath(clip.id))).streams))
   if (probeProblems.length > 0) stop('intermediates failed ffprobe', probeProblems)
@@ -309,10 +330,22 @@ async function main() {
     if (cueProblems.length > 0) stop('titles cue sheet', cueProblems)
     const { streams } = await probe(args.titles)
     const track = streams.find((stream) => stream.type === 'video')
-    if (streams.length !== 1 || track.width !== width || track.height !== height || track.frames !== reelPlan.frames || !/argb|rgba|bgra|yuva/.test(track.pixFmt)) {
-      stop('titles track', [`${args.titles} must be one ${width}x${height} video with alpha and ${reelPlan.frames} frames (is ${track?.width}x${track?.height} ${track?.pixFmt}, ${track?.frames} frames)`])
+    if (streams.length !== 1 || track?.width !== width || track?.height !== height || track?.frames !== reelPlan.frames || track?.codec !== 'qtrle' || track?.pixFmt !== 'argb' || track?.fps !== fps) {
+      stop('titles track', [`${args.titles} must be one ${width}x${height} qtrle/argb video at ${fps}fps with ${reelPlan.frames} frames (is ${track?.width}x${track?.height} ${track?.pixFmt}, ${track?.frames} frames)`])
     }
-    titles = { track: args.titles, cuesPath: args['titles-cues'], cues }
+    const manifestFile = args['titles-manifest'] ?? path.join(path.dirname(args.titles), 'titles-manifest.json')
+    const trackManifest = await readJson(manifestFile)
+    if (trackManifest === null) stop('titles provenance', [`${manifestFile} is required`])
+    const pin = await readJson(path.join(REPO_ROOT, 'capture/titles/titlesRelease.json'))
+    const actualInputs = Object.fromEntries(await Promise.all(TITLES_INPUT_FILES.map(async (file) => [file, await sha256File(path.join(REPO_ROOT, file))])))
+    const provenanceProblems = checkTitlesProvenance(pin, actualInputs, trackManifest, await sha256File(args.titles))
+    if (provenanceProblems.length > 0) stop('titles provenance', provenanceProblems)
+    // Decode alpha, rather than inferring visibility from the cue sheet.
+    const { stdout } = await runOrThrow('ffmpeg', ['-v', 'error', '-i', args.titles, '-vf', 'alphaextract,signalstats,metadata=print:key=lavfi.signalstats.YMAX:file=-', '-f', 'null', '-'])
+    const maxima = stdout.split('\n').filter((line) => line.includes('YMAX=')).map((line) => Number(line.split('=')[1]))
+    const alphaProblems = checkTitlesAlpha(cues, maxima)
+    if (alphaProblems.length > 0) stop('titles alpha', alphaProblems)
+    titles = { track: args.titles, cuesPath: args['titles-cues'], cues, manifestFile, trackManifest, alphaFramesChecked: maxima.length }
   }
   /** The clean reel's file name: the reel itself, or kept beside the titled one. */
   const cleanReel = titles === null ? DELIVERABLES.reel : CLEAN_REEL
@@ -324,25 +357,55 @@ async function main() {
   await mkdir(work, { recursive: true })
   const outPath = (name) => path.join(out, name)
 
+  // Run #6's c12 was captured during LaunchGate's closing fade. Use the
+  // separately pinned, verified PNG for BOTH reels; all other source clips
+  // and the locked c12 duration/fade remain the same. No lossy re-encode.
+  const releasePin = await readJson(path.join(REPO_ROOT, 'capture/ci/reelRelease.json'))
+  let captureCorrection = null
+  if (sha === releasePin.headSha) {
+    const correction = releasePin.c12Correction
+    if (!correction) stop('c12 correction', ['the pinned run contains LaunchGate ghosting; a verified c12 correction is required'])
+    const file = path.join(REPO_ROOT, correction.file)
+    const segment = reelPlan.segments.find((item) => item.id === 'c12')
+    const correctionProblems = []
+    if (await sha256File(file) !== correction.sha256) correctionProblems.push('corrected c12 PNG hash differs from release pin')
+    if (correction.capture.finalEditSha256 !== await sha256File(path.join(REPO_ROOT, EDIT_PATH))) correctionProblems.push('c12 capture used another edit')
+    if (segment?.frames !== 108 || correction.capture.clipId !== 'c12' || correction.capture.shotId !== 'first-strike-ending-text' || correction.capture.sourceFrames !== 1) correctionProblems.push('c12 correction must be the one still of the locked c12 shot')
+    if (correction.capture.pageErrors !== 0 || correction.capture.consoleErrors !== 0 || correction.capture.webgl?.contextLost !== false || correction.capture.webgl?.error !== 0) correctionProblems.push('c12 capture health failed')
+    const { streams } = await probe(file)
+    if (streams.length !== 1 || streams[0]?.codec !== 'png' || streams[0]?.width !== width || streams[0]?.height !== height) correctionProblems.push('corrected c12 must be one full-resolution PNG')
+    if (correctionProblems.length > 0) stop('c12 correction', correctionProblems)
+    const target = path.join(work, 'c12-corrected.mkv')
+    await ffmpeg(['-loop', '1', '-framerate', String(fps), '-i', file,
+      '-vf', `scale=${width}:${height}:flags=${SCALE_FLAGS}:out_color_matrix=bt709:out_range=tv,format=yuv444p,setsar=1`,
+      '-frames:v', String(segment.frames), '-an', '-c:v', 'ffv1', '-pix_fmt', 'yuv444p',
+      '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv', target])
+    correctedClips.set('c12', target)
+    captureCorrection = { ...correction, originalIntermediateSha256: located.find((entry) => entry.record.clipId === 'c12').actualSha256, assemblyIntermediateSha256: await sha256File(target), reelFrames: [1620, 1727], appliesTo: 'clean and titled' }
+    console.log('c12: pinned corrected capture replaces the gate-contaminated still in both reels (108 frames, original fade)')
+  }
+
   // --- 2. reel --------------------------------------------------------------
   const heroEncode = parseEncode(edit.derivatives.heroReel)
   const heroAudio = audio === null ? null : parseAudio(edit.derivatives.heroReel)
+  let titledBase = null
   /** The reel's ffmpeg inputs: every shot clip, then each covering clip, then
    * the end-card still (only when one is used). */
-  const reelInputs = (withEndCard) => {
+  const reelInputs = (withEndCard, decoderThreads = null) => {
     const inputArgs = []
+    const decoderArgs = decoderThreads === null ? [] : ['-threads', String(decoderThreads)]
     const shots = new Map()
     for (const segment of reelPlan.segments) {
       if (segment.kind !== 'shot') continue
       shots.set(segment.id, `${shots.size}:v`)
-      inputArgs.push('-i', clipPath(segment.id))
+      inputArgs.push(...decoderArgs, '-i', clipPath(segment.id))
     }
     let next = shots.size
     // A covered portrait clip is read from a second input of its covering clip.
     const covers = new Map()
     for (const { original, hold } of intervalOverrides) {
       covers.set(original.clipId, `${next++}:v`)
-      inputArgs.push('-i', clipPath(hold.clipId))
+      inputArgs.push(...decoderArgs, '-i', clipPath(hold.clipId))
     }
     const endCardLabel = !withEndCard || endCard === null ? null : `${next++}:v`
     if (endCardLabel !== null) inputArgs.push('-loop', '1', '-framerate', String(fps), '-i', endCard)
@@ -370,21 +433,40 @@ async function main() {
   if (titles !== null) {
     // The clean reel keeps every check below under its own name.
     await rename(outPath(DELIVERABLES.reel), outPath(CLEAN_REEL))
-    const { inputArgs, shots, covers, next } = reelInputs(false)
-    const titlesLabel = `${next}:v`
-    const audioIndex = audio === null ? null : next + 1
-    const graph = titledReelFilterGraph(edit, reelPlan, { shots, endCard: null, width, height, covers }, titles.cues, titlesLabel, frameOverrides)
+    // Separate the many source decoders from the six 4K perspective filters
+    // and delivery encoder. FFV1 preserves every 4:4:4 pixel; only delivery
+    // is lossy. The clean graph and its encoder args remain unchanged.
+    const { inputArgs, shots, covers } = reelInputs(false, 1)
+    const base = path.join(work, 'titled-base.mkv')
+    const baseGraph = sequenceChains(reelPlan, { shots, endCard: null, width, height, covers }, frameSubstitutions(reelPlan, frameOverrides)).join(';')
+    console.log('titled base: locked sequence -> lossless BT.709 4:4:4 working file …')
+    await ffmpeg([...inputArgs, '-filter_complex_threads', '2', '-filter_complex', baseGraph,
+      '-map', '[seq]', '-an', '-sn', '-dn', '-map_metadata', '-1', '-fps_mode', 'passthrough',
+      '-c:v', 'ffv1', '-level', '3', '-threads', '2', '-pix_fmt', 'yuv444p',
+      '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv', base])
+    const baseProbe = await probe(base)
+    const plate = baseProbe.streams[0]
+    if (baseProbe.streams.length !== 1 || plate?.codec !== 'ffv1' || plate?.pixFmt !== 'yuv444p' || plate?.width !== width || plate?.height !== height || plate?.fps !== fps || plate?.frames !== reelPlan.frames || plate?.colorSpace !== 'bt709' || plate?.colorRange !== 'tv') stop('titled base', ['lossless working sequence differs from the locked frame count, format or color space'])
+    titledBase = { file: path.basename(base), sha256: await sha256File(base), codec: 'ffv1', pixFmt: 'yuv444p', frames: plate.frames, lossy: false }
+    const graph = [
+      `[0:v]settb=1/${fps},setpts=N,format=yuv444p[seq]`,
+      ...titledChains(titles.cues, 'seq', '1:v', 'titled', fps),
+      `[titled]${deliveryScale(width, height)}[out]`,
+    ].join(';')
+    const audioIndex = audio === null ? null : 2
     console.log(`titled reel: ${titles.cues.plateMoves.length} plate pushes, titles track ${titles.track} …`)
     await ffmpeg([
-      ...inputArgs,
-      '-i', titles.track,
+      '-threads', '1', '-i', base,
+      '-threads', '1', '-i', titles.track,
       ...(audio === null ? [] : ['-i', audio]),
+      '-filter_complex_threads', '2',
       '-filter_complex', graph,
       '-map', '[out]',
       ...(audioIndex === null ? ['-an'] : ['-map', `${audioIndex}:a:0`, ...aacArgs(heroAudio)]),
       '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1',
       '-r', String(fps), '-fps_mode', 'cfr',
       ...x264Args(heroEncode, fps),
+      '-threads', '2',
       outPath(DELIVERABLES.reel),
     ])
   }
@@ -456,6 +538,7 @@ async function main() {
     const summary = await fileSummary(file)
     const probed = await probe(file)
     problems.push(...checkVideoOutput({ file: name, ...expect }, probed.streams, probed.durationSec, summary.bytes))
+    problems.push(...await deliveryTimingProblems(file, expect, probed.streams))
     await decodes(file, expect.frames)
     const thumbs = await lumaThumbnails(file, name)
     const fidelity = checkTimelineFidelity(expected, thumbs, sourceThumbs, THUMB.width * THUMB.height, tolerance)
@@ -529,6 +612,7 @@ async function main() {
     const summary = await fileSummary(outPath(DELIVERABLES.reel))
     const probed = await probe(outPath(DELIVERABLES.reel))
     problems.push(...checkVideoOutput({ file: DELIVERABLES.reel, width, height, fps, frames: reelPlan.frames, audio: heroAudio }, probed.streams, probed.durationSec, summary.bytes))
+    problems.push(...await deliveryTimingProblems(outPath(DELIVERABLES.reel), { fps, frames: reelPlan.frames }, probed.streams))
     await decodes(outPath(DELIVERABLES.reel), reelPlan.frames)
     const cleanThumbs = await lumaThumbnails(outPath(cleanReel), 'clean-reel')
     const titledThumbs = await lumaThumbnails(outPath(DELIVERABLES.reel), 'titled-reel')
@@ -547,6 +631,8 @@ async function main() {
     titled = {
       cues: { file: titles.cuesPath, sha256: await sha256File(titles.cuesPath), status: titles.cues.status },
       track: { file: path.basename(titles.track), sha256: await sha256File(titles.track) },
+      losslessBase: titledBase,
+      provenance: { manifestSha256: await sha256File(titles.manifestFile), ...titles.trackManifest, alphaFramesChecked: titles.alphaFramesChecked },
       plateMoves: titles.cues.plateMoves,
       endCard: 'black slot + E8 typographic end card from the titles track',
       declaredFrames: declared.size,
@@ -575,6 +661,7 @@ async function main() {
     sourceReelManifest: { file: 'source-reel-manifest.json', sha256: await sha256File(manifestPath), verified: manifest.verified, clipCount: manifest.clipCount },
     finalEdit: { path: EDIT_PATH, sha256: await sha256File(path.join(REPO_ROOT, EDIT_PATH)), gitBlob: currentBlob.stdout.trim(), timelineMs: timelineSec * 1000, fps },
     intermediates: lockedShotClips(edit).map((clip) => ({ clipId: clip.id, file: inputs.clipFiles.get(clip.id), sha256: located.find((entry) => entry.record.clipId === clip.id).record.output.sha256 })),
+    ...(captureCorrection === null ? {} : { captureCorrection }),
     reel: {
       segments: reelPlan.segments,
       endCard: endCard === null

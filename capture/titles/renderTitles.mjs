@@ -25,7 +25,7 @@ import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'nod
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
-import { drawnFrames, plateMoveAt, plateScaleAt, sceneAt, validateCues } from './titles.ts'
+import { checkTitlesProvenance, drawnFrames, plateMoveAt, plateScaleAt, sceneAt, TITLES_INPUT_FILES, validateCues } from './titles.ts'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
@@ -45,6 +45,13 @@ if (problems.length > 0) {
 }
 
 const sha256 = (data) => createHash('sha256').update(data).digest('hex')
+const repo = path.join(here, '..', '..')
+const releasePin = JSON.parse(readFileSync(path.join(here, 'titlesRelease.json'), 'utf8'))
+const inputHashes = Object.fromEntries(TITLES_INPUT_FILES.map((file) => [file, sha256(readFileSync(path.join(repo, file)))]))
+const pinProblems = checkTitlesProvenance(releasePin, inputHashes)
+const playwrightVersion = JSON.parse(readFileSync(path.join(repo, 'node_modules/playwright-core/package.json'), 'utf8')).version
+if (playwrightVersion !== releasePin.playwright) pinProblems.push(`Playwright ${playwrightVersion}, pinned ${releasePin.playwright}`)
+if (pinProblems.length > 0) throw new Error(pinProblems.join('\n'))
 const FONTS = [
   { file: 'Saira-VF.ttf', family: 'Saira', weight: '100 900', extra: 'font-stretch:50% 125%;' },
   { file: 'IBMPlexMono-Light.ttf', family: 'IBM Plex Mono', weight: '300' },
@@ -88,6 +95,7 @@ async function inParallel(items, count, work) {
 
 const browser = await chromium.launch(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {})
 try {
+  if (browser.version() !== releasePin.chromium) throw new Error(`Chromium ${browser.version()}, pinned ${releasePin.chromium}`)
   mkdirSync(out, { recursive: true })
   if (args.stills) {
     const { page, stage } = await openStage(browser)
@@ -148,6 +156,9 @@ try {
       '-frames:v', String(cues.source.frames), '-c:v', 'qtrle', '-pix_fmt', 'argb', '-r', String(cues.source.fps), track], { stdio: 'inherit' })
     const manifest = {
       schema: 'shootthemoon.reel-titles-track/1',
+      inputs: inputHashes,
+      alpha: 'straight',
+      playwright: playwrightVersion,
       cues: { file: 'capture/titles/reel-titles.cues.json', sha256: sha256(cuesText), status: cues.status },
       fonts: Object.fromEntries(FONTS.map((font) => [font.file, sha256(fontBytes[font.file])])),
       browser: `${browser.browserType().name()} ${browser.version()}`,
