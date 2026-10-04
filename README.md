@@ -64,6 +64,9 @@ a later measured production build was about 433 kB gzip of JavaScript
 - [artifacts/release-candidate/README.md](./artifacts/release-candidate/README.md):
   First Strike release-candidate capture evidence (baseline and final sets).
 - [capture/README.md](./capture/README.md): reel capture and assembly pipeline.
+- [docs/YOUTUBE_MEDIA_PRIORITY.md](./docs/YOUTUBE_MEDIA_PRIORITY.md): which
+  reel and loop media the YouTube film is cut from, and the footage worth
+  reusing.
 
 ## Local commands
 

@@ -813,6 +813,25 @@ minimal 480 px muted looping player; `qa/repetition-report.json` records ten
 complete real-time loops after the first observed restart. Readability and
 subject clearance require visual review of the exported frames.
 
+## YouTube film media priority
+
+`docs/YOUTUBE_MEDIA_PRIORITY.md` sets the source policy for the YouTube film.
+The clean reel and clean loop are the footage. The titled reel and titled loop
+are ORBITAL RECORD creative reference and never a timeline source.
+
+`capture/youtube/media-sources.json` registers the four files by sha256 (both
+loops arrive named `loop-13s-1280.mp4`) and grades every clean-reel slot for
+reuse. `mediaPriority.ts` builds on the assembly plan and the cue sheets:
+
+- `resolveCleanSource` maps any titled or loop span to clean-reel frames and
+  lists the baked graphics and pushes it leaves behind.
+- `checkTimelineSources` rejects titled media.
+- `bakedTransitions` lists the clean reel's flash, dip and fade frames.
+
+```sh
+node --experimental-strip-types --experimental-transform-types --test capture/youtube/mediaPriority.test.ts
+```
+
 ## The four Phase 1 proof shots
 
 | id | profile | fixture | mechanism | frames |

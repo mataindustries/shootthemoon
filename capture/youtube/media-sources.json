@@ -1,0 +1,91 @@
+{
+  "schema": "shootthemoon.youtube-media-sources/1",
+  "note": "Media priority for the YouTube film (docs/YOUTUBE_MEDIA_PRIORITY.md). The clean deliverables are the footage; the titled ORBITAL RECORD deliverables are creative reference only. Files are identified by sha256, never by name: both loops were supplied as loop-13s-1280.mp4.",
+  "policy": [
+    "Evaluate shots, build the YouTube timeline and pick reusable footage from the primary-clean media only.",
+    "The creative-reference (titled) media show the approved ORBITAL RECORD motion language. They are never a timeline source.",
+    "No existing title has to stay baked into the YouTube edit.",
+    "A shot chosen from a titled deliverable is sourced from the matching clean frames (resolveCleanSource). Only graphics written for the new film are then applied.",
+    "New graphics are never stacked over existing ORBITAL RECORD graphics. Sourcing clean frames makes that impossible by construction.",
+    "Every clean-loop frame is also a clean-reel frame, at half the frame rate and 2/3 the size. Take the clean-reel frames."
+  ],
+  "media": [
+    {
+      "id": "reel-clean",
+      "role": "primary-clean",
+      "file": "reel-57s-1080-clean.mp4",
+      "sha256": "f1150945eb5356f4260351622201edc14d982ac1baaab804091ab1d8c74680d0",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "frames": 3456,
+      "note": "The locked cut as released: run #6 footage, the c03/c04 holds and c14/c18 covers, and the corrected c12 still. Its end-card slot is the illustrated key-art card, which has the wordmark, tagline and URL baked in."
+    },
+    {
+      "id": "loop-clean",
+      "role": "primary-clean",
+      "file": "loop-13s-1280.mp4",
+      "sha256": "9ad3f69823d74d1826d624cef0555a46fcac9becbf7a5fe914e3e61f9e134864",
+      "width": 1280,
+      "height": 720,
+      "fps": 30,
+      "frames": 414,
+      "derivedFrom": "reel-clean",
+      "note": "derivatives.loop: c07 c09 c10 c15 c16 c19 c20, keeping every second frame. This is the file audited in docs/LOOP_MOTION_TREATMENT.md. Every frame maps to one clean-reel frame (loopToReelFrames)."
+    },
+    {
+      "id": "reel-titled",
+      "role": "creative-reference",
+      "file": "reel-57s-1080.mp4",
+      "sha256": "a523e35c53b76043bbad9bfd277f666a99c0ecbab4c79c4acdbe98500ee7b188",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "frames": 3456,
+      "cleanCounterpart": "reel-clean",
+      "cues": "capture/titles/reel-titles.cues.json",
+      "note": "ORBITAL RECORD reel: E1-E9 records, P1-P6 plate pushes, and the typographic E8 end card on a black plate."
+    },
+    {
+      "id": "loop-titled",
+      "role": "creative-reference",
+      "file": "loop-13s-1280-titled.mp4",
+      "sha256": "f83d2b82c5ef3f41de226da0f30f1588b46a439443c073d8410ff73e01c3a1a4",
+      "width": 1280,
+      "height": 720,
+      "fps": 30,
+      "frames": 414,
+      "cleanCounterpart": "loop-clean",
+      "cues": "capture/titles/loop-titles.cues.json",
+      "note": "ORBITAL RECORD loop edition: L1-L3 records and the LP1 plate push."
+    }
+  ],
+  "footage": [
+    { "clip": "c01", "reelFrames": [0, 287], "picture": "live", "grade": "strong", "nativeUi": false, "note": "The Moon swells out of black (1.2x push in the edit). 0-71 is the baked head fade." },
+    { "clip": "c02", "reelFrames": [288, 431], "picture": "live", "grade": "strong", "nativeUi": false, "note": "The touchdown ring blooms around the lander. 415-431 is the baked dip to black." },
+    { "clip": "c03", "reelFrames": [432, 575], "picture": "held", "grade": "limited", "nativeUi": false, "note": "The Vesper Citadel held on c03#143 for 2.4 s. Any motion has to be a new push." },
+    { "clip": "c04", "reelFrames": [576, 719], "picture": "held", "grade": "usable", "nativeUi": true, "note": "Held on c04#143. The readable Vesper transmission card sits over the Citadel." },
+    { "clip": "c05", "reelFrames": [720, 791], "picture": "still", "grade": "usable", "nativeUi": true, "note": "LAUNCH AT NULL MERIDIAN? [CANCEL] [FIRE]. Very dark (mean luma about 6)." },
+    { "clip": "c06", "reelFrames": [792, 863], "picture": "live", "grade": "limited", "nativeUi": false, "note": "The warhead is a speck on the horizon until the last ~0.25 s (about 849-863)." },
+    { "clip": "c07", "reelFrames": [864, 1007], "picture": "live", "grade": "hero", "nativeUi": false, "note": "The warhead crosses the lit limb: the hero shot and poster source." },
+    { "clip": "c08", "reelFrames": [1008, 1151], "picture": "live", "grade": "strong", "nativeUi": false, "note": "Second angle: the warhead turns nose-down along the limb." },
+    { "clip": "c09", "reelFrames": [1152, 1295], "picture": "live", "grade": "usable", "nativeUi": false, "note": "Terminal approach. Near-black with a small warhead, so it reads poorly at phone size. 1291-1295 is the baked white flash." },
+    { "clip": "c10", "reelFrames": [1296, 1439], "picture": "live", "grade": "hero", "nativeUi": false, "note": "First Strike impact: the amber dome over the shattered crater. 1296-1301 is the baked white flash." },
+    { "clip": "c11", "reelFrames": [1440, 1619], "picture": "live", "grade": "strong", "nativeUi": false, "note": "Ejecta and shock ring. The crater is bright for about the first second, then darkens to debris." },
+    { "clip": "c12", "reelFrames": [1620, 1727], "picture": "still", "grade": "usable", "nativeUi": true, "note": "FIRST STRIKE COMPLETE (the corrected capture, with no title-screen ghosting). Its HUD line SCARRED MOON · ORBITAL RECORD is the game's own UI, not the motion layer. 1693-1727 is the baked fade to black." },
+    { "clip": "c13", "reelFrames": [1728, 1763], "picture": "still", "grade": "usable", "nativeUi": true, "note": "VESPER COUNTERSTRIKE · FIRE NOW, with the reticle on the Moon." },
+    { "clip": "c14", "reelFrames": [1764, 1799], "picture": "duplicate", "grade": "none", "nativeUi": true, "note": "Cover: c13#35 held. Adds no footage beyond c13." },
+    { "clip": "c15", "reelFrames": [1800, 1871], "picture": "live", "grade": "strong", "nativeUi": false, "note": "The cyan-exhaust warhead dives onto the lander. 1867-1871 is the baked white flash." },
+    { "clip": "c16", "reelFrames": [1872, 2015], "picture": "live", "grade": "hero", "nativeUi": false, "note": "Counterstrike contact: fireball, shock ring and debris rain. 1872-1877 is the baked white flash." },
+    { "clip": "c17", "reelFrames": [2016, 2087], "picture": "live", "grade": "usable", "nativeUi": false, "note": "The Octogonal lead is locked in the game's world-space cyan reticle. The picture is almost static." },
+    { "clip": "c18", "reelFrames": [2088, 2159], "picture": "duplicate", "grade": "none", "nativeUi": false, "note": "Cover: c17#71 held. Adds no footage beyond c17." },
+    { "clip": "c19", "reelFrames": [2160, 2267], "picture": "live", "grade": "strong", "nativeUi": false, "note": "Violet volley onto the Signal Array. Pulses near 2160, 2168-2179, 2190-2203 and 2214-2221, then the craft exit." },
+    { "clip": "c20", "reelFrames": [2268, 2339], "picture": "live", "grade": "strong", "nativeUi": false, "note": "The cyan defense beam lands and the lead breaks up inside the game's reticle." },
+    { "clip": "c21", "reelFrames": [2340, 2447], "picture": "still", "grade": "usable", "nativeUi": true, "note": "The edit's own push into the Signal Array status card (HULL 100% · 3/3 WAVES · TERRITORY CLAIMED · PERMANENT). The card is dense." },
+    { "clip": "c22", "reelFrames": [2448, 2555], "picture": "live", "grade": "strong", "nativeUi": false, "note": "Helios Spire. The mass-driver slug fires near the end of the clip." },
+    { "clip": "c23", "reelFrames": [2556, 2627], "picture": "live", "grade": "usable", "nativeUi": false, "note": "The Signal Array vane fan at full deployment. Short (1.2 s)." },
+    { "clip": "c24", "reelFrames": [2628, 2735], "picture": "live", "grade": "strong", "nativeUi": false, "note": "Crater Crown seated in the First Strike scar, the payoff of c10/c11." },
+    { "clip": "c25", "reelFrames": [2736, 3167], "picture": "live", "grade": "hero", "nativeUi": false, "note": "One continuous 7.2 s pull-back from the Bastion Ziggurat to the claimed Moon. 3133-3167 is the baked dip to black." },
+    { "clip": "end", "reelFrames": [3168, 3455], "picture": "card", "grade": "none", "nativeUi": false, "note": "Illustrated key-art end card with the wordmark, tagline and URL baked in. It is not gameplay. 3168-3203 is the baked dip from black. Never overlay it." }
+  ]
+}
