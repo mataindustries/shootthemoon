@@ -25,7 +25,7 @@ import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'nod
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
-import { checkTitlesProvenance, drawnFrames, plateMoveAt, plateScaleAt, sceneAt, TITLES_INPUT_FILES, validateCues } from './titles.ts'
+import { checkTitlesProvenance, drawnFrames, plateMoveAt, plateScaleAt, sceneAt, titlesInputFiles, validateCues } from './titles.ts'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
@@ -35,20 +35,22 @@ const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
 const out = args.out ?? 'capture-final/titles'
 const jobs = Number(args.jobs ?? 4)
 
-const cuesPath = path.join(here, 'reel-titles.cues.json')
+const cuesPath = args.cues ? path.resolve(args.cues) : path.join(here, 'reel-titles.cues.json')
 const cuesText = readFileSync(cuesPath, 'utf8')
 const cues = JSON.parse(cuesText)
 const problems = validateCues(cues)
 if (problems.length > 0) {
-  console.error(`reel-titles.cues.json is not safe to render:\n  ${problems.join('\n  ')}`)
+  console.error(`${cuesPath} is not safe to render:\n  ${problems.join('\n  ')}`)
   process.exit(1)
 }
 
 const sha256 = (data) => createHash('sha256').update(data).digest('hex')
 const repo = path.join(here, '..', '..')
+const cuesFile = path.relative(repo, cuesPath).split(path.sep).join('/')
+const sequence = { file: cuesFile, fps: cues.source.fps, frames: cues.source.frames }
 const releasePin = JSON.parse(readFileSync(path.join(here, 'titlesRelease.json'), 'utf8'))
-const inputHashes = Object.fromEntries(TITLES_INPUT_FILES.map((file) => [file, sha256(readFileSync(path.join(repo, file)))]))
-const pinProblems = checkTitlesProvenance(releasePin, inputHashes)
+const inputHashes = Object.fromEntries(titlesInputFiles(cuesFile).map((file) => [file, sha256(readFileSync(path.join(repo, file)))]))
+const pinProblems = checkTitlesProvenance(releasePin, inputHashes, undefined, undefined, sequence)
 const playwrightVersion = JSON.parse(readFileSync(path.join(repo, 'node_modules/playwright-core/package.json'), 'utf8')).version
 if (playwrightVersion !== releasePin.playwright) pinProblems.push(`Playwright ${playwrightVersion}, pinned ${releasePin.playwright}`)
 if (pinProblems.length > 0) throw new Error(pinProblems.join('\n'))
@@ -66,15 +68,20 @@ const html = readFileSync(path.join(here, 'overlay.html'), 'utf8').replace('/*FO
 const FACE_CHECKS = [...new Set(Object.values(cues.tokens.style).map((style) => `${style.wght} ${style.size}px '${style.family}'`))]
 
 async function openStage(browser) {
-  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 })
+  const page = await browser.newPage({ viewport: { width: cues.source.width, height: cues.source.height }, deviceScaleFactor: 1 })
   await page.setContent(html)
+  await page.evaluate((config) => window.configureStage(config), {
+    width: cues.source.width, height: cues.source.height,
+    sigma: cues.tokens.shadow?.sigma, dy: cues.tokens.shadow?.dy, envelope: cues.layout?.envelope, alphaFloor: cues.tokens.alphaFloor,
+  })
   await page.evaluate((faces) => Promise.all(faces.map((face) => document.fonts.load(face))), FACE_CHECKS)
   await page.evaluate(() => document.fonts.ready)
   const loaded = await page.evaluate((faces) => faces.map((face) => [face, document.fonts.check(face)]), FACE_CHECKS)
   const missing = loaded.filter(([, ok]) => !ok).map(([face]) => face)
   if (missing.length > 0) throw new Error(`fonts not loaded (no substitution allowed): ${missing.join(', ')}`)
   // Warm text layout so the first measured frame is stable.
-  await page.evaluate(([f, ops]) => window.drawScene(f, ops, null), [3455, sceneAt(cues, 3455)])
+  const warmFrame = cues.source.frames - 1
+  await page.evaluate(([f, ops]) => window.drawScene(f, ops, null), [warmFrame, sceneAt(cues, warmFrame)])
   return { page, stage: await page.$('#stage') }
 }
 
@@ -108,8 +115,8 @@ try {
         plate = {
           href: `data:image/png;base64,${readFileSync(source).toString('base64')}`,
           scale: move ? plateScaleAt(move, frame) : 1,
-          ax: move ? move.anchor[0] : 960,
-          ay: move ? move.anchor[1] : 540,
+          ax: move ? move.anchor[0] : cues.source.width / 2,
+          ay: move ? move.anchor[1] : cues.source.height / 2,
         }
       }
       await shoot(stage, page, frame, path.join(out, `sf_${String(frame).padStart(4, '0')}.png`), plate)
@@ -159,10 +166,10 @@ try {
       inputs: inputHashes,
       alpha: 'straight',
       playwright: playwrightVersion,
-      cues: { file: 'capture/titles/reel-titles.cues.json', sha256: sha256(cuesText), status: cues.status },
+      cues: { file: cuesFile, sha256: sha256(cuesText), status: cues.status },
       fonts: Object.fromEntries(FONTS.map((font) => [font.file, sha256(fontBytes[font.file])])),
       browser: `${browser.browserType().name()} ${browser.version()}`,
-      track: { file: 'titles-track.mov', codec: 'qtrle', pixFmt: 'argb', fps: cues.source.fps, frames: cues.source.frames, sha256: sha256(readFileSync(track)) },
+      track: { file: 'titles-track.mov', codec: 'qtrle', pixFmt: 'argb', width: cues.source.width, height: cues.source.height, fps: cues.source.fps, frames: cues.source.frames, sha256: sha256(readFileSync(track)) },
       drawnFrames: drawn.length,
       drawnRanges: drawn.reduce((ranges, frame) => {
         const last = ranges[ranges.length - 1]
