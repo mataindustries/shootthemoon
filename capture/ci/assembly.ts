@@ -1142,6 +1142,32 @@ export function loopFilterGraph(loop: LoopPlan, sources: GraphSources): string {
   return [...sequenceChains(loop.sequence, sources), `[seq]${decimate},${deliveryScale(LOOP_SIZE.width, LOOP_SIZE.height)}[out]`].join(';')
 }
 
+/** Review derivative only: decimate and deliver at loop size, push the plate,
+ * then composite screen-fixed titles. The clean loop graph stays unchanged. */
+export function titledLoopFilterGraph(loop: LoopPlan, sources: GraphSources, cues: Cues, titles: string): string {
+  const problems = checkLoopTitlesCues(loop, cues)
+  if (problems.length > 0) throw new Error(problems.join('\n'))
+  return [
+    loopPlateFilterGraph(loop, sources),
+    ...titledChains(cues, 'loopplate', titles, 'looptitled', loop.fps),
+    `[looptitled]${deliveryScale(LOOP_SIZE.width, LOOP_SIZE.height)}[out]`,
+  ].join(';')
+}
+
+/** Lossless working plate for the separate titled-loop finishing pass. */
+export function loopPlateFilterGraph(loop: LoopPlan, sources: GraphSources): string {
+  return loopFilterGraph(loop, sources).replace(/\[out\]$/, ',format=yuv444p[loopplate]')
+}
+
+export function checkLoopTitlesCues(loop: LoopPlan, cues: Cues): string[] {
+  const problems = validateCues(cues)
+  const { source } = cues
+  if (source.frames !== loop.frames || source.fps !== loop.fps || source.width !== LOOP_SIZE.width || source.height !== LOOP_SIZE.height) {
+    problems.push(`loop cues must be ${LOOP_SIZE.width}x${LOOP_SIZE.height}@${loop.fps} ${loop.frames}f`)
+  }
+  return problems
+}
+
 // ---------------------------------------------------------------------------
 // Encode settings, parsed from the locked edit's delivery formats
 // ---------------------------------------------------------------------------

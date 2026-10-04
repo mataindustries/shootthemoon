@@ -1,0 +1,391 @@
+{
+  "schema": "shootthemoon.reel-titles/1",
+  "status": "APPROVED \u2014 ORBITAL RECORD loop edition; docs/LOOP_MOTION_TREATMENT.md is the creative authority.",
+  "source": {
+    "reel": "loop-13s-1280.mp4 (capture/finalEdit.json derivatives.loop; clean remains unchanged)",
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "frames": 414
+  },
+  "conventions": {
+    "frames": "0-based loop frame index at 30 fps. Frame f is shown at f/30 s.",
+    "fadeIn": "in {f, fade:n}: element first drawn at frame f; opacity = ease((k+1)/n) for k = frame-f in 0..n-1, then 1.",
+    "fadeOut": "out {f, fade:n}: opacity = 1-ease((k+1)/n) for k = frame-f in 0..n-1; not drawn from frame f+n-1 on.",
+    "hardOut": "out {f} without fade: not drawn from frame f on (use when the exit coincides with a picture cut).",
+    "track": "letter-spacing in em, interpolated from 'from' to 'to' over n frames starting at f, eased.",
+    "draw": "rule/hairline scaleX 0 -> 1 over n frames from f, eased, from its 'origin' end.",
+    "text": "a string, or [[frame, string], ...] swaps: each string is shown from its frame until the next swap.",
+    "counter": "{token} in text is replaced by v = v0 + (v1-v0)*(frame-f0)/(f1-f0), clamped to [min(v0,v1), max(v0,v1)], floored to 0.01, formatted SS.hh (two-digit seconds, two-digit hundredths).",
+    "positions": "x and y are 1280x720 pixels. For text, y is the BASELINE; for rule, chip, segmentRule and hairline, y is the TOP edge. anchor 'start' = left edge of the first glyph at x; 'middle' = visual centre at x (compensate the trailing letter-spacing).",
+    "ease": "out = cubic-bezier(0.22, 1, 0.36, 1); inOut = cubic-bezier(0.65, 0, 0.35, 1); linear = linear. Default ease for fades/track/draw is out.",
+    "plateMoves": "Each plateMove scales the CLEAN loop picture of frames [from..to] about anchor by s(f) = scale[0] + (scale[1]-scale[0])*(f-from)/(to-from). Sub-pixel accurate (see MOTION_TREATMENT.md, implementation spec). Titles are composited after plate moves; brackets with followsPlate apply the same transform to their box.",
+    "chapter": "OFFENSIVE (L1 and L2), then DEFENSE (L3). Metadata only; never drawn.",
+    "alphaQuantization": "A positive fade sample retains at least one 8-bit alpha level in the delivered track. Exact-zero scene samples stay zero; this prevents the last positive fade frame from rounding away."
+  },
+  "tempo": {
+    "bpm": 100,
+    "framesPerBar": 72,
+    "framesPerBeat": 18,
+    "framesPerGrid": 9,
+    "framesPerUnit": 1,
+    "rule": "Entrances and clears on the 9-frame (300 ms) grid. Internal primary stagger and fades are exactly 5 frames; tracking settles over 9 frames. Frame precision is the unit."
+  },
+  "chapters": [
+    "OFFENSIVE",
+    "DEFENSE"
+  ],
+  "tokens": {
+    "color": {
+      "ink": "#EDE8DF",
+      "amber": "#EFAD58",
+      "cyan": "#55C5CC",
+      "violet": "#AA7ED8"
+    },
+    "style": {
+      "primary": {
+        "family": "Saira",
+        "wdth": 110,
+        "wght": 500,
+        "size": 30,
+        "tracking": 0.16,
+        "fill": "ink",
+        "opacity": 0.96,
+        "case": "upper",
+        "shadow": "lift"
+      },
+      "kicker": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 13,
+        "tracking": 0.16,
+        "fill": "ink",
+        "opacity": 0.76,
+        "case": "upper",
+        "shadow": "lift"
+      }
+    },
+    "rule": {
+      "thickness": 2,
+      "fill": "ink",
+      "opacity": 0.5,
+      "shadow": false
+    },
+    "chip": {
+      "size": 7
+    },
+    "shadow": {
+      "lift": "Text only: (0,0) sigma .5 black@.55, then (0,1) sigma 5 black@.45. Never a glow.",
+      "sigma": [
+        0.5,
+        5
+      ],
+      "dy": [
+        0,
+        1
+      ]
+    },
+    "alphaFloor": 0.00392156862745098
+  },
+  "layout": {
+    "record": {
+      "x": 80,
+      "chipX": 64,
+      "chipY": 556,
+      "kickerY": 564,
+      "primaryY": 607,
+      "ruleY": 624,
+      "ruleWidth": 60
+    },
+    "envelope": [
+      64,
+      545,
+      462,
+      636
+    ]
+  },
+  "forbidden": [
+    {
+      "from": 0,
+      "to": 80,
+      "why": "hero and loop restart"
+    },
+    {
+      "from": 126,
+      "to": 141,
+      "why": "approach silence before impact"
+    },
+    {
+      "from": 142,
+      "to": 146,
+      "why": "First Strike white flash"
+    },
+    {
+      "from": 147,
+      "to": 215,
+      "why": "First Strike impact and crater"
+    },
+    {
+      "from": 243,
+      "to": 249,
+      "why": "terminal frames before contact"
+    },
+    {
+      "from": 250,
+      "to": 254,
+      "why": "Counterstrike white flash"
+    },
+    {
+      "from": 255,
+      "to": 323,
+      "why": "Counterstrike impact and destruction"
+    },
+    {
+      "from": 324,
+      "to": 332,
+      "why": "first violet pulse before naming"
+    },
+    {
+      "from": 378,
+      "to": 413,
+      "why": "defense hit, reticle, destruction and loop tail"
+    }
+  ],
+  "plateMoves": [
+    {
+      "id": "LP1",
+      "clip": "c19 + c20, locked camera across the picture cut",
+      "from": 324,
+      "to": 413,
+      "scale": [
+        1,
+        1.025
+      ],
+      "anchor": [
+        640,
+        360
+      ],
+      "ease": "linear"
+    }
+  ],
+  "events": [
+    {
+      "id": "L1",
+      "name": "FIRST STRIKE",
+      "chapter": "OFFENSIVE",
+      "from": 81,
+      "to": 125,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 64,
+          "y": 556,
+          "fill": "amber",
+          "in": {
+            "f": 81,
+            "fade": 5
+          },
+          "out": {
+            "f": 122,
+            "fade": 5
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 80,
+          "y": 564,
+          "text": "TERMINAL APPROACH",
+          "in": {
+            "f": 81,
+            "fade": 5
+          },
+          "out": {
+            "f": 122,
+            "fade": 5
+          }
+        },
+        {
+          "role": "rule",
+          "x": 80,
+          "y": 624,
+          "w": 60,
+          "draw": {
+            "f": 81,
+            "n": 5,
+            "origin": "left"
+          },
+          "out": {
+            "f": 122,
+            "fade": 5
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 80,
+          "y": 607,
+          "text": "FIRST STRIKE",
+          "in": {
+            "f": 86,
+            "fade": 5
+          },
+          "track": {
+            "f": 86,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 9
+          },
+          "out": {
+            "f": 122,
+            "fade": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "L2",
+      "name": "COUNTERSTRIKE",
+      "chapter": "OFFENSIVE",
+      "from": 216,
+      "to": 242,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 64,
+          "y": 556,
+          "fill": "cyan",
+          "in": {
+            "f": 216,
+            "fade": 5
+          },
+          "out": {
+            "f": 239,
+            "fade": 5
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 80,
+          "y": 564,
+          "text": "HOSTILE TERMINAL APPROACH",
+          "in": {
+            "f": 216,
+            "fade": 5
+          },
+          "out": {
+            "f": 239,
+            "fade": 5
+          }
+        },
+        {
+          "role": "rule",
+          "x": 80,
+          "y": 624,
+          "w": 60,
+          "draw": {
+            "f": 216,
+            "n": 5,
+            "origin": "left"
+          },
+          "out": {
+            "f": 239,
+            "fade": 5
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 80,
+          "y": 607,
+          "text": "COUNTERSTRIKE",
+          "in": {
+            "f": 221,
+            "fade": 5
+          },
+          "track": {
+            "f": 221,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 9
+          },
+          "out": {
+            "f": 239,
+            "fade": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "L3",
+      "name": "THE OCTOGONALS",
+      "chapter": "DEFENSE",
+      "from": 333,
+      "to": 377,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 64,
+          "y": 556,
+          "fill": "violet",
+          "in": {
+            "f": 333,
+            "fade": 5
+          },
+          "out": {
+            "f": 378
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 80,
+          "y": 564,
+          "text": "CONTACT",
+          "in": {
+            "f": 333,
+            "fade": 5
+          },
+          "out": {
+            "f": 378
+          }
+        },
+        {
+          "role": "rule",
+          "x": 80,
+          "y": 624,
+          "w": 60,
+          "draw": {
+            "f": 333,
+            "n": 5,
+            "origin": "left"
+          },
+          "out": {
+            "f": 378
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 80,
+          "y": 607,
+          "text": "THE OCTOGONALS",
+          "in": {
+            "f": 338,
+            "fade": 5
+          },
+          "track": {
+            "f": 338,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 9
+          },
+          "out": {
+            "f": 378
+          }
+        }
+      ]
+    }
+  ]
+}

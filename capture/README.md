@@ -770,6 +770,49 @@ The pinned run's Actions artifacts expire starting 2026-10-27: retain verified
 source archives before then if later rebuilds are required. The downloader
 fails on expired or changed artifacts and never substitutes another run.
 
+## Portfolio loop motion review
+
+`docs/LOOP_MOTION_TREATMENT.md` locks the loop edition of ORBITAL RECORD:
+L1 FIRST STRIKE (81–125), L2 COUNTERSTRIKE (216–242), L3 THE OCTOGONALS
+(333–377), and LP1 (324–413, 1.000 → 1.025 about 640,360). The existing clean
+loop, full reel, posters and release assembly remain unchanged. The loop cue
+sheet uses a 9-frame event grid and single-frame internal timing, accommodating
+the approved 5-frame staggers/fades. Its positive fade samples retain at least
+one 8-bit alpha level; exact-zero samples remain zero.
+
+The shared renderer reads stage dimensions, fps, timing, shadow geometry and
+the title envelope from `loop-titles.cues.json`. `titlesRelease.json` pins both
+cue sources and the common renderer/fonts. The separate assembly command checks
+the pinned run, locked edit, intermediate hashes, title provenance and decoded
+alpha, then writes its own review manifest. It assembles the clean loop recipe
+to a lossless working plate, applies the existing perspective push and composites
+screen-fixed titles. It copies the audited clean comparison byte-for-byte.
+
+```sh
+node --experimental-strip-types --experimental-transform-types --test \
+  capture/titles/loopTitles.test.ts capture/titles/titles.test.ts \
+  capture/titles/titlesFfmpeg.test.ts capture/ci/assembly.test.ts
+node --experimental-strip-types --experimental-transform-types capture/titles/renderTitles.mjs \
+  --cues=capture/titles/loop-titles.cues.json --out=capture-final/loop-motion/titles
+node --experimental-strip-types --experimental-transform-types capture/titles/assembleTitledLoop.mjs \
+  --dir=capture-final/run-6 --source=capture-final/run-6/source-run.json \
+  --clean=capture-final/approved-deliverables/loop-13s-1280.mp4 \
+  --titles=capture-final/loop-motion/titles/titles-track.mov --out=capture-final/loop-motion
+node --experimental-strip-types --experimental-transform-types capture/titles/qaTitledLoop.mjs \
+  --out=capture-final/loop-motion
+node capture/titles/reviewTitledLoop.mjs --out=capture-final/loop-motion
+```
+
+The review output is `capture-final/loop-motion/loop-13s-1280-titled.mp4`.
+`qa/qa-report.json` records all 414 decoded alpha frames, the exact boundaries,
+the title envelope, independent constant-transform endpoint comparisons and
+frozen-frame radial registration (all 89 consecutive steps). It also retains
+8-bit luma differences as a separate diagnostic. Mobile PNGs, all-frame subject
+clearance sheets and a seam strip accompany the report. `review.html` is a
+minimal 480 px muted looping player; `qa/repetition-report.json` records ten
+complete real-time loops after the first observed restart. Readability and
+subject clearance require visual review of the exported frames.
+
 ## The four Phase 1 proof shots
 
 | id | profile | fixture | mechanism | frames |

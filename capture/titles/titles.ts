@@ -30,6 +30,11 @@ export const TITLES_INPUT_FILES = [
   'capture/titles/fonts/OFL-IBMPlexMono.txt',
 ] as const
 
+/** One shared renderer and font set, with the selected sequence's cue source. */
+export function titlesInputFiles(cuesFile = TITLES_INPUT_FILES[0] as string): string[] {
+  return [cuesFile, ...TITLES_INPUT_FILES.slice(1)]
+}
+
 export interface TitlesReleasePin {
   readonly schema: string
   readonly inputs: Readonly<Record<string, string>>
@@ -49,20 +54,21 @@ export interface TitlesManifest {
 }
 
 /** Fail closed on a stale pin, substituted font, or track from another render. */
-export function checkTitlesProvenance(pin: TitlesReleasePin, actual: Readonly<Record<string, string>>, manifest?: TitlesManifest, trackHash?: string): string[] {
+export function checkTitlesProvenance(pin: TitlesReleasePin, actual: Readonly<Record<string, string>>, manifest?: TitlesManifest, trackHash?: string,
+  sequence = { file: TITLES_INPUT_FILES[0] as string, fps: 60, frames: 3456 }): string[] {
   const problems: string[] = []
   if (pin.schema !== 'shootthemoon.titles-release/1') problems.push('unknown titles release pin schema')
-  for (const file of TITLES_INPUT_FILES) {
+  for (const file of titlesInputFiles(sequence.file)) {
     if (!/^[a-f0-9]{64}$/.test(pin.inputs?.[file] ?? '') || pin.inputs[file] !== actual[file]) problems.push(`titles input differs from release pin: ${file}`)
     if (manifest && manifest.inputs?.[file] !== actual[file]) problems.push(`titles manifest input differs: ${file}`)
     if (manifest && file.endsWith('.ttf') && manifest.fonts?.[file.split('/').pop()!] !== actual[file]) problems.push(`titles manifest font differs: ${file}`)
   }
   if (manifest) {
     if (manifest.schema !== 'shootthemoon.reel-titles-track/1' || manifest.alpha !== 'straight') problems.push('titles manifest must declare a straight-alpha titles track')
-    if (manifest.cues?.sha256 !== actual['capture/titles/reel-titles.cues.json']) problems.push('titles manifest cue hash differs')
+    if (manifest.cues?.sha256 !== actual[sequence.file]) problems.push('titles manifest cue hash differs')
     if (manifest.browser !== `chromium ${pin.chromium}` || manifest.playwright !== pin.playwright) problems.push('titles renderer/browser differs from release pin')
     if (manifest.track?.sha256 !== trackHash || !/^[a-f0-9]{64}$/.test(trackHash ?? '')) problems.push('titles track hash differs from its manifest')
-    if (manifest.track?.codec !== 'qtrle' || manifest.track?.pixFmt !== 'argb' || manifest.track?.fps !== 60 || manifest.track?.frames !== 3456) problems.push('titles manifest track format differs from the locked reel')
+    if (manifest.track?.codec !== 'qtrle' || manifest.track?.pixFmt !== 'argb' || manifest.track?.fps !== sequence.fps || manifest.track?.frames !== sequence.frames) problems.push('titles manifest track format differs from the locked sequence')
   }
   return problems
 }
@@ -179,9 +185,14 @@ export interface Cues {
   readonly tokens: {
     readonly color: Readonly<Record<string, string>>
     readonly style: Readonly<Record<string, TextStyle>>
-    readonly rule: { readonly thickness: number; readonly fill: string; readonly opacity: number }
+    readonly rule: { readonly thickness: number; readonly fill: string; readonly opacity: number; readonly shadow?: boolean }
     readonly chip: { readonly size: number }
+    readonly shadow?: { readonly lift: string; readonly sigma?: readonly [number, number]; readonly dy?: readonly [number, number] }
+    /** Preserve a positive fade sample when quantizing to an 8-bit track. */
+    readonly alphaFloor?: number
   }
+  /** Inclusive delivered-pixel bounds, including text shadow. */
+  readonly layout?: { readonly envelope?: readonly [number, number, number, number] }
   readonly forbidden: ReadonlyArray<{ readonly from: number; readonly to: number; readonly why: string }>
   readonly plateMoves: readonly PlateMove[]
   readonly events: readonly CueEvent[]
@@ -476,7 +487,7 @@ export function sceneAt(cues: Cues, f: number): SceneOp[] {
       switch (el.role) {
         case 'rule': {
           const w = el.w! * (el.draw ? progress(el.draw, f) : 1)
-          if (w > 0) ops.push({ op: 'rect', x: el.x!, y: el.y!, w, h: rule.thickness, fill: colorOf(cues, rule.fill), fillOpacity: rule.opacity * a, shadow: true })
+          if (w > 0) ops.push({ op: 'rect', x: el.x!, y: el.y!, w, h: rule.thickness, fill: colorOf(cues, rule.fill), fillOpacity: rule.opacity * a, shadow: rule.shadow ?? true })
           break
         }
         case 'segmentRule': {

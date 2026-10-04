@@ -36,6 +36,28 @@ svg { position: absolute; inset: 0; }
 <script>
 const NS = 'http://www.w3.org/2000/svg';
 let gfx;
+let stageWidth = 1920, stageHeight = 1080;
+let alphaFloor = 0;
+const paintOpacity = (alpha) => alpha > 0 ? Math.max(alpha, alphaFloor) : 0;
+/** Defaults preserve the reel; sequence-specific geometry comes from cues. */
+window.configureStage = function ({ width, height, sigma = [0.6, 6], dy = [0, 1], envelope, alphaFloor: floor = 0 }) {
+  stageWidth = width; stageHeight = height;
+  alphaFloor = floor;
+  const stage = document.getElementById('stage');
+  stage.style.width = width + 'px'; stage.style.height = height + 'px';
+  const svg = document.getElementById('svg');
+  svg.setAttribute('width', width); svg.setAttribute('height', height);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  document.querySelectorAll('#lift feDropShadow').forEach((e, i) => {
+    e.setAttribute('stdDeviation', sigma[i]); e.setAttribute('dy', dy[i]);
+  });
+  if (envelope) {
+    const [x0, y0, x1, y1] = envelope;
+    const clip = mk('clipPath', { id: 'titleEnvelope', clipPathUnits: 'userSpaceOnUse' }, svg.querySelector('defs'));
+    mk('rect', { x: x0, y: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 }, clip);
+    document.getElementById('gfx').setAttribute('clip-path', 'url(#titleEnvelope)');
+  }
+};
 function mk(tag, attrs, parent) {
   const e = document.createElementNS(NS, tag);
   for (const k in attrs) e.setAttribute(k, attrs[k]);
@@ -43,7 +65,7 @@ function mk(tag, attrs, parent) {
   return e;
 }
 function drawText(op, parent) {
-  const t = mk('text', { x: op.x, y: op.y, 'text-anchor': op.anchor, fill: op.fill, 'fill-opacity': op.fillOpacity }, parent);
+  const t = mk('text', { x: op.x, y: op.y, 'text-anchor': op.anchor, fill: op.fill, 'fill-opacity': paintOpacity(op.fillOpacity) }, parent);
   t.style.fontFamily = `'${op.family}'`;
   t.style.fontSize = op.size + 'px';
   t.style.letterSpacing = op.spacingPx + 'px';
@@ -63,8 +85,8 @@ function drawPlate(plate) {
   const g = document.getElementById('plate');
   g.replaceChildren();
   if (!plate) return;
-  if (plate.black) { mk('rect', { x: 0, y: 0, width: 1920, height: 1080, fill: '#000' }, g); return; }
-  mk('image', { href: plate.href, x: 0, y: 0, width: 1920, height: 1080, preserveAspectRatio: 'none',
+  if (plate.black) { mk('rect', { x: 0, y: 0, width: stageWidth, height: stageHeight, fill: '#000' }, g); return; }
+  mk('image', { href: plate.href, x: 0, y: 0, width: stageWidth, height: stageHeight, preserveAspectRatio: 'none',
     transform: `translate(${plate.ax} ${plate.ay}) scale(${plate.scale}) translate(${-plate.ax} ${-plate.ay})` }, g);
 }
 window.drawScene = function (frame, ops, plate) {
@@ -75,7 +97,7 @@ window.drawScene = function (frame, ops, plate) {
   for (const op of ops) {
     if (op.op === 'text') hosts[op.role] = { node: drawText(op), op };
     else if (op.op === 'rect') {
-      const r = mk('rect', { x: op.x, y: op.y, width: op.w, height: op.h, fill: op.fill, 'fill-opacity': op.fillOpacity });
+      const r = mk('rect', { x: op.x, y: op.y, width: op.w, height: op.h, fill: op.fill, 'fill-opacity': paintOpacity(op.fillOpacity) });
       if (op.shadow) r.setAttribute('filter', 'url(#lift)');
     } else if (op.op === 'path') {
       const p = mk('path', { d: op.d, fill: 'none', stroke: op.stroke, 'stroke-width': op.strokeWidth, 'stroke-opacity': op.strokeOpacity, 'stroke-linecap': 'square' });
