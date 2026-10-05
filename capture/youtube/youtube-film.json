@@ -1,0 +1,1831 @@
+{
+  "schema": "shootthemoon.youtube-film/1",
+  "status": "first cut — picture lock for narration; NOT approved, NOT committed",
+  "title": "Shoot the Moon — launch film (first cut)",
+  "thesis": "I wanted to build an original browser game about lunar territory, escalation and orbital warfare. The story is not that AI made a game: it is that frontier models, directed as creative and engineering collaborators, let one person execute an original idea, visual direction and system design far faster than they could alone.",
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 60,
+    "frames": 9072,
+    "durationS": 151.2,
+    "encode": "H.264 High 4.2, CRF 16, preset slow, yuv420p, BT.709, closed GOP 1s, +faststart",
+    "audio": "none: no verified game audio exists; the picture lock is silent"
+  },
+  "tempo": {
+    "bpm": 100,
+    "framesPerBeat": 36,
+    "framesPerBar": 144,
+    "bars": 63
+  },
+  "sourcePolicy": {
+    "register": "capture/youtube/media-sources.json",
+    "rule": "Every reel frame comes from reel-clean (sha256 f1150945eb5356f4260351622201edc14d982ac1baaab804091ab1d8c74680d0). Titled media are never sources; capture/youtube/youtubeFilm.ts runs checkTimelineSources over every segment.",
+    "loop": "The clean loop is an edit reference only: every loop frame exists at full rate and size in reel-clean (mediaPriority.ts loopToReelFrames)."
+  },
+  "acts": [
+    {
+      "id": "WORLD",
+      "from": 0,
+      "to": 1115
+    },
+    {
+      "id": "ESCALATION",
+      "from": 1116,
+      "to": 2627
+    },
+    {
+      "id": "SYSTEMS",
+      "from": 2628,
+      "to": 5219
+    },
+    {
+      "id": "BUILD",
+      "from": 5220,
+      "to": 7883
+    },
+    {
+      "id": "PAYOFF",
+      "from": 7884,
+      "to": 9071
+    }
+  ],
+  "timeline": [
+    {
+      "id": "s01",
+      "act": "WORLD",
+      "shot": "c01",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 36,
+        "to": 287
+      },
+      "frames": 252,
+      "picture": "The Moon swells out of black (the reel's own head fade, entered halfway).",
+      "transitionIn": "film start on the baked head fade (reel f36 = 50% from black)",
+      "transitionOut": "cut (reel adjacency c01→c02)",
+      "graphics": [
+        "W1"
+      ],
+      "from": 0,
+      "to": 251
+    },
+    {
+      "id": "s02",
+      "act": "WORLD",
+      "shot": "c02",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 288,
+        "to": 431
+      },
+      "frames": 144,
+      "picture": "Touchdown: the amber ring blooms around your lander, then dips toward black.",
+      "transitionIn": "cut",
+      "transitionOut": "baked dip to black (reel 415–431), hard cut to full-level Citadel (reel adjacency c02→c03)",
+      "graphics": [],
+      "from": 252,
+      "to": 395
+    },
+    {
+      "id": "s03",
+      "act": "WORLD",
+      "shot": "c03",
+      "kind": "hold",
+      "source": {
+        "media": "reel-clean",
+        "frame": 575
+      },
+      "frames": 180,
+      "push": "FP1",
+      "picture": "The Vesper Citadel, held on c03#143 (the reel's own hold frame), new slow push.",
+      "transitionIn": "hard cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "W2"
+      ],
+      "from": 396,
+      "to": 575
+    },
+    {
+      "id": "s04",
+      "act": "WORLD",
+      "shot": "c04",
+      "kind": "hold",
+      "source": {
+        "media": "reel-clean",
+        "frame": 719
+      },
+      "frames": 216,
+      "push": "FP2",
+      "picture": "Vesper's transmission card over the Citadel (native UI): \"First is not ownership. Remove your extractor from my Moon.\"",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "nativeUi": true,
+      "from": 576,
+      "to": 791
+    },
+    {
+      "id": "s05",
+      "act": "WORLD",
+      "shot": "c05",
+      "kind": "hold",
+      "source": {
+        "media": "reel-clean",
+        "frame": 791
+      },
+      "frames": 324,
+      "push": "FP3",
+      "picture": "Launch authority dialog (native UI): LAUNCH AT NULL MERIDIAN? [CANCEL] [FIRE].",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "nativeUi": true,
+      "from": 792,
+      "to": 1115
+    },
+    {
+      "id": "s06",
+      "act": "ESCALATION",
+      "shot": "c06",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 828,
+        "to": 863
+      },
+      "frames": 36,
+      "picture": "Liftoff: the warhead punches up into frame.",
+      "transitionIn": "cut",
+      "transitionOut": "cut (reel adjacency c06→c07)",
+      "graphics": [],
+      "from": 1116,
+      "to": 1151
+    },
+    {
+      "id": "s07",
+      "act": "ESCALATION",
+      "shot": "c07",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 864,
+        "to": 1007
+      },
+      "frames": 144,
+      "picture": "HERO: the warhead crosses the lit limb.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "protect": "hero orbital flight",
+      "from": 1152,
+      "to": 1295
+    },
+    {
+      "id": "s08",
+      "act": "ESCALATION",
+      "shot": "c08",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 1008,
+        "to": 1151
+      },
+      "frames": 144,
+      "picture": "Second angle: nose-down along the limb.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "from": 1296,
+      "to": 1439
+    },
+    {
+      "id": "s09",
+      "act": "ESCALATION",
+      "shot": "c09",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 1152,
+        "to": 1295
+      },
+      "frames": 144,
+      "picture": "Terminal approach over the dark limb; the last 600 ms in silence.",
+      "transitionIn": "cut",
+      "transitionOut": "baked white flash (reel 1291–1295 → c10 1296–1301, reel adjacency c09→c10)",
+      "graphics": [
+        "E1"
+      ],
+      "from": 1440,
+      "to": 1583
+    },
+    {
+      "id": "s10",
+      "act": "ESCALATION",
+      "shot": "c10",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 1296,
+        "to": 1439
+      },
+      "frames": 144,
+      "picture": "FIRST STRIKE IMPACT: amber dome over the shattered crater.",
+      "transitionIn": "baked white flash",
+      "transitionOut": "cut",
+      "graphics": [],
+      "protect": "First Strike impact",
+      "from": 1584,
+      "to": 1727
+    },
+    {
+      "id": "s11",
+      "act": "ESCALATION",
+      "shot": "c11",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 1440,
+        "to": 1619
+      },
+      "frames": 180,
+      "picture": "Ejecta and shock ring; the crater darkens to debris.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "protect": "First Strike destruction",
+      "from": 1728,
+      "to": 1907
+    },
+    {
+      "id": "s12",
+      "act": "ESCALATION",
+      "shot": "c12",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 1620,
+        "to": 1727
+      },
+      "frames": 108,
+      "picture": "FIRST STRIKE COMPLETE · THE MOON REMEMBERS (native card), fading to black.",
+      "transitionIn": "cut",
+      "transitionOut": "baked fade to black (reel 1693–1727, reel adjacency c12→c13)",
+      "graphics": [],
+      "nativeUi": true,
+      "from": 1908,
+      "to": 2015
+    },
+    {
+      "id": "s13",
+      "act": "ESCALATION",
+      "shot": "c13",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 1728,
+        "to": 1799
+      },
+      "frames": 72,
+      "picture": "VESPER COUNTERSTRIKE · FIRE NOW (native UI; c13 plus its c14 cover, one 1.2 s still).",
+      "transitionIn": "hard cut out of black",
+      "transitionOut": "cut",
+      "graphics": [],
+      "nativeUi": true,
+      "from": 2016,
+      "to": 2087
+    },
+    {
+      "id": "s14",
+      "act": "ESCALATION",
+      "shot": "c15",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 1800,
+        "to": 1871
+      },
+      "frames": 72,
+      "picture": "The cyan-exhaust warhead dives onto your lander.",
+      "transitionIn": "cut",
+      "transitionOut": "baked white flash (reel 1867–1871 → c16 1872–1877, reel adjacency c15→c16)",
+      "graphics": [
+        "E2"
+      ],
+      "from": 2088,
+      "to": 2159
+    },
+    {
+      "id": "s15",
+      "act": "ESCALATION",
+      "shot": "c16",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 1872,
+        "to": 2015
+      },
+      "frames": 144,
+      "picture": "COUNTERSTRIKE CONTACT: fireball, shock ring, debris rain.",
+      "transitionIn": "baked white flash",
+      "transitionOut": "cut",
+      "graphics": [],
+      "protect": "Counterstrike impact and destruction",
+      "from": 2160,
+      "to": 2303
+    },
+    {
+      "id": "s16",
+      "act": "ESCALATION",
+      "shot": "c17",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 2016,
+        "to": 2159
+      },
+      "frames": 144,
+      "picture": "The Octogonal lead locked in the game's reticle (c17 plus its c18 cover).",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "E3"
+      ],
+      "from": 2304,
+      "to": 2447
+    },
+    {
+      "id": "s17",
+      "act": "ESCALATION",
+      "shot": "c19",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 2160,
+        "to": 2267
+      },
+      "frames": 108,
+      "picture": "Violet volley onto the Signal Array.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "protect": "Octogonal weapon exchange",
+      "from": 2448,
+      "to": 2555
+    },
+    {
+      "id": "s18",
+      "act": "ESCALATION",
+      "shot": "c20",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 2268,
+        "to": 2339
+      },
+      "frames": 72,
+      "picture": "Your cyan defense beam lands; the lead breaks apart.",
+      "transitionIn": "cut",
+      "transitionOut": "hard cut to black card",
+      "graphics": [],
+      "protect": "surface-defense hit",
+      "from": 2556,
+      "to": 2627
+    },
+    {
+      "id": "s19",
+      "act": "SYSTEMS",
+      "kind": "black",
+      "frames": 144,
+      "picture": "Chapter card on black.",
+      "transitionIn": "hard cut",
+      "transitionOut": "hard cut",
+      "graphics": [
+        "C1"
+      ],
+      "from": 2628,
+      "to": 2771
+    },
+    {
+      "id": "s20",
+      "act": "SYSTEMS",
+      "kind": "still",
+      "source": {
+        "asset": "capture-title-screen"
+      },
+      "frames": 396,
+      "push": "FP4",
+      "picture": "NEW CAPTURE 1: the live launch gate (current build, 1920x1080 HUD profile): SHOOT THE MOON · BEGIN INVASION · CLICK · DRAG · SCROLL TO ZOOM.",
+      "transitionIn": "hard cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "S1"
+      ],
+      "nativeUi": true,
+      "claim": "browser",
+      "from": 2772,
+      "to": 3167
+    },
+    {
+      "id": "s21",
+      "act": "SYSTEMS",
+      "kind": "board",
+      "board": "phone",
+      "frames": 504,
+      "picture": "Real phone-viewport recording (repo verification artifact): TRACKING → FIRE NOW → tap → INTERCEPTED.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "S2"
+      ],
+      "nativeUi": true,
+      "claim": "mobile",
+      "from": 3168,
+      "to": 3671
+    },
+    {
+      "id": "s22",
+      "act": "SYSTEMS",
+      "kind": "still",
+      "source": {
+        "asset": "capture-landing-site-panel"
+      },
+      "frames": 360,
+      "push": "FP5",
+      "picture": "NEW CAPTURE 2: orbit view, SELECTED LANDING SITE panel: LATITUDE 5.490° N · LONGITUDE 16.040° W · MEAN SPHERE · ALT 0 M.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "S3"
+      ],
+      "nativeUi": true,
+      "claim": "coordinates",
+      "from": 3672,
+      "to": 4031
+    },
+    {
+      "id": "s23",
+      "act": "SYSTEMS",
+      "kind": "black",
+      "board": "route",
+      "frames": 648,
+      "picture": "Route diagram on black, computed from the game's own route code.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "S4",
+        "B-route"
+      ],
+      "claim": "route",
+      "from": 4032,
+      "to": 4679
+    },
+    {
+      "id": "s24",
+      "act": "SYSTEMS",
+      "kind": "black",
+      "board": "code",
+      "frames": 216,
+      "picture": "One code excerpt: STRIKE_ROUTE_SAFETY.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "S5"
+      ],
+      "claim": "route",
+      "from": 4680,
+      "to": 4895
+    },
+    {
+      "id": "s25",
+      "act": "SYSTEMS",
+      "kind": "still",
+      "source": {
+        "asset": "capture-mining-laser-closeup"
+      },
+      "frames": 324,
+      "push": "FP6",
+      "picture": "NEW CAPTURE 3: the mining robot's laser on deposit beta, with the live outpost HUD (ore, energy, robots).",
+      "transitionIn": "cut",
+      "transitionOut": "hard cut to black card",
+      "graphics": [
+        "S6"
+      ],
+      "nativeUi": true,
+      "claim": "procedural",
+      "from": 4896,
+      "to": 5219
+    },
+    {
+      "id": "s26",
+      "act": "BUILD",
+      "kind": "black",
+      "frames": 144,
+      "picture": "Chapter card on black.",
+      "transitionIn": "hard cut",
+      "transitionOut": "hard cut",
+      "graphics": [
+        "C2"
+      ],
+      "from": 5220,
+      "to": 5363
+    },
+    {
+      "id": "s27",
+      "act": "BUILD",
+      "kind": "black",
+      "board": "workflow",
+      "frames": 432,
+      "picture": "Build-record diagram on black.",
+      "transitionIn": "hard cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "B1",
+        "B-workflow"
+      ],
+      "claim": "workflow",
+      "from": 5364,
+      "to": 5795
+    },
+    {
+      "id": "s28",
+      "act": "BUILD",
+      "kind": "board",
+      "board": "iteration",
+      "frames": 1152,
+      "picture": "Release-candidate evidence, baseline vs final, four pairs (rival close, missile follow, impact, ejecta).",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "B2"
+      ],
+      "claim": "iteration",
+      "from": 5796,
+      "to": 6947
+    },
+    {
+      "id": "s29",
+      "act": "BUILD",
+      "kind": "board",
+      "board": "capture",
+      "frames": 432,
+      "picture": "Contact grid of 24 clean reel shots.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "B3",
+        "B-capture"
+      ],
+      "claim": "capture",
+      "from": 6948,
+      "to": 7379
+    },
+    {
+      "id": "s30",
+      "act": "BUILD",
+      "kind": "board",
+      "board": "qa",
+      "frames": 504,
+      "picture": "QA before/after of the c12 capture (title screen ghosting, then recaptured).",
+      "transitionIn": "cut",
+      "transitionOut": "hard cut back to the game",
+      "graphics": [
+        "B4"
+      ],
+      "claim": "qa",
+      "from": 7380,
+      "to": 7883
+    },
+    {
+      "id": "s31",
+      "act": "PAYOFF",
+      "shot": "c21",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 2340,
+        "to": 2447
+      },
+      "frames": 108,
+      "picture": "Push into the Signal Array status card: TERRITORY CLAIMED · PERMANENT (native UI).",
+      "transitionIn": "hard cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "nativeUi": true,
+      "from": 7884,
+      "to": 7991
+    },
+    {
+      "id": "s32",
+      "act": "PAYOFF",
+      "shot": "c22",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 2448,
+        "to": 2555
+      },
+      "frames": 108,
+      "picture": "Helios Spire; the mass driver fires.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "P1"
+      ],
+      "from": 7992,
+      "to": 8099
+    },
+    {
+      "id": "s33",
+      "act": "PAYOFF",
+      "shot": "c23",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 2556,
+        "to": 2627
+      },
+      "frames": 72,
+      "picture": "Signal Array vanes at full deployment.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "P1"
+      ],
+      "from": 8100,
+      "to": 8171
+    },
+    {
+      "id": "s34",
+      "act": "PAYOFF",
+      "shot": "c24",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 2628,
+        "to": 2735
+      },
+      "frames": 108,
+      "picture": "Crater Crown seated in the First Strike scar.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [
+        "P1"
+      ],
+      "from": 8172,
+      "to": 8279
+    },
+    {
+      "id": "s35",
+      "act": "PAYOFF",
+      "shot": "c25",
+      "kind": "reel",
+      "source": {
+        "media": "reel-clean",
+        "from": 2736,
+        "to": 3167
+      },
+      "frames": 432,
+      "picture": "One continuous pull-back from the Bastion Ziggurat to the claimed Moon.",
+      "transitionIn": "cut",
+      "transitionOut": "baked dip to black (reel 3133–3167) into the end card",
+      "graphics": [
+        "P1"
+      ],
+      "protect": "final pull-back (graphics only on its first 1.5 s)",
+      "from": 8280,
+      "to": 8711
+    },
+    {
+      "id": "s36",
+      "act": "PAYOFF",
+      "kind": "black",
+      "frames": 360,
+      "picture": "End card on black: SHOOT THE MOON lockup.",
+      "transitionIn": "out of the c25 dip",
+      "transitionOut": "film end on the held lockup (no fade-out)",
+      "graphics": [
+        "END"
+      ],
+      "from": 8712,
+      "to": 9071
+    }
+  ],
+  "assets": {
+    "capture-title-screen": {
+      "file": "capture/youtube/captures/title-screen.png",
+      "kind": "new-capture",
+      "sha256": "8cb68d8d0caf985cb5c40a8d891596bc5783077180575f5f1680de48dd66c69c",
+      "manifestShot": "title-screen",
+      "size": [
+        1920,
+        1080
+      ]
+    },
+    "capture-landing-site-panel": {
+      "file": "capture/youtube/captures/landing-site-panel.png",
+      "kind": "new-capture",
+      "sha256": "99d16846d80139eb04b6f9cdbe0375a7baaf28e85bbc9e6a10fd582aff35c821",
+      "manifestShot": "landing-site-panel",
+      "size": [
+        1920,
+        1080
+      ]
+    },
+    "capture-mining-laser-closeup": {
+      "file": "capture/youtube/captures/mining-laser-closeup.png",
+      "kind": "new-capture",
+      "sha256": "b000043d1007bc4b1b67005c7c6d3e0b4e91476c08f549a1b205257b92da9af0",
+      "manifestShot": "mining-laser-closeup",
+      "size": [
+        1920,
+        1080
+      ]
+    },
+    "phone-counterstrike": {
+      "file": "artifacts/recordings/counterstrike/counterstrike-success.webm",
+      "kind": "repo-recording",
+      "sha256": "3e4d0b88363487d4b000dc7c45c9a3977e3b8e697491a010082c1c9d40139fe0",
+      "size": [
+        368,
+        800
+      ],
+      "fps": 25,
+      "window": [
+        11,
+        19.4
+      ],
+      "note": "Phone-viewport Playwright recording of a real interception; 25 fps shown at its own cadence (frames repeat to 60)."
+    },
+    "rc-baseline-05": {
+      "file": "artifacts/release-candidate/baseline/05-rival-close.png",
+      "kind": "repo-evidence",
+      "sha256": "492a65eaa3412dafafd9507e3d9733849eb39e1dd754a2bb02d327f4954a2bdf",
+      "size": [
+        390,
+        844
+      ]
+    },
+    "rc-final-05": {
+      "file": "artifacts/release-candidate/final/05-rival-close.png",
+      "kind": "repo-evidence",
+      "sha256": "d81145f4403c4f9911a47f080f8be69b58d2723ed132fc9709fa777f7034c22e",
+      "size": [
+        390,
+        844
+      ]
+    },
+    "rc-baseline-08": {
+      "file": "artifacts/release-candidate/baseline/08-missile-follow.png",
+      "kind": "repo-evidence",
+      "sha256": "c23e8218031ada899bf17fae9d867a9c9854294e27379b12c98a26ec69bc7c14",
+      "size": [
+        390,
+        844
+      ]
+    },
+    "rc-final-08": {
+      "file": "artifacts/release-candidate/final/08-missile-follow.png",
+      "kind": "repo-evidence",
+      "sha256": "c8815454b790d30cab9661597d7de343d3f1c51c01996500543f7a1801629aa7",
+      "size": [
+        390,
+        844
+      ]
+    },
+    "rc-baseline-09": {
+      "file": "artifacts/release-candidate/baseline/09-impact.png",
+      "kind": "repo-evidence",
+      "sha256": "7c062d8e163673390732402310bb079e8947e9d3c3aadd6bb509af9739b5b3f5",
+      "size": [
+        390,
+        844
+      ]
+    },
+    "rc-final-09": {
+      "file": "artifacts/release-candidate/final/09-impact.png",
+      "kind": "repo-evidence",
+      "sha256": "8a4248e18615b85513a6ad15b0c330c892ab196b7c1e0d5463b685eec690014d",
+      "size": [
+        390,
+        844
+      ]
+    },
+    "rc-baseline-10": {
+      "file": "artifacts/release-candidate/baseline/10-ejecta.png",
+      "kind": "repo-evidence",
+      "sha256": "9e8d84e47a9a1cf3a68f039c4005648fd0a43e747b4acadf3b598ae2ce1bbb1b",
+      "size": [
+        390,
+        844
+      ]
+    },
+    "rc-final-10": {
+      "file": "artifacts/release-candidate/final/10-ejecta.png",
+      "kind": "repo-evidence",
+      "sha256": "1617da7201a5ec0bca4ff29e5ee13addce2b26f268cf0a64d5debe73044c7b45",
+      "size": [
+        390,
+        844
+      ]
+    },
+    "qa-c12-before-after": {
+      "file": "artifacts/reel-motion-review/c12-before-after.jpg",
+      "kind": "repo-evidence",
+      "sha256": "f49652d94055f3be227f955870c69afbad1553963d93cdc729d37b7713dc308b",
+      "size": [
+        1920,
+        540
+      ],
+      "note": "Left half: run #6 c12 with the title screen ghosting; right half: the recaptured still. Native HUD only; no ORBITAL RECORD graphics."
+    }
+  },
+  "boards": {
+    "phone": {
+      "background": "black",
+      "layers": [
+        {
+          "asset": "phone-counterstrike",
+          "x": 1130,
+          "y": 60,
+          "w": 442,
+          "h": 960
+        }
+      ]
+    },
+    "iteration": {
+      "background": "black",
+      "layers": [
+        {
+          "asset": "rc-baseline-05",
+          "x": 533,
+          "y": 116,
+          "w": 397,
+          "h": 860,
+          "from": 0,
+          "to": 287
+        },
+        {
+          "asset": "rc-final-05",
+          "x": 990,
+          "y": 116,
+          "w": 397,
+          "h": 860,
+          "from": 0,
+          "to": 287
+        },
+        {
+          "asset": "rc-baseline-08",
+          "x": 533,
+          "y": 116,
+          "w": 397,
+          "h": 860,
+          "from": 288,
+          "to": 575
+        },
+        {
+          "asset": "rc-final-08",
+          "x": 990,
+          "y": 116,
+          "w": 397,
+          "h": 860,
+          "from": 288,
+          "to": 575
+        },
+        {
+          "asset": "rc-baseline-09",
+          "x": 533,
+          "y": 116,
+          "w": 397,
+          "h": 860,
+          "from": 576,
+          "to": 863
+        },
+        {
+          "asset": "rc-final-09",
+          "x": 990,
+          "y": 116,
+          "w": 397,
+          "h": 860,
+          "from": 576,
+          "to": 863
+        },
+        {
+          "asset": "rc-baseline-10",
+          "x": 533,
+          "y": 116,
+          "w": 397,
+          "h": 860,
+          "from": 864,
+          "to": 1151
+        },
+        {
+          "asset": "rc-final-10",
+          "x": 990,
+          "y": 116,
+          "w": 397,
+          "h": 860,
+          "from": 864,
+          "to": 1151
+        }
+      ]
+    },
+    "capture": {
+      "background": "black",
+      "grid": {
+        "media": "reel-clean",
+        "x": 253,
+        "y": 150,
+        "cols": 6,
+        "rows": 4,
+        "cellW": 224,
+        "cellH": 126,
+        "gap": 14,
+        "cells": [
+          {
+            "shot": "c01",
+            "frame": 260
+          },
+          {
+            "shot": "c02",
+            "frame": 360
+          },
+          {
+            "shot": "c03",
+            "frame": 504
+          },
+          {
+            "shot": "c04",
+            "frame": 648
+          },
+          {
+            "shot": "c05",
+            "frame": 756
+          },
+          {
+            "shot": "c06",
+            "frame": 857
+          },
+          {
+            "shot": "c07",
+            "frame": 936
+          },
+          {
+            "shot": "c08",
+            "frame": 1080
+          },
+          {
+            "shot": "c09",
+            "frame": 1280
+          },
+          {
+            "shot": "c10",
+            "frame": 1368
+          },
+          {
+            "shot": "c11",
+            "frame": 1530
+          },
+          {
+            "shot": "c12",
+            "frame": 1674
+          },
+          {
+            "shot": "c13",
+            "frame": 1746
+          },
+          {
+            "shot": "c15",
+            "frame": 1836
+          },
+          {
+            "shot": "c16",
+            "frame": 1944
+          },
+          {
+            "shot": "c17",
+            "frame": 2052
+          },
+          {
+            "shot": "c19",
+            "frame": 2214
+          },
+          {
+            "shot": "c20",
+            "frame": 2304
+          },
+          {
+            "shot": "c21",
+            "frame": 2394
+          },
+          {
+            "shot": "c22",
+            "frame": 2502
+          },
+          {
+            "shot": "c23",
+            "frame": 2592
+          },
+          {
+            "shot": "c24",
+            "frame": 2682
+          },
+          {
+            "shot": "c25",
+            "frame": 2770
+          },
+          {
+            "shot": "c25",
+            "frame": 3060
+          }
+        ]
+      }
+    },
+    "qa": {
+      "background": "black",
+      "layers": [
+        {
+          "asset": "qa-c12-before-after",
+          "x": 0,
+          "y": 270,
+          "w": 1920,
+          "h": 540
+        }
+      ]
+    }
+  },
+  "titles": "capture/youtube/youtubeTitles.cues.json",
+  "voiceover": [
+    {
+      "id": "VO-A",
+      "act": "WORLD",
+      "from": 234,
+      "to": 474,
+      "text": "Getting there first feels like it should count for something.",
+      "words": 10
+    },
+    {
+      "id": "VO-B",
+      "act": "WORLD",
+      "from": 822,
+      "to": 1110,
+      "text": "It doesn't. So you decide how far you're willing to go.",
+      "words": 11
+    },
+    {
+      "id": "VO-C",
+      "act": "ESCALATION",
+      "from": 2022,
+      "to": 2118,
+      "text": "Then it's their turn.",
+      "words": 4
+    },
+    {
+      "id": "VO-D",
+      "act": "ESCALATION",
+      "from": 2316,
+      "to": 2622,
+      "text": "And while you're busy with each other, someone else shows up.",
+      "words": 11
+    },
+    {
+      "id": "VO-E",
+      "act": "SYSTEMS",
+      "from": 2646,
+      "to": 3161,
+      "text": "I wanted to make an original game about territory and escalation on the Moon — one you could open in a browser tab.",
+      "words": 22
+    },
+    {
+      "id": "VO-F",
+      "act": "SYSTEMS",
+      "from": 3186,
+      "to": 3659,
+      "text": "None of that was a cutscene. It's the game, running live — built for a phone as much as a desktop.",
+      "words": 20
+    },
+    {
+      "id": "VO-G",
+      "act": "SYSTEMS",
+      "from": 3690,
+      "to": 4025,
+      "text": "Every site is a real latitude and longitude on a lunar sphere, in metres.",
+      "words": 14
+    },
+    {
+      "id": "VO-H",
+      "act": "SYSTEMS",
+      "from": 4050,
+      "to": 4889,
+      "text": "When you fire, the missile flies a route computed between the two sites — a hundred and thirty-two degrees around the Moon — tested at two thousand and forty-eight points so it never clips the surface.",
+      "words": 34
+    },
+    {
+      "id": "VO-J",
+      "act": "SYSTEMS",
+      "from": 4914,
+      "to": 5195,
+      "text": "There isn't one imported 3D model. Every machine is written in TypeScript.",
+      "words": 12
+    },
+    {
+      "id": "VO-K",
+      "act": "BUILD",
+      "from": 5238,
+      "to": 5598,
+      "text": "I didn't ask an AI to invent this. I had the game I wanted to make.",
+      "words": 16
+    },
+    {
+      "id": "VO-L",
+      "act": "BUILD",
+      "from": 5616,
+      "to": 6072,
+      "text": "Claude and OpenAI's Codex let me iterate on it at a speed that changed what I could realistically attempt.",
+      "words": 19
+    },
+    {
+      "id": "VO-M",
+      "act": "BUILD",
+      "from": 6090,
+      "to": 6929,
+      "text": "The first First Strike was a red rocket and a white disc. I wrote down what it should be instead — hard sunlight, blackened armour, damage that looks physical — and we iterated until it matched.",
+      "words": 34
+    },
+    {
+      "id": "VO-O",
+      "act": "BUILD",
+      "from": 6966,
+      "to": 7349,
+      "text": "Every gameplay frame here was captured from the game itself, deterministically, and then checked frame by frame.",
+      "words": 17
+    },
+    {
+      "id": "VO-P",
+      "act": "BUILD",
+      "from": 7398,
+      "to": 7877,
+      "text": "When one capture came back with the title screen bleeding through it, we fixed the capture instead of hiding it.",
+      "words": 20
+    },
+    {
+      "id": "VO-Q",
+      "act": "PAYOFF",
+      "from": 7896,
+      "to": 8273,
+      "text": "What I'm proudest of isn't that a model wrote code. It's that you can play it.",
+      "words": 16
+    }
+  ],
+  "music": [
+    {
+      "f": 0,
+      "timecode": "0:00.00",
+      "bar": 1,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "riser",
+      "label": "drone-swell",
+      "note": "Low drone and air under the cold open. No percussion. The first five seconds work in silence too."
+    },
+    {
+      "f": 252,
+      "timecode": "0:04.20",
+      "bar": 2,
+      "beat": 4,
+      "offFrames": 0,
+      "kind": "impact",
+      "label": "touchdown-thump",
+      "note": "First percussion with the touchdown ring (bar 2, beat 4 grid)."
+    },
+    {
+      "f": 396,
+      "timecode": "0:06.60",
+      "bar": 3,
+      "beat": 4,
+      "offFrames": 0,
+      "kind": "sting",
+      "label": "rival-sting",
+      "note": "Rival motif enters on the hard cut to the Citadel: cold, minor, cyan."
+    },
+    {
+      "f": 576,
+      "timecode": "0:09.60",
+      "bar": 5,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "duck",
+      "label": "transmission",
+      "note": "Music ducks under Vesper's card; let the line read."
+    },
+    {
+      "f": 792,
+      "timecode": "0:13.20",
+      "bar": 6,
+      "beat": 3,
+      "offFrames": 0,
+      "kind": "downbeat",
+      "label": "arm-tone",
+      "note": "Decision: a single sustained tone under VO-B. Hold tension, no groove yet."
+    },
+    {
+      "f": 1116,
+      "timecode": "0:18.60",
+      "bar": 8,
+      "beat": 4,
+      "offFrames": 0,
+      "kind": "impact",
+      "label": "launch-roar",
+      "note": "Launch. Kick on every beat from here."
+    },
+    {
+      "f": 1152,
+      "timecode": "0:19.20",
+      "bar": 9,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "downbeat",
+      "label": "groove-opens",
+      "note": "Full groove under the hero shot."
+    },
+    {
+      "f": 1440,
+      "timecode": "0:24.00",
+      "bar": 11,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "riser",
+      "label": "descent-riser",
+      "note": "Riser through the terminal approach."
+    },
+    {
+      "f": 1548,
+      "timecode": "0:25.80",
+      "bar": 11,
+      "beat": 4,
+      "offFrames": 0,
+      "kind": "drop",
+      "label": "silence-drop",
+      "note": "Hard cut to silence for 600 ms before the flash (as the reel)."
+    },
+    {
+      "f": 1584,
+      "timecode": "0:26.40",
+      "bar": 12,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "impact",
+      "label": "first-strike-impact",
+      "note": "FIRST STRIKE: sub drop and boom exactly on the white-flash cut."
+    },
+    {
+      "f": 1908,
+      "timecode": "0:31.80",
+      "bar": 14,
+      "beat": 2,
+      "offFrames": 0,
+      "kind": "drop",
+      "label": "breath",
+      "note": "Thin to a single pad under THE MOON REMEMBERS; fade with the picture."
+    },
+    {
+      "f": 2016,
+      "timecode": "0:33.60",
+      "bar": 15,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "reversal",
+      "label": "counterstrike-reversal",
+      "note": "Alarm stab on FIRE NOW; rival motif returns, inverted."
+    },
+    {
+      "f": 2160,
+      "timecode": "0:36.00",
+      "bar": 16,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "impact",
+      "label": "counterstrike-impact",
+      "note": "Second impact on the flash cut. Bigger low end than the first."
+    },
+    {
+      "f": 2304,
+      "timecode": "0:38.40",
+      "bar": 17,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "sting",
+      "label": "third-party",
+      "note": "New colour for the Octogonals (violet): an outside interval."
+    },
+    {
+      "f": 2448,
+      "timecode": "0:40.80",
+      "bar": 18,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "downbeat",
+      "label": "volley",
+      "note": "Escalation peak; cut everything on the hard cut to the SYSTEMS card."
+    },
+    {
+      "f": 2628,
+      "timecode": "0:43.80",
+      "bar": 19,
+      "beat": 2,
+      "offFrames": 0,
+      "kind": "transition",
+      "label": "systems",
+      "note": "Near-silence for the card, then a sparse pulse at 100 BPM under the narration. Leave room for the voice."
+    },
+    {
+      "f": 4032,
+      "timecode": "1:07.20",
+      "bar": 29,
+      "beat": 1,
+      "offFrames": 0,
+      "kind": "lift",
+      "label": "route",
+      "note": "A slow lift under the route diagram; resolve as the code excerpt lands."
+    },
+    {
+      "f": 5220,
+      "timecode": "1:27.00",
+      "bar": 37,
+      "beat": 2,
+      "offFrames": 0,
+      "kind": "transition",
+      "label": "build",
+      "note": "Strip back again for the BUILD card. Warmer, more personal colour."
+    },
+    {
+      "f": 5796,
+      "timecode": "1:36.60",
+      "bar": 41,
+      "beat": 2,
+      "offFrames": 0,
+      "kind": "bed",
+      "label": "iteration",
+      "note": "Gentle rhythmic bed under the before/after; one accent per pair swap (every 288 frames = 2 bars)."
+    },
+    {
+      "f": 7884,
+      "timecode": "2:11.40",
+      "bar": 55,
+      "beat": 4,
+      "offFrames": 0,
+      "kind": "return",
+      "label": "payoff",
+      "note": "Back to the full theme on the hard cut into the game."
+    },
+    {
+      "f": 8280,
+      "timecode": "2:18.00",
+      "bar": 58,
+      "beat": 3,
+      "offFrames": 0,
+      "kind": "swell",
+      "label": "pull-back",
+      "note": "Sustain/peak through the pull-back. The whole pull-back is unnarrated: the music carries it."
+    },
+    {
+      "f": 8676,
+      "timecode": "2:24.60",
+      "bar": 61,
+      "beat": 2,
+      "offFrames": 0,
+      "kind": "dip",
+      "label": "into-end-card",
+      "note": "Begin the resolve on the dip to black."
+    },
+    {
+      "f": 8712,
+      "timecode": "2:25.20",
+      "bar": 61,
+      "beat": 3,
+      "offFrames": 0,
+      "kind": "resolve",
+      "label": "final-chord",
+      "note": "Final chord as SHOOT THE MOON builds; ring out on the held lockup."
+    },
+    {
+      "f": 9071,
+      "timecode": "2:31.18",
+      "bar": 63,
+      "beat": 4,
+      "offFrames": 35,
+      "kind": "end",
+      "label": "last-frame",
+      "note": "Last frame (9071). No fade-out in picture."
+    }
+  ],
+  "claims": [
+    {
+      "id": "browser",
+      "claim": "Runs live in a browser; React, TypeScript, Three.js, React Three Fiber.",
+      "shownIn": [
+        "s20"
+      ],
+      "evidence": [
+        "package.json (react ^19.2.8, typescript ~6.0.2, three ^0.185.1, @react-three/fiber ^9.7.0)",
+        "README.md \"Technology\"",
+        "capture/endCardFacts.ts",
+        "capture/youtube/captures/title-screen.png (CLICK · DRAG · SCROLL TO ZOOM)"
+      ]
+    },
+    {
+      "id": "mobile",
+      "claim": "Built for a phone as much as a desktop; same game and rules on a phone viewport with touch input.",
+      "shownIn": [
+        "s21"
+      ],
+      "evidence": [
+        "artifacts/recordings/counterstrike/counterstrike-success.webm",
+        "capture/endCardFacts.ts \"Mobile-first\"",
+        "src/app/CounterstrikeHud.tsx (\"TAP ONCE WHILE THE AMBER RINGS ALIGN\")"
+      ],
+      "caveat": "README: physical Android device acceptance (frame pacing, thermals) is still open. The film claims phone-first design, not device performance."
+    },
+    {
+      "id": "coordinates",
+      "claim": "Every site is a real latitude and longitude on a lunar sphere, in metres.",
+      "shownIn": [
+        "s22",
+        "s23"
+      ],
+      "evidence": [
+        "src/domain/lunarCoordinates.ts (MEAN_LUNAR_DATUM 1,737,400 m; latitudeRad/longitudeRad/heightM)",
+        "ARCHITECTURE.md \"Coordinate model\"",
+        "capture/youtube/captures/landing-site-panel.png (LATITUDE 5.490° N · LONGITUDE 16.040° W · MEAN SPHERE · ALT 0 M)"
+      ]
+    },
+    {
+      "id": "route",
+      "claim": "The missile flies a route computed between the two sites, 132° apart, peaking at 760 km, never below 24 km, tested at 2,048 points.",
+      "shownIn": [
+        "s23",
+        "s24"
+      ],
+      "evidence": [
+        "src/camera/strikeRoute.ts (createStrikeRoute, STRIKE_ROUTE_SAFETY)",
+        "src/camera/strikeRoute.test.ts (sampleMinimumStrikeClearanceM ≥ minimumClearanceM)",
+        "src/domain/rival.ts (RIVAL_SITE_ANGULAR_SEPARATION_RAD = 132°, deriveRivalSite)",
+        "e2e/firstStrikeFixtures.ts (canonical site 0.248 rad, -0.684 rad, 18 m = 14.209° N 39.190° W)"
+      ],
+      "note": "All numbers on the board are computed at render time by capture/youtube/routeDiagram.ts calling the game code."
+    },
+    {
+      "id": "procedural",
+      "claim": "No imported 3D model files; every machine is written in TypeScript.",
+      "shownIn": [
+        "s25"
+      ],
+      "evidence": [
+        "capture/endCardFacts.ts \"Code-authored 3D — zero external model files\"",
+        "find . -iname \"*.glb\" -o -iname \"*.gltf\" -o -iname \"*.obj\" -o -iname \"*.fbx\" | grep -v node_modules → 0 results (re-run 2026-10-04)",
+        "src/scene/*Model.ts"
+      ]
+    },
+    {
+      "id": "workflow",
+      "claim": "Frontier models (Claude, OpenAI Codex) used as collaborators in a Codespaces-based workflow, directed by the author.",
+      "shownIn": [
+        "s27"
+      ],
+      "evidence": [
+        "author statement (brief for this film)",
+        "README.md (Codespaces preview instructions)",
+        "docs/SHOOT_THE_MOON_MOTION_CHAMPIONSHIP_HANDOFF.md (two model treatments, resolved direction, implementation brief)"
+      ]
+    },
+    {
+      "id": "iteration",
+      "claim": "The First Strike went from a red rocket and a white disc to the physical, directed look by iterating against a written visual contract.",
+      "shownIn": [
+        "s28"
+      ],
+      "evidence": [
+        "artifacts/release-candidate/README.md (baseline at d377cb5 vs release-candidate final)",
+        "artifacts/release-candidate/{baseline,final}/05-rival-close.png, 08-missile-follow.png, 09-impact.png, 10-ejecta.png",
+        "VISUAL_DIRECTION.md"
+      ]
+    },
+    {
+      "id": "capture",
+      "claim": "All gameplay was captured deterministically from the game and checked frame by frame.",
+      "shownIn": [
+        "s29"
+      ],
+      "evidence": [
+        "capture/README.md \"Frame stepping\" and Phase 6 (each output frame matched to its planned source)",
+        "capture/runner.ts (frame counter must advance; never silently duplicates)",
+        "capture/ci/assembly.ts (frame-by-frame verification)"
+      ]
+    },
+    {
+      "id": "qa",
+      "claim": "A capture with the title screen ghosting through the FIRST STRIKE COMPLETE card was caught and recaptured rather than hidden.",
+      "shownIn": [
+        "s30"
+      ],
+      "evidence": [
+        "artifacts/reel-motion-review/c12-before-after.jpg",
+        "capture/ci/reelRelease.json c12Correction",
+        "capture/README.md (dismissLaunchGate waits for the gate fade; c12 recaptured)"
+      ]
+    }
+  ],
+  "newCaptures": {
+    "limit": 3,
+    "used": 3,
+    "file": "capture/youtube/captures/captures.json",
+    "why": {
+      "title-screen": "Act 3 has to show that this is a live browser game, not an animation. The reel has no shot of the game's own entry screen; this is the current build's real launch gate.",
+      "landing-site-panel": "The coordinate claim must be visible. The game itself prints the selected site's latitude, longitude and altitude; the reel never shows that panel.",
+      "mining-laser-closeup": "Territory and construction: the reel shows no mining or base economy at all. This is the live outpost HUD with the robot's laser on a deposit, and it carries the zero-model-files claim."
+    }
+  },
+  "protected": [
+    {
+      "from": 0,
+      "to": 17,
+      "why": "film head: the reel's head fade is still near-black"
+    },
+    {
+      "from": 378,
+      "to": 395,
+      "why": "c02 dip to black before the c03 hard cut"
+    },
+    {
+      "from": 1152,
+      "to": 1295,
+      "why": "hero orbital flight (protected)"
+    },
+    {
+      "from": 1578,
+      "to": 1907,
+      "why": "First Strike white flash, impact and destruction"
+    },
+    {
+      "from": 1908,
+      "to": 2087,
+      "why": "native FIRST STRIKE COMPLETE card, its fade to black, and the native FIRE NOW UI"
+    },
+    {
+      "from": 2154,
+      "to": 2303,
+      "why": "Counterstrike white flash, impact and destruction"
+    },
+    {
+      "from": 2448,
+      "to": 2627,
+      "why": "Octogonal weapon exchange and the surface-defense hit (native reticle)"
+    },
+    {
+      "from": 7884,
+      "to": 7991,
+      "why": "native Signal Array status card"
+    },
+    {
+      "from": 8676,
+      "to": 8711,
+      "why": "c25 dip to black before the end card"
+    }
+  ],
+  "thumbnails": [
+    {
+      "id": "t01-limb",
+      "reelFrame": 936,
+      "why": "c07 poster frame (derivatives.poster): the warhead crossing the lit limb; wordmark on the black right third.",
+      "elements": [
+        {
+          "role": "wordmarkTop",
+          "style": "thumbWordmark",
+          "x": 1490,
+          "y": 400,
+          "anchor": "middle",
+          "text": "SHOOT"
+        },
+        {
+          "role": "the",
+          "style": "thumbThe",
+          "x": 1490,
+          "y": 475,
+          "anchor": "middle",
+          "text": "THE"
+        },
+        {
+          "role": "hairline",
+          "side": "left",
+          "y": 464,
+          "length": 176,
+          "gapFromText": 35,
+          "stroke": 3,
+          "fill": "amber",
+          "opacity": 0.8,
+          "draw": {
+            "f": 0,
+            "n": 1
+          }
+        },
+        {
+          "role": "hairline",
+          "side": "right",
+          "y": 464,
+          "length": 176,
+          "gapFromText": 35,
+          "stroke": 3,
+          "fill": "amber",
+          "opacity": 0.8,
+          "draw": {
+            "f": 0,
+            "n": 1
+          }
+        },
+        {
+          "role": "wordmarkBottom",
+          "style": "thumbWordmark",
+          "x": 1490,
+          "y": 632,
+          "anchor": "middle",
+          "text": "MOON",
+          "hideGlyph": 2
+        },
+        {
+          "role": "crescent",
+          "inGlyphOf": "wordmarkBottom",
+          "glyph": 2,
+          "diameterOfCap": 1.06,
+          "rimGlow": {
+            "opacity": 0.6
+          },
+          "occluder": {
+            "f": 0,
+            "n": 1,
+            "from": -0.3,
+            "to": -0.3,
+            "ease": "inOut"
+          },
+          "opticalShift": -0.1
+        }
+      ]
+    },
+    {
+      "id": "t02-warhead",
+      "reelFrame": 1145,
+      "why": "c08: the warhead nose-down along the limb, large and vertical; wordmark right.",
+      "elements": [
+        {
+          "role": "wordmarkTop",
+          "style": "thumbWordmark",
+          "x": 1500,
+          "y": 420,
+          "anchor": "middle",
+          "text": "SHOOT"
+        },
+        {
+          "role": "the",
+          "style": "thumbThe",
+          "x": 1500,
+          "y": 495,
+          "anchor": "middle",
+          "text": "THE"
+        },
+        {
+          "role": "hairline",
+          "side": "left",
+          "y": 484,
+          "length": 176,
+          "gapFromText": 35,
+          "stroke": 3,
+          "fill": "amber",
+          "opacity": 0.8,
+          "draw": {
+            "f": 0,
+            "n": 1
+          }
+        },
+        {
+          "role": "hairline",
+          "side": "right",
+          "y": 484,
+          "length": 176,
+          "gapFromText": 35,
+          "stroke": 3,
+          "fill": "amber",
+          "opacity": 0.8,
+          "draw": {
+            "f": 0,
+            "n": 1
+          }
+        },
+        {
+          "role": "wordmarkBottom",
+          "style": "thumbWordmark",
+          "x": 1500,
+          "y": 652,
+          "anchor": "middle",
+          "text": "MOON",
+          "hideGlyph": 2
+        },
+        {
+          "role": "crescent",
+          "inGlyphOf": "wordmarkBottom",
+          "glyph": 2,
+          "diameterOfCap": 1.06,
+          "rimGlow": {
+            "opacity": 0.6
+          },
+          "occluder": {
+            "f": 0,
+            "n": 1,
+            "from": -0.3,
+            "to": -0.3,
+            "ease": "inOut"
+          },
+          "opticalShift": -0.1
+        }
+      ]
+    },
+    {
+      "id": "t03-counterstrike",
+      "reelFrame": 1840,
+      "why": "c15: the cyan-exhaust counterstrike warhead diving on your lander; wordmark top-left over the navy sky.",
+      "elements": [
+        {
+          "role": "wordmarkTop",
+          "style": "thumbWordmarkSmall",
+          "x": 560,
+          "y": 300,
+          "anchor": "middle",
+          "text": "SHOOT"
+        },
+        {
+          "role": "the",
+          "style": "thumbThe",
+          "x": 560,
+          "y": 370,
+          "anchor": "middle",
+          "text": "THE"
+        },
+        {
+          "role": "hairline",
+          "side": "left",
+          "y": 360,
+          "length": 164,
+          "gapFromText": 33,
+          "stroke": 3,
+          "fill": "amber",
+          "opacity": 0.8,
+          "draw": {
+            "f": 0,
+            "n": 1
+          }
+        },
+        {
+          "role": "hairline",
+          "side": "right",
+          "y": 360,
+          "length": 164,
+          "gapFromText": 33,
+          "stroke": 3,
+          "fill": "amber",
+          "opacity": 0.8,
+          "draw": {
+            "f": 0,
+            "n": 1
+          }
+        },
+        {
+          "role": "wordmarkBottom",
+          "style": "thumbWordmarkSmall",
+          "x": 560,
+          "y": 517,
+          "anchor": "middle",
+          "text": "MOON",
+          "hideGlyph": 2
+        },
+        {
+          "role": "crescent",
+          "inGlyphOf": "wordmarkBottom",
+          "glyph": 2,
+          "diameterOfCap": 1.06,
+          "rimGlow": {
+            "opacity": 0.6
+          },
+          "occluder": {
+            "f": 0,
+            "n": 1,
+            "from": -0.3,
+            "to": -0.3,
+            "ease": "inOut"
+          },
+          "opticalShift": -0.1
+        }
+      ]
+    }
+  ]
+}

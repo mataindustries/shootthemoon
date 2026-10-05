@@ -832,6 +832,24 @@ reuse. `mediaPriority.ts` builds on the assembly plan and the cue sheets:
 node --experimental-strip-types --experimental-transform-types --test capture/youtube/mediaPriority.test.ts
 ```
 
+## YouTube launch film
+
+`capture/youtube/` builds the first YouTube film (2:31.20, 9,072 frames at
+1080p60) as a derivative of the clean reel. The full guide is
+[capture/youtube/README.md](./youtube/README.md); the treatment is
+[docs/youtube-launch/YOUTUBE_FILM_TREATMENT.md](../docs/youtube-launch/YOUTUBE_FILM_TREATMENT.md).
+
+- `youtube-film.json` is the edit decision. `validateFilm()` gates every
+  render: clean sources only, no retiming, baked transitions only with
+  their reel neighbours, graphics off protected frames, at most three new
+  captures.
+- The film's graphics reuse `capture/titles/titles.ts`, `overlay.html` and
+  the fonts unmodified. Its own cue sheet and render manifest leave
+  `titlesRelease.json`, the reel and the loop untouched.
+- The three new captures are existing manifest shots (`title-screen`,
+  `landing-site-panel`, `mining-laser-closeup`), pinned as PNGs in
+  `capture/youtube/captures/`.
+
 ## The four Phase 1 proof shots
 
 | id | profile | fixture | mechanism | frames |

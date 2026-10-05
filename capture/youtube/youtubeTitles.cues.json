@@ -1,0 +1,2539 @@
+{
+  "schema": "shootthemoon.reel-titles/1",
+  "film": "shootthemoon.youtube-titles/1",
+  "status": "first cut — for review; not approved",
+  "source": {
+    "reel": "the YouTube film picture lock (capture/youtube/youtube-film.json)",
+    "width": 1920,
+    "height": 1080,
+    "fps": 60,
+    "frames": 9072
+  },
+  "conventions": {
+    "frames": "0-based FILM frame index at 60 fps (not reel frames). Frame f is shown at f/60 s.",
+    "inherited": "fadeIn, fadeOut, hardOut, track, draw, text swaps, positions and easing follow capture/titles/reel-titles.cues.json conventions exactly; sceneAt() in capture/titles/titles.ts resolves every event here unchanged.",
+    "templates": "Text tokens in {braces} on the route board ({player}, {rival}, {separationDeg}, {peakKm}, {minKm}, {samples}) are filled at render time from the game code itself (capture/youtube/routeDiagram.ts), never typed by hand. anchorTo places a label at a computed diagram point.",
+    "boards": "boards[] holds the film-only vector primitives (phone outline, route diagram, workflow connectors, capture ticks). They draw under the record text and obey the same in/out conventions."
+  },
+  "tempo": {
+    "bpm": 100,
+    "framesPerBar": 144,
+    "framesPerBeat": 36,
+    "framesPerGrid": 18,
+    "framesPerUnit": 9,
+    "rule": "Every event starts on an 18-frame grid line; entrances on the 9-frame unit; exits end on a picture cut or clear of a flash/dip."
+  },
+  "chapters": [
+    "WORLD",
+    "ESCALATION",
+    "SYSTEMS",
+    "BUILD",
+    "PAYOFF"
+  ],
+  "tokens": {
+    "color": {
+      "ink": "#EDE8DF",
+      "amber": "#EFAD58",
+      "cyan": "#55C5CC",
+      "violet": "#AA7ED8"
+    },
+    "style": {
+      "primary": {
+        "family": "Saira",
+        "wdth": 110,
+        "wght": 500,
+        "size": 44,
+        "tracking": 0.16,
+        "fill": "ink",
+        "opacity": 0.96,
+        "case": "upper",
+        "shadow": "lift"
+      },
+      "kicker": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 18,
+        "tracking": 0.16,
+        "fill": "ink",
+        "opacity": 0.78,
+        "case": "upper",
+        "shadow": "lift"
+      },
+      "data": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 18,
+        "tracking": 0.08,
+        "fill": "ink",
+        "opacity": 0.7,
+        "case": "upper",
+        "shadow": "lift"
+      },
+      "cardKicker": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 20,
+        "tracking": 0.3,
+        "fill": "ink",
+        "opacity": 0.7
+      },
+      "cardTitle": {
+        "family": "Saira",
+        "wdth": 125,
+        "wght": 300,
+        "size": 96,
+        "tracking": 0.2,
+        "fill": "ink",
+        "opacity": 1
+      },
+      "boardKicker": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 18,
+        "tracking": 0.16,
+        "fill": "ink",
+        "opacity": 0.7
+      },
+      "label": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 18,
+        "tracking": 0.14,
+        "fill": "ink",
+        "opacity": 0.82
+      },
+      "footnote": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 15,
+        "tracking": 0.06,
+        "fill": "ink",
+        "opacity": 0.46
+      },
+      "statValue": {
+        "family": "Saira",
+        "wdth": 110,
+        "wght": 400,
+        "size": 64,
+        "tracking": 0.04,
+        "fill": "ink",
+        "opacity": 0.96
+      },
+      "statLabel": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 17,
+        "tracking": 0.16,
+        "fill": "ink",
+        "opacity": 0.64
+      },
+      "siteAmber": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 18,
+        "tracking": 0.1,
+        "fill": "amber",
+        "opacity": 0.95
+      },
+      "siteCyan": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 18,
+        "tracking": 0.1,
+        "fill": "cyan",
+        "opacity": 0.95
+      },
+      "code": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 36,
+        "tracking": 0,
+        "fill": "ink",
+        "opacity": 0.92
+      },
+      "codeDim": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 36,
+        "tracking": 0,
+        "fill": "ink",
+        "opacity": 0.32
+      },
+      "nodeLabel": {
+        "family": "Saira",
+        "wdth": 110,
+        "wght": 500,
+        "size": 34,
+        "tracking": 0.14,
+        "fill": "ink",
+        "opacity": 0.96
+      },
+      "nodeSub": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 16,
+        "tracking": 0.14,
+        "fill": "ink",
+        "opacity": 0.62
+      },
+      "wordmark": {
+        "family": "Saira",
+        "wdth": 125,
+        "wght": 300,
+        "size": 128,
+        "tracking": 0.2,
+        "fill": "ink",
+        "opacity": 1
+      },
+      "thumbWordmark": {
+        "family": "Saira",
+        "wdth": 125,
+        "wght": 400,
+        "size": 150,
+        "tracking": 0.18,
+        "fill": "ink",
+        "opacity": 1
+      },
+      "thumbWordmarkSmall": {
+        "family": "Saira",
+        "wdth": 125,
+        "wght": 400,
+        "size": 140,
+        "tracking": 0.18,
+        "fill": "ink",
+        "opacity": 1
+      },
+      "thumbThe": {
+        "family": "Saira",
+        "wdth": 125,
+        "wght": 500,
+        "size": 31,
+        "tracking": 0.62,
+        "fill": "ink",
+        "opacity": 0.95
+      },
+      "wordmarkThe": {
+        "family": "Saira",
+        "wdth": 125,
+        "wght": 400,
+        "size": 26,
+        "tracking": 0.62,
+        "fill": "ink",
+        "opacity": 0.92
+      },
+      "tagline": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 22,
+        "tracking": 0.3,
+        "fill": "ink",
+        "opacity": 0.74
+      },
+      "cta": {
+        "family": "IBM Plex Mono",
+        "wght": 500,
+        "size": 20,
+        "tracking": 0.26,
+        "fill": "ink",
+        "opacity": 0.7
+      },
+      "url": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 30,
+        "tracking": 0.06,
+        "fill": "amber",
+        "opacity": 0.94
+      },
+      "footer": {
+        "family": "IBM Plex Mono",
+        "wght": 400,
+        "size": 15,
+        "tracking": 0.22,
+        "fill": "ink",
+        "opacity": 0.46
+      }
+    },
+    "rule": {
+      "thickness": 2,
+      "fill": "ink",
+      "opacity": 0.5
+    },
+    "chip": {
+      "size": 9
+    },
+    "shadow": {
+      "lift": "two drop shadows under record text only: (0,0) 0.6px and (0,1px) 6px, as the reel. Never a glow.",
+      "sigma": [
+        0.6,
+        6
+      ],
+      "dy": [
+        0,
+        1
+      ]
+    },
+    "alphaFloor": 0.004
+  },
+  "layout": {
+    "record": {
+      "x": 120,
+      "chipX": 100,
+      "chipY": 841,
+      "kickerY": 852,
+      "primaryY": 912,
+      "ruleY": 934,
+      "ruleWidth": 72,
+      "dataY": 968,
+      "note": "The reel's record block scaled ~1.22x for YouTube phone playback (primary 44 px, as the loop's 30 px at 1280)."
+    },
+    "recordRight": {
+      "x": 1100,
+      "chipX": 1080
+    }
+  },
+  "forbidden": [
+    {
+      "from": 0,
+      "to": 17,
+      "why": "film head: the reel's head fade is still near-black"
+    },
+    {
+      "from": 378,
+      "to": 395,
+      "why": "c02 dip to black before the c03 hard cut"
+    },
+    {
+      "from": 1152,
+      "to": 1295,
+      "why": "hero orbital flight (protected)"
+    },
+    {
+      "from": 1578,
+      "to": 1907,
+      "why": "First Strike white flash, impact and destruction"
+    },
+    {
+      "from": 1908,
+      "to": 2087,
+      "why": "native FIRST STRIKE COMPLETE card, its fade to black, and the native FIRE NOW UI"
+    },
+    {
+      "from": 2154,
+      "to": 2303,
+      "why": "Counterstrike white flash, impact and destruction"
+    },
+    {
+      "from": 2448,
+      "to": 2627,
+      "why": "Octogonal weapon exchange and the surface-defense hit (native reticle)"
+    },
+    {
+      "from": 7884,
+      "to": 7991,
+      "why": "native Signal Array status card"
+    },
+    {
+      "from": 8676,
+      "to": 8711,
+      "why": "c25 dip to black before the end card"
+    }
+  ],
+  "plateMoves": [
+    {
+      "id": "FP1",
+      "clip": "s03 c03 hold",
+      "from": 396,
+      "to": 575,
+      "scale": [
+        1,
+        1.03
+      ],
+      "anchor": [
+        1074,
+        404
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "FP2",
+      "clip": "s04 c04 hold",
+      "from": 576,
+      "to": 791,
+      "scale": [
+        1,
+        1.02
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "FP3",
+      "clip": "s05 c05 still",
+      "from": 792,
+      "to": 1115,
+      "scale": [
+        1,
+        1.015
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "FP4",
+      "clip": "s20 title-screen capture",
+      "from": 2772,
+      "to": 3167,
+      "scale": [
+        1,
+        1.025
+      ],
+      "anchor": [
+        960,
+        470
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "FP5",
+      "clip": "s22 landing-site capture",
+      "from": 3672,
+      "to": 4031,
+      "scale": [
+        1,
+        1.035
+      ],
+      "anchor": [
+        348,
+        775
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "FP6",
+      "clip": "s25 mining capture",
+      "from": 4896,
+      "to": 5219,
+      "scale": [
+        1,
+        1.03
+      ],
+      "anchor": [
+        1065,
+        480
+      ],
+      "ease": "linear"
+    }
+  ],
+  "events": [
+    {
+      "id": "W1",
+      "name": "Cold open — you landed first",
+      "chapter": "WORLD",
+      "from": 18,
+      "to": 214,
+      "elements": [
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 934,
+          "w": 72,
+          "draw": {
+            "f": 18,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 207,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 912,
+          "text": "YOU LANDED FIRST.",
+          "in": {
+            "f": 18,
+            "fade": 9
+          },
+          "track": {
+            "f": 18,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 207,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "W2",
+      "name": "They landed anyway",
+      "from": 486,
+      "to": 575,
+      "elements": [
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 934,
+          "w": 72,
+          "draw": {
+            "f": 486,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 576
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 912,
+          "text": "THEY LANDED ANYWAY.",
+          "in": {
+            "f": 486,
+            "fade": 9
+          },
+          "track": {
+            "f": 486,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 576
+          }
+        }
+      ]
+    },
+    {
+      "id": "E1",
+      "name": "First Strike — terminal approach",
+      "chapter": "ESCALATION",
+      "from": 1458,
+      "to": 1537,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 841,
+          "fill": "amber",
+          "in": {
+            "f": 1458,
+            "fade": 9
+          },
+          "out": {
+            "f": 1530,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 852,
+          "text": "TERMINAL APPROACH",
+          "in": {
+            "f": 1458,
+            "fade": 9
+          },
+          "out": {
+            "f": 1530,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 934,
+          "w": 72,
+          "draw": {
+            "f": 1467,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 1530,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 912,
+          "text": "FIRST STRIKE",
+          "in": {
+            "f": 1467,
+            "fade": 9
+          },
+          "track": {
+            "f": 1467,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 1530,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "name": "Counterstrike",
+      "from": 2088,
+      "to": 2149,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 841,
+          "fill": "cyan",
+          "in": {
+            "f": 2088,
+            "fade": 9
+          },
+          "out": {
+            "f": 2142,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 852,
+          "text": "INCOMING · NULL MERIDIAN",
+          "in": {
+            "f": 2088,
+            "fade": 9
+          },
+          "out": {
+            "f": 2142,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 934,
+          "w": 72,
+          "draw": {
+            "f": 2097,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 2142,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 912,
+          "text": "COUNTERSTRIKE",
+          "in": {
+            "f": 2097,
+            "fade": 9
+          },
+          "track": {
+            "f": 2097,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 2142,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "name": "Third-party contact",
+      "from": 2304,
+      "to": 2447,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 841,
+          "fill": "violet",
+          "in": {
+            "f": 2313,
+            "fade": 9
+          },
+          "out": {
+            "f": 2448
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 852,
+          "text": "THIRD-PARTY CONTACT",
+          "in": {
+            "f": 2313,
+            "fade": 9
+          },
+          "out": {
+            "f": 2448
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 934,
+          "w": 72,
+          "draw": {
+            "f": 2322,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 2448
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 912,
+          "text": "THE OCTOGONALS",
+          "in": {
+            "f": 2322,
+            "fade": 9
+          },
+          "track": {
+            "f": 2322,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 2448
+          }
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Chapter — systems",
+      "chapter": "SYSTEMS",
+      "from": 2628,
+      "to": 2770,
+      "elements": [
+        {
+          "role": "kicker",
+          "style": "cardKicker",
+          "x": 960,
+          "y": 488,
+          "anchor": "middle",
+          "text": "UNDER THE SURFACE",
+          "in": {
+            "f": 2646,
+            "fade": 18
+          },
+          "out": {
+            "f": 2763,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "cardTitle",
+          "x": 960,
+          "y": 584,
+          "anchor": "middle",
+          "text": "SYSTEMS",
+          "in": {
+            "f": 2655,
+            "fade": 18
+          },
+          "track": {
+            "f": 2655,
+            "from": 0.3,
+            "to": 0.2,
+            "n": 45
+          },
+          "out": {
+            "f": 2763,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 930,
+          "y": 622,
+          "w": 60,
+          "draw": {
+            "f": 2673,
+            "n": 18,
+            "origin": "left"
+          },
+          "out": {
+            "f": 2763,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "S1",
+      "name": "Browser-native",
+      "from": 2790,
+      "to": 3158,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 841,
+          "fill": "amber",
+          "in": {
+            "f": 2799,
+            "fade": 9
+          },
+          "out": {
+            "f": 3150,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 852,
+          "text": "BROWSER-NATIVE",
+          "in": {
+            "f": 2799,
+            "fade": 9
+          },
+          "out": {
+            "f": 3150,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 934,
+          "w": 72,
+          "draw": {
+            "f": 2808,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 3150,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 912,
+          "text": "LIVE IN THE BROWSER",
+          "in": {
+            "f": 2808,
+            "fade": 9
+          },
+          "track": {
+            "f": 2808,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 3150,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "data",
+          "x": 120,
+          "y": 968,
+          "text": "REACT · TYPESCRIPT · THREE.JS · REACT THREE FIBER",
+          "in": {
+            "f": 2817,
+            "fade": 9
+          },
+          "out": {
+            "f": 3150,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "name": "Phone viewport, live input",
+      "from": 3186,
+      "to": 3662,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 300,
+          "y": 431,
+          "fill": "cyan",
+          "in": {
+            "f": 3195,
+            "fade": 9
+          },
+          "out": {
+            "f": 3654,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 320,
+          "y": 442,
+          "text": "PHONE VIEWPORT · LIVE INPUT",
+          "in": {
+            "f": 3195,
+            "fade": 9
+          },
+          "out": {
+            "f": 3654,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 320,
+          "y": 524,
+          "w": 72,
+          "draw": {
+            "f": 3204,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 3654,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 320,
+          "y": 502,
+          "text": "SAME GAME, SAME RULES",
+          "in": {
+            "f": 3204,
+            "fade": 9
+          },
+          "out": {
+            "f": 3654,
+            "fade": 9
+          },
+          "track": {
+            "f": 3204,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          }
+        },
+        {
+          "role": "data",
+          "style": "data",
+          "x": 320,
+          "y": 558,
+          "text": "“TAP ONCE WHILE THE AMBER RINGS ALIGN”",
+          "in": {
+            "f": 3213,
+            "fade": 9
+          },
+          "out": {
+            "f": 3654,
+            "fade": 9
+          }
+        },
+        {
+          "role": "footer",
+          "style": "footnote",
+          "x": 320,
+          "y": 610,
+          "text": "artifacts/recordings/counterstrike/counterstrike-success.webm",
+          "in": {
+            "f": 3222,
+            "fade": 9
+          },
+          "out": {
+            "f": 3654,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "name": "Coordinates — the game's own readout",
+      "from": 3690,
+      "to": 4022,
+      "elements": [
+        {
+          "role": "brackets",
+          "box": [
+            70,
+            712,
+            640,
+            836
+          ],
+          "arm": 26,
+          "stroke": 2,
+          "fill": "amber",
+          "opacity": 0.9,
+          "in": {
+            "f": 3699,
+            "fade": 18,
+            "scaleFrom": 1.03
+          },
+          "followsPlate": "FP5",
+          "out": {
+            "f": 4014,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "name": "First Strike route — real route data",
+      "from": 4032,
+      "to": 4670,
+      "elements": [
+        {
+          "role": "kicker",
+          "style": "boardKicker",
+          "x": 120,
+          "y": 140,
+          "text": "FIRST STRIKE ROUTE · COMPUTED BETWEEN THE TWO SITES",
+          "in": {
+            "f": 4050,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "siteAmber",
+          "x": 0,
+          "y": 0,
+          "text": "YOU",
+          "in": {
+            "f": 4086,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          },
+          "anchor": "middle",
+          "anchorTo": "player-name"
+        },
+        {
+          "role": "data",
+          "style": "siteAmber",
+          "x": 0,
+          "y": 0,
+          "text": "{playerCoords}",
+          "in": {
+            "f": 4095,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          },
+          "anchor": "middle",
+          "anchorTo": "player-coords"
+        },
+        {
+          "role": "kicker",
+          "style": "siteCyan",
+          "x": 0,
+          "y": 0,
+          "text": "NULL MERIDIAN",
+          "in": {
+            "f": 4086,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          },
+          "anchor": "middle",
+          "anchorTo": "rival-name"
+        },
+        {
+          "role": "data",
+          "style": "siteCyan",
+          "x": 0,
+          "y": 0,
+          "text": "{rivalCoords}",
+          "in": {
+            "f": 4095,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          },
+          "anchor": "middle",
+          "anchorTo": "rival-coords"
+        },
+        {
+          "role": "digits",
+          "style": "statValue",
+          "x": 1320,
+          "y": 384,
+          "text": "{separationDeg}°",
+          "in": {
+            "f": 4374,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "statLabel",
+          "x": 1324,
+          "y": 418,
+          "text": "BETWEEN THE TWO SITES",
+          "in": {
+            "f": 4383,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        },
+        {
+          "role": "digits",
+          "style": "statValue",
+          "x": 1320,
+          "y": 526,
+          "text": "{peakKm} KM",
+          "in": {
+            "f": 4464,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "statLabel",
+          "x": 1324,
+          "y": 560,
+          "text": "PEAK CLEARANCE",
+          "in": {
+            "f": 4473,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        },
+        {
+          "role": "digits",
+          "style": "statValue",
+          "x": 1320,
+          "y": 668,
+          "text": "{minKm} KM",
+          "in": {
+            "f": 4518,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "statLabel",
+          "x": 1324,
+          "y": 702,
+          "text": "MINIMUM CLEARANCE",
+          "in": {
+            "f": 4527,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        },
+        {
+          "role": "digits",
+          "style": "statValue",
+          "x": 1320,
+          "y": 810,
+          "text": "{samples}",
+          "in": {
+            "f": 4590,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "statLabel",
+          "x": 1324,
+          "y": 844,
+          "text": "POINTS CHECKED IN ITS TEST",
+          "in": {
+            "f": 4599,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        },
+        {
+          "role": "footer",
+          "style": "footnote",
+          "x": 120,
+          "y": 1012,
+          "text": "SOURCE  src/domain/rival.ts · src/camera/strikeRoute.ts · canonical test fixture site",
+          "in": {
+            "f": 4086,
+            "fade": 9
+          },
+          "out": {
+            "f": 4662,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "name": "Code excerpt — STRIKE_ROUTE_SAFETY",
+      "from": 4680,
+      "to": 4895,
+      "elements": [
+        {
+          "role": "kicker",
+          "style": "boardKicker",
+          "x": 300,
+          "y": 290,
+          "text": "src/camera/strikeRoute.ts · lines 12–19",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "codeDim",
+          "x": 300,
+          "y": 372,
+          "text": "12",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "code",
+          "x": 384,
+          "y": 372,
+          "text": "export const STRIKE_ROUTE_SAFETY = Object.freeze({",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "codeDim",
+          "x": 300,
+          "y": 430,
+          "text": "13",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "code",
+          "x": 384,
+          "y": 430,
+          "text": "  moonRadiusM: MEAN_LUNAR_DATUM.referenceRadiusM,",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "codeDim",
+          "x": 300,
+          "y": 488,
+          "text": "14",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "code",
+          "x": 384,
+          "y": 488,
+          "text": "  minimumClearanceM: 24_000,",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "codeDim",
+          "x": 300,
+          "y": 546,
+          "text": "15",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "code",
+          "x": 384,
+          "y": 546,
+          "text": "  minimumPeakClearanceM: 320_000,",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "codeDim",
+          "x": 300,
+          "y": 604,
+          "text": "16",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "code",
+          "x": 384,
+          "y": 604,
+          "text": "  maximumPeakClearanceM: 760_000,",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "codeDim",
+          "x": 300,
+          "y": 662,
+          "text": "17",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "code",
+          "x": 384,
+          "y": 662,
+          "text": "  peakClearancePerRadianM: 360_000,",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "codeDim",
+          "x": 300,
+          "y": 720,
+          "text": "18",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "code",
+          "x": 384,
+          "y": 720,
+          "text": "  sampleCount: 2_048,",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "codeDim",
+          "x": 300,
+          "y": 778,
+          "text": "19",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "code",
+          "x": 384,
+          "y": 778,
+          "text": "})",
+          "in": {
+            "f": 4689,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        },
+        {
+          "role": "footer",
+          "style": "footnote",
+          "x": 300,
+          "y": 872,
+          "text": "src/camera/strikeRoute.test.ts asserts sampleMinimumStrikeClearanceM ≥ minimumClearanceM",
+          "in": {
+            "f": 4698,
+            "fade": 9
+          },
+          "out": {
+            "f": 4887,
+            "fade": 9
+          }
+        }
+      ],
+      "excerpt": {
+        "file": "src/camera/strikeRoute.ts",
+        "firstLine": 12,
+        "lines": [
+          "export const STRIKE_ROUTE_SAFETY = Object.freeze({",
+          "  moonRadiusM: MEAN_LUNAR_DATUM.referenceRadiusM,",
+          "  minimumClearanceM: 24_000,",
+          "  minimumPeakClearanceM: 320_000,",
+          "  maximumPeakClearanceM: 760_000,",
+          "  peakClearancePerRadianM: 360_000,",
+          "  sampleCount: 2_048,",
+          "})"
+        ]
+      }
+    },
+    {
+      "id": "S6",
+      "name": "Code-authored 3D",
+      "from": 4914,
+      "to": 5210,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 1080,
+          "y": 841,
+          "fill": "amber",
+          "in": {
+            "f": 4923,
+            "fade": 9
+          },
+          "out": {
+            "f": 5202,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 1100,
+          "y": 852,
+          "text": "ZERO MODEL FILES",
+          "in": {
+            "f": 4923,
+            "fade": 9
+          },
+          "out": {
+            "f": 5202,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 1100,
+          "y": 934,
+          "w": 72,
+          "draw": {
+            "f": 4932,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 5202,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 1100,
+          "y": 912,
+          "text": "WRITTEN IN TYPESCRIPT",
+          "in": {
+            "f": 4932,
+            "fade": 9
+          },
+          "track": {
+            "f": 4932,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 5202,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "data",
+          "x": 1100,
+          "y": 968,
+          "text": "NO .GLB · .GLTF · .OBJ · .FBX IN THE REPOSITORY",
+          "in": {
+            "f": 4941,
+            "fade": 9
+          },
+          "out": {
+            "f": 5202,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "name": "Chapter — the build",
+      "chapter": "BUILD",
+      "from": 5220,
+      "to": 5362,
+      "elements": [
+        {
+          "role": "kicker",
+          "style": "cardKicker",
+          "x": 960,
+          "y": 488,
+          "anchor": "middle",
+          "text": "HOW IT WAS MADE",
+          "in": {
+            "f": 5238,
+            "fade": 18
+          },
+          "out": {
+            "f": 5355,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "cardTitle",
+          "x": 960,
+          "y": 584,
+          "anchor": "middle",
+          "text": "THE BUILD",
+          "in": {
+            "f": 5247,
+            "fade": 18
+          },
+          "track": {
+            "f": 5247,
+            "from": 0.3,
+            "to": 0.2,
+            "n": 45
+          },
+          "out": {
+            "f": 5355,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 930,
+          "y": 622,
+          "w": 60,
+          "draw": {
+            "f": 5265,
+            "n": 18,
+            "origin": "left"
+          },
+          "out": {
+            "f": 5355,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Build record — workflow",
+      "from": 5364,
+      "to": 5786,
+      "elements": [
+        {
+          "role": "kicker",
+          "style": "boardKicker",
+          "x": 120,
+          "y": 140,
+          "text": "BUILD RECORD",
+          "in": {
+            "f": 5373,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "nodeLabel",
+          "x": 240,
+          "y": 520,
+          "text": "DIRECTION",
+          "in": {
+            "f": 5382,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "data",
+          "style": "nodeSub",
+          "x": 240,
+          "y": 566,
+          "text": "IDEA · RULES · TREATMENTS",
+          "in": {
+            "f": 5391,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "primary",
+          "style": "nodeLabel",
+          "x": 600,
+          "y": 520,
+          "text": "BUILD",
+          "in": {
+            "f": 5454,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "data",
+          "style": "nodeSub",
+          "x": 600,
+          "y": 566,
+          "text": "CLAUDE · CODEX · CODESPACES",
+          "in": {
+            "f": 5463,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "primary",
+          "style": "nodeLabel",
+          "x": 960,
+          "y": 520,
+          "text": "ITERATE",
+          "in": {
+            "f": 5526,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "data",
+          "style": "nodeSub",
+          "x": 960,
+          "y": 566,
+          "text": "SYSTEMS · VISUALS · BUGS",
+          "in": {
+            "f": 5535,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "primary",
+          "style": "nodeLabel",
+          "x": 1320,
+          "y": 520,
+          "text": "CAPTURE",
+          "in": {
+            "f": 5598,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "data",
+          "style": "nodeSub",
+          "x": 1320,
+          "y": 566,
+          "text": "DETERMINISTIC RENDER",
+          "in": {
+            "f": 5607,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "primary",
+          "style": "nodeLabel",
+          "x": 1680,
+          "y": 520,
+          "text": "QA",
+          "in": {
+            "f": 5670,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "data",
+          "style": "nodeSub",
+          "x": 1680,
+          "y": 566,
+          "text": "FRAME-BY-FRAME REVIEW",
+          "in": {
+            "f": 5679,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "data",
+          "style": "nodeSub",
+          "x": 960,
+          "y": 708,
+          "text": "REPEAT UNTIL IT MATCHES THE DIRECTION",
+          "in": {
+            "f": 5706,
+            "fade": 9
+          },
+          "out": {
+            "f": 5778,
+            "fade": 9
+          },
+          "anchor": "middle"
+        }
+      ]
+    },
+    {
+      "id": "B2",
+      "name": "Iteration — release-candidate evidence",
+      "from": 5796,
+      "to": 6938,
+      "elements": [
+        {
+          "role": "kicker",
+          "style": "boardKicker",
+          "x": 120,
+          "y": 500,
+          "text": "RELEASE-CANDIDATE PASS",
+          "in": {
+            "f": 5814,
+            "fade": 9
+          },
+          "out": {
+            "f": 6930,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "label",
+          "x": 731,
+          "y": 96,
+          "text": "BASELINE · d377cb5",
+          "in": {
+            "f": 5814,
+            "fade": 9
+          },
+          "out": {
+            "f": 6930,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "kicker",
+          "style": "label",
+          "x": 1189,
+          "y": 96,
+          "text": "RELEASE CANDIDATE",
+          "in": {
+            "f": 5823,
+            "fade": 9
+          },
+          "out": {
+            "f": 6930,
+            "fade": 9
+          },
+          "anchor": "middle"
+        },
+        {
+          "role": "data",
+          "style": "label",
+          "x": 120,
+          "y": 542,
+          "text": [
+            [
+              5796,
+              "05 · RIVAL CLOSE"
+            ],
+            [
+              6084,
+              "08 · MISSILE FOLLOW"
+            ],
+            [
+              6372,
+              "09 · IMPACT"
+            ],
+            [
+              6660,
+              "10 · EJECTA"
+            ]
+          ],
+          "in": {
+            "f": 5814,
+            "fade": 9
+          },
+          "out": {
+            "f": 6930,
+            "fade": 9
+          }
+        },
+        {
+          "role": "footer",
+          "style": "footnote",
+          "x": 960,
+          "y": 1028,
+          "text": "VISUAL_DIRECTION.md — “Lunar damage is physical and irregular.” · artifacts/release-candidate/",
+          "in": {
+            "f": 5832,
+            "fade": 9
+          },
+          "out": {
+            "f": 6930,
+            "fade": 9
+          },
+          "anchor": "middle"
+        }
+      ]
+    },
+    {
+      "id": "B3",
+      "name": "Deterministic capture",
+      "from": 6966,
+      "to": 7370,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 841,
+          "fill": "amber",
+          "in": {
+            "f": 6975,
+            "fade": 9
+          },
+          "out": {
+            "f": 7362,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 852,
+          "text": "DETERMINISTIC CAPTURE",
+          "in": {
+            "f": 6975,
+            "fade": 9
+          },
+          "out": {
+            "f": 7362,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 934,
+          "w": 72,
+          "draw": {
+            "f": 6984,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 7362,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 912,
+          "text": "FRAME-STEPPED, THEN CHECKED",
+          "in": {
+            "f": 6984,
+            "fade": 9
+          },
+          "track": {
+            "f": 6984,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 7362,
+            "fade": 9
+          }
+        },
+        {
+          "role": "data",
+          "style": "data",
+          "x": 120,
+          "y": 968,
+          "text": "3,456 REEL FRAMES · EACH MATCHED TO ITS PLANNED SOURCE",
+          "in": {
+            "f": 6993,
+            "fade": 9
+          },
+          "out": {
+            "f": 7362,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "B4",
+      "name": "QA — fix the capture, not the symptom",
+      "from": 7380,
+      "to": 7874,
+      "elements": [
+        {
+          "role": "kicker",
+          "style": "boardKicker",
+          "x": 120,
+          "y": 140,
+          "text": "QA · FIRST STRIKE COMPLETE CARD",
+          "in": {
+            "f": 7398,
+            "fade": 9
+          },
+          "out": {
+            "f": 7866,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "label",
+          "x": 40,
+          "y": 252,
+          "text": "BEFORE · TITLE SCREEN CAUGHT MID-FADE",
+          "in": {
+            "f": 7407,
+            "fade": 9
+          },
+          "out": {
+            "f": 7866,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "label",
+          "x": 1000,
+          "y": 252,
+          "text": "AFTER · RECAPTURED",
+          "in": {
+            "f": 7479,
+            "fade": 9
+          },
+          "out": {
+            "f": 7866,
+            "fade": 9
+          }
+        },
+        {
+          "role": "brackets",
+          "box": [
+            326,
+            388,
+            664,
+            508
+          ],
+          "arm": 22,
+          "stroke": 2,
+          "fill": "amber",
+          "opacity": 0.9,
+          "in": {
+            "f": 7434,
+            "fade": 18,
+            "scaleFrom": 1.08
+          },
+          "out": {
+            "f": 7866,
+            "fade": 9
+          }
+        },
+        {
+          "role": "footer",
+          "style": "footnote",
+          "x": 120,
+          "y": 1012,
+          "text": "artifacts/reel-motion-review/c12-before-after.jpg · capture/ci/c12-first-strike-complete.png",
+          "in": {
+            "f": 7416,
+            "fade": 9
+          },
+          "out": {
+            "f": 7866,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "P1",
+      "name": "Territory monuments",
+      "chapter": "PAYOFF",
+      "from": 7992,
+      "to": 8378,
+      "elements": [
+        {
+          "role": "chip",
+          "x": 100,
+          "y": 841,
+          "fill": "amber",
+          "in": {
+            "f": 8001,
+            "fade": 9
+          },
+          "out": {
+            "f": 8370,
+            "fade": 9
+          }
+        },
+        {
+          "role": "kicker",
+          "style": "kicker",
+          "x": 120,
+          "y": 852,
+          "text": [
+            [
+              8001,
+              "TERRITORY MONUMENT · 1/4"
+            ],
+            [
+              8100,
+              "TERRITORY MONUMENT · 2/4"
+            ],
+            [
+              8172,
+              "TERRITORY MONUMENT · 3/4"
+            ],
+            [
+              8280,
+              "TERRITORY MONUMENT · 4/4"
+            ]
+          ],
+          "in": {
+            "f": 8001,
+            "fade": 9
+          },
+          "out": {
+            "f": 8370,
+            "fade": 9
+          }
+        },
+        {
+          "role": "rule",
+          "x": 120,
+          "y": 934,
+          "w": 72,
+          "draw": {
+            "f": 8010,
+            "n": 9,
+            "origin": "left"
+          },
+          "out": {
+            "f": 8370,
+            "fade": 9
+          }
+        },
+        {
+          "role": "primary",
+          "style": "primary",
+          "x": 120,
+          "y": 912,
+          "text": [
+            [
+              8010,
+              "HELIOS SPIRE"
+            ],
+            [
+              8100,
+              "SIGNAL ARRAY"
+            ],
+            [
+              8172,
+              "CRATER CROWN"
+            ],
+            [
+              8280,
+              "BASTION ZIGGURAT"
+            ]
+          ],
+          "in": {
+            "f": 8010,
+            "fade": 9
+          },
+          "track": {
+            "f": 8010,
+            "from": 0.24,
+            "to": 0.16,
+            "n": 18
+          },
+          "out": {
+            "f": 8370,
+            "fade": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "END",
+      "name": "End card — title lockup on black",
+      "from": 8712,
+      "to": 9071,
+      "elements": [
+        {
+          "role": "wordmarkTop",
+          "style": "wordmark",
+          "x": 960,
+          "y": 452,
+          "anchor": "middle",
+          "text": "SHOOT",
+          "in": {
+            "f": 8730,
+            "fade": 36
+          },
+          "track": {
+            "f": 8730,
+            "from": 0.3,
+            "to": 0.2,
+            "n": 54
+          }
+        },
+        {
+          "role": "the",
+          "style": "wordmarkThe",
+          "x": 960,
+          "y": 516,
+          "anchor": "middle",
+          "text": "THE",
+          "in": {
+            "f": 8766,
+            "fade": 18
+          },
+          "track": {
+            "f": 8766,
+            "from": 0.8,
+            "to": 0.62,
+            "n": 27
+          }
+        },
+        {
+          "role": "hairline",
+          "side": "left",
+          "y": 507,
+          "length": 210,
+          "gapFromText": 34,
+          "stroke": 2,
+          "fill": "amber",
+          "opacity": 0.72,
+          "draw": {
+            "f": 8766,
+            "n": 27,
+            "origin": "inner"
+          }
+        },
+        {
+          "role": "hairline",
+          "side": "right",
+          "y": 507,
+          "length": 210,
+          "gapFromText": 34,
+          "stroke": 2,
+          "fill": "amber",
+          "opacity": 0.72,
+          "draw": {
+            "f": 8766,
+            "n": 27,
+            "origin": "inner"
+          }
+        },
+        {
+          "role": "wordmarkBottom",
+          "style": "wordmark",
+          "x": 960,
+          "y": 650,
+          "anchor": "middle",
+          "text": "MOON",
+          "hideGlyph": 2,
+          "in": {
+            "f": 8730,
+            "fade": 36
+          },
+          "track": {
+            "f": 8730,
+            "from": 0.3,
+            "to": 0.2,
+            "n": 54
+          }
+        },
+        {
+          "role": "crescent",
+          "inGlyphOf": "wordmarkBottom",
+          "glyph": 2,
+          "diameterOfCap": 1.06,
+          "rimGlow": {
+            "opacity": 0.55
+          },
+          "occluder": {
+            "f": 8802,
+            "n": 36,
+            "from": 0,
+            "to": -0.3,
+            "ease": "inOut"
+          },
+          "opticalShift": -0.1
+        },
+        {
+          "role": "tagline",
+          "style": "tagline",
+          "x": 960,
+          "y": 724,
+          "anchor": "middle",
+          "text": "1v1 LUNAR TERRITORY WARFARE",
+          "in": {
+            "f": 8838,
+            "fade": 18
+          }
+        },
+        {
+          "role": "cta",
+          "style": "cta",
+          "x": 960,
+          "y": 872,
+          "anchor": "middle",
+          "text": "PLAY IT IN YOUR BROWSER",
+          "in": {
+            "f": 8874,
+            "fade": 18
+          }
+        },
+        {
+          "role": "url",
+          "style": "url",
+          "x": 960,
+          "y": 914,
+          "anchor": "middle",
+          "text": "shootthemoon.pages.dev",
+          "in": {
+            "f": 8874,
+            "fade": 18
+          }
+        },
+        {
+          "role": "footer",
+          "style": "footer",
+          "x": 960,
+          "y": 1012,
+          "anchor": "middle",
+          "text": "ALL GAMEPLAY CAPTURED IN-GAME",
+          "in": {
+            "f": 8892,
+            "fade": 18
+          }
+        }
+      ]
+    }
+  ],
+  "boards": [
+    {
+      "id": "B-phone",
+      "type": "roundRect",
+      "segment": "s21",
+      "box": [
+        1116,
+        46,
+        470,
+        988
+      ],
+      "radius": 44,
+      "stroke": "ink",
+      "width": 2,
+      "opacity": 0.4,
+      "in": {
+        "f": 3177,
+        "fade": 18
+      },
+      "out": {
+        "f": 3654,
+        "fade": 9
+      }
+    },
+    {
+      "id": "B-route",
+      "type": "route",
+      "segment": "s23",
+      "center": [
+        700,
+        640
+      ],
+      "radius": 300,
+      "timing": {
+        "globe": {
+          "f": 4041,
+          "fade": 27
+        },
+        "sites": {
+          "f": 4086,
+          "fade": 9
+        },
+        "route": {
+          "f": 4122,
+          "n": 180
+        },
+        "out": {
+          "f": 4662,
+          "fade": 9
+        }
+      }
+    },
+    {
+      "id": "B-workflow",
+      "type": "workflow",
+      "segment": "s27",
+      "y": 470,
+      "xs": [
+        240,
+        600,
+        960,
+        1320,
+        1680
+      ],
+      "nodeIns": [
+        5382,
+        5454,
+        5526,
+        5598,
+        5670
+      ],
+      "loop": {
+        "f": 5706,
+        "n": 36,
+        "y": 650
+      },
+      "out": {
+        "f": 5778,
+        "fade": 9
+      }
+    },
+    {
+      "id": "B-capture",
+      "type": "ticks",
+      "segment": "s29",
+      "grid": {
+        "x": 253,
+        "y": 150,
+        "cols": 6,
+        "rows": 4,
+        "cellW": 224,
+        "cellH": 126,
+        "gap": 14
+      },
+      "first": 7002,
+      "every": 9,
+      "out": {
+        "f": 7362,
+        "fade": 9
+      }
+    }
+  ]
+}

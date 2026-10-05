@@ -1,0 +1,124 @@
+{
+  "schema": "shootthemoon.youtube-captures/1",
+  "note": "The three new gameplay captures for the YouTube film (the pass allows at most three). Each is an existing capture/manifest.ts shot, run unmodified through capture/capture.spec.ts; nothing in src/ changed. capture.json is copied verbatim from capture-output/<shot>/.",
+  "command": "PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test --config=capture/playwright.capture.config.ts capture/capture.spec.ts -g \"title-screen|landing-site-panel|mining-laser-closeup\"",
+  "captures": [
+    {
+      "id": "title-screen",
+      "file": "capture/youtube/captures/title-screen.png",
+      "sha256": "8cb68d8d0caf985cb5c40a8d891596bc5783077180575f5f1680de48dd66c69c",
+      "capture": {
+        "shotId": "title-screen",
+        "name": "Launch title screen",
+        "profile": "HUD",
+        "cssViewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1.5,
+        "actualBufferSize": {
+          "width": 1920,
+          "height": 1080
+        },
+        "expectedDpr": 1.5,
+        "requestedFps": null,
+        "startMs": null,
+        "endMs": null,
+        "frameCount": 1,
+        "frameFilenames": [
+          "000000.png"
+        ],
+        "fixture": "FRESH",
+        "hudMode": "visible",
+        "clockMode": "real-time-still",
+        "fontReport": {
+          "robotoCondensedDetected": true
+        },
+        "pageErrors": [],
+        "consoleErrors": [],
+        "nudgedFrames": [],
+        "notes": "The real launch gate before dismissal (data-entry-open=\"true\"): .launch-gate__title (\"SHOOT\" / \"THE MOON\"), kicker, FIRST STRIKE badge, and the BEGIN INVASION CTA. No dismiss click.",
+        "gitCommitSha": "ead2bbdf5b13999a8639549ec29e030e68d0460b",
+        "capturedAtIso": "2026-10-04T23:27:43.254Z"
+      }
+    },
+    {
+      "id": "landing-site-panel",
+      "file": "capture/youtube/captures/landing-site-panel.png",
+      "sha256": "99d16846d80139eb04b6f9cdbe0375a7baaf28e85bbc9e6a10fd582aff35c821",
+      "capture": {
+        "shotId": "landing-site-panel",
+        "name": "Landing site selected — pre-claim panel",
+        "profile": "HUD",
+        "cssViewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1.5,
+        "actualBufferSize": {
+          "width": 1920,
+          "height": 1080
+        },
+        "expectedDpr": 1.5,
+        "requestedFps": null,
+        "startMs": null,
+        "endMs": null,
+        "frameCount": 1,
+        "frameFilenames": [
+          "000000.png"
+        ],
+        "fixture": "FRESH",
+        "hudMode": "visible",
+        "clockMode": "real-time-still",
+        "fontReport": {
+          "robotoCondensedDetected": true
+        },
+        "pageErrors": [],
+        "consoleErrors": [],
+        "nudgedFrames": [],
+        "notes": "Site panel open, CLAIM LANDING SITE button visible, before the claim click.",
+        "gitCommitSha": "ead2bbdf5b13999a8639549ec29e030e68d0460b",
+        "capturedAtIso": "2026-10-04T23:27:49.408Z"
+      }
+    },
+    {
+      "id": "mining-laser-closeup",
+      "file": "capture/youtube/captures/mining-laser-closeup.png",
+      "sha256": "b000043d1007bc4b1b67005c7c6d3e0b4e91476c08f549a1b205257b92da9af0",
+      "capture": {
+        "shotId": "mining-laser-closeup",
+        "name": "Mining laser — close-up",
+        "profile": "HUD",
+        "cssViewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1.5,
+        "actualBufferSize": {
+          "width": 1920,
+          "height": 1080
+        },
+        "expectedDpr": 1.5,
+        "requestedFps": null,
+        "startMs": null,
+        "endMs": null,
+        "frameCount": 1,
+        "frameFilenames": [
+          "000000.png"
+        ],
+        "fixture": "EXTRACTOR",
+        "hudMode": "visible",
+        "clockMode": "real-time-still",
+        "fontReport": {
+          "robotoCondensedDetected": true
+        },
+        "pageErrors": [],
+        "consoleErrors": [],
+        "nudgedFrames": [],
+        "notes": "EXTRACTOR fixture (createLegacyActiveExtractorSave, e2e/rivalFixtures.ts) — an already-landed save with a built extractor on deposit-alpha at a fixed known site, reused unmodified from the existing e2e fixture architecture. Targets deposit-beta, the exact second deposit e2e/mining-asset-pass.spec.ts's own passing test already taps at this same site/fixture (proven to always project onto the canvas and to still read \"MINE DEPOSIT\" rather than \"EXTRACTOR ACTIVE\", since the built extractor sits on the other deposit). Clicks MINE DEPOSIT and pauses the live simulation the instant data-robot-state=\"mining\". Camera auto-frames a close-up via CameraRig's surface-focus-mining mode — no manual zoom. Replaces an earlier FRESH + canvas-center-claim approach whose default site was not guaranteed to have a deposit nearby — this fixture removes that gamble instead of searching around it (see the full history on reachMiningCloseup in gameActions.ts).",
+        "gitCommitSha": "ead2bbdf5b13999a8639549ec29e030e68d0460b",
+        "capturedAtIso": "2026-10-04T23:28:10.403Z"
+      }
+    }
+  ]
+}
