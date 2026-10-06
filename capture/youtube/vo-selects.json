@@ -1,0 +1,3286 @@
+{
+  "schema": "shootthemoon.vo-selects/1",
+  "status": "selects pass. Not assembled, not approved, picture unchanged.",
+  "source": {
+    "file": "shoot-the-moon-vo-session-01.flac",
+    "receivedAs": "uploaded as FLAC (the brief calls it shoot-the-moon-vo-session-01.wav); FLAC is lossless, so the samples are identical",
+    "sha256": "670b7a1f7602907d4cdbc99f11fd3a451edff990ddb095615e237644b3b97e51",
+    "codec": "flac",
+    "sampleRate": 44100,
+    "bitDepth": 16,
+    "channels": 1,
+    "durationS": 433.753,
+    "timebase": "seconds from the first sample; *Sample fields are sample offsets at 44.1 kHz",
+    "levels": {
+      "peakDbfs": -4.2,
+      "clippedSamples": 0,
+      "integratedLufs": -25.0,
+      "noiseFloorDbfs": "-60 to -64 RMS, mostly below 300 Hz"
+    }
+  },
+  "method": "Offline speech recognition (PocketSphinx en-us; three passes: script-constrained language model, general English model, and per-line grammars with competing wordings), forced alignment for word timings, then measurement per take: level, clipping, low-frequency pops, mouth clicks in pauses, pace, pause structure, pitch range and the direction of the final pitch movement. Delivery judgements are inferred from those measurements and from spectrograms; they are not a substitute for listening to the close calls named in VO_SELECTS.md.",
+  "takeNumbering": "Take N is the Nth reading of a line in the session, in recording order. No verbal slates were recorded.",
+  "processing": {
+    "allowed": [
+      "80 Hz high-pass, 12 dB/octave (the room noise and the one plosive pop sit below it)",
+      "per-line clip gain (clipGainDb), so lines sit within about 1.5 LU of each other",
+      "10 ms fade-in and 30 ms fade-out at every in/out point; 15 ms equal-power crossfade at each internal cut",
+      "a continuous room-tone bed from roomTone, at its recorded level, under the whole narration span, so the gaps between lines do not drop to digital silence"
+    ],
+    "forbidden": [
+      "noise reduction",
+      "de-essing or EQ beyond the high-pass",
+      "compression beyond 2:1 with more than 3 dB of gain reduction",
+      "time-stretching or pitch-shifting",
+      "any synthetic voice or word repair"
+    ]
+  },
+  "roomTone": {
+    "sourceIn": 166.0,
+    "sourceOut": 169.85,
+    "maxDbfs": -59.1
+  },
+  "totals": {
+    "lines": 21,
+    "selectedNarrationS": 121.05,
+    "words": 317,
+    "integratedLufsMedian": -25.0
+  },
+  "lines": [
+    {
+      "id": "L01",
+      "script": "Getting there first feels like it should count for something.",
+      "selectedText": "Getting there first feels like it should count for something.",
+      "words": 10,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 12.11,
+        "sourceOut": 15.34,
+        "sourceDurationS": 3.23,
+        "keep": [
+          {
+            "fromS": 12.11,
+            "toS": 15.34,
+            "fromSample": 534051,
+            "toSample": 676494
+          }
+        ],
+        "removedS": 0.0,
+        "durationS": 3.23
+      },
+      "pauses": "natural",
+      "why": "Clean, verified wording, steady energy; tighter than take 1 and comfortably inside the opening window.",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 4.15,
+          "sourceOut": 7.63,
+          "durationS": 3.48,
+          "note": "Slightly better phrasing (a 0.21 s lift after \"first\", firmer final fall), but both recognizers hear \"feels like YOU should count\" at 5.4-5.9 s. Audition it: if it says \"it\", take 1 is the better read and fits the same window."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-A",
+        "fromFrame": 234,
+        "toFrame": 474,
+        "fromS": 3.9,
+        "toS": 7.9,
+        "picture": "s01-s03 (Moon swell, touchdown, Citadel)"
+      },
+      "measured": {
+        "integratedLufs": -23.3,
+        "truePeakDbfs": -6.0,
+        "wordsPerSecond": 3.1,
+        "syllablesPerSecond": 3.81,
+        "pitchRangeSemitones": 7.0,
+        "terminalPitchSlopeStPerS": -1.2,
+        "finalWordVsLineDb": -9.6,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "getting",
+          "fromS": 12.15,
+          "toS": 12.46
+        },
+        {
+          "w": "there",
+          "fromS": 12.46,
+          "toS": 12.62
+        },
+        {
+          "w": "first",
+          "fromS": 12.62,
+          "toS": 13.27
+        },
+        {
+          "w": "feels",
+          "fromS": 13.27,
+          "toS": 13.57
+        },
+        {
+          "w": "like",
+          "fromS": 13.57,
+          "toS": 13.76
+        },
+        {
+          "w": "it",
+          "fromS": 13.76,
+          "toS": 13.84
+        },
+        {
+          "w": "should",
+          "fromS": 13.84,
+          "toS": 14.05
+        },
+        {
+          "w": "count",
+          "fromS": 14.05,
+          "toS": 14.34
+        },
+        {
+          "w": "for",
+          "fromS": 14.34,
+          "toS": 14.5
+        },
+        {
+          "w": "something",
+          "fromS": 14.5,
+          "toS": 15.3
+        }
+      ],
+      "clipGainDb": -1.7
+    },
+    {
+      "id": "L02",
+      "script": "It doesn't.",
+      "selectedText": "It doesn't.",
+      "words": 2,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 1,
+        "sourceIn": 8.57,
+        "sourceOut": 9.52,
+        "sourceDurationS": 0.95,
+        "keep": [
+          {
+            "fromS": 8.57,
+            "toS": 9.52,
+            "fromSample": 377937,
+            "toSample": 419832
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 0.95
+      },
+      "pauses": "natural",
+      "why": "The firmest of the two: a clear falling \"doesn't\" (-6.3 st/s) with 3 dB more presence; take 2 almost disappears.",
+      "alternates": [
+        {
+          "take": 2,
+          "sourceIn": 15.85,
+          "sourceOut": 16.8,
+          "durationS": 0.95,
+          "note": "Usable; 3-4 dB quieter and flatter. Pick it if you want a drier, more resigned beat."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-B",
+        "fromFrame": 822,
+        "toFrame": 1110,
+        "fromS": 13.7,
+        "toS": 18.5,
+        "picture": "s05 launch authority dialog (first half of VO-B)"
+      },
+      "measured": {
+        "integratedLufs": -29.3,
+        "truePeakDbfs": -14.1,
+        "wordsPerSecond": 2.11,
+        "syllablesPerSecond": 3.49,
+        "pitchRangeSemitones": 3.1,
+        "terminalPitchSlopeStPerS": -6.3,
+        "finalWordVsLineDb": 3.0,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "it",
+          "fromS": 8.62,
+          "toS": 8.78
+        },
+        {
+          "w": "doesn't",
+          "fromS": 8.78,
+          "toS": 9.48
+        }
+      ],
+      "clipGainDb": 3
+    },
+    {
+      "id": "L03",
+      "script": "So you decide how far you're willing to go.",
+      "selectedText": "So you decide how far you're willing to go.",
+      "words": 9,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 1,
+        "sourceIn": 19.24,
+        "sourceOut": 22.24,
+        "sourceDurationS": 3.0,
+        "keep": [
+          {
+            "fromS": 19.24,
+            "toS": 22.24,
+            "fromSample": 848484,
+            "toSample": 980784
+          }
+        ],
+        "removedS": 0.0,
+        "durationS": 3.0
+      },
+      "pauses": "natural",
+      "why": "The most engaged read: wider pitch movement (8.4 vs 6.6 st) and a natural 0.23 s lift after \"decide\". Take 2 is faster and flatter.",
+      "alternates": [
+        {
+          "take": 2,
+          "sourceIn": 28.0,
+          "sourceOut": 30.54,
+          "durationS": 2.54,
+          "note": "Clean, 0.46 s shorter, but faster (4.55 syll/s) and flatter."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-B",
+        "fromFrame": 822,
+        "toFrame": 1110,
+        "fromS": 13.7,
+        "toS": 18.5,
+        "picture": "s05 launch authority dialog (second half of VO-B)"
+      },
+      "measured": {
+        "integratedLufs": -22.5,
+        "truePeakDbfs": -6.9,
+        "wordsPerSecond": 3.0,
+        "syllablesPerSecond": 3.97,
+        "pitchRangeSemitones": 8.4,
+        "terminalPitchSlopeStPerS": -3.8,
+        "finalWordVsLineDb": -8.4,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "so",
+          "fromS": 19.28,
+          "toS": 19.47
+        },
+        {
+          "w": "you",
+          "fromS": 19.47,
+          "toS": 19.7
+        },
+        {
+          "w": "decide",
+          "fromS": 19.7,
+          "toS": 20.48
+        },
+        {
+          "w": "how",
+          "fromS": 20.71,
+          "toS": 20.86
+        },
+        {
+          "w": "far",
+          "fromS": 20.86,
+          "toS": 21.17
+        },
+        {
+          "w": "you're",
+          "fromS": 21.17,
+          "toS": 21.36
+        },
+        {
+          "w": "willing",
+          "fromS": 21.36,
+          "toS": 21.7
+        },
+        {
+          "w": "to",
+          "fromS": 21.7,
+          "toS": 21.81
+        },
+        {
+          "w": "go",
+          "fromS": 21.81,
+          "toS": 22.13
+        }
+      ],
+      "clipGainDb": -2.5
+    },
+    {
+      "id": "L04",
+      "script": "Then it's their turn.",
+      "selectedText": "Then it's their turn.",
+      "words": 4,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 31.58,
+        "sourceOut": 33.0,
+        "sourceDurationS": 1.42,
+        "keep": [
+          {
+            "fromS": 31.58,
+            "toS": 33.0,
+            "fromSample": 1392678,
+            "toSample": 1455300
+          }
+        ],
+        "removedS": 0.0,
+        "durationS": 1.42
+      },
+      "pauses": "natural",
+      "why": "Conversational and restrained, no stagey pause; 1.42 s fits the existing 1.6 s window before the Counterstrike impact.",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 23.55,
+          "sourceOut": 25.64,
+          "durationS": 2.09,
+          "note": "Clean, with a 0.56 s beat after \"Then\". More dramatic, but quieter and leaning towards a trailer read; 2.09 s still fits before the Counterstrike impact if you prefer it."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-C",
+        "fromFrame": 2022,
+        "toFrame": 2118,
+        "fromS": 33.7,
+        "toS": 35.3,
+        "picture": "s13-s14 Vesper counterstrike card into the cyan dive"
+      },
+      "measured": {
+        "integratedLufs": -26.8,
+        "truePeakDbfs": -7.4,
+        "wordsPerSecond": 2.82,
+        "syllablesPerSecond": 2.99,
+        "pitchRangeSemitones": 4.6,
+        "terminalPitchSlopeStPerS": -0.7,
+        "finalWordVsLineDb": -5.1,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "then",
+          "fromS": 31.62,
+          "toS": 31.87
+        },
+        {
+          "w": "it's",
+          "fromS": 31.87,
+          "toS": 32.08
+        },
+        {
+          "w": "their",
+          "fromS": 32.08,
+          "toS": 32.3
+        },
+        {
+          "w": "turn",
+          "fromS": 32.3,
+          "toS": 32.96
+        }
+      ],
+      "clipGainDb": 1.8
+    },
+    {
+      "id": "L05",
+      "script": "And while you're busy with each other, someone else shows up.",
+      "selectedText": "And while you're busy with each other, someone else shows up.",
+      "words": 11,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 43.41,
+        "sourceOut": 47.52,
+        "sourceDurationS": 4.11,
+        "keep": [
+          {
+            "fromS": 43.41,
+            "toS": 47.52,
+            "fromSample": 1914381,
+            "toSample": 2095632
+          }
+        ],
+        "removedS": 0.0,
+        "durationS": 4.11
+      },
+      "pauses": "natural: keep the 0.56 s beat before \"someone else shows up\"",
+      "why": "Balanced all the way through: \"shows up\" lands (take 1 trails off 17 dB) and the beat before \"someone else\" is natural (0.56 s, not 0.93 s).",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 36.07,
+          "sourceOut": 39.99,
+          "durationS": 3.92,
+          "note": "Clean, but \"shows up\" drops 17 dB below the line (it trails off) and the pause before \"someone\" is 0.93 s."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-D",
+        "fromFrame": 2316,
+        "toFrame": 2622,
+        "fromS": 38.6,
+        "toS": 43.7,
+        "picture": "s16-s18 Octogonal lock, volley, defense beam"
+      },
+      "measured": {
+        "integratedLufs": -21.0,
+        "truePeakDbfs": -6.8,
+        "wordsPerSecond": 2.68,
+        "syllablesPerSecond": 3.87,
+        "pitchRangeSemitones": 8.1,
+        "terminalPitchSlopeStPerS": -1.2,
+        "finalWordVsLineDb": -11.9,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "and",
+          "fromS": 43.45,
+          "toS": 43.59
+        },
+        {
+          "w": "while",
+          "fromS": 43.59,
+          "toS": 43.79
+        },
+        {
+          "w": "you're",
+          "fromS": 43.79,
+          "toS": 43.93
+        },
+        {
+          "w": "busy",
+          "fromS": 43.93,
+          "toS": 44.35
+        },
+        {
+          "w": "with",
+          "fromS": 44.35,
+          "toS": 44.59
+        },
+        {
+          "w": "each",
+          "fromS": 44.59,
+          "toS": 44.82
+        },
+        {
+          "w": "other",
+          "fromS": 44.82,
+          "toS": 45.29
+        },
+        {
+          "w": "someone",
+          "fromS": 45.85,
+          "toS": 46.28
+        },
+        {
+          "w": "else",
+          "fromS": 46.28,
+          "toS": 46.49
+        },
+        {
+          "w": "shows",
+          "fromS": 46.49,
+          "toS": 46.86
+        },
+        {
+          "w": "up",
+          "fromS": 46.86,
+          "toS": 47.48
+        }
+      ],
+      "clipGainDb": -3
+    },
+    {
+      "id": "L06",
+      "script": "I've wanted to make something like this since I was a kid playing StarCraft, reading Dune, and searching the library for anything I could find about space.",
+      "selectedText": "I've wanted to make something like this since I was a kid playing StarCraft, reading Dune, and searching the library for anything I could find about space.",
+      "words": 27,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 1,
+        "sourceIn": 54.0,
+        "sourceOut": 63.07,
+        "sourceDurationS": 9.07,
+        "keep": [
+          {
+            "fromS": 54.0,
+            "toS": 63.07,
+            "fromSample": 2381400,
+            "toSample": 2781387
+          }
+        ],
+        "removedS": 0.0,
+        "durationS": 9.07
+      },
+      "pauses": "natural",
+      "why": "More animated than take 2 at the same pace (6.6 vs 4.5 semitones of pitch movement), no mouth clicks in the pauses, and every word of \"StarCraft, reading Dune\" recognized cleanly.",
+      "alternates": [
+        {
+          "take": 2,
+          "sourceIn": 67.83,
+          "sourceOut": 76.86,
+          "durationS": 9.03,
+          "note": "Clean, same length, noticeably flatter (4.5 vs 6.6 semitone range)."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-E",
+        "fromFrame": 2646,
+        "toFrame": 3161,
+        "fromS": 44.1,
+        "toS": 52.68,
+        "picture": "s19-s20 SYSTEMS card and title-screen capture"
+      },
+      "measured": {
+        "integratedLufs": -23.9,
+        "truePeakDbfs": -6.1,
+        "wordsPerSecond": 2.98,
+        "syllablesPerSecond": 4.55,
+        "pitchRangeSemitones": 6.6,
+        "terminalPitchSlopeStPerS": 1.2,
+        "finalWordVsLineDb": -2.3,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "i've",
+          "fromS": 54.04,
+          "toS": 54.26
+        },
+        {
+          "w": "wanted",
+          "fromS": 54.26,
+          "toS": 54.54
+        },
+        {
+          "w": "to",
+          "fromS": 54.54,
+          "toS": 54.6
+        },
+        {
+          "w": "make",
+          "fromS": 54.6,
+          "toS": 54.87
+        },
+        {
+          "w": "something",
+          "fromS": 54.87,
+          "toS": 55.26
+        },
+        {
+          "w": "like",
+          "fromS": 55.26,
+          "toS": 55.49
+        },
+        {
+          "w": "this",
+          "fromS": 55.49,
+          "toS": 55.86
+        },
+        {
+          "w": "since",
+          "fromS": 55.86,
+          "toS": 56.12
+        },
+        {
+          "w": "i",
+          "fromS": 56.12,
+          "toS": 56.21
+        },
+        {
+          "w": "was",
+          "fromS": 56.21,
+          "toS": 56.37
+        },
+        {
+          "w": "a",
+          "fromS": 56.37,
+          "toS": 56.41
+        },
+        {
+          "w": "kid",
+          "fromS": 56.41,
+          "toS": 56.83
+        },
+        {
+          "w": "playing",
+          "fromS": 56.83,
+          "toS": 57.19
+        },
+        {
+          "w": "starcraft",
+          "fromS": 57.19,
+          "toS": 58.04
+        },
+        {
+          "w": "reading",
+          "fromS": 58.47,
+          "toS": 58.79
+        },
+        {
+          "w": "dune",
+          "fromS": 58.79,
+          "toS": 59.28
+        },
+        {
+          "w": "and",
+          "fromS": 59.72,
+          "toS": 59.85
+        },
+        {
+          "w": "searching",
+          "fromS": 59.85,
+          "toS": 60.24
+        },
+        {
+          "w": "the",
+          "fromS": 60.24,
+          "toS": 60.3
+        },
+        {
+          "w": "library",
+          "fromS": 60.3,
+          "toS": 60.84
+        },
+        {
+          "w": "for",
+          "fromS": 60.84,
+          "toS": 61.07
+        },
+        {
+          "w": "anything",
+          "fromS": 61.07,
+          "toS": 61.47
+        },
+        {
+          "w": "i",
+          "fromS": 61.47,
+          "toS": 61.55
+        },
+        {
+          "w": "could",
+          "fromS": 61.55,
+          "toS": 61.69
+        },
+        {
+          "w": "find",
+          "fromS": 61.69,
+          "toS": 62.04
+        },
+        {
+          "w": "about",
+          "fromS": 62.04,
+          "toS": 62.31
+        },
+        {
+          "w": "space",
+          "fromS": 62.31,
+          "toS": 62.97
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L07",
+      "script": "Shoot the Moon became my version of all of that: territory, machines, escalation, and a Moon that actually feels enormous.",
+      "selectedText": "Shoot the Moon became my version of all of that: territory, machines, escalation, and a Moon that actually feels enormous.",
+      "words": 20,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 93.26,
+        "sourceOut": 104.48,
+        "sourceDurationS": 11.22,
+        "keep": [
+          {
+            "fromS": 93.26,
+            "toS": 96.235,
+            "fromSample": 4112766,
+            "toSample": 4243964
+          },
+          {
+            "fromS": 96.735,
+            "toS": 104.48,
+            "fromSample": 4266014,
+            "toSample": 4607568
+          }
+        ],
+        "removedS": 0.5,
+        "durationS": 10.72
+      },
+      "pauses": "tighten one: the 1.05 s pause after \"all of that\" to 0.55 s; keep the list pauses (0.50-0.79 s), they give the list its weight",
+      "why": "The only take where \"became\" is clear, and the list is given room (territory / machines / escalation). It has more pitch movement than take 1 (6.6 vs 5.0 st).",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 80.05,
+          "sourceOut": 89.76,
+          "durationS": 9.71,
+          "note": "One breath, 1.5 s shorter, but flatter, and two recognizers hear \"Shoot the Moon becomes/because\" where take 2 is clearly \"became\". Use it only if the act cannot give the extra 1.5 s."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": null,
+        "fromFrame": null,
+        "toFrame": null,
+        "fromS": null,
+        "toS": null,
+        "picture": "None. New line; it lands where VO-F and the s21 phone board are now"
+      },
+      "measured": {
+        "integratedLufs": -26.0,
+        "truePeakDbfs": -7.7,
+        "wordsPerSecond": 1.87,
+        "syllablesPerSecond": 4.04,
+        "pitchRangeSemitones": 6.6,
+        "terminalPitchSlopeStPerS": 3.1,
+        "finalWordVsLineDb": -6.5,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "shoot",
+          "fromS": 93.3,
+          "toS": 93.67
+        },
+        {
+          "w": "the",
+          "fromS": 93.67,
+          "toS": 93.74
+        },
+        {
+          "w": "moon",
+          "fromS": 93.74,
+          "toS": 94.23
+        },
+        {
+          "w": "became",
+          "fromS": 94.23,
+          "toS": 94.7
+        },
+        {
+          "w": "my",
+          "fromS": 94.7,
+          "toS": 94.94
+        },
+        {
+          "w": "version",
+          "fromS": 94.94,
+          "toS": 95.34
+        },
+        {
+          "w": "of",
+          "fromS": 95.34,
+          "toS": 95.46
+        },
+        {
+          "w": "all",
+          "fromS": 95.46,
+          "toS": 95.62
+        },
+        {
+          "w": "of",
+          "fromS": 95.62,
+          "toS": 95.68
+        },
+        {
+          "w": "that",
+          "fromS": 95.68,
+          "toS": 95.96
+        },
+        {
+          "w": "territory",
+          "fromS": 97.01,
+          "toS": 97.82
+        },
+        {
+          "w": "machines",
+          "fromS": 98.32,
+          "toS": 99.22
+        },
+        {
+          "w": "escalation",
+          "fromS": 99.8,
+          "toS": 100.76
+        },
+        {
+          "w": "and",
+          "fromS": 101.55,
+          "toS": 101.73
+        },
+        {
+          "w": "a",
+          "fromS": 101.73,
+          "toS": 101.76
+        },
+        {
+          "w": "moon",
+          "fromS": 101.76,
+          "toS": 102.23
+        },
+        {
+          "w": "that",
+          "fromS": 102.78,
+          "toS": 102.93
+        },
+        {
+          "w": "actually",
+          "fromS": 102.93,
+          "toS": 103.36
+        },
+        {
+          "w": "feels",
+          "fromS": 103.36,
+          "toS": 103.76
+        },
+        {
+          "w": "enormous",
+          "fromS": 103.76,
+          "toS": 104.44
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L08",
+      "script": "And none of this is a cutscene. It's the game running live in a browser, built for a phone as much as a desktop.",
+      "selectedText": "And none of this is a cutscene. It's the game running live in a browser, built for a phone as much as a desktop.",
+      "words": 24,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 1,
+        "sourceIn": 107.65,
+        "sourceOut": 115.25,
+        "sourceDurationS": 7.6,
+        "keep": [
+          {
+            "fromS": 107.65,
+            "toS": 115.25,
+            "fromSample": 4747365,
+            "toSample": 5082525
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 7.6
+      },
+      "pauses": "natural: keep the 0.80 s sentence pause after \"cutscene\"",
+      "why": "Easily the liveliest read of the line (9.4 vs 4.5 semitones), verified wording, firm falling ending.",
+      "alternates": [
+        {
+          "take": 2,
+          "sourceIn": 121.83,
+          "sourceOut": 129.48,
+          "durationS": 7.65,
+          "note": "Clean but flat (4.5 vs 9.4 semitone range); may read \"a game ... the browser\"."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-F",
+        "fromFrame": 3186,
+        "toFrame": 3659,
+        "fromS": 53.1,
+        "toS": 60.98,
+        "picture": "s21 phone board"
+      },
+      "measured": {
+        "integratedLufs": -25.4,
+        "truePeakDbfs": -7.8,
+        "wordsPerSecond": 3.16,
+        "syllablesPerSecond": 4.4,
+        "pitchRangeSemitones": 9.4,
+        "terminalPitchSlopeStPerS": -6.9,
+        "finalWordVsLineDb": -5.8,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "and",
+          "fromS": 107.69,
+          "toS": 107.84
+        },
+        {
+          "w": "none",
+          "fromS": 107.84,
+          "toS": 107.99
+        },
+        {
+          "w": "of",
+          "fromS": 107.99,
+          "toS": 108.09
+        },
+        {
+          "w": "this",
+          "fromS": 108.09,
+          "toS": 108.31
+        },
+        {
+          "w": "is",
+          "fromS": 108.31,
+          "toS": 108.43
+        },
+        {
+          "w": "a",
+          "fromS": 108.43,
+          "toS": 108.47
+        },
+        {
+          "w": "cutscene",
+          "fromS": 108.47,
+          "toS": 109.06
+        },
+        {
+          "w": "it's",
+          "fromS": 109.86,
+          "toS": 110.1
+        },
+        {
+          "w": "the",
+          "fromS": 110.1,
+          "toS": 110.17
+        },
+        {
+          "w": "game",
+          "fromS": 110.17,
+          "toS": 110.52
+        },
+        {
+          "w": "running",
+          "fromS": 110.52,
+          "toS": 110.84
+        },
+        {
+          "w": "live",
+          "fromS": 110.84,
+          "toS": 111.23
+        },
+        {
+          "w": "in",
+          "fromS": 111.23,
+          "toS": 111.33
+        },
+        {
+          "w": "a",
+          "fromS": 111.33,
+          "toS": 111.38
+        },
+        {
+          "w": "browser",
+          "fromS": 111.38,
+          "toS": 111.96
+        },
+        {
+          "w": "built",
+          "fromS": 112.61,
+          "toS": 112.91
+        },
+        {
+          "w": "for",
+          "fromS": 112.91,
+          "toS": 113.16
+        },
+        {
+          "w": "a",
+          "fromS": 113.16,
+          "toS": 113.19
+        },
+        {
+          "w": "phone",
+          "fromS": 113.19,
+          "toS": 113.63
+        },
+        {
+          "w": "as",
+          "fromS": 113.63,
+          "toS": 113.89
+        },
+        {
+          "w": "much",
+          "fromS": 113.89,
+          "toS": 114.18
+        },
+        {
+          "w": "as",
+          "fromS": 114.18,
+          "toS": 114.34
+        },
+        {
+          "w": "a",
+          "fromS": 114.34,
+          "toS": 114.39
+        },
+        {
+          "w": "desktop",
+          "fromS": 114.39,
+          "toS": 115.21
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L09",
+      "script": "Every site exists at a real latitude and longitude on a lunar sphere.",
+      "selectedText": "Every site exists at a real latitude and longitude on a lunar sphere.",
+      "words": 13,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 1,
+        "sourceIn": 134.37,
+        "sourceOut": 139.07,
+        "sourceDurationS": 4.7,
+        "keep": [
+          {
+            "fromS": 134.37,
+            "toS": 139.07,
+            "fromSample": 5925717,
+            "toSample": 6132987
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 4.7
+      },
+      "pauses": "natural",
+      "why": "Shorter, steady, with a decisive falling ending (-6.0 vs -1.7 st/s); fits the landing-site window.",
+      "alternates": [
+        {
+          "take": 2,
+          "sourceIn": 141.84,
+          "sourceOut": 147.21,
+          "durationS": 5.37,
+          "note": "Clean, 0.67 s longer, flatter ending."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-G",
+        "fromFrame": 3690,
+        "toFrame": 4025,
+        "fromS": 61.5,
+        "toS": 67.08,
+        "picture": "s22 landing-site capture"
+      },
+      "measured": {
+        "integratedLufs": -25.7,
+        "truePeakDbfs": -6.5,
+        "wordsPerSecond": 2.77,
+        "syllablesPerSecond": 4.55,
+        "pitchRangeSemitones": 6.8,
+        "terminalPitchSlopeStPerS": -6.0,
+        "finalWordVsLineDb": -6.1,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "every",
+          "fromS": 134.41,
+          "toS": 134.71
+        },
+        {
+          "w": "site",
+          "fromS": 134.71,
+          "toS": 135.21
+        },
+        {
+          "w": "exists",
+          "fromS": 135.21,
+          "toS": 135.97
+        },
+        {
+          "w": "at",
+          "fromS": 135.97,
+          "toS": 136.13
+        },
+        {
+          "w": "a",
+          "fromS": 136.13,
+          "toS": 136.16
+        },
+        {
+          "w": "real",
+          "fromS": 136.16,
+          "toS": 136.5
+        },
+        {
+          "w": "latitude",
+          "fromS": 136.5,
+          "toS": 137.03
+        },
+        {
+          "w": "and",
+          "fromS": 137.03,
+          "toS": 137.17
+        },
+        {
+          "w": "longitude",
+          "fromS": 137.17,
+          "toS": 138.0
+        },
+        {
+          "w": "on",
+          "fromS": 138.0,
+          "toS": 138.16
+        },
+        {
+          "w": "a",
+          "fromS": 138.16,
+          "toS": 138.19
+        },
+        {
+          "w": "lunar",
+          "fromS": 138.19,
+          "toS": 138.55
+        },
+        {
+          "w": "sphere",
+          "fromS": 138.55,
+          "toS": 139.03
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L10",
+      "script": "One of the moments that changed the project was realizing how good the frontier models had become at math.",
+      "selectedText": "One of the key moments that changed the project was realizing how good the frontier models had become at math.",
+      "words": 20,
+      "wording": {
+        "change": true,
+        "newText": "One of the key moments that changed the project was realizing how good the frontier models had become at math.",
+        "what": "adds \"key\" (spoken in take 2)"
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 159.83,
+        "sourceOut": 165.92,
+        "sourceDurationS": 6.09,
+        "keep": [
+          {
+            "fromS": 159.83,
+            "toS": 165.92,
+            "fromSample": 7048503,
+            "toSample": 7317072
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 6.09
+      },
+      "pauses": "natural",
+      "why": "Better shape: the ending falls and lands (-5.0 st/s, take 1 stays level) and it has more movement (7.1 vs 4.9 st). The spontaneous \"key\" is a natural addition.",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 150.99,
+          "sourceOut": 156.63,
+          "durationS": 5.64,
+          "note": "Script wording, 0.45 s shorter, but the ending stays level instead of falling (so \"at math\" does not land)."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-H",
+        "fromFrame": 4050,
+        "toFrame": 4889,
+        "fromS": 67.5,
+        "toS": 81.48,
+        "picture": "s23 route board (first part of VO-H)"
+      },
+      "measured": {
+        "integratedLufs": -25.8,
+        "truePeakDbfs": -8.3,
+        "wordsPerSecond": 3.28,
+        "syllablesPerSecond": 4.67,
+        "pitchRangeSemitones": 7.1,
+        "terminalPitchSlopeStPerS": -5.0,
+        "finalWordVsLineDb": -6.6,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "one",
+          "fromS": 159.87,
+          "toS": 160.02
+        },
+        {
+          "w": "of",
+          "fromS": 160.02,
+          "toS": 160.11
+        },
+        {
+          "w": "the",
+          "fromS": 160.11,
+          "toS": 160.18
+        },
+        {
+          "w": "key",
+          "fromS": 160.18,
+          "toS": 160.48
+        },
+        {
+          "w": "moments",
+          "fromS": 160.48,
+          "toS": 161.01
+        },
+        {
+          "w": "that",
+          "fromS": 161.01,
+          "toS": 161.16
+        },
+        {
+          "w": "changed",
+          "fromS": 161.16,
+          "toS": 161.57
+        },
+        {
+          "w": "the",
+          "fromS": 161.57,
+          "toS": 161.63
+        },
+        {
+          "w": "project",
+          "fromS": 161.63,
+          "toS": 162.23
+        },
+        {
+          "w": "was",
+          "fromS": 162.23,
+          "toS": 162.48
+        },
+        {
+          "w": "realizing",
+          "fromS": 162.48,
+          "toS": 163.05
+        },
+        {
+          "w": "how",
+          "fromS": 163.05,
+          "toS": 163.31
+        },
+        {
+          "w": "good",
+          "fromS": 163.31,
+          "toS": 163.68
+        },
+        {
+          "w": "the",
+          "fromS": 163.68,
+          "toS": 163.93
+        },
+        {
+          "w": "frontier",
+          "fromS": 163.93,
+          "toS": 164.32
+        },
+        {
+          "w": "models",
+          "fromS": 164.32,
+          "toS": 164.75
+        },
+        {
+          "w": "had",
+          "fromS": 164.75,
+          "toS": 164.91
+        },
+        {
+          "w": "become",
+          "fromS": 164.91,
+          "toS": 165.22
+        },
+        {
+          "w": "at",
+          "fromS": 165.22,
+          "toS": 165.28
+        },
+        {
+          "w": "math",
+          "fromS": 165.28,
+          "toS": 165.87
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L11",
+      "script": "We used that to work out flight paths around the Moon, validate a hundred-and-thirty-two-degree route at two thousand and forty-eight points, and design camera moves I probably wouldn't have attempted before.",
+      "selectedText": "We used that to work out flight paths around the Moon, validate a hundred-and-thirty-two-degree route at two thousand and forty-eight points, and design camera moves I probably would have never even tried.",
+      "words": 32,
+      "wording": {
+        "change": true,
+        "newText": "We used that to work out flight paths around the Moon, validate a hundred-and-thirty-two-degree route at two thousand and forty-eight points, and design camera moves I probably would have never even tried.",
+        "what": "ending \"wouldn't have attempted before\" becomes \"would have never even tried\" (spoken in take 3; take 1 stumbled on \"wouldn't\")"
+      },
+      "select": {
+        "take": 3,
+        "sourceIn": 207.19,
+        "sourceOut": 221.66,
+        "sourceDurationS": 14.47,
+        "keep": [
+          {
+            "fromS": 207.19,
+            "toS": 216.32,
+            "fromSample": 9137079,
+            "toSample": 9539712
+          },
+          {
+            "fromS": 216.94,
+            "toS": 221.66,
+            "fromSample": 9567054,
+            "toSample": 9775206
+          }
+        ],
+        "removedS": 0.62,
+        "durationS": 13.85
+      },
+      "pauses": "tighten one: the 1.12 s pickup gap after \"forty-eight points\" to 0.50 s (take 3 was read in two halves); keep the rest",
+      "why": "Both numbers come through clearly at a measured pace, and the rephrased ending (\"would have never even tried\") is the most natural moment in the line. Take 1 stumbles; take 2 is rushed.",
+      "alternates": [
+        {
+          "take": 2,
+          "sourceIn": 188.55,
+          "sourceOut": 200.58,
+          "durationS": 12.03,
+          "note": "Complete in one breath with the script wording (\"wouldn't have attempted before\"), 2.4 s shorter than take 3 as tightened. It is the fastest read in the session (4.9 syll/s), which crowds the numbers. Use it if the Systems act cannot give the extra time."
+        }
+      ],
+      "rejected": [
+        {
+          "take": 1,
+          "sourceIn": 170.22,
+          "sourceOut": 185.29,
+          "reason": "Stumble: \"I probably would- wouldn't have attempted\" (repeated word at 182.5 s), and \"forty-eight\" is heard as \"forty\" by two recognizers."
+        }
+      ],
+      "oldWindow": {
+        "vo": "VO-H",
+        "fromFrame": 4050,
+        "toFrame": 4889,
+        "fromS": 67.5,
+        "toS": 81.48,
+        "picture": "s23 route board and s24 code excerpt"
+      },
+      "measured": {
+        "integratedLufs": -25.5,
+        "truePeakDbfs": -6.8,
+        "wordsPerSecond": 2.31,
+        "syllablesPerSecond": 4.14,
+        "pitchRangeSemitones": 6.1,
+        "terminalPitchSlopeStPerS": -6.4,
+        "finalWordVsLineDb": -2.1,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "we",
+          "fromS": 207.23,
+          "toS": 207.34
+        },
+        {
+          "w": "used",
+          "fromS": 207.34,
+          "toS": 207.66
+        },
+        {
+          "w": "that",
+          "fromS": 207.66,
+          "toS": 208.08
+        },
+        {
+          "w": "to",
+          "fromS": 208.08,
+          "toS": 208.19
+        },
+        {
+          "w": "work",
+          "fromS": 208.19,
+          "toS": 208.46
+        },
+        {
+          "w": "out",
+          "fromS": 208.46,
+          "toS": 208.73
+        },
+        {
+          "w": "flight",
+          "fromS": 208.73,
+          "toS": 209.05
+        },
+        {
+          "w": "paths",
+          "fromS": 209.05,
+          "toS": 209.51
+        },
+        {
+          "w": "around",
+          "fromS": 209.51,
+          "toS": 209.79
+        },
+        {
+          "w": "the",
+          "fromS": 209.79,
+          "toS": 209.85
+        },
+        {
+          "w": "moon",
+          "fromS": 209.85,
+          "toS": 210.18
+        },
+        {
+          "w": "validate",
+          "fromS": 210.74,
+          "toS": 211.3
+        },
+        {
+          "w": "a",
+          "fromS": 211.3,
+          "toS": 211.35
+        },
+        {
+          "w": "hundred",
+          "fromS": 211.35,
+          "toS": 211.82
+        },
+        {
+          "w": "and",
+          "fromS": 211.82,
+          "toS": 212.09
+        },
+        {
+          "w": "thirty",
+          "fromS": 212.09,
+          "toS": 212.37
+        },
+        {
+          "w": "two",
+          "fromS": 212.37,
+          "toS": 212.57
+        },
+        {
+          "w": "degree",
+          "fromS": 212.57,
+          "toS": 212.92
+        },
+        {
+          "w": "route",
+          "fromS": 212.92,
+          "toS": 213.32
+        },
+        {
+          "w": "at",
+          "fromS": 213.7,
+          "toS": 213.99
+        },
+        {
+          "w": "two",
+          "fromS": 213.99,
+          "toS": 214.19
+        },
+        {
+          "w": "thousand",
+          "fromS": 214.19,
+          "toS": 214.8
+        },
+        {
+          "w": "and",
+          "fromS": 214.8,
+          "toS": 215.0
+        },
+        {
+          "w": "forty",
+          "fromS": 215.0,
+          "toS": 215.34
+        },
+        {
+          "w": "eight",
+          "fromS": 215.34,
+          "toS": 215.51
+        },
+        {
+          "w": "points",
+          "fromS": 215.51,
+          "toS": 216.07
+        },
+        {
+          "w": "and",
+          "fromS": 217.19,
+          "toS": 217.35
+        },
+        {
+          "w": "design",
+          "fromS": 217.35,
+          "toS": 217.85
+        },
+        {
+          "w": "camera",
+          "fromS": 217.85,
+          "toS": 218.2
+        },
+        {
+          "w": "moves",
+          "fromS": 218.2,
+          "toS": 218.96
+        },
+        {
+          "w": "i",
+          "fromS": 218.96,
+          "toS": 219.08
+        },
+        {
+          "w": "probably",
+          "fromS": 219.08,
+          "toS": 219.61
+        },
+        {
+          "w": "would",
+          "fromS": 219.94,
+          "toS": 220.15
+        },
+        {
+          "w": "have",
+          "fromS": 220.15,
+          "toS": 220.32
+        },
+        {
+          "w": "never",
+          "fromS": 220.32,
+          "toS": 220.59
+        },
+        {
+          "w": "even",
+          "fromS": 220.59,
+          "toS": 220.86
+        },
+        {
+          "w": "tried",
+          "fromS": 220.86,
+          "toS": 221.58
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L12",
+      "script": "Then I started pushing the visual side harder.",
+      "selectedText": "Then I started pushing the visual side harder.",
+      "words": 8,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 228.58,
+        "sourceOut": 231.44,
+        "sourceDurationS": 2.86,
+        "keep": [
+          {
+            "fromS": 228.58,
+            "toS": 231.44,
+            "fromSample": 10080378,
+            "toSample": 10206504
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 2.86
+      },
+      "pauses": "natural: keep the 0.56 s beat after \"Then\" (it is the pivot into the visual section); tighten to 0.35 s only if picture is tight",
+      "why": "3.6 dB more presence and far more pitch movement than take 1; the beat after \"Then\" marks the turn. Take 1 is quiet and flat.",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 224.56,
+          "sourceOut": 226.99,
+          "durationS": 2.43,
+          "note": "Clean, 0.43 s shorter, but quiet (-27 dB) and flat (3.8 semitone range)."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-J",
+        "fromFrame": 4914,
+        "toFrame": 5195,
+        "fromS": 81.9,
+        "toS": 86.58,
+        "picture": "s25 mining capture (first part of VO-J)"
+      },
+      "measured": {
+        "integratedLufs": -24.7,
+        "truePeakDbfs": -8.5,
+        "wordsPerSecond": 2.8,
+        "syllablesPerSecond": 5.51,
+        "pitchRangeSemitones": 11.9,
+        "terminalPitchSlopeStPerS": -3.0,
+        "finalWordVsLineDb": -4.5,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "then",
+          "fromS": 228.62,
+          "toS": 229.0
+        },
+        {
+          "w": "i",
+          "fromS": 229.56,
+          "toS": 229.64
+        },
+        {
+          "w": "started",
+          "fromS": 229.64,
+          "toS": 229.97
+        },
+        {
+          "w": "pushing",
+          "fromS": 229.97,
+          "toS": 230.32
+        },
+        {
+          "w": "the",
+          "fromS": 230.32,
+          "toS": 230.4
+        },
+        {
+          "w": "visual",
+          "fromS": 230.4,
+          "toS": 230.75
+        },
+        {
+          "w": "side",
+          "fromS": 230.75,
+          "toS": 231.03
+        },
+        {
+          "w": "harder",
+          "fromS": 231.03,
+          "toS": 231.39
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L13",
+      "script": "The monuments, machines, and animations are built in code.",
+      "selectedText": "The monuments, machines, and animations are all built in code.",
+      "words": 10,
+      "wording": {
+        "change": true,
+        "newText": "The monuments, machines, and animations are all built in code.",
+        "what": "adds \"all\" (spoken in takes 2 and 3)"
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 240.21,
+        "sourceOut": 244.13,
+        "sourceDurationS": 3.92,
+        "keep": [
+          {
+            "fromS": 240.21,
+            "toS": 244.13,
+            "fromSample": 10593261,
+            "toSample": 10766133
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 3.92
+      },
+      "pauses": "natural",
+      "why": "The most fluent take (no pauses, 4.2 syll/s) with the natural \"all\"; takes 1 and 3 drag.",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 234.05,
+          "sourceOut": 238.8,
+          "durationS": 4.75,
+          "note": "Script wording (\"are built in code\"), slower with two small pauses."
+        },
+        {
+          "take": 3,
+          "sourceIn": 245.88,
+          "sourceOut": 251.4,
+          "durationS": 5.52,
+          "note": "Same wording as take 2, slower and quieter."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-J",
+        "fromFrame": 4914,
+        "toFrame": 5195,
+        "fromS": 81.9,
+        "toS": 86.58,
+        "picture": "s25 mining capture, S6 ZERO MODEL FILES"
+      },
+      "measured": {
+        "integratedLufs": -24.8,
+        "truePeakDbfs": -7.7,
+        "wordsPerSecond": 2.55,
+        "syllablesPerSecond": 4.17,
+        "pitchRangeSemitones": 7.4,
+        "terminalPitchSlopeStPerS": -1.6,
+        "finalWordVsLineDb": -0.4,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "the",
+          "fromS": 240.25,
+          "toS": 240.32
+        },
+        {
+          "w": "monuments",
+          "fromS": 240.32,
+          "toS": 240.94
+        },
+        {
+          "w": "machines",
+          "fromS": 240.94,
+          "toS": 241.58
+        },
+        {
+          "w": "and",
+          "fromS": 241.58,
+          "toS": 241.68
+        },
+        {
+          "w": "animations",
+          "fromS": 241.68,
+          "toS": 242.63
+        },
+        {
+          "w": "are",
+          "fromS": 242.75,
+          "toS": 242.9
+        },
+        {
+          "w": "all",
+          "fromS": 242.9,
+          "toS": 243.05
+        },
+        {
+          "w": "built",
+          "fromS": 243.05,
+          "toS": 243.35
+        },
+        {
+          "w": "in",
+          "fromS": 243.35,
+          "toS": 243.44
+        },
+        {
+          "w": "code",
+          "fromS": 243.44,
+          "toS": 244.09
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L14",
+      "script": "The mass driver is still one of my favorites. It started as an idea in my head and gradually became this huge mechanical thing that actually feels like it belongs on the Moon.",
+      "selectedText": "The mass driver is still one of my favorites. It started as an idea in my head and gradually became this huge mechanical thing that actually feels like it belongs on the Moon.",
+      "words": 33,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 1,
+        "sourceIn": 262.97,
+        "sourceOut": 275.19,
+        "sourceDurationS": 12.22,
+        "keep": [
+          {
+            "fromS": 262.97,
+            "toS": 275.19,
+            "fromSample": 11596977,
+            "toSample": 12135879
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 12.22
+      },
+      "pauses": "natural: keep the 0.68 s sentence pause",
+      "why": "Verified script wording, clean pauses, a firm falling ending, no gap clicks; slightly more pitch movement than take 2.",
+      "alternates": [
+        {
+          "take": 2,
+          "sourceIn": 279.66,
+          "sourceOut": 291.98,
+          "durationS": 12.32,
+          "note": "Adds \"a crazy idea\" (nice), but \"in\" before \"my head\" may be swallowed, and there is a mouth click in the pause at 289.13 s."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": null,
+        "fromFrame": null,
+        "toFrame": null,
+        "fromS": null,
+        "toS": null,
+        "picture": "None. New line; the only mass-driver picture is c22 (s32, 2:13.20-2:15.00, 1.8 s), in the payoff"
+      },
+      "measured": {
+        "integratedLufs": -24.0,
+        "truePeakDbfs": -4.4,
+        "wordsPerSecond": 2.7,
+        "syllablesPerSecond": 4.54,
+        "pitchRangeSemitones": 6.5,
+        "terminalPitchSlopeStPerS": -5.9,
+        "finalWordVsLineDb": -4.4,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "the",
+          "fromS": 263.01,
+          "toS": 263.09
+        },
+        {
+          "w": "mass",
+          "fromS": 263.09,
+          "toS": 263.48
+        },
+        {
+          "w": "driver",
+          "fromS": 263.48,
+          "toS": 264.09
+        },
+        {
+          "w": "is",
+          "fromS": 264.09,
+          "toS": 264.24
+        },
+        {
+          "w": "still",
+          "fromS": 264.24,
+          "toS": 264.53
+        },
+        {
+          "w": "one",
+          "fromS": 264.53,
+          "toS": 264.72
+        },
+        {
+          "w": "of",
+          "fromS": 264.72,
+          "toS": 264.8
+        },
+        {
+          "w": "my",
+          "fromS": 264.8,
+          "toS": 265.04
+        },
+        {
+          "w": "favorites",
+          "fromS": 265.04,
+          "toS": 265.82
+        },
+        {
+          "w": "it",
+          "fromS": 266.5,
+          "toS": 266.61
+        },
+        {
+          "w": "started",
+          "fromS": 266.61,
+          "toS": 267.04
+        },
+        {
+          "w": "as",
+          "fromS": 267.04,
+          "toS": 267.23
+        },
+        {
+          "w": "an",
+          "fromS": 267.23,
+          "toS": 267.31
+        },
+        {
+          "w": "idea",
+          "fromS": 267.31,
+          "toS": 267.67
+        },
+        {
+          "w": "in",
+          "fromS": 267.67,
+          "toS": 267.76
+        },
+        {
+          "w": "my",
+          "fromS": 267.76,
+          "toS": 267.95
+        },
+        {
+          "w": "head",
+          "fromS": 267.95,
+          "toS": 268.77
+        },
+        {
+          "w": "and",
+          "fromS": 268.77,
+          "toS": 269.0
+        },
+        {
+          "w": "gradually",
+          "fromS": 269.0,
+          "toS": 269.67
+        },
+        {
+          "w": "became",
+          "fromS": 269.94,
+          "toS": 270.33
+        },
+        {
+          "w": "this",
+          "fromS": 270.33,
+          "toS": 270.55
+        },
+        {
+          "w": "huge",
+          "fromS": 270.55,
+          "toS": 270.94
+        },
+        {
+          "w": "mechanical",
+          "fromS": 270.94,
+          "toS": 271.53
+        },
+        {
+          "w": "thing",
+          "fromS": 271.53,
+          "toS": 272.05
+        },
+        {
+          "w": "that",
+          "fromS": 272.66,
+          "toS": 272.78
+        },
+        {
+          "w": "actually",
+          "fromS": 272.78,
+          "toS": 273.17
+        },
+        {
+          "w": "feels",
+          "fromS": 273.17,
+          "toS": 273.95
+        },
+        {
+          "w": "like",
+          "fromS": 273.95,
+          "toS": 274.14
+        },
+        {
+          "w": "it",
+          "fromS": 274.14,
+          "toS": 274.22
+        },
+        {
+          "w": "belongs",
+          "fromS": 274.22,
+          "toS": 274.67
+        },
+        {
+          "w": "on",
+          "fromS": 274.67,
+          "toS": 274.78
+        },
+        {
+          "w": "the",
+          "fromS": 274.78,
+          "toS": 274.84
+        },
+        {
+          "w": "moon",
+          "fromS": 274.84,
+          "toS": 275.13
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L15",
+      "script": "I didn't ask a model to invent this. I already knew the game I wanted to make.",
+      "selectedText": "I didn't ask a model to invent this. I already knew the game I wanted to make.",
+      "words": 17,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 1,
+        "sourceIn": 297.09,
+        "sourceOut": 302.36,
+        "sourceDurationS": 5.27,
+        "keep": [
+          {
+            "fromS": 297.09,
+            "toS": 299.51,
+            "fromSample": 13101669,
+            "toSample": 13208391
+          },
+          {
+            "fromS": 299.99,
+            "toS": 302.36,
+            "fromSample": 13229559,
+            "toSample": 13334076
+          }
+        ],
+        "removedS": 0.48,
+        "durationS": 4.79
+      },
+      "pauses": "tighten one: the 1.08 s gap between the two sentences to 0.60 s; keep the rest",
+      "why": "Both sentences land with a falling ending; script wording; the click before \"I\" is excluded by the in-point.",
+      "alternates": [
+        {
+          "take": 2,
+          "sourceIn": 305.21,
+          "sourceOut": 310.74,
+          "durationS": 5.53,
+          "note": "Adds \"exactly\" (stronger), but the last word rises instead of landing."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-K",
+        "fromFrame": 5238,
+        "toFrame": 5598,
+        "fromS": 87.3,
+        "toS": 93.3,
+        "picture": "s26 BUILD card and s27 workflow board"
+      },
+      "measured": {
+        "integratedLufs": -25.0,
+        "truePeakDbfs": -7.6,
+        "wordsPerSecond": 3.55,
+        "syllablesPerSecond": 5.36,
+        "pitchRangeSemitones": 6.6,
+        "terminalPitchSlopeStPerS": -4.1,
+        "finalWordVsLineDb": -1.4,
+        "gapClicks": [
+          297.07
+        ],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "i",
+          "fromS": 297.11,
+          "toS": 297.22
+        },
+        {
+          "w": "didn't",
+          "fromS": 297.22,
+          "toS": 297.47
+        },
+        {
+          "w": "ask",
+          "fromS": 297.47,
+          "toS": 297.87
+        },
+        {
+          "w": "a",
+          "fromS": 297.87,
+          "toS": 297.91
+        },
+        {
+          "w": "model",
+          "fromS": 297.91,
+          "toS": 298.28
+        },
+        {
+          "w": "to",
+          "fromS": 298.28,
+          "toS": 298.42
+        },
+        {
+          "w": "invent",
+          "fromS": 298.42,
+          "toS": 298.78
+        },
+        {
+          "w": "this",
+          "fromS": 298.78,
+          "toS": 299.21
+        },
+        {
+          "w": "i",
+          "fromS": 300.29,
+          "toS": 300.42
+        },
+        {
+          "w": "already",
+          "fromS": 300.42,
+          "toS": 300.68
+        },
+        {
+          "w": "knew",
+          "fromS": 300.68,
+          "toS": 300.9
+        },
+        {
+          "w": "the",
+          "fromS": 300.9,
+          "toS": 300.99
+        },
+        {
+          "w": "game",
+          "fromS": 300.99,
+          "toS": 301.25
+        },
+        {
+          "w": "i",
+          "fromS": 301.25,
+          "toS": 301.31
+        },
+        {
+          "w": "wanted",
+          "fromS": 301.31,
+          "toS": 301.6
+        },
+        {
+          "w": "to",
+          "fromS": 301.6,
+          "toS": 301.69
+        },
+        {
+          "w": "make",
+          "fromS": 301.69,
+          "toS": 302.33
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L16",
+      "script": "Claude and Codex became collaborators I could direct, test, and challenge.",
+      "selectedText": "Claude and Codex became collaborators I could direct, test, and challenge.",
+      "words": 11,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 1,
+        "sourceIn": 313.51,
+        "sourceOut": 318.34,
+        "sourceDurationS": 4.83,
+        "keep": [
+          {
+            "fromS": 313.51,
+            "toS": 318.34,
+            "fromSample": 13825791,
+            "toSample": 14038794
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 4.83
+      },
+      "pauses": "natural",
+      "why": "Flows as one thought and keeps the brand names low-key (restraint), with a clear falling end.",
+      "alternates": [
+        {
+          "take": 2,
+          "sourceIn": 321.84,
+          "sourceOut": 326.89,
+          "durationS": 5.05,
+          "note": "Clean; puts a 0.42 s beat after \"Codex\", which spotlights the brand names. Take 1 is more restrained."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-L",
+        "fromFrame": 5616,
+        "toFrame": 6072,
+        "fromS": 93.6,
+        "toS": 101.2,
+        "picture": "s27 workflow board into s28 iteration board"
+      },
+      "measured": {
+        "integratedLufs": -27.6,
+        "truePeakDbfs": -7.9,
+        "wordsPerSecond": 2.28,
+        "syllablesPerSecond": 4.23,
+        "pitchRangeSemitones": 6.7,
+        "terminalPitchSlopeStPerS": -10.2,
+        "finalWordVsLineDb": -2.2,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "claude",
+          "fromS": 313.55,
+          "toS": 313.83
+        },
+        {
+          "w": "and",
+          "fromS": 313.83,
+          "toS": 313.94
+        },
+        {
+          "w": "codex",
+          "fromS": 313.94,
+          "toS": 314.43
+        },
+        {
+          "w": "became",
+          "fromS": 314.43,
+          "toS": 314.81
+        },
+        {
+          "w": "collaborators",
+          "fromS": 314.81,
+          "toS": 315.71
+        },
+        {
+          "w": "i",
+          "fromS": 315.91,
+          "toS": 316.02
+        },
+        {
+          "w": "could",
+          "fromS": 316.02,
+          "toS": 316.24
+        },
+        {
+          "w": "direct",
+          "fromS": 316.6,
+          "toS": 317.23
+        },
+        {
+          "w": "test",
+          "fromS": 317.23,
+          "toS": 317.62
+        },
+        {
+          "w": "and",
+          "fromS": 317.62,
+          "toS": 317.72
+        },
+        {
+          "w": "challenge",
+          "fromS": 317.72,
+          "toS": 318.3
+        }
+      ],
+      "clipGainDb": 2.6
+    },
+    {
+      "id": "L17",
+      "script": "My background in QA helped more than I expected. I treated every feature like something that had to survive testing, not just look right once.",
+      "selectedText": "My background in QA helped more than I expected. I treated every feature like something that had to survive testing, not just look right once.",
+      "words": 25,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 344.05,
+        "sourceOut": 353.2,
+        "sourceDurationS": 9.15,
+        "keep": [
+          {
+            "fromS": 344.05,
+            "toS": 353.2,
+            "fromSample": 15172605,
+            "toSample": 15576120
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 9.15
+      },
+      "pauses": "natural: keep both sentence pauses (0.71 s, 0.78 s)",
+      "why": "Stronger ending (\"once\" lands), more pitch movement, fewer mouth transients.",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 330.76,
+          "sourceOut": 339.74,
+          "durationS": 8.98,
+          "note": "Clean, but \"once\" trails off (-8.9 dB) and it carries more mouth transients."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-M+VO-O",
+        "fromFrame": 6090,
+        "toFrame": 7349,
+        "fromS": 101.5,
+        "toS": 122.48,
+        "picture": "s28 iteration board and s29 capture grid"
+      },
+      "measured": {
+        "integratedLufs": -25.0,
+        "truePeakDbfs": -5.8,
+        "wordsPerSecond": 2.73,
+        "syllablesPerSecond": 4.57,
+        "pitchRangeSemitones": 6.2,
+        "terminalPitchSlopeStPerS": -2.0,
+        "finalWordVsLineDb": -5.9,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "my",
+          "fromS": 344.09,
+          "toS": 344.28
+        },
+        {
+          "w": "background",
+          "fromS": 344.28,
+          "toS": 344.82
+        },
+        {
+          "w": "in",
+          "fromS": 344.82,
+          "toS": 344.92
+        },
+        {
+          "w": "qa",
+          "fromS": 344.92,
+          "toS": 345.31
+        },
+        {
+          "w": "helped",
+          "fromS": 345.31,
+          "toS": 345.61
+        },
+        {
+          "w": "more",
+          "fromS": 345.61,
+          "toS": 345.89
+        },
+        {
+          "w": "than",
+          "fromS": 345.89,
+          "toS": 346.12
+        },
+        {
+          "w": "i",
+          "fromS": 346.12,
+          "toS": 346.25
+        },
+        {
+          "w": "expected",
+          "fromS": 346.25,
+          "toS": 346.99
+        },
+        {
+          "w": "i",
+          "fromS": 347.7,
+          "toS": 347.8
+        },
+        {
+          "w": "treated",
+          "fromS": 347.8,
+          "toS": 348.16
+        },
+        {
+          "w": "every",
+          "fromS": 348.16,
+          "toS": 348.41
+        },
+        {
+          "w": "feature",
+          "fromS": 348.41,
+          "toS": 348.85
+        },
+        {
+          "w": "like",
+          "fromS": 348.85,
+          "toS": 349.05
+        },
+        {
+          "w": "something",
+          "fromS": 349.05,
+          "toS": 349.51
+        },
+        {
+          "w": "that",
+          "fromS": 349.51,
+          "toS": 349.65
+        },
+        {
+          "w": "had",
+          "fromS": 349.65,
+          "toS": 349.82
+        },
+        {
+          "w": "to",
+          "fromS": 349.82,
+          "toS": 349.93
+        },
+        {
+          "w": "survive",
+          "fromS": 349.93,
+          "toS": 350.35
+        },
+        {
+          "w": "testing",
+          "fromS": 350.35,
+          "toS": 350.86
+        },
+        {
+          "w": "not",
+          "fromS": 351.64,
+          "toS": 351.85
+        },
+        {
+          "w": "just",
+          "fromS": 351.85,
+          "toS": 352.1
+        },
+        {
+          "w": "look",
+          "fromS": 352.1,
+          "toS": 352.39
+        },
+        {
+          "w": "right",
+          "fromS": 352.39,
+          "toS": 352.66
+        },
+        {
+          "w": "once",
+          "fromS": 352.66,
+          "toS": 353.15
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L18",
+      "script": "Bad captures got recaptured. Bugs got reproduced. Ideas got rejected and rebuilt.",
+      "selectedText": "Bad captures got recaptured. Bugs got reproduced. Ideas got rejected and rebuilt.",
+      "words": 12,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 371.38,
+        "sourceOut": 380.0,
+        "sourceDurationS": 8.62,
+        "keep": [
+          {
+            "fromS": 371.38,
+            "toS": 380.0,
+            "fromSample": 16377858,
+            "toSample": 16758000
+          }
+        ],
+        "removedS": 0.0,
+        "durationS": 8.62
+      },
+      "pauses": "natural: the three-part rhythm (0.82 / 0.68 s between sentences) is the line",
+      "why": "The rhythm is the same as take 1, but \"rebuilt\" lands 4 dB stronger. The small low-frequency pop on \"Bugs\" is the kind the 80 Hz high-pass takes care of.",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 360.71,
+          "sourceOut": 369.06,
+          "durationS": 8.35,
+          "note": "Clean and pop-free, but \"rebuilt\" lands softer (-7.5 vs -3.3 dB)."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-P",
+        "fromFrame": 7398,
+        "toFrame": 7877,
+        "fromS": 123.3,
+        "toS": 131.28,
+        "picture": "s30 QA before/after"
+      },
+      "measured": {
+        "integratedLufs": -26.7,
+        "truePeakDbfs": -5.5,
+        "wordsPerSecond": 1.39,
+        "syllablesPerSecond": 3.11,
+        "pitchRangeSemitones": 8.3,
+        "terminalPitchSlopeStPerS": -4.9,
+        "finalWordVsLineDb": -3.3,
+        "gapClicks": [],
+        "lowFrequencyPops": [
+          374.47
+        ]
+      },
+      "sourceWords": [
+        {
+          "w": "bad",
+          "fromS": 371.42,
+          "toS": 371.7
+        },
+        {
+          "w": "captures",
+          "fromS": 371.7,
+          "toS": 372.36
+        },
+        {
+          "w": "got",
+          "fromS": 372.51,
+          "toS": 372.72
+        },
+        {
+          "w": "recaptured",
+          "fromS": 372.72,
+          "toS": 373.54
+        },
+        {
+          "w": "bugs",
+          "fromS": 374.36,
+          "toS": 375.01
+        },
+        {
+          "w": "got",
+          "fromS": 375.25,
+          "toS": 375.43
+        },
+        {
+          "w": "reproduced",
+          "fromS": 375.43,
+          "toS": 376.23
+        },
+        {
+          "w": "ideas",
+          "fromS": 376.91,
+          "toS": 377.68
+        },
+        {
+          "w": "got",
+          "fromS": 378.0,
+          "toS": 378.18
+        },
+        {
+          "w": "rejected",
+          "fromS": 378.18,
+          "toS": 378.85
+        },
+        {
+          "w": "and",
+          "fromS": 378.85,
+          "toS": 378.98
+        },
+        {
+          "w": "rebuilt",
+          "fromS": 378.98,
+          "toS": 379.96
+        }
+      ],
+      "clipGainDb": 1.7
+    },
+    {
+      "id": "L19",
+      "script": "What I'm proudest of isn't that models wrote code.",
+      "selectedText": "What I'm proudest of isn't that models wrote code.",
+      "words": 9,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 2,
+        "sourceIn": 384.27,
+        "sourceOut": 387.6,
+        "sourceDurationS": 3.33,
+        "keep": [
+          {
+            "fromS": 384.27,
+            "toS": 387.6,
+            "fromSample": 16946307,
+            "toSample": 17093160
+          }
+        ],
+        "removedS": 0.0,
+        "durationS": 3.33
+      },
+      "pauses": "natural",
+      "why": "One of the two most expressive reads in the session (11 semitones of pitch movement, with the lift on \"proudest\"), clean, no pop.",
+      "alternates": [
+        {
+          "take": 3,
+          "sourceIn": 389.98,
+          "sourceOut": 393.34,
+          "durationS": 3.36,
+          "note": "Clean, a little less lift; a small plosive pop on \"proudest\"."
+        }
+      ],
+      "rejected": [
+        {
+          "take": 1,
+          "sourceIn": 382.41,
+          "sourceOut": 383.18,
+          "reason": "False start: \"What I'm proud-\" (382.5-383.1 s), stopped."
+        }
+      ],
+      "oldWindow": {
+        "vo": "VO-Q",
+        "fromFrame": 7896,
+        "toFrame": 8273,
+        "fromS": 131.6,
+        "toS": 137.88,
+        "picture": "s31-s32 Signal Array card, Helios Spire"
+      },
+      "measured": {
+        "integratedLufs": -23.4,
+        "truePeakDbfs": -6.4,
+        "wordsPerSecond": 2.7,
+        "syllablesPerSecond": 4.1,
+        "pitchRangeSemitones": 11.0,
+        "terminalPitchSlopeStPerS": -0.6,
+        "finalWordVsLineDb": -9.6,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "what",
+          "fromS": 384.31,
+          "toS": 384.45
+        },
+        {
+          "w": "i'm",
+          "fromS": 384.45,
+          "toS": 384.6
+        },
+        {
+          "w": "proudest",
+          "fromS": 384.6,
+          "toS": 385.06
+        },
+        {
+          "w": "of",
+          "fromS": 385.06,
+          "toS": 385.41
+        },
+        {
+          "w": "isn't",
+          "fromS": 385.88,
+          "toS": 386.12
+        },
+        {
+          "w": "that",
+          "fromS": 386.12,
+          "toS": 386.27
+        },
+        {
+          "w": "models",
+          "fromS": 386.27,
+          "toS": 386.66
+        },
+        {
+          "w": "wrote",
+          "fromS": 386.66,
+          "toS": 386.9
+        },
+        {
+          "w": "code",
+          "fromS": 386.9,
+          "toS": 387.56
+        }
+      ],
+      "clipGainDb": -1.6
+    },
+    {
+      "id": "L20",
+      "script": "It's that this feels like the kind of game I used to imagine making.",
+      "selectedText": "It's that this feels like the kind of game I used to imagine making.",
+      "words": 14,
+      "wording": {
+        "change": false
+      },
+      "select": {
+        "take": 3,
+        "sourceIn": 422.675,
+        "sourceOut": 426.81,
+        "sourceDurationS": 4.13,
+        "keep": [
+          {
+            "fromS": 422.675,
+            "toS": 426.81,
+            "fromSample": 18639968,
+            "toSample": 18822321
+          }
+        ],
+        "removedS": 0.0,
+        "durationS": 4.13
+      },
+      "pauses": "natural: keep the 0.56 s beat before \"I used to imagine making\"",
+      "why": "Script wording, the most expressive version (9.1 st), and a natural 0.56 s beat before \"I used to imagine making\".",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 395.62,
+          "sourceOut": 399.76,
+          "durationS": 4.14,
+          "note": "Fast (3.6 words/s), reads \"the kind of A game\", and rolls straight into the last line."
+        },
+        {
+          "take": 2,
+          "sourceIn": 407.69,
+          "sourceOut": 414.81,
+          "durationS": 7.12,
+          "note": "Alternative wording: \"...the kind of game I grew up wishing I could make\". A lovely callback to the opening, but halting (0.5-1.0 s gaps). Rerecord only if you want that wording."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": "VO-Q",
+        "fromFrame": 7896,
+        "toFrame": 8273,
+        "fromS": 131.6,
+        "toS": 137.88,
+        "picture": "s33-s34 monuments (second half of VO-Q)"
+      },
+      "measured": {
+        "integratedLufs": -23.5,
+        "truePeakDbfs": -7.3,
+        "wordsPerSecond": 3.39,
+        "syllablesPerSecond": 4.89,
+        "pitchRangeSemitones": 9.1,
+        "terminalPitchSlopeStPerS": -4.8,
+        "finalWordVsLineDb": -7.7,
+        "gapClicks": [
+          422.66
+        ],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "it's",
+          "fromS": 422.69,
+          "toS": 422.86
+        },
+        {
+          "w": "that",
+          "fromS": 422.86,
+          "toS": 423.08
+        },
+        {
+          "w": "this",
+          "fromS": 423.08,
+          "toS": 423.29
+        },
+        {
+          "w": "feels",
+          "fromS": 423.29,
+          "toS": 423.72
+        },
+        {
+          "w": "like",
+          "fromS": 423.72,
+          "toS": 423.94
+        },
+        {
+          "w": "the",
+          "fromS": 423.94,
+          "toS": 424.01
+        },
+        {
+          "w": "kind",
+          "fromS": 424.01,
+          "toS": 424.29
+        },
+        {
+          "w": "of",
+          "fromS": 424.29,
+          "toS": 424.41
+        },
+        {
+          "w": "game",
+          "fromS": 424.41,
+          "toS": 424.81
+        },
+        {
+          "w": "i",
+          "fromS": 425.37,
+          "toS": 425.55
+        },
+        {
+          "w": "used",
+          "fromS": 425.55,
+          "toS": 425.73
+        },
+        {
+          "w": "to",
+          "fromS": 425.73,
+          "toS": 425.79
+        },
+        {
+          "w": "imagine",
+          "fromS": 425.79,
+          "toS": 426.21
+        },
+        {
+          "w": "making",
+          "fromS": 426.21,
+          "toS": 426.58
+        }
+      ],
+      "clipGainDb": 0.0
+    },
+    {
+      "id": "L21",
+      "script": "And now you can play it.",
+      "selectedText": "And now everyone can play it.",
+      "words": 6,
+      "wording": {
+        "change": true,
+        "newText": "And now everyone can play it.",
+        "what": "\"you\" becomes \"everyone\" (spoken in takes 2 and 3)"
+      },
+      "select": {
+        "take": 3,
+        "sourceIn": 427.6,
+        "sourceOut": 430.06,
+        "sourceDurationS": 2.46,
+        "keep": [
+          {
+            "fromS": 427.6,
+            "toS": 430.06,
+            "fromSample": 18857160,
+            "toSample": 18965646
+          }
+        ],
+        "removedS": -0.0,
+        "durationS": 2.46
+      },
+      "pauses": "natural: keep the 0.74 s beat after \"And now\"; it is the last line",
+      "why": "The only read that lands: the pitch falls to a full stop (-5.0 st/s), with a breath of space after \"And now\". The spontaneous \"everyone\" reads warmer than \"you\".",
+      "alternates": [
+        {
+          "take": 1,
+          "sourceIn": 402.77,
+          "sourceOut": 404.1,
+          "durationS": 1.33,
+          "note": "Script wording (\"you can play it\"), but rushed (4.5 words/s) and the ending rises: it was read as a run-on after L20 take 1."
+        },
+        {
+          "take": 2,
+          "sourceIn": 416.3,
+          "sourceOut": 417.81,
+          "durationS": 1.51,
+          "note": "\"Now everyone can play it\" without \"And\"; the ending rises."
+        }
+      ],
+      "rejected": [],
+      "oldWindow": {
+        "vo": null,
+        "fromFrame": null,
+        "toFrame": null,
+        "fromS": null,
+        "toS": null,
+        "picture": "None. New placement, proposed on the s36 end card (SHOOT THE MOON / PLAY IT IN YOUR BROWSER)"
+      },
+      "measured": {
+        "integratedLufs": -26.0,
+        "truePeakDbfs": -7.1,
+        "wordsPerSecond": 2.44,
+        "syllablesPerSecond": 4.37,
+        "pitchRangeSemitones": 5.2,
+        "terminalPitchSlopeStPerS": -5.0,
+        "finalWordVsLineDb": -13.7,
+        "gapClicks": [],
+        "lowFrequencyPops": []
+      },
+      "sourceWords": [
+        {
+          "w": "and",
+          "fromS": 427.6,
+          "toS": 427.73
+        },
+        {
+          "w": "now",
+          "fromS": 427.73,
+          "toS": 428.08
+        },
+        {
+          "w": "everyone",
+          "fromS": 428.82,
+          "toS": 429.23
+        },
+        {
+          "w": "can",
+          "fromS": 429.23,
+          "toS": 429.39
+        },
+        {
+          "w": "play",
+          "fromS": 429.39,
+          "toS": 429.65
+        },
+        {
+          "w": "it",
+          "fromS": 429.65,
+          "toS": 430.02
+        }
+      ],
+      "clipGainDb": 0.0
+    }
+  ],
+  "placements": {
+    "A": {
+      "name": "A",
+      "runtimeS": 175.2,
+      "frames": 10512,
+      "bars": 73.0,
+      "acts": {
+        "WORLD": [
+          0,
+          18.6
+        ],
+        "ESCALATION": [
+          18.6,
+          43.8
+        ],
+        "SYSTEMS": [
+          43.8,
+          123.0
+        ],
+        "BUILD": [
+          123.0,
+          155.4
+        ],
+        "PAYOFF": [
+          155.4,
+          175.2
+        ]
+      },
+      "placement": {
+        "L01": {
+          "startS": 3.9,
+          "endS": 7.13,
+          "fromFrame": 234,
+          "toFrame": 427
+        },
+        "L02": {
+          "startS": 13.7,
+          "endS": 14.65,
+          "fromFrame": 822,
+          "toFrame": 878
+        },
+        "L03": {
+          "startS": 15.35,
+          "endS": 18.35,
+          "fromFrame": 920,
+          "toFrame": 1100
+        },
+        "L04": {
+          "startS": 33.7,
+          "endS": 35.12,
+          "fromFrame": 2022,
+          "toFrame": 2107
+        },
+        "L05": {
+          "startS": 38.6,
+          "endS": 42.71,
+          "fromFrame": 2316,
+          "toFrame": 2562
+        },
+        "L06": {
+          "startS": 44.1,
+          "endS": 53.17,
+          "fromFrame": 2645,
+          "toFrame": 3190
+        },
+        "L07": {
+          "startS": 53.77,
+          "endS": 64.49,
+          "fromFrame": 3226,
+          "toFrame": 3869
+        },
+        "L08": {
+          "startS": 65.39,
+          "endS": 72.99,
+          "fromFrame": 3923,
+          "toFrame": 4379
+        },
+        "L09": {
+          "startS": 73.79,
+          "endS": 78.49,
+          "fromFrame": 4427,
+          "toFrame": 4709
+        },
+        "L10": {
+          "startS": 79.49,
+          "endS": 85.58,
+          "fromFrame": 4769,
+          "toFrame": 5134
+        },
+        "L11": {
+          "startS": 86.08,
+          "endS": 99.93,
+          "fromFrame": 5164,
+          "toFrame": 5995
+        },
+        "L12": {
+          "startS": 100.93,
+          "endS": 103.79,
+          "fromFrame": 6055,
+          "toFrame": 6227
+        },
+        "L13": {
+          "startS": 104.29,
+          "endS": 108.21,
+          "fromFrame": 6257,
+          "toFrame": 6492
+        },
+        "L14": {
+          "startS": 109.11,
+          "endS": 121.33,
+          "fromFrame": 6546,
+          "toFrame": 7279
+        },
+        "L15": {
+          "startS": 123.3,
+          "endS": 128.09,
+          "fromFrame": 7398,
+          "toFrame": 7685
+        },
+        "L16": {
+          "startS": 128.99,
+          "endS": 133.82,
+          "fromFrame": 7739,
+          "toFrame": 8029
+        },
+        "L17": {
+          "startS": 134.72,
+          "endS": 143.87,
+          "fromFrame": 8083,
+          "toFrame": 8632
+        },
+        "L18": {
+          "startS": 144.77,
+          "endS": 153.39,
+          "fromFrame": 8686,
+          "toFrame": 9203
+        },
+        "L19": {
+          "startS": 155.6,
+          "endS": 158.93,
+          "fromFrame": 9336,
+          "toFrame": 9535
+        },
+        "L20": {
+          "startS": 159.53,
+          "endS": 163.66,
+          "fromFrame": 9571,
+          "toFrame": 9819
+        },
+        "L21": {
+          "startS": 169.5,
+          "endS": 171.96,
+          "fromFrame": 10170,
+          "toFrame": 10317
+        }
+      },
+      "problems": [],
+      "title": "Recommended: keep every line, film runs 2:55.20 (73 bars at 100 BPM)",
+      "pictureChanges": [
+        "SYSTEMS +15 bars (+36.0 s): 43.80-123.00 s (was 43.80-87.00 s)",
+        "BUILD -5 bars (-12.0 s): 123.00-155.40 s (was 87.00-131.40 s); take it from the s28 iteration board",
+        "PAYOFF unchanged in length; moves to 155.40-175.20 s",
+        "WORLD and ESCALATION unchanged"
+      ]
+    },
+    "B": {
+      "name": "B",
+      "runtimeS": 151.2,
+      "frames": 9072,
+      "bars": 63.0,
+      "acts": {
+        "WORLD": [
+          0,
+          18.6
+        ],
+        "ESCALATION": [
+          18.6,
+          43.8
+        ],
+        "SYSTEMS": [
+          43.8,
+          99.0
+        ],
+        "BUILD": [
+          99.0,
+          131.4
+        ],
+        "PAYOFF": [
+          131.4,
+          151.2
+        ]
+      },
+      "placement": {
+        "L01": {
+          "startS": 3.9,
+          "endS": 7.13,
+          "fromFrame": 234,
+          "toFrame": 427
+        },
+        "L02": {
+          "startS": 13.7,
+          "endS": 14.65,
+          "fromFrame": 822,
+          "toFrame": 878
+        },
+        "L03": {
+          "startS": 15.35,
+          "endS": 18.35,
+          "fromFrame": 920,
+          "toFrame": 1100
+        },
+        "L04": {
+          "startS": 33.7,
+          "endS": 35.12,
+          "fromFrame": 2022,
+          "toFrame": 2107
+        },
+        "L05": {
+          "startS": 38.6,
+          "endS": 42.71,
+          "fromFrame": 2316,
+          "toFrame": 2562
+        },
+        "L06": {
+          "startS": 44.1,
+          "endS": 53.17,
+          "fromFrame": 2645,
+          "toFrame": 3190
+        },
+        "L08": {
+          "startS": 54.07,
+          "endS": 61.67,
+          "fromFrame": 3244,
+          "toFrame": 3700
+        },
+        "L09": {
+          "startS": 62.47,
+          "endS": 67.17,
+          "fromFrame": 3748,
+          "toFrame": 4030
+        },
+        "L10": {
+          "startS": 68.17,
+          "endS": 74.26,
+          "fromFrame": 4090,
+          "toFrame": 4455
+        },
+        "L11": {
+          "startS": 74.76,
+          "endS": 88.61,
+          "fromFrame": 4485,
+          "toFrame": 5316
+        },
+        "L12": {
+          "startS": 89.61,
+          "endS": 92.47,
+          "fromFrame": 5376,
+          "toFrame": 5548
+        },
+        "L13": {
+          "startS": 92.97,
+          "endS": 96.89,
+          "fromFrame": 5578,
+          "toFrame": 5813
+        },
+        "L15": {
+          "startS": 99.3,
+          "endS": 104.09,
+          "fromFrame": 5958,
+          "toFrame": 6245
+        },
+        "L16": {
+          "startS": 104.99,
+          "endS": 109.82,
+          "fromFrame": 6299,
+          "toFrame": 6589
+        },
+        "L17": {
+          "startS": 110.72,
+          "endS": 119.87,
+          "fromFrame": 6643,
+          "toFrame": 7192
+        },
+        "L18": {
+          "startS": 120.77,
+          "endS": 129.39,
+          "fromFrame": 7246,
+          "toFrame": 7763
+        },
+        "L19": {
+          "startS": 131.6,
+          "endS": 134.93,
+          "fromFrame": 7896,
+          "toFrame": 8095
+        },
+        "L20": {
+          "startS": 135.53,
+          "endS": 139.66,
+          "fromFrame": 8131,
+          "toFrame": 8379
+        },
+        "L21": {
+          "startS": 145.5,
+          "endS": 147.96,
+          "fromFrame": 8730,
+          "toFrame": 8877
+        }
+      },
+      "problems": [],
+      "title": "Fallback: keep 2:31.20 by dropping L07 and L14 (the two lines with no matching picture)",
+      "narrationS": 98.11,
+      "pictureChanges": [
+        "SYSTEMS +5 bars (+12.0 s): 43.80-99.00 s",
+        "BUILD -5 bars (-12.0 s): 99.00-131.40 s",
+        "PAYOFF unchanged",
+        "WORLD and ESCALATION unchanged"
+      ]
+    }
+  }
+}
