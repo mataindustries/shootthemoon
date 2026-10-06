@@ -7,6 +7,7 @@ import { drawnFilmFrames, filmSceneAt, resolveFilmCues, type FilmCues } from './
 import type { MediaSources } from './mediaPriority.ts'
 import { CANONICAL_FIXTURE_SITE, routeBoard } from './routeDiagram.ts'
 import { countWords, sourceRequests, validateFilm, type Film, type Segment } from './youtubeFilm.ts'
+import type { VoSelects } from './narration.ts'
 
 const root = new URL('../../', import.meta.url)
 const read = (path: string) => readFileSync(new URL(path, root), 'utf8')
@@ -15,6 +16,8 @@ const film = json<Film>('capture/youtube/youtube-film.json')
 const sources = json<MediaSources>('capture/youtube/media-sources.json')
 const edit = json<FinalEdit>('capture/finalEdit.json')
 const cues = json<FilmCues>('capture/youtube/youtubeTitles.cues.json')
+const selects = json<VoSelects>('capture/youtube/vo-selects.json')
+const validate = (value: Film, graphics = cues) => validateFilm(value, sources, edit, graphics, selects)
 const mutable = <T>(value: unknown): T => JSON.parse(JSON.stringify(value)) as T
 const withSegment = (id: string, patch: Partial<Segment>): Film => {
   const next = mutable<{ timeline: Segment[] }>(film)
@@ -22,20 +25,20 @@ const withSegment = (id: string, patch: Partial<Segment>): Film => {
   return next as unknown as Film
 }
 
-test('the edit decision is valid: 9,072 frames at 60 fps, 63 bars at 100 BPM', () => {
-  assert.deepEqual(validateFilm(film, sources, edit, cues), [])
-  assert.equal(film.output.frames, 9072)
-  assert.equal(film.output.durationS, 151.2)
+test('Option A is valid: 10,512 frames at 60 fps, 73 bars at 100 BPM', () => {
+  assert.deepEqual(validate(film), [])
+  assert.equal(film.output.frames, 10512)
+  assert.equal(film.output.durationS, 175.2)
   assert.equal(film.output.frames % 144, 0)
-  assert.deepEqual(film.acts.map((a) => [a.id, a.from, a.to]), [['WORLD', 0, 1115], ['ESCALATION', 1116, 2627], ['SYSTEMS', 2628, 5219], ['BUILD', 5220, 7883], ['PAYOFF', 7884, 9071]])
+  assert.deepEqual(film.acts.map((a) => [a.id, a.from, a.to]), [['WORLD', 0, 1115], ['ESCALATION', 1116, 2627], ['SYSTEMS', 2628, 7379], ['BUILD', 7380, 9323], ['PAYOFF', 9324, 10511]])
 })
 
 test('every reel frame is clean: titled media are rejected wherever they appear', () => {
   for (const request of sourceRequests(film)) assert.equal(request.media, 'reel-clean')
   const titled = withSegment('s07', { source: { media: 'reel-titled', from: 864, to: 1007 } })
-  assert.ok(validateFilm(titled, sources, edit, cues).some((p) => p.includes('reel-titled is creative reference')))
+  assert.ok(validate(titled).some((p) => p.includes('reel-titled is creative reference')))
   const loopHold = withSegment('s03', { source: { media: 'loop-titled', frame: 10 } })
-  assert.ok(validateFilm(loopHold, sources, edit, cues).some((p) => p.includes('loop-titled is creative reference')))
+  assert.ok(validate(loopHold).some((p) => p.includes('loop-titled is creative reference')))
 })
 
 test('a baked flash or dip is kept only with its reel neighbour', () => {
@@ -43,12 +46,20 @@ test('a baked flash or dip is kept only with its reel neighbour', () => {
   const next = mutable<{ timeline: Segment[] }>(film)
   const c10 = next.timeline.find((s) => s.id === 's10')!
   next.timeline = next.timeline.map((s) => (s.id === 's10' ? { ...c10, source: { media: 'reel-clean', from: 1440, to: 1583 } } : s))
-  assert.ok(validateFilm(next as unknown as Film, sources, edit, cues).some((p) => p.includes('s09: ends inside the baked white transition')))
+  assert.ok(validate(next as unknown as Film).some((p) => p.includes('s09: ends inside the baked white transition')))
 })
 
 test('no retiming: a reel segment plays exactly its source frames', () => {
   const slow = withSegment('s08', { source: { media: 'reel-clean', from: 1008, to: 1100 } })
-  assert.ok(validateFilm(slow, sources, edit, cues).some((p) => p.includes('no retiming')))
+  assert.ok(validate(slow).some((p) => p.includes('no retiming')))
+})
+
+test('continuous Helios footage stays at natural rate and its declared crop remains inside the source', () => {
+  const wrongLength = withSegment('s25a', { frames: 793 })
+  assert.ok(validate(wrongLength).some((p) => p.includes('full-rate asset')))
+  for (const sourceCrop of [[240, 60, 1440, 812], [800, 60, 1440, 810], [241, 60, 1440, 810]] as const) {
+    assert.ok(validate(withSegment('s25a', { sourceCrop })).some((p) => p.includes('video crop must be even')))
+  }
 })
 
 test('graphics stay off every protected frame: impacts, flashes, dips, native UI', () => {
@@ -64,7 +75,7 @@ test('graphics stay off every protected frame: impacts, flashes, dips, native UI
   const e1 = bad.events.find((e) => e.id === 'E1')!
   e1.to = 1600
   ;(e1.elements as Array<{ out?: { f: number } }>).forEach((el) => { if (el.out) el.out = { f: 1593 } })
-  assert.ok(validateFilm(film, sources, edit, bad as unknown as FilmCues).some((p) => p.includes('forbidden')))
+  assert.ok(validate(film, bad as unknown as FilmCues).some((p) => p.includes('forbidden')))
 })
 
 test('narration: 260-360 words, a natural pace, silent cold open, never over an impact', () => {
@@ -76,10 +87,10 @@ test('narration: 260-360 words, a natural pace, silent cold open, never over an 
   for (const banned of [/leverag/i, /revolution/i, /game-chang/i]) assert.ok(!film.voiceover.some((l) => banned.test(l.text)), String(banned))
   const rushed = mutable<{ voiceover: Array<{ to: number; from: number }> }>(film)
   rushed.voiceover[2]!.to = rushed.voiceover[2]!.from + 30
-  assert.ok(validateFilm(rushed as unknown as Film, sources, edit, cues).some((p) => p.includes('rushed')))
+  assert.ok(validate(rushed as unknown as Film).some((p) => p.includes('rushed')))
   const overImpact = mutable<{ voiceover: Array<{ id: string; from: number; to: number }> }>(film)
   overImpact.voiceover[2]!.to = 2200
-  assert.ok(validateFilm(overImpact as unknown as Film, sources, edit, cues).some((p) => p.includes('narration over s15')))
+  assert.ok(validate(overImpact as unknown as Film).some((p) => p.includes('narration over s15')))
 })
 
 test('the route board is the game\'s own route: fixture site, derived rival, tested clearance', () => {
@@ -104,12 +115,30 @@ test('the code excerpt is verbatim from the source file', () => {
   assert.deepEqual(s5.excerpt.lines, source.slice(s5.excerpt.firstLine - 1, s5.excerpt.firstLine - 1 + s5.excerpt.lines.length))
 })
 
-test('three new captures at most, each pinned by hash', () => {
+test('four new captures at most, with only the explicitly authorized Helios exception, each pinned by hash', () => {
   const captures = json<{ captures: Array<{ id: string; file: string; sha256: string; capture: { pageErrors: unknown[]; consoleErrors: unknown[] } }> }>('capture/youtube/captures/captures.json')
-  assert.ok(captures.captures.length <= 3)
+  assert.ok(captures.captures.length <= 4)
+  assert.equal(captures.captures.length, film.newCaptures.used, 'every declared capture must have completed provenance')
+  assert.deepEqual(captures.captures.map((c) => c.id), ['title-screen', 'landing-site-panel', 'mining-laser-closeup', 'helios-mechanical-peak'])
   for (const c of captures.captures) {
     const asset = Object.values(film.assets).find((a) => a.file === c.file)
     assert.equal(asset?.sha256, c.sha256)
+    assert.match(c.sha256, /^[a-f0-9]{64}$/)
     assert.deepEqual([c.capture.pageErrors, c.capture.consoleErrors], [[], []])
   }
+  const fifth = mutable<{ assets: Record<string, unknown>; newCaptures: { used: number; limit: number } }>(film)
+  fifth.assets.extra = { kind: 'new-capture', manifestShot: 'extra-gameplay' }
+  fifth.newCaptures.used = 5
+  fifth.newCaptures.limit = 5
+  assert.ok(validate(fifth as unknown as Film).some((p) => p.includes('new captures (limit 4)')))
+})
+
+test('recorded wording and duration are authoritative; missing selects and padded windows fail', () => {
+  assert.ok(validateFilm(film, sources, edit, cues).some((p) => p.includes('requires the authoritative')))
+  const changed = mutable<{ voiceover: Array<{ text: string; to: number }> }>(film)
+  changed.voiceover[20]!.text = 'And now you can play it.'
+  assert.ok(validate(changed as unknown as Film).some((p) => p.includes('recorded select/wording/timing differs')))
+  changed.voiceover[20]!.text = film.voiceover[20]!.text
+  changed.voiceover[0]!.to += 30
+  assert.ok(validate(changed as unknown as Film).some((p) => p.includes('padded windows')))
 })

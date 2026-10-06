@@ -1,93 +1,104 @@
-# YouTube launch film (first cut)
+# YouTube launch film: approved VO / picture lock
 
-A reproducible derivative of the clean reel. It is a 2:31.20 film (9,072 frames, 1920×1080, 60 fps) with the ORBITAL RECORD graphics re-rendered at film frames.
+The active edit is **Option A**, 2:55.20: **10,512 frames at 1920×1080, 60 fps**, or 73 bars at 100 BPM. It contains the author's selected recording and the existing ORBITAL RECORD graphics. There is no music, game audio, synthetic narration, or burned-in caption track. The author approved this VO / picture lock on 2026-10-06.
 
-The creative plan, the full timeline, the voiceover and the music brief are in [docs/youtube-launch/YOUTUBE_FILM_TREATMENT.md](../../docs/youtube-launch/YOUTUBE_FILM_TREATMENT.md).
+The original [treatment](../../docs/youtube-launch/YOUTUBE_FILM_TREATMENT.md) retains the first-cut picture tables for comparison. [VO_SELECTS.md](../../docs/youtube-launch/VO_SELECTS.md) and `vo-selects.json` remain unchanged; their Option A selections and start times are authoritative. The implementation report is [VO_PICTURE_LOCK.md](../../docs/youtube-launch/VO_PICTURE_LOCK.md).
 
-**Status:** first cut for review. Not approved.
-
-```
+```text
 capture/youtube/
-  media-sources.json        which files are footage (clean) and which are reference (titled), by sha256
-  mediaPriority.ts          clean-source resolution and the timeline source gate (checkTimelineSources)
-  youtube-film.json         THE EDIT DECISION: timeline, assets, picture boards, voiceover, music markers, claims, thumbnails
-  youtubeFilm.ts            types + validateFilm(): clean sources only, no retiming, baked transitions only with their
-                            reel neighbours, VO pace/placement, graphics off protected frames, at most 3 new captures
-  youtubeTitles.cues.json   the film's graphics: a reel-titles/1 cue sheet (resolved by capture/titles/titles.ts sceneAt)
-                            plus boards[] (phone outline, route diagram, workflow connectors, capture ticks)
-  filmScene.ts              film frame -> draw ops: route tokens/anchors from the game code, boards, then sceneAt()
-  routeDiagram.ts           the First Strike route board computed from src/ (fixture site, deriveRivalSite, createStrikeRoute)
-  renderYoutubeTitles.mjs   Chromium -> transparent titles-track.mov (qtrle argb, 9,072 frames) + manifest;
-                            --determinism, --preview, --thumbnails
-  assembleYoutubeFilm.mjs   picture segments (lossless) -> clean picture lock + first cut + VO script + music cue sheet
-  validateYoutubeFilm.mjs   QA over the delivered files (format, fidelity, cuts, alpha, safe frame, range, provenance)
-  captures/                 the three new captures (existing manifest shots, run unmodified) + captures.json
-  *.test.ts                 node --test suites (pure; no ffmpeg or browser)
+  media-sources.json          hash-pinned clean footage and reference-only titled releases
+  mediaPriority.ts            unchanged clean-source resolution and timeline source gate
+  youtube-film.json           active timeline, assets, picture boards, recorded VO and future music markers
+  youtubeFilm.ts              validates clean sources, natural playback, protected frames, exact VO placement,
+                              code-grounded claims, original three captures plus the authorized Helios capture
+  vo-selects.json             authoritative selected takes and half-open 44.1kHz source-sample ranges
+  narration.ts                sample plan, selected-pause crossfades and recorded-delivery validation
+  assembleNarration.mjs       original WAV -> selected intermediate + conservative 48kHz narration mix
+  validateNarration.mjs       source/range hashes, overlap, PCM edges, clipping, tone and delivered AAC fidelity
+  youtubeTitles.cues.json     existing film graphics, retimed to Option A
+  filmScene.ts / routeDiagram.ts
+                              existing graphics and route geometry computed from game code
+  renderYoutubeTitles.mjs     existing Chromium renderer; identical static draw states are cached
+  assembleYoutubeFilm.mjs     existing lossless-segment renderer -> silent picture + narrated review master
+  validateYoutubeFilm.mjs     delivered-file frame fidelity, cuts, alpha, range, format, timing and provenance
+  captureMassDriver.spec.ts   one continuous, exact-clock capture through the existing final-render engine
+  playwright.youtube.config.ts
+                              capture-only adapter; approved reel edit and gameplay stay untouched
+  validateMassDriver.mjs      all source frames, exact clock, input hashes and clean-source validation
+  rebuildCleanSource.mjs      optional local recovery through the approved reel assembler, bounded decoders
+  createReviewEncode.mjs      separate two-pass review MP4 below 30 MiB, preserving master and AAC
+  captures/captures.json      original three pinned captures plus provenance for the fourth
+  *.test.ts                  pure film, narration and media-priority regression suites
 ```
 
-## Rules it enforces
+## Constraints
 
-- **Clean sources only.** Every reel frame the picture reads is checked by `mediaPriority.ts checkTimelineSources`. Titled media are rejected, so new graphics can never sit on baked ORBITAL RECORD graphics.
-- **The clean loop is never cut.** Every loop shot is taken from the clean reel at full rate.
-- **No retiming.** A reel segment plays exactly its source frames. Holds repeat one clean frame and may take a new perspective push, never `zoompan`. Every pushed picture is clamped to BT.709 legal range afterwards, because resampling rings on thin UI text.
-- **Baked transitions.** A reel flash, dip or fade survives only where the film keeps the same two shots adjacent.
-- **Protected frames carry zero graphics.** These are impacts, flashes, dips, the hero flight and native game UI. The validator checks the cue sheet, and QA checks the decoded alpha.
-- **Graphics reuse the approved system.** They are the reel's own `overlay.html`, `titles.ts` and fonts, unmodified. The release pin (`titlesRelease.json`) is untouched, so the reel and loop pipelines are unaffected.
-- **Every on-screen number comes from code or a capture.** The route board's coordinates, 132°, 760 km, 24 km and 2,048 are computed at render time from `src/`. The code excerpt is checked against the source file.
+- **Clean sources only.** Titled releases remain reference-only and are rejected as timeline sources. QA reads a pinned titled reference to prove its absence from the picture. The repository's verified titled finish is a separately registered reference when the originally supplied titled file is unavailable; the original release pins remain intact.
+- **Natural rate.** Reel and Helios video segments retain every source frame at 60 fps. Existing phone recordings retain their own cadence, duplicated to 60 fps inside the existing phone board. No narration is stretched.
+- **Protected graphics.** Impacts, flashes, dips, the hero flight and native game UI keep their protected intervals. QA decodes the complete title alpha track and checks the 40 px safe frame.
+- **Approved reel and loop remain unchanged.** `finalEdit.json`, shot manifest, game code, reel/loop cue sheets, fonts, core title renderer and release pins are not edited. Any source reconstruction runs the existing reel assembler into a separate ignored directory.
+- **No new graphic events.** Existing graphics are retimed. Personal history is carried by the recording and Shoot the Moon imagery. The existing route diagram reads verified geometry and sample count from game code.
+- **Exact recording provenance.** Every keep range has an original PCM hash and source-to-film sample mapping. The earlier FLAC container hash stays in the unchanged selects; this pass separately pins the user-specified original WAV.
+- **Recorded pace.** The 2.9 words/s estimate remains for unrecorded scripts. Recorded lines require the exact chosen sample duration, wording and take, no overlap or padded window, and the selects' measured maximum of 5.6 syllables/s. Seven approved natural reads exceed the old word estimate; adding empty time would conceal that fact.
 
-## Running it
+## Reproduce
 
-Two inputs are not in the repository:
+Requires repository dependencies, pinned Playwright Chromium, and FFmpeg with libsoxr/libx264. Set `PLAYWRIGHT_CHROMIUM_PATH` only when the pinned browser is absent. All generated media goes under gitignored `capture-final/youtube/`.
 
-- the clean reel: `reel-57s-1080-clean.mp4`, sha256 `f1150945…80d0`
-- the titled reel, which only QA reads, to prove the film contains none of it: `reel-57s-1080.mp4`, sha256 `a523e35c…b188`
+The read-only WAV must already exist at `capture-final/youtube/audio/source/shoot-the-moon-vo-session-01.wav`. SHA-256: `b1f9519450c98ab8792f63e355028476b21e16c065e278cb3aa8ad64209b96d8`.
 
 ```sh
-export PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium   # only where the pinned Playwright browser is absent
+# 1. Pure checks and exact narration assembly.
+node --experimental-strip-types --experimental-transform-types --test capture/youtube/narration.test.ts capture/youtube/youtubeFilm.test.ts capture/youtube/mediaPriority.test.ts
+node --experimental-strip-types --experimental-transform-types capture/youtube/assembleNarration.mjs
+node --experimental-strip-types --experimental-transform-types capture/youtube/validateNarration.mjs
 
-# 1. Pure checks (no ffmpeg/browser)
-node --experimental-strip-types --experimental-transform-types --test \
-  capture/youtube/youtubeFilm.test.ts capture/youtube/mediaPriority.test.ts
+# 2. Only if the pinned fourth source is unavailable: capture the existing Helios shot.
+npx playwright test --config=capture/youtube/playwright.youtube.config.ts
+# Register successful source/capture.json hashes in the film and capture index.
+# Never use partial footage or splice elapsed-clock frames across page sessions.
+node --experimental-strip-types --experimental-transform-types capture/youtube/validateMassDriver.mjs
 
-# 2. Graphics: the title track, plus a determinism proof
-node --experimental-strip-types --experimental-transform-types capture/youtube/renderYoutubeTitles.mjs \
-  --out=capture-final/youtube/titles --jobs=4
-node --experimental-strip-types --experimental-transform-types capture/youtube/renderYoutubeTitles.mjs \
-  --determinism=60,540,1500,2384,3072,3872,4632,4830,6044,6284,7298,7780,8300,9071 --out=capture-final/youtube/qa/determinism
+# 3. Retimed graphics and fresh-page determinism.
+node --experimental-strip-types --experimental-transform-types capture/youtube/renderYoutubeTitles.mjs --out=capture-final/youtube/titles --jobs=2
+node --experimental-strip-types --experimental-transform-types capture/youtube/renderYoutubeTitles.mjs --determinism=60,540,1500,2384,2856,3059,4500,4800,5268,5483,5772,7470,7836,8052,8268,8520,9000,9810,10272,10511 --out=capture-final/youtube/qa/determinism
 
-# 3. Picture lock, first cut, VO script, music cue sheet, temporary VO reference
-node --experimental-strip-types --experimental-transform-types capture/youtube/assembleYoutubeFilm.mjs \
-  --clean=<reel-57s-1080-clean.mp4> --titles=capture-final/youtube/titles/titles-track.mov --out=capture-final/youtube
+# 4. Assemble using the hash-pinned clean reel; all input hashes are checked.
+# If the supplied clean reel is absent and verified run-6 artifacts are local:
+# node capture/youtube/rebuildCleanSource.mjs
+node --experimental-strip-types --experimental-transform-types capture/youtube/assembleYoutubeFilm.mjs --clean=<verified-clean-reel.mp4> --titles=capture-final/youtube/titles/titles-track.mov --out=capture-final/youtube
 
-# 4. Thumbnails (1280x720)
-node --experimental-strip-types --experimental-transform-types capture/youtube/renderYoutubeTitles.mjs \
-  --thumbnails --clean=<reel-57s-1080-clean.mp4> --out=capture-final/youtube
+# 5. Delivered-picture and delivered-audio QA. Keep work/picture.mkv.
+node --experimental-strip-types --experimental-transform-types capture/youtube/validateYoutubeFilm.mjs --clean=<verified-clean-reel.mp4> --titled=artifacts/reel-motion-review/reel-57s-1080-titled.mp4 --out=capture-final/youtube
+node --experimental-strip-types --experimental-transform-types capture/youtube/validateNarration.mjs
 
-# 5. QA over the delivered files
-node --experimental-strip-types --experimental-transform-types capture/youtube/validateYoutubeFilm.mjs \
-  --clean=<reel-57s-1080-clean.mp4> --titled=<reel-57s-1080.mp4> --out=capture-final/youtube
+# 6. Separate review encode, only when master exceeds 30 MiB.
+node --experimental-strip-types --experimental-transform-types capture/youtube/createReviewEncode.mjs
+
+# 7. Repository and approved reel/loop checks.
+npm test -- --maxWorkers=1
+npm run typecheck
+npx tsc -p capture/tsconfig.json --noEmit
+npm run lint
+node --experimental-strip-types --experimental-transform-types --test capture/titles/titles.test.ts capture/titles/loopTitles.test.ts capture/titles/titlesFfmpeg.test.ts capture/ci/assembly.test.ts capture/ci/assemblySynthetic.test.ts
 ```
 
-`--preview=f1,f2,...` renders graphics over an approximate plate for layout checks. Picture boards are not composed in the preview.
-
-The three captures were made with:
-
-```sh
-npx playwright test --config=capture/playwright.capture.config.ts capture/capture.spec.ts \
-  -g "title-screen|landing-site-panel|mining-laser-closeup"
-```
-
-The PNGs are pinned in the repository (`captures/captures.json`), so a rebuild does not depend on recapturing.
+The first three captures are pinned repository PNGs. The fourth is an ignored lossless video with a tracked provenance index; keep it with the review media. A recapture must be rehashed and revalidated before use. The clean reel input must match its registered hash; rebuilding it from verified run-6 artifacts uses `capture/ci/assembleFinalReel.mjs` in a separate directory and retains the original release plan and its full QA.
 
 ## Outputs (`capture-final/youtube/`, gitignored)
 
-| File | What |
+| File | Purpose |
 |---|---|
-| `shoot-the-moon-youtube-first-cut.mp4` | Picture plus graphics. H.264 High 4.2, CRF 16, yuv420p, BT.709 limited range, closed 1 s GOP, faststart, **silent** (no verified audio exists). |
-| `clean-picture-lock.mp4` | The same picture with no graphics, for recording narration and for review. |
-| `voiceover-script.txt` | The narration with its timed windows. |
-| `music-cue-sheet.json` | 100 BPM markers, hard sync points and the narration windows. |
-| `thumbnail-01..03.jpg` | 1280×720 candidates. |
-| `assembly-manifest.json` | Every source and output hash, tools and segment plan. |
-| `titles/` | The title track and its manifest (inputs, browser, per-frame hashes). |
-| `qa/` | `qa-report.json`, `contact-sheet.jpg`, `readability-480.jpg`, `readability-1080/`, `timeline.md`, `determinism/`, and `vo-reference-960.mp4`. That last file has **temporary** burned-in narration captions and is never a master. |
+| `shoot-the-moon-vo-picture-lock.mp4` | High-quality picture plus ORBITAL RECORD graphics and one AAC-LC 48kHz mono narration stream. H.264 High 4.2, CRF 16, yuv420p, BT.709 limited range, faststart. |
+| `shoot-the-moon-vo-picture-lock-review.mp4` | Separate 1080p60 two-pass H.264 review below 30 MiB when needed. Exact master runtime/frame count; same AAC narration packets. |
+| `audio/narration-selected.wav` | Unprocessed keep ranges conformed to the 175.2 s film timeline; 48kHz mono 24-bit PCM. |
+| `audio/narration-mix.wav` | Conservative gains, fades, three selected-pause joins, original room tone and one 80Hz high-pass; same format/timeline. |
+| `audio/narration-manifest.json` | Original WAV/PCM hashes, every selected range and mapping, processing and output hashes. |
+| `captures/helios-mass-driver/` | Continuous clean 13.2 s capture, 792 source PNGs, exact clock evidence, hashes and `capture.json`. |
+| `clean-picture-lock.mp4` | Silent picture without graphics, retained for source-fidelity QA. |
+| `assembly-manifest.json` | Source/output hashes, tools, segment plan and narration provenance. |
+| `titles/` | Transparent graphics track and input/per-frame hash manifest. |
+| `qa/` | Film/VO/capture/review QA, full contact sheet, phone-size proofs, first-cut timing comparison and test logs. |
+| `voiceover-script.txt`, `music-cue-sheet.json` | Recorded wording and retimed handoff markers. No music is generated or mixed. |
+
+Closing: **“And now everyone can play it.”** The Moon pull-back retains about 5.54 s without narration, followed by an end card with 3.24 s after the last line. Music and final loudness decisions are the next pass. The author authorized committing and pushing this approved implementation on `youtube-launch-vo-lock`; no PR or merge is authorized.

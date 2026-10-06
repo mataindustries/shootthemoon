@@ -1,13 +1,13 @@
 {
   "schema": "shootthemoon.reel-titles/1",
   "film": "shootthemoon.youtube-titles/1",
-  "status": "first cut — for review; not approved",
+  "status": "VO / PICTURE LOCK REVIEW — Option A timings; existing ORBITAL RECORD graphics",
   "source": {
     "reel": "the YouTube film picture lock (capture/youtube/youtube-film.json)",
     "width": 1920,
     "height": 1080,
     "fps": 60,
-    "frames": 9072
+    "frames": 10512
   },
   "conventions": {
     "frames": "0-based FILM frame index at 60 fps (not reel frames). Frame f is shown at f/60 s.",
@@ -329,13 +329,13 @@
       "why": "Octogonal weapon exchange and the surface-defense hit (native reticle)"
     },
     {
-      "from": 7884,
-      "to": 7991,
+      "from": 9324,
+      "to": 9431,
       "why": "native Signal Array status card"
     },
     {
-      "from": 8676,
-      "to": 8711,
+      "from": 10116,
+      "to": 10151,
       "why": "c25 dip to black before the end card"
     }
   ],
@@ -389,7 +389,7 @@
       "id": "FP4",
       "clip": "s20 title-screen capture",
       "from": 2772,
-      "to": 3167,
+      "to": 3203,
       "scale": [
         1,
         1.025
@@ -403,8 +403,8 @@
     {
       "id": "FP5",
       "clip": "s22 landing-site capture",
-      "from": 3672,
-      "to": 4031,
+      "from": 4392,
+      "to": 4751,
       "scale": [
         1,
         1.035
@@ -418,8 +418,8 @@
     {
       "id": "FP6",
       "clip": "s25 mining capture",
-      "from": 4896,
-      "to": 5219,
+      "from": 6048,
+      "to": 6587,
       "scale": [
         1,
         1.03
@@ -427,6 +427,51 @@
       "anchor": [
         1065,
         480
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "FP7",
+      "clip": "s20a existing game image on black",
+      "from": 3204,
+      "to": 3455,
+      "scale": [
+        1,
+        1.025
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "FP8",
+      "clip": "s20b existing game image on black",
+      "from": 3456,
+      "to": 3599,
+      "scale": [
+        1,
+        1.025
+      ],
+      "anchor": [
+        960,
+        540
+      ],
+      "ease": "linear"
+    },
+    {
+      "id": "FP9",
+      "clip": "s20c existing game image on black",
+      "from": 3600,
+      "to": 3923,
+      "scale": [
+        1,
+        1.025
+      ],
+      "anchor": [
+        960,
+        540
       ],
       "ease": "linear"
     }
@@ -801,7 +846,7 @@
       "id": "S1",
       "name": "Browser-native",
       "from": 2790,
-      "to": 3158,
+      "to": 3194,
       "elements": [
         {
           "role": "chip",
@@ -813,7 +858,7 @@
             "fade": 9
           },
           "out": {
-            "f": 3150,
+            "f": 3186,
             "fade": 9
           }
         },
@@ -828,7 +873,7 @@
             "fade": 9
           },
           "out": {
-            "f": 3150,
+            "f": 3186,
             "fade": 9
           }
         },
@@ -843,7 +888,7 @@
             "origin": "left"
           },
           "out": {
-            "f": 3150,
+            "f": 3186,
             "fade": 9
           }
         },
@@ -864,7 +909,7 @@
             "n": 18
           },
           "out": {
-            "f": 3150,
+            "f": 3186,
             "fade": 9
           }
         },
@@ -879,7 +924,7 @@
             "fade": 9
           },
           "out": {
-            "f": 3150,
+            "f": 3186,
             "fade": 9
           }
         }
@@ -888,8 +933,8 @@
     {
       "id": "S2",
       "name": "Phone viewport, live input",
-      "from": 3186,
-      "to": 3662,
+      "from": 3942,
+      "to": 4382,
       "elements": [
         {
           "role": "chip",
@@ -897,11 +942,11 @@
           "y": 431,
           "fill": "cyan",
           "in": {
-            "f": 3195,
+            "f": 3951,
             "fade": 9
           },
           "out": {
-            "f": 3654,
+            "f": 4374,
             "fade": 9
           }
         },
@@ -912,11 +957,11 @@
           "y": 442,
           "text": "PHONE VIEWPORT · LIVE INPUT",
           "in": {
-            "f": 3195,
+            "f": 3951,
             "fade": 9
           },
           "out": {
-            "f": 3654,
+            "f": 4374,
             "fade": 9
           }
         },
@@ -926,12 +971,12 @@
           "y": 524,
           "w": 72,
           "draw": {
-            "f": 3204,
+            "f": 3960,
             "n": 9,
             "origin": "left"
           },
           "out": {
-            "f": 3654,
+            "f": 4374,
             "fade": 9
           }
         },
@@ -942,15 +987,15 @@
           "y": 502,
           "text": "SAME GAME, SAME RULES",
           "in": {
-            "f": 3204,
+            "f": 3960,
             "fade": 9
           },
           "out": {
-            "f": 3654,
+            "f": 4374,
             "fade": 9
           },
           "track": {
-            "f": 3204,
+            "f": 3960,
             "from": 0.24,
             "to": 0.16,
             "n": 18
@@ -963,11 +1008,11 @@
           "y": 558,
           "text": "“TAP ONCE WHILE THE AMBER RINGS ALIGN”",
           "in": {
-            "f": 3213,
+            "f": 3969,
             "fade": 9
           },
           "out": {
-            "f": 3654,
+            "f": 4374,
             "fade": 9
           }
         },
@@ -978,11 +1023,11 @@
           "y": 610,
           "text": "artifacts/recordings/counterstrike/counterstrike-success.webm",
           "in": {
-            "f": 3222,
+            "f": 3978,
             "fade": 9
           },
           "out": {
-            "f": 3654,
+            "f": 4374,
             "fade": 9
           }
         }
@@ -991,8 +1036,8 @@
     {
       "id": "S3",
       "name": "Coordinates — the game's own readout",
-      "from": 3690,
-      "to": 4022,
+      "from": 4410,
+      "to": 4742,
       "elements": [
         {
           "role": "brackets",
@@ -1007,13 +1052,13 @@
           "fill": "amber",
           "opacity": 0.9,
           "in": {
-            "f": 3699,
+            "f": 4419,
             "fade": 18,
             "scaleFrom": 1.03
           },
           "followsPlate": "FP5",
           "out": {
-            "f": 4014,
+            "f": 4734,
             "fade": 9
           }
         }
@@ -1022,8 +1067,8 @@
     {
       "id": "S4",
       "name": "First Strike route — real route data",
-      "from": 4032,
-      "to": 4670,
+      "from": 4752,
+      "to": 5534,
       "elements": [
         {
           "role": "kicker",
@@ -1032,11 +1077,11 @@
           "y": 140,
           "text": "FIRST STRIKE ROUTE · COMPUTED BETWEEN THE TWO SITES",
           "in": {
-            "f": 4050,
+            "f": 4770,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         },
@@ -1047,11 +1092,11 @@
           "y": 0,
           "text": "YOU",
           "in": {
-            "f": 4086,
+            "f": 4806,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           },
           "anchor": "middle",
@@ -1064,11 +1109,11 @@
           "y": 0,
           "text": "{playerCoords}",
           "in": {
-            "f": 4095,
+            "f": 4815,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           },
           "anchor": "middle",
@@ -1081,11 +1126,11 @@
           "y": 0,
           "text": "NULL MERIDIAN",
           "in": {
-            "f": 4086,
+            "f": 4806,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           },
           "anchor": "middle",
@@ -1098,11 +1143,11 @@
           "y": 0,
           "text": "{rivalCoords}",
           "in": {
-            "f": 4095,
+            "f": 4815,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           },
           "anchor": "middle",
@@ -1115,11 +1160,11 @@
           "y": 384,
           "text": "{separationDeg}°",
           "in": {
-            "f": 4374,
+            "f": 5094,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         },
@@ -1130,11 +1175,11 @@
           "y": 418,
           "text": "BETWEEN THE TWO SITES",
           "in": {
-            "f": 4383,
+            "f": 5103,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         },
@@ -1145,11 +1190,11 @@
           "y": 526,
           "text": "{peakKm} KM",
           "in": {
-            "f": 4464,
+            "f": 5184,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         },
@@ -1160,11 +1205,11 @@
           "y": 560,
           "text": "PEAK CLEARANCE",
           "in": {
-            "f": 4473,
+            "f": 5193,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         },
@@ -1175,11 +1220,11 @@
           "y": 668,
           "text": "{minKm} KM",
           "in": {
-            "f": 4518,
+            "f": 5238,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         },
@@ -1190,11 +1235,11 @@
           "y": 702,
           "text": "MINIMUM CLEARANCE",
           "in": {
-            "f": 4527,
+            "f": 5247,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         },
@@ -1205,11 +1250,11 @@
           "y": 810,
           "text": "{samples}",
           "in": {
-            "f": 4590,
+            "f": 5310,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         },
@@ -1220,11 +1265,11 @@
           "y": 844,
           "text": "POINTS CHECKED IN ITS TEST",
           "in": {
-            "f": 4599,
+            "f": 5319,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         },
@@ -1235,11 +1280,11 @@
           "y": 1012,
           "text": "SOURCE  src/domain/rival.ts · src/camera/strikeRoute.ts · canonical test fixture site",
           "in": {
-            "f": 4086,
+            "f": 4806,
             "fade": 9
           },
           "out": {
-            "f": 4662,
+            "f": 5526,
             "fade": 9
           }
         }
@@ -1248,8 +1293,8 @@
     {
       "id": "S5",
       "name": "Code excerpt — STRIKE_ROUTE_SAFETY",
-      "from": 4680,
-      "to": 4895,
+      "from": 5544,
+      "to": 5759,
       "elements": [
         {
           "role": "kicker",
@@ -1258,11 +1303,11 @@
           "y": 290,
           "text": "src/camera/strikeRoute.ts · lines 12–19",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1273,11 +1318,11 @@
           "y": 372,
           "text": "12",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1288,11 +1333,11 @@
           "y": 372,
           "text": "export const STRIKE_ROUTE_SAFETY = Object.freeze({",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1303,11 +1348,11 @@
           "y": 430,
           "text": "13",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1318,11 +1363,11 @@
           "y": 430,
           "text": "  moonRadiusM: MEAN_LUNAR_DATUM.referenceRadiusM,",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1333,11 +1378,11 @@
           "y": 488,
           "text": "14",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1348,11 +1393,11 @@
           "y": 488,
           "text": "  minimumClearanceM: 24_000,",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1363,11 +1408,11 @@
           "y": 546,
           "text": "15",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1378,11 +1423,11 @@
           "y": 546,
           "text": "  minimumPeakClearanceM: 320_000,",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1393,11 +1438,11 @@
           "y": 604,
           "text": "16",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1408,11 +1453,11 @@
           "y": 604,
           "text": "  maximumPeakClearanceM: 760_000,",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1423,11 +1468,11 @@
           "y": 662,
           "text": "17",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1438,11 +1483,11 @@
           "y": 662,
           "text": "  peakClearancePerRadianM: 360_000,",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1453,11 +1498,11 @@
           "y": 720,
           "text": "18",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1468,11 +1513,11 @@
           "y": 720,
           "text": "  sampleCount: 2_048,",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1483,11 +1528,11 @@
           "y": 778,
           "text": "19",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1498,11 +1543,11 @@
           "y": 778,
           "text": "})",
           "in": {
-            "f": 4689,
+            "f": 5553,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         },
@@ -1513,11 +1558,11 @@
           "y": 872,
           "text": "src/camera/strikeRoute.test.ts asserts sampleMinimumStrikeClearanceM ≥ minimumClearanceM",
           "in": {
-            "f": 4698,
+            "f": 5562,
             "fade": 9
           },
           "out": {
-            "f": 4887,
+            "f": 5751,
             "fade": 9
           }
         }
@@ -1540,8 +1585,8 @@
     {
       "id": "S6",
       "name": "Code-authored 3D",
-      "from": 4914,
-      "to": 5210,
+      "from": 6066,
+      "to": 6578,
       "elements": [
         {
           "role": "chip",
@@ -1549,11 +1594,11 @@
           "y": 841,
           "fill": "amber",
           "in": {
-            "f": 4923,
+            "f": 6075,
             "fade": 9
           },
           "out": {
-            "f": 5202,
+            "f": 6570,
             "fade": 9
           }
         },
@@ -1564,11 +1609,11 @@
           "y": 852,
           "text": "ZERO MODEL FILES",
           "in": {
-            "f": 4923,
+            "f": 6075,
             "fade": 9
           },
           "out": {
-            "f": 5202,
+            "f": 6570,
             "fade": 9
           }
         },
@@ -1578,12 +1623,12 @@
           "y": 934,
           "w": 72,
           "draw": {
-            "f": 4932,
+            "f": 6084,
             "n": 9,
             "origin": "left"
           },
           "out": {
-            "f": 5202,
+            "f": 6570,
             "fade": 9
           }
         },
@@ -1594,17 +1639,17 @@
           "y": 912,
           "text": "WRITTEN IN TYPESCRIPT",
           "in": {
-            "f": 4932,
+            "f": 6084,
             "fade": 9
           },
           "track": {
-            "f": 4932,
+            "f": 6084,
             "from": 0.24,
             "to": 0.16,
             "n": 18
           },
           "out": {
-            "f": 5202,
+            "f": 6570,
             "fade": 9
           }
         },
@@ -1615,11 +1660,11 @@
           "y": 968,
           "text": "NO .GLB · .GLTF · .OBJ · .FBX IN THE REPOSITORY",
           "in": {
-            "f": 4941,
+            "f": 6093,
             "fade": 9
           },
           "out": {
-            "f": 5202,
+            "f": 6570,
             "fade": 9
           }
         }
@@ -1629,8 +1674,8 @@
       "id": "C2",
       "name": "Chapter — the build",
       "chapter": "BUILD",
-      "from": 5220,
-      "to": 5362,
+      "from": 7380,
+      "to": 7522,
       "elements": [
         {
           "role": "kicker",
@@ -1640,11 +1685,11 @@
           "anchor": "middle",
           "text": "HOW IT WAS MADE",
           "in": {
-            "f": 5238,
+            "f": 7398,
             "fade": 18
           },
           "out": {
-            "f": 5355,
+            "f": 7515,
             "fade": 9
           }
         },
@@ -1656,17 +1701,17 @@
           "anchor": "middle",
           "text": "THE BUILD",
           "in": {
-            "f": 5247,
+            "f": 7407,
             "fade": 18
           },
           "track": {
-            "f": 5247,
+            "f": 7407,
             "from": 0.3,
             "to": 0.2,
             "n": 45
           },
           "out": {
-            "f": 5355,
+            "f": 7515,
             "fade": 9
           }
         },
@@ -1676,12 +1721,12 @@
           "y": 622,
           "w": 60,
           "draw": {
-            "f": 5265,
+            "f": 7425,
             "n": 18,
             "origin": "left"
           },
           "out": {
-            "f": 5355,
+            "f": 7515,
             "fade": 9
           }
         }
@@ -1690,8 +1735,8 @@
     {
       "id": "B1",
       "name": "Build record — workflow",
-      "from": 5364,
-      "to": 5786,
+      "from": 7524,
+      "to": 7946,
       "elements": [
         {
           "role": "kicker",
@@ -1700,11 +1745,11 @@
           "y": 140,
           "text": "BUILD RECORD",
           "in": {
-            "f": 5373,
+            "f": 7533,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           }
         },
@@ -1715,11 +1760,11 @@
           "y": 520,
           "text": "DIRECTION",
           "in": {
-            "f": 5382,
+            "f": 7542,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1731,11 +1776,11 @@
           "y": 566,
           "text": "IDEA · RULES · TREATMENTS",
           "in": {
-            "f": 5391,
+            "f": 7551,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1747,11 +1792,11 @@
           "y": 520,
           "text": "BUILD",
           "in": {
-            "f": 5454,
+            "f": 7614,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1763,11 +1808,11 @@
           "y": 566,
           "text": "CLAUDE · CODEX · CODESPACES",
           "in": {
-            "f": 5463,
+            "f": 7623,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1779,11 +1824,11 @@
           "y": 520,
           "text": "ITERATE",
           "in": {
-            "f": 5526,
+            "f": 7686,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1795,11 +1840,11 @@
           "y": 566,
           "text": "SYSTEMS · VISUALS · BUGS",
           "in": {
-            "f": 5535,
+            "f": 7695,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1811,11 +1856,11 @@
           "y": 520,
           "text": "CAPTURE",
           "in": {
-            "f": 5598,
+            "f": 7758,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1827,11 +1872,11 @@
           "y": 566,
           "text": "DETERMINISTIC RENDER",
           "in": {
-            "f": 5607,
+            "f": 7767,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1843,11 +1888,11 @@
           "y": 520,
           "text": "QA",
           "in": {
-            "f": 5670,
+            "f": 7830,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1859,11 +1904,11 @@
           "y": 566,
           "text": "FRAME-BY-FRAME REVIEW",
           "in": {
-            "f": 5679,
+            "f": 7839,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1875,11 +1920,11 @@
           "y": 708,
           "text": "REPEAT UNTIL IT MATCHES THE DIRECTION",
           "in": {
-            "f": 5706,
+            "f": 7866,
             "fade": 9
           },
           "out": {
-            "f": 5778,
+            "f": 7938,
             "fade": 9
           },
           "anchor": "middle"
@@ -1889,8 +1934,8 @@
     {
       "id": "B2",
       "name": "Iteration — release-candidate evidence",
-      "from": 5796,
-      "to": 6938,
+      "from": 7956,
+      "to": 8378,
       "elements": [
         {
           "role": "kicker",
@@ -1899,11 +1944,11 @@
           "y": 500,
           "text": "RELEASE-CANDIDATE PASS",
           "in": {
-            "f": 5814,
+            "f": 7974,
             "fade": 9
           },
           "out": {
-            "f": 6930,
+            "f": 8370,
             "fade": 9
           }
         },
@@ -1914,11 +1959,11 @@
           "y": 96,
           "text": "BASELINE · d377cb5",
           "in": {
-            "f": 5814,
+            "f": 7974,
             "fade": 9
           },
           "out": {
-            "f": 6930,
+            "f": 8370,
             "fade": 9
           },
           "anchor": "middle"
@@ -1930,11 +1975,11 @@
           "y": 96,
           "text": "RELEASE CANDIDATE",
           "in": {
-            "f": 5823,
+            "f": 7983,
             "fade": 9
           },
           "out": {
-            "f": 6930,
+            "f": 8370,
             "fade": 9
           },
           "anchor": "middle"
@@ -1946,28 +1991,28 @@
           "y": 542,
           "text": [
             [
-              5796,
+              7956,
               "05 · RIVAL CLOSE"
             ],
             [
-              6084,
+              8064,
               "08 · MISSILE FOLLOW"
             ],
             [
-              6372,
+              8172,
               "09 · IMPACT"
             ],
             [
-              6660,
+              8280,
               "10 · EJECTA"
             ]
           ],
           "in": {
-            "f": 5814,
+            "f": 7974,
             "fade": 9
           },
           "out": {
-            "f": 6930,
+            "f": 8370,
             "fade": 9
           }
         },
@@ -1978,11 +2023,11 @@
           "y": 1028,
           "text": "VISUAL_DIRECTION.md — “Lunar damage is physical and irregular.” · artifacts/release-candidate/",
           "in": {
-            "f": 5832,
+            "f": 7992,
             "fade": 9
           },
           "out": {
-            "f": 6930,
+            "f": 8370,
             "fade": 9
           },
           "anchor": "middle"
@@ -1992,8 +2037,8 @@
     {
       "id": "B3",
       "name": "Deterministic capture",
-      "from": 6966,
-      "to": 7370,
+      "from": 8406,
+      "to": 8666,
       "elements": [
         {
           "role": "chip",
@@ -2001,11 +2046,11 @@
           "y": 841,
           "fill": "amber",
           "in": {
-            "f": 6975,
+            "f": 8415,
             "fade": 9
           },
           "out": {
-            "f": 7362,
+            "f": 8658,
             "fade": 9
           }
         },
@@ -2016,11 +2061,11 @@
           "y": 852,
           "text": "DETERMINISTIC CAPTURE",
           "in": {
-            "f": 6975,
+            "f": 8415,
             "fade": 9
           },
           "out": {
-            "f": 7362,
+            "f": 8658,
             "fade": 9
           }
         },
@@ -2030,12 +2075,12 @@
           "y": 934,
           "w": 72,
           "draw": {
-            "f": 6984,
+            "f": 8424,
             "n": 9,
             "origin": "left"
           },
           "out": {
-            "f": 7362,
+            "f": 8658,
             "fade": 9
           }
         },
@@ -2046,17 +2091,17 @@
           "y": 912,
           "text": "FRAME-STEPPED, THEN CHECKED",
           "in": {
-            "f": 6984,
+            "f": 8424,
             "fade": 9
           },
           "track": {
-            "f": 6984,
+            "f": 8424,
             "from": 0.24,
             "to": 0.16,
             "n": 18
           },
           "out": {
-            "f": 7362,
+            "f": 8658,
             "fade": 9
           }
         },
@@ -2067,11 +2112,11 @@
           "y": 968,
           "text": "3,456 REEL FRAMES · EACH MATCHED TO ITS PLANNED SOURCE",
           "in": {
-            "f": 6993,
+            "f": 8433,
             "fade": 9
           },
           "out": {
-            "f": 7362,
+            "f": 8658,
             "fade": 9
           }
         }
@@ -2080,8 +2125,8 @@
     {
       "id": "B4",
       "name": "QA — fix the capture, not the symptom",
-      "from": 7380,
-      "to": 7874,
+      "from": 8676,
+      "to": 9314,
       "elements": [
         {
           "role": "kicker",
@@ -2090,11 +2135,11 @@
           "y": 140,
           "text": "QA · FIRST STRIKE COMPLETE CARD",
           "in": {
-            "f": 7398,
+            "f": 8694,
             "fade": 9
           },
           "out": {
-            "f": 7866,
+            "f": 9306,
             "fade": 9
           }
         },
@@ -2105,11 +2150,11 @@
           "y": 252,
           "text": "BEFORE · TITLE SCREEN CAUGHT MID-FADE",
           "in": {
-            "f": 7407,
+            "f": 8703,
             "fade": 9
           },
           "out": {
-            "f": 7866,
+            "f": 9306,
             "fade": 9
           }
         },
@@ -2120,11 +2165,11 @@
           "y": 252,
           "text": "AFTER · RECAPTURED",
           "in": {
-            "f": 7479,
+            "f": 8775,
             "fade": 9
           },
           "out": {
-            "f": 7866,
+            "f": 9306,
             "fade": 9
           }
         },
@@ -2141,12 +2186,12 @@
           "fill": "amber",
           "opacity": 0.9,
           "in": {
-            "f": 7434,
+            "f": 8730,
             "fade": 18,
             "scaleFrom": 1.08
           },
           "out": {
-            "f": 7866,
+            "f": 9306,
             "fade": 9
           }
         },
@@ -2157,11 +2202,11 @@
           "y": 1012,
           "text": "artifacts/reel-motion-review/c12-before-after.jpg · capture/ci/c12-first-strike-complete.png",
           "in": {
-            "f": 7416,
+            "f": 8712,
             "fade": 9
           },
           "out": {
-            "f": 7866,
+            "f": 9306,
             "fade": 9
           }
         }
@@ -2171,8 +2216,8 @@
       "id": "P1",
       "name": "Territory monuments",
       "chapter": "PAYOFF",
-      "from": 7992,
-      "to": 8378,
+      "from": 9432,
+      "to": 9818,
       "elements": [
         {
           "role": "chip",
@@ -2180,11 +2225,11 @@
           "y": 841,
           "fill": "amber",
           "in": {
-            "f": 8001,
+            "f": 9441,
             "fade": 9
           },
           "out": {
-            "f": 8370,
+            "f": 9810,
             "fade": 9
           }
         },
@@ -2195,28 +2240,28 @@
           "y": 852,
           "text": [
             [
-              8001,
+              9441,
               "TERRITORY MONUMENT · 1/4"
             ],
             [
-              8100,
+              9540,
               "TERRITORY MONUMENT · 2/4"
             ],
             [
-              8172,
+              9612,
               "TERRITORY MONUMENT · 3/4"
             ],
             [
-              8280,
+              9720,
               "TERRITORY MONUMENT · 4/4"
             ]
           ],
           "in": {
-            "f": 8001,
+            "f": 9441,
             "fade": 9
           },
           "out": {
-            "f": 8370,
+            "f": 9810,
             "fade": 9
           }
         },
@@ -2226,12 +2271,12 @@
           "y": 934,
           "w": 72,
           "draw": {
-            "f": 8010,
+            "f": 9450,
             "n": 9,
             "origin": "left"
           },
           "out": {
-            "f": 8370,
+            "f": 9810,
             "fade": 9
           }
         },
@@ -2242,34 +2287,34 @@
           "y": 912,
           "text": [
             [
-              8010,
+              9450,
               "HELIOS SPIRE"
             ],
             [
-              8100,
+              9540,
               "SIGNAL ARRAY"
             ],
             [
-              8172,
+              9612,
               "CRATER CROWN"
             ],
             [
-              8280,
+              9720,
               "BASTION ZIGGURAT"
             ]
           ],
           "in": {
-            "f": 8010,
+            "f": 9450,
             "fade": 9
           },
           "track": {
-            "f": 8010,
+            "f": 9450,
             "from": 0.24,
             "to": 0.16,
             "n": 18
           },
           "out": {
-            "f": 8370,
+            "f": 9810,
             "fade": 9
           }
         }
@@ -2278,8 +2323,8 @@
     {
       "id": "END",
       "name": "End card — title lockup on black",
-      "from": 8712,
-      "to": 9071,
+      "from": 10152,
+      "to": 10511,
       "elements": [
         {
           "role": "wordmarkTop",
@@ -2289,11 +2334,11 @@
           "anchor": "middle",
           "text": "SHOOT",
           "in": {
-            "f": 8730,
+            "f": 10170,
             "fade": 36
           },
           "track": {
-            "f": 8730,
+            "f": 10170,
             "from": 0.3,
             "to": 0.2,
             "n": 54
@@ -2307,11 +2352,11 @@
           "anchor": "middle",
           "text": "THE",
           "in": {
-            "f": 8766,
+            "f": 10206,
             "fade": 18
           },
           "track": {
-            "f": 8766,
+            "f": 10206,
             "from": 0.8,
             "to": 0.62,
             "n": 27
@@ -2327,7 +2372,7 @@
           "fill": "amber",
           "opacity": 0.72,
           "draw": {
-            "f": 8766,
+            "f": 10206,
             "n": 27,
             "origin": "inner"
           }
@@ -2342,7 +2387,7 @@
           "fill": "amber",
           "opacity": 0.72,
           "draw": {
-            "f": 8766,
+            "f": 10206,
             "n": 27,
             "origin": "inner"
           }
@@ -2356,11 +2401,11 @@
           "text": "MOON",
           "hideGlyph": 2,
           "in": {
-            "f": 8730,
+            "f": 10170,
             "fade": 36
           },
           "track": {
-            "f": 8730,
+            "f": 10170,
             "from": 0.3,
             "to": 0.2,
             "n": 54
@@ -2375,7 +2420,7 @@
             "opacity": 0.55
           },
           "occluder": {
-            "f": 8802,
+            "f": 10242,
             "n": 36,
             "from": 0,
             "to": -0.3,
@@ -2391,7 +2436,7 @@
           "anchor": "middle",
           "text": "1v1 LUNAR TERRITORY WARFARE",
           "in": {
-            "f": 8838,
+            "f": 10278,
             "fade": 18
           }
         },
@@ -2403,7 +2448,7 @@
           "anchor": "middle",
           "text": "PLAY IT IN YOUR BROWSER",
           "in": {
-            "f": 8874,
+            "f": 10314,
             "fade": 18
           }
         },
@@ -2415,7 +2460,7 @@
           "anchor": "middle",
           "text": "shootthemoon.pages.dev",
           "in": {
-            "f": 8874,
+            "f": 10314,
             "fade": 18
           }
         },
@@ -2427,7 +2472,7 @@
           "anchor": "middle",
           "text": "ALL GAMEPLAY CAPTURED IN-GAME",
           "in": {
-            "f": 8892,
+            "f": 10332,
             "fade": 18
           }
         }
@@ -2450,11 +2495,11 @@
       "width": 2,
       "opacity": 0.4,
       "in": {
-        "f": 3177,
+        "f": 3933,
         "fade": 18
       },
       "out": {
-        "f": 3654,
+        "f": 4374,
         "fade": 9
       }
     },
@@ -2469,19 +2514,19 @@
       "radius": 300,
       "timing": {
         "globe": {
-          "f": 4041,
+          "f": 4761,
           "fade": 27
         },
         "sites": {
-          "f": 4086,
+          "f": 4806,
           "fade": 9
         },
         "route": {
-          "f": 4122,
+          "f": 4842,
           "n": 180
         },
         "out": {
-          "f": 4662,
+          "f": 5526,
           "fade": 9
         }
       }
@@ -2499,19 +2544,19 @@
         1680
       ],
       "nodeIns": [
-        5382,
-        5454,
-        5526,
-        5598,
-        5670
+        7542,
+        7614,
+        7686,
+        7758,
+        7830
       ],
       "loop": {
-        "f": 5706,
+        "f": 7866,
         "n": 36,
         "y": 650
       },
       "out": {
-        "f": 5778,
+        "f": 7938,
         "fade": 9
       }
     },
@@ -2528,10 +2573,10 @@
         "cellH": 126,
         "gap": 14
       },
-      "first": 7002,
-      "every": 9,
+      "first": 8424,
+      "every": 6,
       "out": {
-        "f": 7362,
+        "f": 8658,
         "fade": 9
       }
     }

@@ -9,11 +9,13 @@
 import type { FinalEdit } from '../finalEdit.ts'
 import { drawnFilmFrames, resolveFilmCues, validateFilmCues, type FilmCues } from './filmScene.ts'
 import { bakedTransitions, checkTimelineSources, type MediaSources, type SourceRequest } from './mediaPriority.ts'
+import { narrationPlan, NARRATION_RATE, validateSelects, type VoSelects } from './narration.ts'
 
 export const FILM_SCHEMA = 'shootthemoon.youtube-film/1'
-export const MAX_NEW_CAPTURES = 3
+export const MAX_NEW_CAPTURES = 4
 export const VO_WORDS = { min: 260, max: 360 } as const
-/** Words per second a natural read can carry; above this a line is rushed. */
+/** Script-only estimate. Recorded selects are checked against their actual
+ * sample duration and the selects' measured syllable rate (see narration.ts). */
 export const VO_MAX_RATE = 2.9
 /** The cold open plays without narration for at least this long. */
 export const COLD_OPEN_SILENT_S = 3
@@ -43,7 +45,7 @@ export interface Segment {
   readonly id: string
   readonly act: string
   readonly shot?: string
-  readonly kind: 'reel' | 'hold' | 'still' | 'board' | 'black'
+  readonly kind: 'reel' | 'hold' | 'still' | 'video' | 'board' | 'black'
   readonly source?: ReelSource | HoldSource | AssetSource
   /** kind 'board': a picture board in film.boards; kind 'black': a graphics-only board in the cue sheet. */
   readonly board?: string
@@ -52,6 +54,8 @@ export interface Segment {
   readonly to: number
   /** Plate move id in the cue sheet (a new push on a held or still picture). */
   readonly push?: string
+  /** Editorial video reframe in source pixels: x, y, width, height. */
+  readonly sourceCrop?: readonly [number, number, number, number]
   readonly picture: string
   readonly transitionIn: string
   readonly transitionOut: string
@@ -61,10 +65,10 @@ export interface Segment {
   readonly claim?: string
 }
 
-export interface VoLine { readonly id: string; readonly act: string; readonly from: number; readonly to: number; readonly text: string; readonly words: number }
+export interface VoLine { readonly id: string; readonly act: string; readonly from: number; readonly to: number; readonly text: string; readonly words: number; readonly take?: number; readonly startSample?: number; readonly endSample?: number }
 export interface MusicMarker { readonly f: number; readonly timecode: string; readonly bar: number; readonly beat: number; readonly offFrames: number; readonly kind: string; readonly label: string; readonly note: string }
 export interface Claim { readonly id: string; readonly claim: string; readonly shownIn: readonly string[]; readonly evidence: readonly string[]; readonly caveat?: string; readonly note?: string }
-export interface Asset { readonly file: string; readonly kind: 'new-capture' | 'repo-recording' | 'repo-evidence'; readonly sha256: string; readonly size?: readonly [number, number]; readonly fps?: number; readonly window?: readonly [number, number]; readonly note?: string; readonly manifestShot?: string }
+export interface Asset { readonly file: string; readonly kind: 'new-capture' | 'repo-recording' | 'repo-evidence'; readonly sha256: string; readonly size?: readonly [number, number]; readonly fps?: number; readonly frames?: number; readonly window?: readonly [number, number]; readonly note?: string; readonly manifestShot?: string }
 export interface PictureLayer { readonly asset: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number; readonly from?: number; readonly to?: number }
 export interface PictureGrid { readonly media: string; readonly x: number; readonly y: number; readonly cols: number; readonly rows: number; readonly cellW: number; readonly cellH: number; readonly gap: number; readonly cells: ReadonlyArray<{ readonly shot: string; readonly frame: number }> }
 export interface PictureBoard { readonly background: 'black'; readonly layers?: readonly PictureLayer[]; readonly grid?: PictureGrid }
@@ -83,6 +87,7 @@ export interface Film {
   readonly boards: Readonly<Record<string, PictureBoard>>
   readonly titles: string
   readonly voiceover: readonly VoLine[]
+  readonly narration?: { readonly selects: string; readonly option: 'A'; readonly source: { readonly file: string; readonly sha256: string } }
   readonly music: readonly MusicMarker[]
   readonly claims: readonly Claim[]
   readonly newCaptures: { readonly limit: number; readonly used: number; readonly file: string; readonly why: Readonly<Record<string, string>> }
@@ -120,7 +125,7 @@ export function segmentAt(film: Film, f: number): Segment | undefined {
 }
 
 /** Every problem with the edit decision; empty means it is safe to render. */
-export function validateFilm(film: Film, sources: MediaSources, edit: FinalEdit, cues: FilmCues): string[] {
+export function validateFilm(film: Film, sources: MediaSources, edit: FinalEdit, cues: FilmCues, selects?: VoSelects): string[] {
   const problems: string[] = []
   const { timeline } = film
   if (film.schema !== FILM_SCHEMA) problems.push(`schema is ${film.schema}, expected ${FILM_SCHEMA}`)
@@ -148,6 +153,15 @@ export function validateFilm(film: Film, sources: MediaSources, edit: FinalEdit,
       case 'still':
         if (!isAsset(seg.source) || film.assets[seg.source.asset] === undefined) problems.push(`${seg.id}: a still needs a registered asset`)
         break
+      case 'video': {
+        const asset = isAsset(seg.source) ? film.assets[seg.source.asset] : undefined
+        if (asset === undefined || asset.frames !== seg.frames || asset.fps !== fps) problems.push(`${seg.id}: video must be a registered, full-rate asset with exactly ${seg.frames} frames (no retiming)`)
+        if (seg.sourceCrop !== undefined) {
+          const [x, y, w, h] = seg.sourceCrop
+          if (asset?.size === undefined || [x, y, w, h].some((v) => !Number.isInteger(v) || v % 2 !== 0) || x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > asset.size[0] || y + h > asset.size[1] || w / h !== width / height) problems.push(`${seg.id}: video crop must be even, inside the pinned source and retain the film aspect ratio`)
+        }
+        break
+      }
       case 'board':
         if (seg.board === undefined || film.boards[seg.board] === undefined) problems.push(`${seg.id}: unknown picture board ${seg.board}`)
         break
@@ -193,6 +207,14 @@ export function validateFilm(film: Film, sources: MediaSources, edit: FinalEdit,
   let words = 0
   let lastTo = -1
   const impacts = timeline.filter((s) => s.protect?.includes('impact'))
+  const selectProblems = film.narration !== undefined && selects !== undefined ? validateSelects(selects) : []
+  const recordedPlans = film.narration !== undefined && selects !== undefined && selectProblems.length === 0 ? narrationPlan(selects) : null
+  if (film.narration !== undefined) {
+    if (selects === undefined) problems.push('recorded narration requires the authoritative VO selects')
+    else problems.push(...selectProblems)
+    if (film.narration.option !== 'A' || film.narration.selects !== 'capture/youtube/vo-selects.json') problems.push('this pass requires Option A of the authoritative selects')
+    if (film.voiceover.length !== 21) problems.push('Option A requires all 21 narration lines')
+  }
   for (const line of film.voiceover) {
     words += line.words
     if (line.words !== countWords(line.text)) problems.push(`${line.id}: words is ${line.words}, the text has ${countWords(line.text)}`)
@@ -200,7 +222,12 @@ export function validateFilm(film: Film, sources: MediaSources, edit: FinalEdit,
     if (line.from <= lastTo) problems.push(`${line.id}: overlaps the previous line`)
     lastTo = line.to
     const rate = line.words / ((line.to - line.from + 1) / fps)
-    if (rate > VO_MAX_RATE) problems.push(`${line.id}: ${rate.toFixed(2)} words/s is rushed (max ${VO_MAX_RATE})`)
+    if (recordedPlans !== null) {
+      const p = recordedPlans.find((p) => p.id === line.id)
+      const selected = selects!.lines.find((l) => l.id === line.id)
+      if (p === undefined || selected === undefined || line.text !== selected.selectedText || line.take !== p.take || line.from !== p.from || line.to !== p.to || line.startSample !== p.startSample || line.endSample !== p.endSample) problems.push(`${line.id}: recorded select/wording/timing differs from its actual samples (rushed or padded windows are rejected)`)
+      if (p !== undefined && selected !== undefined && selected.measured.syllablesPerSecond * selected.select.durationS / (p.outputSamples / NARRATION_RATE) > 5.6) problems.push(`${line.id}: rushed recorded syllable rate`)
+    } else if (rate > VO_MAX_RATE) problems.push(`${line.id}: ${rate.toFixed(2)} words/s is rushed (max ${VO_MAX_RATE})`)
     for (const s of impacts) if (line.from <= s.to && line.to >= s.from) problems.push(`${line.id}: narration over ${s.id} (${s.protect})`)
   }
   if (film.voiceover.length > 0 && film.voiceover[0]!.from < COLD_OPEN_SILENT_S * fps) problems.push(`the first ${COLD_OPEN_SILENT_S} s carry no narration (the cold open works without context)`)
@@ -223,9 +250,11 @@ export function validateFilm(film: Film, sources: MediaSources, edit: FinalEdit,
   }
   for (const seg of timeline) if (seg.claim !== undefined && !film.claims.some((c) => c.id === seg.claim && c.shownIn.includes(seg.id))) problems.push(`${seg.id}: claim ${seg.claim} is not registered for it`)
 
-  // New captures: at most three, each a registered asset.
+  // Three original captures + the specifically authorized Helios exception.
   const captured = Object.values(film.assets).filter((a) => a.kind === 'new-capture').length
   if (captured !== film.newCaptures.used || captured > Math.min(film.newCaptures.limit, MAX_NEW_CAPTURES)) problems.push(`${captured} new captures (limit ${MAX_NEW_CAPTURES})`)
+  const originalShots = ['title-screen', 'landing-site-panel', 'mining-laser-closeup']
+  for (const asset of Object.values(film.assets).filter((a) => a.kind === 'new-capture')) if (!originalShots.includes(asset.manifestShot ?? '') && asset.manifestShot !== 'helios-mechanical-peak') problems.push('the fourth capture is authorized for Helios mass-driver only')
 
   // Picture boards: layers inside the frame and inside their segment.
   for (const seg of timeline.filter((s) => s.kind === 'board')) {

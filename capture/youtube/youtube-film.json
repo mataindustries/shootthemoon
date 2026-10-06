@@ -1,22 +1,22 @@
 {
   "schema": "shootthemoon.youtube-film/1",
-  "status": "first cut — picture lock for narration; NOT approved, NOT committed",
-  "title": "Shoot the Moon — launch film (first cut)",
+  "status": "VO / PICTURE LOCK REVIEW — Option A implemented; NOT approved, NOT committed",
+  "title": "Shoot the Moon — launch film (VO/picture lock review)",
   "thesis": "I wanted to build an original browser game about lunar territory, escalation and orbital warfare. The story is not that AI made a game: it is that frontier models, directed as creative and engineering collaborators, let one person execute an original idea, visual direction and system design far faster than they could alone.",
   "output": {
     "width": 1920,
     "height": 1080,
     "fps": 60,
-    "frames": 9072,
-    "durationS": 151.2,
+    "frames": 10512,
+    "durationS": 175.2,
     "encode": "H.264 High 4.2, CRF 16, preset slow, yuv420p, BT.709, closed GOP 1s, +faststart",
-    "audio": "none: no verified game audio exists; the picture lock is silent"
+    "audio": "AAC-LC 192 kb/s mono 48 kHz; real selected narration and original room tone only; no music or game audio"
   },
   "tempo": {
     "bpm": 100,
     "framesPerBeat": 36,
     "framesPerBar": 144,
-    "bars": 63
+    "bars": 73
   },
   "sourcePolicy": {
     "register": "capture/youtube/media-sources.json",
@@ -37,17 +37,17 @@
     {
       "id": "SYSTEMS",
       "from": 2628,
-      "to": 5219
+      "to": 7379
     },
     {
       "id": "BUILD",
-      "from": 5220,
-      "to": 7883
+      "from": 7380,
+      "to": 9323
     },
     {
       "id": "PAYOFF",
-      "from": 7884,
-      "to": 9071
+      "from": 9324,
+      "to": 10511
     }
   ],
   "timeline": [
@@ -416,7 +416,7 @@
       "source": {
         "asset": "capture-title-screen"
       },
-      "frames": 396,
+      "frames": 432,
       "push": "FP4",
       "picture": "NEW CAPTURE 1: the live launch gate (current build, 1920x1080 HUD profile): SHOOT THE MOON · BEGIN INVASION · CLICK · DRAG · SCROLL TO ZOOM.",
       "transitionIn": "hard cut",
@@ -427,14 +427,68 @@
       "nativeUi": true,
       "claim": "browser",
       "from": 2772,
-      "to": 3167
+      "to": 3203
+    },
+    {
+      "id": "s20a",
+      "act": "SYSTEMS",
+      "kind": "hold",
+      "frames": 252,
+      "push": "FP7",
+      "picture": "Crater Crown on the claimed lunar scar: clean approved machinery portrait, with a restrained push.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "from": 3204,
+      "to": 3455,
+      "shot": "c24",
+      "source": {
+        "media": "reel-clean",
+        "frame": 2690
+      }
+    },
+    {
+      "id": "s20b",
+      "act": "SYSTEMS",
+      "kind": "hold",
+      "frames": 144,
+      "push": "FP8",
+      "picture": "Helios Spire: clean approved mass-driver portrait before its continuous mechanical sequence.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "from": 3456,
+      "to": 3599,
+      "shot": "c22",
+      "source": {
+        "media": "reel-clean",
+        "frame": 2490
+      }
+    },
+    {
+      "id": "s20c",
+      "act": "SYSTEMS",
+      "kind": "hold",
+      "frames": 324,
+      "push": "FP9",
+      "picture": "The enormous lunar globe: a clean approved Moon frame with a restrained push and breathing room before live input.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "from": 3600,
+      "to": 3923,
+      "shot": "c01",
+      "source": {
+        "media": "reel-clean",
+        "frame": 200
+      }
     },
     {
       "id": "s21",
       "act": "SYSTEMS",
       "kind": "board",
       "board": "phone",
-      "frames": 504,
+      "frames": 468,
       "picture": "Real phone-viewport recording (repo verification artifact): TRACKING → FIRE NOW → tap → INTERCEPTED.",
       "transitionIn": "cut",
       "transitionOut": "cut",
@@ -443,8 +497,8 @@
       ],
       "nativeUi": true,
       "claim": "mobile",
-      "from": 3168,
-      "to": 3671
+      "from": 3924,
+      "to": 4391
     },
     {
       "id": "s22",
@@ -463,15 +517,15 @@
       ],
       "nativeUi": true,
       "claim": "coordinates",
-      "from": 3672,
-      "to": 4031
+      "from": 4392,
+      "to": 4751
     },
     {
       "id": "s23",
       "act": "SYSTEMS",
       "kind": "black",
       "board": "route",
-      "frames": 648,
+      "frames": 792,
       "picture": "Route diagram on black, computed from the game's own route code.",
       "transitionIn": "cut",
       "transitionOut": "cut",
@@ -480,8 +534,8 @@
         "B-route"
       ],
       "claim": "route",
-      "from": 4032,
-      "to": 4679
+      "from": 4752,
+      "to": 5543
     },
     {
       "id": "s24",
@@ -496,8 +550,22 @@
         "S5"
       ],
       "claim": "route",
-      "from": 4680,
-      "to": 4895
+      "from": 5544,
+      "to": 5759
+    },
+    {
+      "id": "s24a",
+      "act": "SYSTEMS",
+      "kind": "board",
+      "board": "flight",
+      "frames": 288,
+      "picture": "Existing verified flight recording moves as the author describes ambitious camera work.",
+      "transitionIn": "cut",
+      "transitionOut": "cut",
+      "graphics": [],
+      "nativeUi": true,
+      "from": 5760,
+      "to": 6047
     },
     {
       "id": "s25",
@@ -506,7 +574,7 @@
       "source": {
         "asset": "capture-mining-laser-closeup"
       },
-      "frames": 324,
+      "frames": 540,
       "push": "FP6",
       "picture": "NEW CAPTURE 3: the mining robot's laser on deposit beta, with the live outpost HUD (ore, energy, robots).",
       "transitionIn": "cut",
@@ -516,8 +584,30 @@
       ],
       "nativeUi": true,
       "claim": "procedural",
-      "from": 4896,
-      "to": 5219
+      "from": 6048,
+      "to": 6587
+    },
+    {
+      "id": "s25a",
+      "act": "SYSTEMS",
+      "shot": "helios-mechanical-peak",
+      "kind": "video",
+      "source": {
+        "asset": "capture-helios-mass-driver"
+      },
+      "frames": 792,
+      "picture": "Continuous Helios Spire reveal, charge, mass-driver firing and recovery; a 2× editorial reframe keeps the actual mechanism readable as the native camera pulls back.",
+      "transitionIn": "cut",
+      "transitionOut": "hard cut to the BUILD card",
+      "graphics": [],
+      "from": 6588,
+      "to": 7379,
+      "sourceCrop": [
+        500,
+        80,
+        960,
+        540
+      ]
     },
     {
       "id": "s26",
@@ -530,8 +620,8 @@
       "graphics": [
         "C2"
       ],
-      "from": 5220,
-      "to": 5363
+      "from": 7380,
+      "to": 7523
     },
     {
       "id": "s27",
@@ -547,15 +637,15 @@
         "B-workflow"
       ],
       "claim": "workflow",
-      "from": 5364,
-      "to": 5795
+      "from": 7524,
+      "to": 7955
     },
     {
       "id": "s28",
       "act": "BUILD",
       "kind": "board",
       "board": "iteration",
-      "frames": 1152,
+      "frames": 432,
       "picture": "Release-candidate evidence, baseline vs final, four pairs (rival close, missile follow, impact, ejecta).",
       "transitionIn": "cut",
       "transitionOut": "cut",
@@ -563,15 +653,15 @@
         "B2"
       ],
       "claim": "iteration",
-      "from": 5796,
-      "to": 6947
+      "from": 7956,
+      "to": 8387
     },
     {
       "id": "s29",
       "act": "BUILD",
       "kind": "board",
       "board": "capture",
-      "frames": 432,
+      "frames": 288,
       "picture": "Contact grid of 24 clean reel shots.",
       "transitionIn": "cut",
       "transitionOut": "cut",
@@ -580,15 +670,15 @@
         "B-capture"
       ],
       "claim": "capture",
-      "from": 6948,
-      "to": 7379
+      "from": 8388,
+      "to": 8675
     },
     {
       "id": "s30",
       "act": "BUILD",
       "kind": "board",
       "board": "qa",
-      "frames": 504,
+      "frames": 648,
       "picture": "QA before/after of the c12 capture (title screen ghosting, then recaptured).",
       "transitionIn": "cut",
       "transitionOut": "hard cut back to the game",
@@ -596,8 +686,8 @@
         "B4"
       ],
       "claim": "qa",
-      "from": 7380,
-      "to": 7883
+      "from": 8676,
+      "to": 9323
     },
     {
       "id": "s31",
@@ -615,8 +705,8 @@
       "transitionOut": "cut",
       "graphics": [],
       "nativeUi": true,
-      "from": 7884,
-      "to": 7991
+      "from": 9324,
+      "to": 9431
     },
     {
       "id": "s32",
@@ -635,8 +725,8 @@
       "graphics": [
         "P1"
       ],
-      "from": 7992,
-      "to": 8099
+      "from": 9432,
+      "to": 9539
     },
     {
       "id": "s33",
@@ -655,8 +745,8 @@
       "graphics": [
         "P1"
       ],
-      "from": 8100,
-      "to": 8171
+      "from": 9540,
+      "to": 9611
     },
     {
       "id": "s34",
@@ -675,8 +765,8 @@
       "graphics": [
         "P1"
       ],
-      "from": 8172,
-      "to": 8279
+      "from": 9612,
+      "to": 9719
     },
     {
       "id": "s35",
@@ -696,8 +786,8 @@
         "P1"
       ],
       "protect": "final pull-back (graphics only on its first 1.5 s)",
-      "from": 8280,
-      "to": 8711
+      "from": 9720,
+      "to": 10151
     },
     {
       "id": "s36",
@@ -710,8 +800,8 @@
       "graphics": [
         "END"
       ],
-      "from": 8712,
-      "to": 9071
+      "from": 10152,
+      "to": 10511
     }
   ],
   "assets": {
@@ -841,6 +931,34 @@
         540
       ],
       "note": "Left half: run #6 c12 with the title screen ghosting; right half: the recaptured still. Native HUD only; no ORBITAL RECORD graphics."
+    },
+    "phone-flight": {
+      "file": "artifacts/recordings/first-strike/first-strike-launch-to-ending.webm",
+      "kind": "repo-recording",
+      "sha256": "fc974a7c794243bd930da7aee4c15021083272201aeca3f00ad0f1d4154dd1d1",
+      "size": [
+        368,
+        800
+      ],
+      "fps": 25,
+      "window": [
+        14,
+        18.8
+      ],
+      "note": "Existing real flight/camera recording, natural 25fps cadence repeated to 60; no interpolation."
+    },
+    "capture-helios-mass-driver": {
+      "file": "capture-final/youtube/captures/helios-mass-driver/helios-mass-driver-clean.mkv",
+      "kind": "new-capture",
+      "sha256": "6be1d788984cabbc7e4411622eb7cb23feddf232b93f69a99c8be010e74a3033",
+      "manifestShot": "helios-mechanical-peak",
+      "size": [
+        1920,
+        1080
+      ],
+      "fps": 60,
+      "frames": 792,
+      "note": "Fourth and final authorized capture. Single continuous mechanical sequence; clean source, no audio or baked titles."
     }
   },
   "boards": {
@@ -866,7 +984,7 @@
           "w": 397,
           "h": 860,
           "from": 0,
-          "to": 287
+          "to": 107
         },
         {
           "asset": "rc-final-05",
@@ -875,7 +993,7 @@
           "w": 397,
           "h": 860,
           "from": 0,
-          "to": 287
+          "to": 107
         },
         {
           "asset": "rc-baseline-08",
@@ -883,8 +1001,8 @@
           "y": 116,
           "w": 397,
           "h": 860,
-          "from": 288,
-          "to": 575
+          "from": 108,
+          "to": 215
         },
         {
           "asset": "rc-final-08",
@@ -892,8 +1010,8 @@
           "y": 116,
           "w": 397,
           "h": 860,
-          "from": 288,
-          "to": 575
+          "from": 108,
+          "to": 215
         },
         {
           "asset": "rc-baseline-09",
@@ -901,8 +1019,8 @@
           "y": 116,
           "w": 397,
           "h": 860,
-          "from": 576,
-          "to": 863
+          "from": 216,
+          "to": 323
         },
         {
           "asset": "rc-final-09",
@@ -910,8 +1028,8 @@
           "y": 116,
           "w": 397,
           "h": 860,
-          "from": 576,
-          "to": 863
+          "from": 216,
+          "to": 323
         },
         {
           "asset": "rc-baseline-10",
@@ -919,8 +1037,8 @@
           "y": 116,
           "w": 397,
           "h": 860,
-          "from": 864,
-          "to": 1151
+          "from": 324,
+          "to": 431
         },
         {
           "asset": "rc-final-10",
@@ -928,8 +1046,8 @@
           "y": 116,
           "w": 397,
           "h": 860,
-          "from": 864,
-          "to": 1151
+          "from": 324,
+          "to": 431
         }
       ]
     },
@@ -1055,129 +1173,252 @@
           "h": 540
         }
       ]
+    },
+    "flight": {
+      "background": "black",
+      "layers": [
+        {
+          "asset": "phone-flight",
+          "x": 1130,
+          "y": 60,
+          "w": 442,
+          "h": 960
+        }
+      ]
     }
   },
   "titles": "capture/youtube/youtubeTitles.cues.json",
   "voiceover": [
     {
-      "id": "VO-A",
+      "id": "L01",
       "act": "WORLD",
       "from": 234,
-      "to": 474,
+      "to": 427,
       "text": "Getting there first feels like it should count for something.",
-      "words": 10
+      "words": 10,
+      "take": 2,
+      "startSample": 187200,
+      "endSample": 342240
     },
     {
-      "id": "VO-B",
+      "id": "L02",
       "act": "WORLD",
       "from": 822,
-      "to": 1110,
-      "text": "It doesn't. So you decide how far you're willing to go.",
-      "words": 11
+      "to": 878,
+      "text": "It doesn't.",
+      "words": 2,
+      "take": 1,
+      "startSample": 657600,
+      "endSample": 703200
     },
     {
-      "id": "VO-C",
+      "id": "L03",
+      "act": "WORLD",
+      "from": 921,
+      "to": 1100,
+      "text": "So you decide how far you're willing to go.",
+      "words": 9,
+      "take": 1,
+      "startSample": 736800,
+      "endSample": 880800
+    },
+    {
+      "id": "L04",
       "act": "ESCALATION",
       "from": 2022,
-      "to": 2118,
+      "to": 2107,
       "text": "Then it's their turn.",
-      "words": 4
+      "words": 4,
+      "take": 2,
+      "startSample": 1617600,
+      "endSample": 1685760
     },
     {
-      "id": "VO-D",
+      "id": "L05",
       "act": "ESCALATION",
       "from": 2316,
-      "to": 2622,
+      "to": 2562,
       "text": "And while you're busy with each other, someone else shows up.",
-      "words": 11
+      "words": 11,
+      "take": 2,
+      "startSample": 1852800,
+      "endSample": 2050080
     },
     {
-      "id": "VO-E",
+      "id": "L06",
       "act": "SYSTEMS",
       "from": 2646,
-      "to": 3161,
-      "text": "I wanted to make an original game about territory and escalation on the Moon — one you could open in a browser tab.",
-      "words": 22
+      "to": 3190,
+      "text": "I've wanted to make something like this since I was a kid playing StarCraft, reading Dune, and searching the library for anything I could find about space.",
+      "words": 27,
+      "take": 1,
+      "startSample": 2116800,
+      "endSample": 2552160
     },
     {
-      "id": "VO-F",
+      "id": "L07",
       "act": "SYSTEMS",
-      "from": 3186,
-      "to": 3659,
-      "text": "None of that was a cutscene. It's the game, running live — built for a phone as much as a desktop.",
-      "words": 20
+      "from": 3226,
+      "to": 3868,
+      "text": "Shoot the Moon became my version of all of that: territory, machines, escalation, and a Moon that actually feels enormous.",
+      "words": 20,
+      "take": 2,
+      "startSample": 2580960,
+      "endSample": 3094799
     },
     {
-      "id": "VO-G",
+      "id": "L08",
       "act": "SYSTEMS",
-      "from": 3690,
-      "to": 4025,
-      "text": "Every site is a real latitude and longitude on a lunar sphere, in metres.",
-      "words": 14
+      "from": 3923,
+      "to": 4379,
+      "text": "And none of this is a cutscene. It's the game running live in a browser, built for a phone as much as a desktop.",
+      "words": 24,
+      "take": 1,
+      "startSample": 3138720,
+      "endSample": 3503520
     },
     {
-      "id": "VO-H",
+      "id": "L09",
       "act": "SYSTEMS",
-      "from": 4050,
-      "to": 4889,
-      "text": "When you fire, the missile flies a route computed between the two sites — a hundred and thirty-two degrees around the Moon — tested at two thousand and forty-eight points so it never clips the surface.",
-      "words": 34
+      "from": 4427,
+      "to": 4709,
+      "text": "Every site exists at a real latitude and longitude on a lunar sphere.",
+      "words": 13,
+      "take": 1,
+      "startSample": 3541920,
+      "endSample": 3767520
     },
     {
-      "id": "VO-J",
+      "id": "L10",
       "act": "SYSTEMS",
-      "from": 4914,
-      "to": 5195,
-      "text": "There isn't one imported 3D model. Every machine is written in TypeScript.",
-      "words": 12
+      "from": 4769,
+      "to": 5134,
+      "text": "One of the key moments that changed the project was realizing how good the frontier models had become at math.",
+      "words": 20,
+      "take": 2,
+      "startSample": 3815520,
+      "endSample": 4107840
     },
     {
-      "id": "VO-K",
-      "act": "BUILD",
-      "from": 5238,
-      "to": 5598,
-      "text": "I didn't ask an AI to invent this. I had the game I wanted to make.",
-      "words": 16
+      "id": "L11",
+      "act": "SYSTEMS",
+      "from": 5164,
+      "to": 5994,
+      "text": "We used that to work out flight paths around the Moon, validate a hundred-and-thirty-two-degree route at two thousand and forty-eight points, and design camera moves I probably would have never even tried.",
+      "words": 32,
+      "take": 3,
+      "startSample": 4131840,
+      "endSample": 4795919
     },
     {
-      "id": "VO-L",
-      "act": "BUILD",
-      "from": 5616,
-      "to": 6072,
-      "text": "Claude and OpenAI's Codex let me iterate on it at a speed that changed what I could realistically attempt.",
-      "words": 19
+      "id": "L12",
+      "act": "SYSTEMS",
+      "from": 6055,
+      "to": 6227,
+      "text": "Then I started pushing the visual side harder.",
+      "words": 8,
+      "take": 2,
+      "startSample": 4844640,
+      "endSample": 4981920
     },
     {
-      "id": "VO-M",
-      "act": "BUILD",
-      "from": 6090,
-      "to": 6929,
-      "text": "The first First Strike was a red rocket and a white disc. I wrote down what it should be instead — hard sunlight, blackened armour, damage that looks physical — and we iterated until it matched.",
-      "words": 34
+      "id": "L13",
+      "act": "SYSTEMS",
+      "from": 6257,
+      "to": 6492,
+      "text": "The monuments, machines, and animations are all built in code.",
+      "words": 10,
+      "take": 2,
+      "startSample": 5005920,
+      "endSample": 5194080
     },
     {
-      "id": "VO-O",
-      "act": "BUILD",
-      "from": 6966,
-      "to": 7349,
-      "text": "Every gameplay frame here was captured from the game itself, deterministically, and then checked frame by frame.",
-      "words": 17
+      "id": "L14",
+      "act": "SYSTEMS",
+      "from": 6546,
+      "to": 7279,
+      "text": "The mass driver is still one of my favorites. It started as an idea in my head and gradually became this huge mechanical thing that actually feels like it belongs on the Moon.",
+      "words": 33,
+      "take": 1,
+      "startSample": 5237280,
+      "endSample": 5823840
     },
     {
-      "id": "VO-P",
+      "id": "L15",
       "act": "BUILD",
       "from": 7398,
-      "to": 7877,
-      "text": "When one capture came back with the title screen bleeding through it, we fixed the capture instead of hiding it.",
-      "words": 20
+      "to": 7684,
+      "text": "I didn't ask a model to invent this. I already knew the game I wanted to make.",
+      "words": 17,
+      "take": 1,
+      "startSample": 5918400,
+      "endSample": 6147599
     },
     {
-      "id": "VO-Q",
+      "id": "L16",
+      "act": "BUILD",
+      "from": 7739,
+      "to": 8029,
+      "text": "Claude and Codex became collaborators I could direct, test, and challenge.",
+      "words": 11,
+      "take": 1,
+      "startSample": 6191520,
+      "endSample": 6423360
+    },
+    {
+      "id": "L17",
+      "act": "BUILD",
+      "from": 8083,
+      "to": 8632,
+      "text": "My background in QA helped more than I expected. I treated every feature like something that had to survive testing, not just look right once.",
+      "words": 25,
+      "take": 2,
+      "startSample": 6466560,
+      "endSample": 6905760
+    },
+    {
+      "id": "L18",
+      "act": "BUILD",
+      "from": 8686,
+      "to": 9203,
+      "text": "Bad captures got recaptured. Bugs got reproduced. Ideas got rejected and rebuilt.",
+      "words": 12,
+      "take": 2,
+      "startSample": 6948960,
+      "endSample": 7362720
+    },
+    {
+      "id": "L19",
       "act": "PAYOFF",
-      "from": 7896,
-      "to": 8273,
-      "text": "What I'm proudest of isn't that a model wrote code. It's that you can play it.",
-      "words": 16
+      "from": 9336,
+      "to": 9535,
+      "text": "What I'm proudest of isn't that models wrote code.",
+      "words": 9,
+      "take": 2,
+      "startSample": 7468800,
+      "endSample": 7628640
+    },
+    {
+      "id": "L20",
+      "act": "PAYOFF",
+      "from": 9571,
+      "to": 9819,
+      "text": "It's that this feels like the kind of game I used to imagine making.",
+      "words": 14,
+      "take": 3,
+      "startSample": 7657440,
+      "endSample": 7855919
+    },
+    {
+      "id": "L21",
+      "act": "PAYOFF",
+      "from": 10170,
+      "to": 10317,
+      "text": "And now everyone can play it.",
+      "words": 6,
+      "take": 3,
+      "startSample": 8136000,
+      "endSample": 8254080
     }
   ],
   "music": [
@@ -1342,9 +1583,9 @@
       "note": "Near-silence for the card, then a sparse pulse at 100 BPM under the narration. Leave room for the voice."
     },
     {
-      "f": 4032,
-      "timecode": "1:07.20",
-      "bar": 29,
+      "f": 4752,
+      "timecode": "1:19.20",
+      "bar": 34,
       "beat": 1,
       "offFrames": 0,
       "kind": "lift",
@@ -1352,9 +1593,9 @@
       "note": "A slow lift under the route diagram; resolve as the code excerpt lands."
     },
     {
-      "f": 5220,
-      "timecode": "1:27.00",
-      "bar": 37,
+      "f": 7380,
+      "timecode": "2:03.00",
+      "bar": 52,
       "beat": 2,
       "offFrames": 0,
       "kind": "transition",
@@ -1362,9 +1603,9 @@
       "note": "Strip back again for the BUILD card. Warmer, more personal colour."
     },
     {
-      "f": 5796,
-      "timecode": "1:36.60",
-      "bar": 41,
+      "f": 7956,
+      "timecode": "2:12.60",
+      "bar": 56,
       "beat": 2,
       "offFrames": 0,
       "kind": "bed",
@@ -1372,9 +1613,9 @@
       "note": "Gentle rhythmic bed under the before/after; one accent per pair swap (every 288 frames = 2 bars)."
     },
     {
-      "f": 7884,
-      "timecode": "2:11.40",
-      "bar": 55,
+      "f": 9324,
+      "timecode": "2:35.40",
+      "bar": 65,
       "beat": 4,
       "offFrames": 0,
       "kind": "return",
@@ -1382,19 +1623,19 @@
       "note": "Back to the full theme on the hard cut into the game."
     },
     {
-      "f": 8280,
-      "timecode": "2:18.00",
-      "bar": 58,
+      "f": 9720,
+      "timecode": "2:42.00",
+      "bar": 68,
       "beat": 3,
       "offFrames": 0,
       "kind": "swell",
       "label": "pull-back",
-      "note": "Sustain/peak through the pull-back. The whole pull-back is unnarrated: the music carries it."
+      "note": "Sustain through the pull-back; L20 ends after its first 1.66s and the remaining 5.54s play without narration. Music not added in this pass."
     },
     {
-      "f": 8676,
-      "timecode": "2:24.60",
-      "bar": 61,
+      "f": 10116,
+      "timecode": "2:48.60",
+      "bar": 71,
       "beat": 2,
       "offFrames": 0,
       "kind": "dip",
@@ -1402,9 +1643,9 @@
       "note": "Begin the resolve on the dip to black."
     },
     {
-      "f": 8712,
-      "timecode": "2:25.20",
-      "bar": 61,
+      "f": 10152,
+      "timecode": "2:49.20",
+      "bar": 71,
       "beat": 3,
       "offFrames": 0,
       "kind": "resolve",
@@ -1412,9 +1653,9 @@
       "note": "Final chord as SHOOT THE MOON builds; ring out on the held lockup."
     },
     {
-      "f": 9071,
-      "timecode": "2:31.18",
-      "bar": 63,
+      "f": 10511,
+      "timecode": "2:55.18",
+      "bar": 73,
       "beat": 4,
       "offFrames": 35,
       "kind": "end",
@@ -1539,13 +1780,14 @@
     }
   ],
   "newCaptures": {
-    "limit": 3,
-    "used": 3,
+    "limit": 4,
+    "used": 4,
     "file": "capture/youtube/captures/captures.json",
     "why": {
       "title-screen": "Act 3 has to show that this is a live browser game, not an animation. The reel has no shot of the game's own entry screen; this is the current build's real launch gate.",
       "landing-site-panel": "The coordinate claim must be visible. The game itself prints the selected site's latitude, longitude and altitude; the reel never shows that panel.",
-      "mining-laser-closeup": "Territory and construction: the reel shows no mining or base economy at all. This is the live outpost HUD with the robot's laser on a deposit, and it carries the zero-model-files claim."
+      "mining-laser-closeup": "Territory and construction: the reel shows no mining or base economy at all. This is the live outpost HUD with the robot's laser on a deposit, and it carries the zero-model-files claim.",
+      "helios-mechanical-peak": "Explicit fourth-capture authorization in the VO/picture lock brief: the original c22 is only 1.8s, inadequate for the 12.22s selected personal mass-driver line."
     }
   },
   "protected": [
@@ -1585,13 +1827,13 @@
       "why": "Octogonal weapon exchange and the surface-defense hit (native reticle)"
     },
     {
-      "from": 7884,
-      "to": 7991,
+      "from": 9324,
+      "to": 9431,
       "why": "native Signal Array status card"
     },
     {
-      "from": 8676,
-      "to": 8711,
+      "from": 10116,
+      "to": 10151,
       "why": "c25 dip to black before the end card"
     }
   ],
@@ -1827,5 +2069,13 @@
         }
       ]
     }
-  ]
+  ],
+  "narration": {
+    "selects": "capture/youtube/vo-selects.json",
+    "option": "A",
+    "source": {
+      "file": "capture-final/youtube/audio/source/shoot-the-moon-vo-session-01.wav",
+      "sha256": "b1f9519450c98ab8792f63e355028476b21e16c065e278cb3aa8ad64209b96d8"
+    }
+  }
 }

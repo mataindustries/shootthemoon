@@ -1,8 +1,8 @@
 # SHOOT THE MOON — YOUTUBE LAUNCH FILM: TREATMENT
 
-**Status:** first cut, edit decision locked for narration. **Not approved. Not committed.**
+**Status:** Option A VO / picture-lock implementation for review. **Not approved. Not committed.**
 **Authority:** `capture/youtube/youtube-film.json` (edit decision) and `capture/youtube/youtubeTitles.cues.json` (graphics). This document is generated from them where it lists frames.
-**Runtime:** **2:31.20**, exactly **9,072 frames** at 60 fps (1920×1080). That is **63 bars at 100 BPM**, the reel's own tempo.
+**Runtime:** **2:55.20**, exactly **10,512 frames** at 60 fps (1920×1080): **73 bars at 100 BPM**. The original 2:31.20 picture tables in §4 remain as the first-cut comparison; the active complete timeline and every timing change are in [VO_PICTURE_LOCK.md](VO_PICTURE_LOCK.md).
 **Validation:** `validateFilm()` returns no problems. It runs `mediaPriority.ts checkTimelineSources` over every reel frame the picture reads, so the timeline rejects titled sources. See `capture/youtube/youtubeFilm.test.ts`.
 
 ---
@@ -15,11 +15,11 @@ The film earns that line in order:
 
 1. **World.** You landed first. They landed anyway.
 2. **Escalation.** First strike, counterstrike, a third power.
-3. **Systems.** None of it was a cutscene: real coordinates, a real route.
+3. **Systems.** Childhood interest in StarCraft, Dune and space becomes a personal game: real coordinates, model-assisted route mathematics, and code-authored machinery.
 4. **The build.** I directed, the models accelerated, and the evidence shows the iteration.
 5. **Payoff.** The finished game.
 
-AI is not mentioned until 1:27.3.
+The selected narration first mentions frontier models at **1:19.49**, in the mathematics section. Claude and Codex are named at **2:08.99**. The game continues carrying the picture.
 
 ## 2. Shape
 
@@ -27,18 +27,18 @@ AI is not mentioned until 1:27.3.
 |---|---|---|---|---|
 | WORLD | 0:00.00–0:18.60 | 0–1115 | Premise in 18 s: the Moon, your landing, their landing, Vesper's demand, the decision to fire. Works muted. | clean reel c01–c05 |
 | ESCALATION | 0:18.60–0:43.80 | 1116–2627 | First Strike → Counterstrike → the Octogonals. Impacts play clean and silent. | clean reel c06–c20, the reel's own order |
-| SYSTEMS | 0:43.80–1:27.00 | 2628–5219 | Reveal it is a live browser game, then three visible proofs: real coordinates, a computed route, code-authored 3D. | 3 new captures, phone recording, route diagram, one code excerpt |
-| BUILD | 1:27.00–2:11.40 | 5220–7883 | Introduce the model workflow, grounded in evidence: before/after iteration, deterministic capture, a real QA catch. | workflow diagram, release-candidate frames, clean contact grid, QA before/after |
-| PAYOFF | 2:11.40–2:31.20 | 7884–9071 | Back into the game: territory, monuments, the 7.2 s pull-back, the title. | clean reel c21–c25, end card |
+| SYSTEMS | 0:43.80–2:03.00 | 2628–7379 | Personal origin, live browser game, real coordinates, model-assisted route mathematics, code-authored machines and the mass driver. | clean-reel Moon/machinery holds, phone recordings, route diagram, code excerpt, fourth clean Helios capture |
+| BUILD | 2:03.00–2:35.40 | 7380–9323 | Models as directed, tested collaborators; QA experience and iterative engineering. | existing workflow, all four before/after pairs, capture grid, actual ghosting/corrected recapture |
+| PAYOFF | 2:35.40–2:55.20 | 9324–10511 | Back into the playable game: territory, monuments, 7.2 s pull-back and title. Final 5.54 s of pull-back has no narration. | unchanged clean reel c21–c25 durations, end card and selected closing take |
 
 Graphics announce and footage delivers, so the picture carries the film:
 
-- Clean game footage, game captures and game evidence fill **119 s, about 79%** of the runtime.
-- Text-and-diagram boards fill **32 s, about 21%**: two chapter cards, the route diagram, the code excerpt, the 7.2 s workflow diagram and the end card.
+- Clean game footage, game captures and game evidence fill **140.4 s, about 80%** of the runtime.
+- Text-and-diagram boards fill **34.8 s, about 20%**: two chapter cards, the route diagram, the code excerpt, the 7.2 s workflow diagram and the end card.
 
 Nothing from the reel is reused out of its context. Act 2 is the reel's own escalation order, which is still the right order. Every other act uses material the reel never had.
 
-**Why it is 2:31 and not longer.** The clean reel holds about 50 s of unique footage, and the brief bars stretching. The film runs as long as the narration and the breathing room need, and no longer.
+**Why it grows.** The user chose Option A and authorized the revised personal story. SYSTEMS gains 36 s (15 bars), BUILD loses 12 s (5 bars) and PAYOFF retains its full 19.8 s. Recorded delivery is preserved without time stretching. Act boundaries retain their original beat positions on the 100 BPM grid; the total remains a whole number of bars.
 
 ## 3. Source policy (as executed)
 
@@ -48,15 +48,16 @@ Nothing from the reel is reused out of its context. Act 2 is the reel's own esca
 - **Holds and pushes are new.** The titled reel's P1–P6 pushes are baked into titled frames, so they cannot be reused. c03, c04, c05 and the three captures get new perspective pushes (`platePushFilter`, never zoompan) on clean pictures.
 - **No graphic sits on a baked ORBITAL RECORD graphic**, because none exists in the sources. Native game UI is footage and is never covered: c04, c05, c12, c13, c21 and the three HUD captures.
 
-### New captures: 3 of 3 allowed
+### New captures: original three, plus the authorized fourth
 
-Each is an existing `capture/manifest.ts` shot, run unmodified through `capture/capture.spec.ts`. Nothing in `src/` changed. All three are pinned by hash in `capture/youtube/captures/captures.json`, and none had a page or console error.
+The original three remain pinned repository PNGs. The fourth is the existing `helios-mechanical-peak` shot, sampled as a continuous 13.2 s / 792-frame sequence through the existing `captureFinalRenderJob` exact-clock infrastructure. No gameplay, shot manifest, approved reel or loop is edited. Source frames, source times, input hashes and the clean video hash are recorded under `capture-final/youtube/captures/helios-mass-driver/` and indexed by `capture/youtube/captures/captures.json`.
 
 | Capture | Narrative problem it solves |
 |---|---|
 | `title-screen` | Act 3 must show this is a live browser game, not an animation. The reel never shows the game's own entry screen. |
 | `landing-site-panel` | The coordinate claim has to be visible. The game itself prints the selected site's latitude, longitude and altitude (5.490° N, 16.040° W, ALT 0 M). |
 | `mining-laser-closeup` | Territory and construction: the reel has no mining or base economy at all. This frame shows the live outpost HUD with the robot's laser on a deposit, and it carries the zero-model-files claim. |
+| `helios-mechanical-peak` | The selected mass-driver line needs a continuous mechanical/firing sequence. The old c22 remains in the payoff; the new source has hidden HUD, no baked titles, no audio and one firing without replay. |
 
 ### Other repo evidence used as picture (all pre-existing, hash-pinned in the film JSON)
 
@@ -66,7 +67,9 @@ Each is an existing `capture/manifest.ts` shot, run unmodified through `capture/
 | `artifacts/release-candidate/{baseline,final}/05,08,09,10` | Before/after iteration evidence, four pairs. The baseline is commit `d377cb5`. |
 | `artifacts/reel-motion-review/c12-before-after.jpg` | The QA catch |
 
-## 4. Complete timeline
+## 4. First-cut timeline (historical comparison)
+
+These are the original 9,072-frame picture timings. The active 10,512-frame edit is `youtube-film.json`; [VO_PICTURE_LOCK.md](VO_PICTURE_LOCK.md) lists every segment before and after this pass. The narrative order and early escalation are preserved.
 
 Frames are film frames; a segment's last frame is inclusive. "Clean source" gives reel-clean frame numbers. A held frame is the reel's own hold frame repeated.
 
@@ -144,68 +147,37 @@ Frames are film frames; a segment's last frame is inclusive. "Clean source" give
 
 ## 5. Voiceover
 
-**260 words**, written to be read by the author, and timed against the picture. Pace is 2.2–2.7 words/s, with silence on every impact and on the first 3.9 s.
+**317 words**, using all 21 selected takes from unchanged `vo-selects.json`, Option A. The recording supplies the personal history. Approved spoken variants are preserved, including “One of the key moments…”, “I probably would have never even tried”, “are all built in code”, and “And now everyone can play it.”
 
-Placeholder captions are not burned into the master. A temporary reference copy is produced only under `capture-final/youtube/qa/`.
+The keep ranges total **121.054988662 s** before the three 15 ms pause joins. Edited narration totals **121.009916667 s**, conformed to a **175.2 s** 48kHz mono PCM timeline. No narration is stretched, and its frame envelope is derived from exact sample positions rather than padded for a pace rule.
 
-| Line | Film frames | Time | Words | Pace | Text |
-|---|---|---|---|---|---|
-| VO-A | 234–474 | 0:03.90–0:07.90 | 10 | 2.49 w/s | Getting there first feels like it should count for something. |
-| VO-B | 822–1110 | 0:13.70–0:18.50 | 11 | 2.28 w/s | It doesn't. So you decide how far you're willing to go. |
-| VO-C | 2022–2118 | 0:33.70–0:35.30 | 4 | 2.47 w/s | Then it's their turn. |
-| VO-D | 2316–2622 | 0:38.60–0:43.70 | 11 | 2.15 w/s | And while you're busy with each other, someone else shows up. |
-| VO-E | 2646–3161 | 0:44.10–0:52.68 | 22 | 2.56 w/s | I wanted to make an original game about territory and escalation on the Moon — one you could open in a browser tab. |
-| VO-F | 3186–3659 | 0:53.10–1:00.98 | 20 | 2.53 w/s | None of that was a cutscene. It's the game, running live — built for a phone as much as a desktop. |
-| VO-G | 3690–4025 | 1:01.50–1:07.08 | 14 | 2.50 w/s | Every site is a real latitude and longitude on a lunar sphere, in metres. |
-| VO-H | 4050–4889 | 1:07.50–1:21.48 | 34 | 2.43 w/s | When you fire, the missile flies a route computed between the two sites — a hundred and thirty-two degrees around the Moon — tested at two thousand and forty-eight points so it never clips the surface. |
-| VO-J | 4914–5195 | 1:21.90–1:26.58 | 12 | 2.55 w/s | There isn't one imported 3D model. Every machine is written in TypeScript. |
-| VO-K | 5238–5598 | 1:27.30–1:33.30 | 16 | 2.66 w/s | I didn't ask an AI to invent this. I had the game I wanted to make. |
-| VO-L | 5616–6072 | 1:33.60–1:41.20 | 19 | 2.49 w/s | Claude and OpenAI's Codex let me iterate on it at a speed that changed what I could realistically attempt. |
-| VO-M | 6090–6929 | 1:41.50–1:55.48 | 34 | 2.43 w/s | The first First Strike was a red rocket and a white disc. I wrote down what it should be instead — hard sunlight, blackened armour, damage that looks physical — and we iterated until it matched. |
-| VO-O | 6966–7349 | 1:56.10–2:02.48 | 17 | 2.66 w/s | Every gameplay frame here was captured from the game itself, deterministically, and then checked frame by frame. |
-| VO-P | 7398–7877 | 2:03.30–2:11.28 | 20 | 2.50 w/s | When one capture came back with the title screen bleeding through it, we fixed the capture instead of hiding it. |
-| VO-Q | 7896–8273 | 2:11.60–2:17.88 | 16 | 2.54 w/s | What I'm proudest of isn't that a model wrote code. It's that you can play it. |
+| Line / take | Film frames | Exact film interval (rounded here) | Spoken text |
+|---|---|---|---|
+| L01 / 2 | 234–427 | 0:03.90–0:07.13 | Getting there first feels like it should count for something. |
+| L02 / 1 | 822–878 | 0:13.70–0:14.65 | It doesn't. |
+| L03 / 1 | 921–1100 | 0:15.35–0:18.35 | So you decide how far you're willing to go. |
+| L04 / 2 | 2022–2107 | 0:33.70–0:35.12 | Then it's their turn. |
+| L05 / 2 | 2316–2562 | 0:38.60–0:42.71 | And while you're busy with each other, someone else shows up. |
+| L06 / 1 | 2646–3190 | 0:44.10–0:53.17 | I've wanted to make something like this since I was a kid playing StarCraft, reading Dune, and searching the library for anything I could find about space. |
+| L07 / 2 | 3226–3868 | 0:53.77–1:04.47 | Shoot the Moon became my version of all of that: territory, machines, escalation, and a Moon that actually feels enormous. |
+| L08 / 1 | 3923–4379 | 1:05.39–1:12.99 | And none of this is a cutscene. It's the game running live in a browser, built for a phone as much as a desktop. |
+| L09 / 1 | 4427–4709 | 1:13.79–1:18.49 | Every site exists at a real latitude and longitude on a lunar sphere. |
+| L10 / 2 | 4769–5134 | 1:19.49–1:25.58 | One of the key moments that changed the project was realizing how good the frontier models had become at math. |
+| L11 / 3 | 5164–5994 | 1:26.08–1:39.91 | We used that to work out flight paths around the Moon, validate a hundred-and-thirty-two-degree route at two thousand and forty-eight points, and design camera moves I probably would have never even tried. |
+| L12 / 2 | 6055–6227 | 1:40.93–1:43.79 | Then I started pushing the visual side harder. |
+| L13 / 2 | 6257–6492 | 1:44.29–1:48.21 | The monuments, machines, and animations are all built in code. |
+| L14 / 1 | 6546–7279 | 1:49.11–2:01.33 | The mass driver is still one of my favorites. It started as an idea in my head and gradually became this huge mechanical thing that actually feels like it belongs on the Moon. |
+| L15 / 1 | 7398–7684 | 2:03.30–2:08.07 | I didn't ask a model to invent this. I already knew the game I wanted to make. |
+| L16 / 1 | 7739–8029 | 2:08.99–2:13.82 | Claude and Codex became collaborators I could direct, test, and challenge. |
+| L17 / 2 | 8083–8632 | 2:14.72–2:23.87 | My background in QA helped more than I expected. I treated every feature like something that had to survive testing, not just look right once. |
+| L18 / 2 | 8686–9203 | 2:24.77–2:33.39 | Bad captures got recaptured. Bugs got reproduced. Ideas got rejected and rebuilt. |
+| L19 / 2 | 9336–9535 | 2:35.60–2:38.93 | What I'm proudest of isn't that models wrote code. |
+| L20 / 3 | 9571–9819 | 2:39.53–2:43.66 | It's that this feels like the kind of game I used to imagine making. |
+| L21 / 3 | 10170–10317 | 2:49.50–2:51.96 | And now everyone can play it. |
 
-### Full script (as it will be read)
+The cold open retains 3.9 s without speech. Both impacts remain unnarrated. L20 overlaps the first 1.665 s of the Moon pull-back; its final 5.535 s remains unnarrated. L21 begins 0.3 s into the end card and ends 3.24 s before the film ends. No full captions are burned into this master.
 
-> **[0:03.9]** Getting there first feels like it should count for something.
->
-> **[0:13.7]** It doesn't. So you decide how far you're willing to go.
->
-> **[0:33.7]** Then it's their turn.
->
-> **[0:38.6]** And while you're busy with each other, someone else shows up.
->
-> **[0:44.1]** I wanted to make an original game about territory and escalation on the Moon — one you could open in a browser tab.
->
-> **[0:53.1]** None of that was a cutscene. It's the game, running live — built for a phone as much as a desktop.
->
-> **[1:01.5]** Every site is a real latitude and longitude on a lunar sphere, in metres.
->
-> **[1:07.5]** When you fire, the missile flies a route computed between the two sites — a hundred and thirty-two degrees around the Moon — tested at two thousand and forty-eight points so it never clips the surface.
->
-> **[1:21.9]** There isn't one imported 3D model. Every machine is written in TypeScript.
->
-> **[1:27.3]** I didn't ask an AI to invent this. I had the game I wanted to make.
->
-> **[1:33.6]** Claude and OpenAI's Codex let me iterate on it at a speed that changed what I could realistically attempt.
->
-> **[1:41.5]** The first First Strike was a red rocket and a white disc. I wrote down what it should be instead — hard sunlight, blackened armour, damage that looks physical — and we iterated until it matched.
->
-> **[1:56.1]** Every gameplay frame here was captured from the game itself, deterministically, and then checked frame by frame.
->
-> **[2:03.3]** When one capture came back with the title screen bleeding through it, we fixed the capture instead of hiding it.
->
-> **[2:11.6]** What I'm proudest of isn't that a model wrote code. It's that you can play it.
->
-> *(the 7.2 s pull-back and the end card play with no narration)*
-
-**Recording notes:**
-
-- Read it conversationally.
-- Each line's window is a ceiling, not a target. If a line runs short, leave the silence.
-- Lines VO-H and VO-M carry dashes. Treat them as breaths.
-- If you rephrase, keep every number exactly as written. Each one is checked against the code.
+Processing is restricted to selected per-line gains, 10/30 ms edge fades, approximately 15 ms equal-power joins only on L07/L11/L15, very-high-quality resampling, original room tone and one 80Hz 12dB/octave high-pass. Dynamics and loudness normalization wait for the later music mix. See the sample provenance and measured levels in `capture-final/youtube/audio/narration-manifest.json` and `qa/vo-qa-report.json`.
 
 ## 6. Graphics (ORBITAL RECORD, film edition)
 
@@ -280,7 +252,7 @@ No graphics are drawn on these frames, and `validateFilm` checks every one. The 
 
 ## 9. Music markers (for the final track)
 
-There is no music and no audio in this pass, because no verified game audio exists. The film is cut on the 100 BPM grid. Every cut sits on a beat (36 frames), and both impacts land exactly on bar lines (bars 12 and 16). The music brief is in §10.
+This pass contains the selected real narration only: no music or game audio. The marker table below retains the first-cut timings as historical context; the active retimed markers are in `youtube-film.json` and the generated `music-cue-sheet.json`. The film is cut on the 100 BPM grid. Every cut sits on a beat (36 frames), and both impacts land exactly on bar lines (bars 12 and 16). The music brief is in §10.
 
 | Frame | Time | Bar.beat (+frames) | Kind | Label | Note |
 |---|---|---|---|---|---|
@@ -311,14 +283,14 @@ There is no music and no audio in this pass, because no verified game audio exis
 
 ## 10. Music brief
 
-- **Length and tempo:** 2:31.20 exactly (9,072 frames), 100 BPM, 63 bars, 4/4.
+- **Length and tempo:** 2:55.20 exactly (10,512 frames), 100 BPM, 73 bars, 4/4. Music is not added during VO/picture lock.
 - **The two hard sync points:**
   - First Strike impact at **0:26.40** (frame 1584)
   - Counterstrike impact at **0:36.00** (frame 2160)
 - **The three structural drops, where everything thins:**
   - SYSTEMS card at **0:43.80**
-  - BUILD card at **1:27.00**
-  - the return to the game at **2:11.40**
+  - BUILD card at **2:03.00**
+  - the return to the game at **2:35.40**
 - **Character:**
   - **World:** cold, sparse and lunar, opening from a drone. A cyan rival motif lands on the Citadel cut (0:06.60).
   - **Escalation:**
@@ -327,12 +299,12 @@ There is no music and no audio in this pass, because no verified game audio exis
     - Each impact gets a sub drop and boom on the white flash.
     - The rival motif returns inverted at the counterstrike (0:33.60).
     - The Octogonals get a violet colour, an outside interval (0:38.40).
-  - **Systems and Build:** narration beds. A pulse at 100 BPM, low density, nothing in the voice's band. Small accents on board changes: the route lift at 1:07.20 and its draw-on at 1:08.70, and the before/after swaps every two bars from 1:36.60.
+  - **Systems and Build:** narration beds. A pulse at 100 BPM, low density, nothing in the voice's band. Small accents on board changes: the route lift at 1:19.20 and its draw-on at 1:20.70, and the before/after swaps every 1.8 s from 2:12.60.
   - **Payoff:**
-    - The full theme returns at 2:11.40.
-    - It sustains through the pull-back, which is unnarrated (narration ends at 2:17.88).
-    - It resolves on the dip to black (2:24.60).
-    - A final chord as the wordmark builds (2:25.20), ringing out on the held last frame.
+    - The full theme returns at 2:35.40.
+    - It sustains through the pull-back; its final 5.535 s is unnarrated after L20 ends at 2:43.665.
+    - It resolves on the dip to black (2:48.60).
+    - A final chord as the wordmark builds (2:49.20), leaving space for the selected closing at 2:49.50–2:51.96 and ringing out on the held last frame.
 - **Mix:** -14 LUFS integrated, -1 dBTP (the reel's `heroReel.audio` target). Leave headroom under the voice: duck about 8 dB during narration.
 - **Licensing:** original or properly licensed only. No copyrighted music.
 

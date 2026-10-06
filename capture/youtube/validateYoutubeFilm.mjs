@@ -10,8 +10,9 @@
  * timeline.md. Exits non-zero if any check fails.
  *
  * Checks:
- *  - format: H.264 High, 1920x1080, 60/1, exactly 9,072 frames, yuv420p,
- *    BT.709 limited-range tags, moov before mdat (faststart), no audio stream;
+ *  - format: H.264 High, 1920x1080, 60/1, exact spec frame count, yuv420p,
+ *    BT.709 limited-range tags, moov before mdat (faststart), one 48kHz AAC
+ *    narration stream in the VO master and no audio in the clean picture;
  *  - picture fidelity: every reel/hold/still frame of the picture lock matches
  *    its planned clean source (luma 192x108), and wherever the titled reel
  *    differs from the clean one, the film is the clean frame (no titled pixels);
@@ -24,11 +25,11 @@
  */
 import { createHash } from 'node:crypto'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { drawnFilmFrames, filmSceneAt, resolveFilmCues } from './filmScene.ts'
-import { mediaById, titledAlterations } from './mediaPriority.ts'
+import { identifyMedia, mediaById, titledAlterations } from './mediaPriority.ts'
 import { TITLE_RENDER_INPUTS, validateFilm } from './youtubeFilm.ts'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -50,7 +51,8 @@ const sources = readJson('capture/youtube/media-sources.json')
 const cues = readJson('capture/youtube/youtubeTitles.cues.json')
 const resolved = resolveFilmCues(cues)
 const { frames: FRAMES, fps: FPS } = film.output
-const firstCut = path.join(out, 'shoot-the-moon-youtube-first-cut.mp4')
+const hasNarration = film.narration !== undefined
+const firstCut = path.join(out, hasNarration ? 'shoot-the-moon-vo-picture-lock.mp4' : 'shoot-the-moon-youtube-first-cut.mp4')
 const pictureLock = path.join(out, 'clean-picture-lock.mp4')
 const titleTrack = path.join(out, 'titles', 'titles-track.mov')
 const report = { schema: 'shootthemoon.youtube-film-qa/1', checks: {}, failures: [] }
@@ -61,15 +63,15 @@ const check = (name, ok, detail) => {
 }
 
 // --- edit decision and provenance -------------------------------------------------
-const filmProblems = validateFilm(film, sources, readJson('capture/finalEdit.json'), cues)
+const filmProblems = validateFilm(film, sources, readJson('capture/finalEdit.json'), cues, readJson('capture/youtube/vo-selects.json'))
 check('edit decision validates (clean sources only, protected frames, VO pace)', filmProblems.length === 0, { problems: filmProblems })
 const manifest = JSON.parse(readFileSync(path.join(out, 'assembly-manifest.json'), 'utf8'))
 const titlesManifest = JSON.parse(readFileSync(path.join(out, 'titles', 'titles-manifest.json'), 'utf8'))
 const reelClean = mediaById(sources, 'reel-clean')
-const reelTitled = mediaById(sources, 'reel-titled')
+const reelTitled = identifyMedia(sources, fileSha(args.titled))
 const provenance = []
 if (fileSha(args.clean) !== reelClean.sha256) provenance.push('--clean is not reel-clean')
-if (fileSha(args.titled) !== reelTitled.sha256) provenance.push('--titled is not reel-titled (reference only, used here to prove absence)')
+if (reelTitled?.role !== 'creative-reference' || reelTitled.cleanCounterpart !== 'reel-clean' || reelTitled.frames !== reelClean.frames || reelTitled.fps !== reelClean.fps || reelTitled.cues !== 'capture/titles/reel-titles.cues.json') provenance.push('--titled is not a hash-pinned full-rate reel reference (reference only, used here to prove absence)')
 if (manifest.sources.reelClean.sha256 !== reelClean.sha256) provenance.push('assembly did not read reel-clean')
 if (manifest.film.sha256 !== fileSha(path.join(repo, 'capture/youtube/youtube-film.json'))) provenance.push('youtube-film.json changed since assembly')
 for (const file of TITLE_RENDER_INPUTS) if (titlesManifest.inputs[file] !== fileSha(path.join(repo, file))) provenance.push(`title input changed since render: ${file}`)
@@ -77,11 +79,11 @@ if (titlesManifest.track.sha256 !== fileSha(titleTrack)) provenance.push('title 
 if (manifest.outputs.firstCut.sha256 !== fileSha(firstCut)) provenance.push('first cut differs from the assembly manifest')
 if (manifest.outputs.pictureLock.sha256 !== fileSha(pictureLock)) provenance.push('picture lock differs from the assembly manifest')
 for (const [id, asset] of Object.entries(film.assets)) if (fileSha(path.join(repo, asset.file)) !== asset.sha256) provenance.push(`asset ${id} changed`)
-check('provenance: every source and output pinned by sha256', provenance.length === 0, { problems: provenance, firstCut: manifest.outputs.firstCut, pictureLock: manifest.outputs.pictureLock, titleTrack: titlesManifest.track })
+check('provenance: every source and output pinned by sha256', provenance.length === 0, { problems: provenance, firstCut: manifest.outputs.firstCut, pictureLock: manifest.outputs.pictureLock, titleTrack: titlesManifest.track, absenceReference: reelTitled })
 
 // --- format -----------------------------------------------------------------------
 function probe(file) {
-  const j = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-count_packets', '-show_entries', 'stream=codec_type,codec_name,profile,width,height,r_frame_rate,pix_fmt,color_range,color_space,color_transfer,color_primaries,nb_read_packets:format=duration', '-of', 'json', file]).toString())
+  const j = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-count_packets', '-show_entries', 'stream=codec_type,codec_name,profile,width,height,r_frame_rate,avg_frame_rate,pix_fmt,color_range,color_space,color_transfer,color_primaries,nb_read_packets,sample_rate,channels,duration,start_time:format=duration', '-of', 'json', file]).toString())
   const buf = readFileSync(file)
   const moov = buf.indexOf('moov'), mdat = buf.indexOf('mdat')
   return { streams: j.streams, duration: Number(j.format.duration), faststart: moov > 0 && moov < mdat }
@@ -91,10 +93,14 @@ for (const [name, file] of [['first cut', firstCut], ['picture lock', pictureLoc
   const v = p.streams.filter((s) => s.codec_type === 'video')
   const a = p.streams.filter((s) => s.codec_type === 'audio')
   const s = v[0] ?? {}
-  const ok = v.length === 1 && a.length === 0 && s.codec_name === 'h264' && s.profile === 'High' && s.width === 1920 && s.height === 1080 && s.r_frame_rate === '60/1' &&
+  const narrated = hasNarration && name === 'first cut'
+  const audioOk = narrated ? a.length === 1 && a[0].codec_name === 'aac' && a[0].profile === 'LC' && a[0].sample_rate === '48000' && a[0].channels === 1 && Math.abs(Number(a[0].duration) - FRAMES / FPS) < 0.02 && Number(a[0].start_time) === 0 : a.length === 0
+  const ok = v.length === 1 && audioOk && s.codec_name === 'h264' && s.profile === 'High' && s.width === 1920 && s.height === 1080 && s.r_frame_rate === '60/1' && s.avg_frame_rate === '60/1' &&
     Number(s.nb_read_packets) === FRAMES && s.pix_fmt === 'yuv420p' && s.color_range === 'tv' && s.color_space === 'bt709' && s.color_transfer === 'bt709' && s.color_primaries === 'bt709' &&
     Math.abs(p.duration - FRAMES / FPS) < 0.02 && p.faststart
-  check(`format: ${name} is H.264 High 1080p60, ${FRAMES} frames, BT.709 tv, faststart, silent`, ok, { stream: s, audioStreams: a.length, durationS: p.duration, faststart: p.faststart })
+  check(`format: ${name} is H.264 High 1080p60, ${FRAMES} frames, BT.709 tv, faststart, ${narrated ? 'AAC narration 48kHz' : 'silent'}`, ok, { stream: s, audioStreams: a, durationS: p.duration, faststart: p.faststart })
+  const pts = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_frames', '-show_entries', 'frame=best_effort_timestamp_time', '-of', 'json', file], { maxBuffer: 8_000_000 }).toString())
+  check(`timing: ${name} has every exact 60fps frame timestamp`, pts.frames.length === FRAMES && pts.frames.every((f, i) => Math.abs(Number(f.best_effort_timestamp_time) - i / FPS) < 0.000001), { frames: pts.frames.length })
 }
 
 // --- decode helpers ---------------------------------------------------------------
@@ -146,6 +152,13 @@ for (const seg of film.timeline.filter((s) => s.kind === 'still')) {
   stillRows.push({ segment: seg.id, asset: seg.source.asset, firstFrameMeanLumaDiff: Number(diff(pic, seg.from, ref, 0).toFixed(3)) })
 }
 check('stills: first frame of each capture matches its pinned PNG', stillRows.every((r) => r.firstFrameMeanLumaDiff < 2.5), { stills: stillRows })
+for (const seg of film.timeline.filter((s) => s.kind === 'video')) {
+  const crop = seg.sourceCrop === undefined ? '' : `crop=${seg.sourceCrop[2]}:${seg.sourceCrop[3]}:${seg.sourceCrop[0]}:${seg.sourceCrop[1]},scale=1920:1080:flags=lanczos+accurate_rnd+full_chroma_int,lutyuv=y='clip(val,16,235)':u='clip(val,16,240)':v='clip(val,16,240)'`
+  const source = grayFrames(path.join(repo, film.assets[seg.source.asset].file), crop)
+  let worst = 0
+  for (let i = 0; i < seg.frames; i++) worst = Math.max(worst, diff(pic, seg.from + i, source, i))
+  check(`video fidelity: ${seg.id} is its clean capture, every frame at natural rate`, source.length === seg.frames * TS && worst <= 1.5, { frames: seg.frames, worstMeanLumaDiff: worst, sourceCrop: seg.sourceCrop ?? null, source: film.assets[seg.source.asset] })
+}
 
 // --- cuts ---------------------------------------------------------------------------
 const cuts = []
@@ -254,18 +267,33 @@ generatedOutside: generated.slice(0, 20), blackLevel: blackProbe,
 }
 
 // --- contact sheet and readability -------------------------------------------------------------
-execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', firstCut, '-vf', `select='not(mod(n\\,60))',scale=240:135:flags=lanczos,drawtext=fontfile='${path.join(repo, 'capture/titles/fonts/IBMPlexMono-Regular.ttf')}':text='%{eif\\:n*60\\:d}':x=4:y=4:fontsize=11:fontcolor=yellow,tile=8x19:padding=4:color=0x202020`, '-frames:v', '1', '-q:v', '3', path.join(qa, 'contact-sheet.jpg')])
+execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', firstCut, '-vf', `select='not(mod(n\\,60))',scale=240:135:flags=lanczos,drawtext=fontfile='${path.join(repo, 'capture/titles/fonts/IBMPlexMono-Regular.ttf')}':text='%{eif\\:n*60\\:d}':x=4:y=4:fontsize=11:fontcolor=yellow,tile=8x${Math.ceil(FRAMES / FPS / 8)}:padding=4:color=0x202020`, '-frames:v', '1', '-q:v', '3', path.join(qa, hasNarration ? 'vo-lock-contact-sheet.jpg' : 'contact-sheet.jpg')])
 const holds = resolved.events.map((ev) => {
   // The fully built frame: the last frame before the event's first exit begins (or its last frame).
   const exits = ev.elements.flatMap((el) => (el.out ? [el.out.f] : []))
   return { id: ev.id, frame: Math.min(ev.to, exits.length > 0 ? Math.min(...exits) - 1 : ev.to) }
 })
-for (const h of holds) {
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', firstCut, '-vf', `select=eq(n\\,${h.frame})`, '-frames:v', '1', '-update', '1', path.join(qa, 'readability-1080', `${h.id}-${h.frame}.png`)])
-}
-const sel = holds.map((h) => `eq(n\\,${h.frame})`).join('+')
-execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', firstCut, '-vf', `select='${sel}',scale=480:270:flags=area,tile=4x${Math.ceil(holds.length / 4)}:padding=6:color=0x303030`, '-frames:v', '1', '-q:v', '2', path.join(qa, 'readability-480.jpg')])
-report.readability = { note: 'every graphic at its most complete frame, at 1080p (readability-1080/) and downscaled to 480x270 (readability-480.jpg): reviewed by eye', frames: holds }
+// Decode once for all graphic proofs. Selection still addresses the exact
+// delivered frame numbers; the split also preserves the original YUV-to-480p
+// atlas path rather than rescaling a JPEG or converting through cached RGB.
+const graphicFrames = [...new Set(holds.map((h) => h.frame))].sort((a, b) => a - b)
+const sampleDir = path.join(qa, 'graphic-samples')
+mkdirSync(sampleDir, { recursive: true })
+const sel = graphicFrames.map((f) => `eq(n\\,${f})`).join('+')
+const samplePattern = path.join(sampleDir, '%06d.png')
+execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', firstCut, '-filter_complex',
+  `[0:v]select='${sel}',split=2[full][small];[small]scale=480:270:flags=area,tile=4x${Math.ceil(holds.length / 4)}:padding=6:color=0x303030[atlas]`,
+  '-map', '[full]', '-frames:v', String(graphicFrames.length), '-fps_mode', 'vfr', '-start_number', '0', samplePattern,
+  '-map', '[atlas]', '-frames:v', '1', '-q:v', '2', path.join(qa, 'readability-480.jpg')])
+const graphicSamples = holds.map((h) => {
+  const sample = path.join(sampleDir, `${String(graphicFrames.indexOf(h.frame)).padStart(6, '0')}.png`)
+  const file = path.join(qa, 'readability-1080', `${h.id}-${h.frame}.png`)
+  copyFileSync(sample, file)
+  const png = readFileSync(file)
+  return { ...h, file: path.relative(qa, file), sha256: sha256(png), width: png.readUInt32BE(16), height: png.readUInt32BE(20) }
+})
+check('readability: every graphic has its exact full-resolution hold-frame proof', graphicSamples.length === resolved.events.length && graphicSamples.every((s) => s.width === 1920 && s.height === 1080), { samples: graphicSamples })
+report.readability = { note: 'every graphic at its most complete frame, at 1080p (readability-1080/) and downscaled to 480x270 (readability-480.jpg); visual review is recorded separately', frames: holds, samples: graphicSamples }
 
 // --- timeline -------------------------------------------------------------------------------------------
 const tc = (f) => { const s = f / FPS; const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(2).padStart(5, '0')}` }

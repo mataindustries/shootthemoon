@@ -1,7 +1,7 @@
 /**
  * Assembles the YouTube film from youtube-film.json: clean reel frames, the
- * three pinned captures and the pinned repo evidence for the picture, the
- * rendered title track on top.
+ * four pinned captures and the pinned repo evidence for the picture, the
+ * rendered title track and selected original narration.
  *
  *   node --experimental-strip-types --experimental-transform-types \
  *     capture/youtube/assembleYoutubeFilm.mjs \
@@ -15,7 +15,7 @@
  * push, board, asset and clean-reel hashes): a re-run rebuilds only what changed. --remove-work deletes the cache.
  *
  *   -> <out>/clean-picture-lock.mp4                picture only, no graphics (for VO recording and review)
- *      <out>/shoot-the-moon-youtube-first-cut.mp4   picture + ORBITAL RECORD graphics
+ *      <out>/shoot-the-moon-vo-picture-lock.mp4     picture + ORBITAL RECORD graphics + narration
  *      <out>/voiceover-script.txt, music-cue-sheet.json, assembly-manifest.json
  *      <out>/qa/vo-reference-960.mp4                TEMPORARY narration reference (never the master)
  *
@@ -31,7 +31,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseEncode, x264Args } from '../ci/assembly.ts'
+import { aacArgs, parseEncode, x264Args } from '../ci/assembly.ts'
 import { platePushFilter, titlesOverlayChains } from '../titles/titles.ts'
 import { TITLE_RENDER_INPUTS, validateFilm } from './youtubeFilm.ts'
 
@@ -51,13 +51,21 @@ const titles = pictureOnly ? null : path.resolve(args.titles)
 const readJson = (file) => JSON.parse(readFileSync(path.join(repo, file), 'utf8'))
 const sha256 = (data) => createHash('sha256').update(data).digest('hex')
 const fileSha = (file) => sha256(readFileSync(file))
-const ffmpeg = (argv) => execFileSync('ffmpeg', ['-hide_banner', '-v', 'error', '-y', ...argv], { stdio: ['ignore', 'inherit', 'inherit'] })
+const ffmpeg = (argv) => execFileSync('ffmpeg', ['-hide_banner', '-v', 'error', '-y', '-progress', 'pipe:1', '-stats_period', '30', ...argv], { stdio: ['ignore', 'inherit', 'inherit'] })
 const probeFrames = (file) => Number(execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', file]).toString().trim())
 
 const film = readJson('capture/youtube/youtube-film.json')
 const sources = readJson('capture/youtube/media-sources.json')
 const cues = readJson('capture/youtube/youtubeTitles.cues.json')
-const problems = validateFilm(film, sources, readJson('capture/finalEdit.json'), cues)
+const problems = validateFilm(film, sources, readJson('capture/finalEdit.json'), cues, readJson('capture/youtube/vo-selects.json'))
+const narration = film.narration === undefined ? null : path.join(out, 'audio', 'narration-mix.wav')
+const narrationManifest = narration === null ? null : JSON.parse(readFileSync(path.join(out, 'audio', 'narration-manifest.json'), 'utf8'))
+if (narration !== null) {
+  if (fileSha(narration) !== narrationManifest.outputs.mix.sha256) problems.push('narration mix differs from its provenance manifest')
+  if (narrationManifest.source.sha256 !== film.narration.source.sha256 || fileSha(path.join(repo, film.narration.source.file)) !== film.narration.source.sha256) problems.push('raw WAV differs from verified source')
+  if (narrationManifest.selects.sha256 !== fileSha(path.join(repo, film.narration.selects))) problems.push('VO selects changed since audio assembly')
+  if (narrationManifest.outputs.mix.samples !== film.output.frames * 48000 / 60) problems.push('narration timeline duration differs from picture')
+}
 
 // Inputs: clean reel, assets and title track exactly as pinned.
 const reelClean = sources.media.find((m) => m.id === 'reel-clean')
@@ -111,6 +119,10 @@ function buildSegment(seg, file) {
   } else if (seg.kind === 'hold') {
     const { input, skip } = reelInput(src.frame)
     ffmpeg([...input, '-vf', `trim=start_frame=${skip}:end_frame=${skip + 1},loop=loop=${N - 1}:size=1:start=0,${RETIME}${push(seg)}${seg.push === undefined ? '' : `,${LEGALIZE}`},format=yuv420p`, '-frames:v', String(N), ...LOSSLESS, file])
+  } else if (seg.kind === 'video') {
+    const asset = film.assets[src.asset]
+    const crop = seg.sourceCrop === undefined ? '' : `crop=${seg.sourceCrop[2]}:${seg.sourceCrop[3]}:${seg.sourceCrop[0]}:${seg.sourceCrop[1]},scale=${W}:${H}:flags=lanczos+accurate_rnd+full_chroma_int,${LEGALIZE},`
+    ffmpeg(['-i', path.join(repo, asset.file), '-vf', `${crop}${RETIME},format=yuv420p`, '-frames:v', String(N), ...LOSSLESS, file])
   } else if (seg.kind === 'still') {
     const png = path.join(repo, film.assets[src.asset].file)
     // The push resamples after the conversion to limited range, and lanczos/cubic ringing on thin UI text overshoots it;
@@ -173,7 +185,7 @@ mkdirSync(work, { recursive: true })
 
 // 1. Picture segments (cached by fingerprint).
 /** Bump when buildSegment/buildBoard change the pixels they produce. */
-const SEGMENT_REVISION = 1
+const SEGMENT_REVISION = 2
 function segmentFingerprint(seg) {
   const move = seg.push === undefined ? null : cues.plateMoves.find((m) => m.id === seg.push)
   const board = seg.kind === 'board' ? film.boards[seg.board] : null
@@ -181,7 +193,7 @@ function segmentFingerprint(seg) {
   const readsClean = seg.kind === 'reel' || seg.kind === 'hold' || board?.grid !== undefined
   return sha256(JSON.stringify({
     revision: SEGMENT_REVISION,
-    segment: { kind: seg.kind, source: seg.source ?? null, frames: seg.frames, board: seg.board ?? null },
+    segment: { kind: seg.kind, source: seg.source ?? null, sourceCrop: seg.sourceCrop ?? null, frames: seg.frames, board: seg.board ?? null },
     move: move === null ? null : { scale: move.scale, anchor: move.anchor },
     board,
     assets: assetIds.map((id) => film.assets[id].sha256),
@@ -210,7 +222,7 @@ const picture = path.join(work, 'picture.mkv')
 ffmpeg(['-f', 'concat', '-safe', '0', '-i', path.join(work, 'segments.txt'), '-c', 'copy', picture])
 if (probeFrames(picture) !== FRAMES) throw new Error(`picture lock is ${probeFrames(picture)} frames, expected ${FRAMES}`)
 
-// 2. Delivery encodes: the reel's hero settings, silent.
+// 2. Delivery encodes: the reel's hero settings; narration only in the master.
 const encode = ['-an', '-sn', '-dn', ...x264Args(parseEncode({ file: 'youtube film', encode: film.output.encode }), FPS)]
 const pictureLock = path.join(out, 'clean-picture-lock.mp4')
 const lockFp = path.join(work, 'clean-picture-lock.fingerprint')
@@ -223,23 +235,26 @@ if (pictureOnly) {
   console.log(`PICTURE LOCK ASSEMBLED — ${FRAMES} frames, ${pictureLock} (${Math.round((Date.now() - started) / 1000)}s); segments cached in ${work}`)
   process.exit(0)
 }
-const firstCut = path.join(out, 'shoot-the-moon-youtube-first-cut.mp4')
+const firstCut = path.join(out, narration === null ? 'shoot-the-moon-youtube-first-cut.mp4' : 'shoot-the-moon-vo-picture-lock.mp4')
 const composite = [`[0:v]format=yuv444p,${RETIME}[pic]`, ...titlesOverlayChains('1:v', 'pic', 'titled', FPS), '[titled]format=yuv420p[v]']
-ffmpeg(['-i', picture, '-i', titles, '-filter_complex', composite.join(';'), '-map', '[v]', '-frames:v', String(FRAMES), ...encode, firstCut])
+ffmpeg(['-i', picture, '-i', titles, ...(narration === null ? [] : ['-i', narration]), '-filter_complex', composite.join(';'), '-map', '[v]', '-frames:v', String(FRAMES),
+  ...encode.filter((x) => narration === null || x !== '-an'),
+  ...(narration === null ? [] : ['-map', '2:a:0', ...aacArgs({ bitrateKbps: 192, sampleRate: 48000, channels: 1 }), '-t', String(FRAMES / FPS)]), firstCut])
 
 // 3. Narration and music hand-off files.
 const tc = (f) => { const s = f / FPS; const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(2).padStart(5, '0')}` }
 const script = [
-  'SHOOT THE MOON — YOUTUBE LAUNCH FILM — VOICEOVER SCRIPT (first cut)',
+  `SHOOT THE MOON — YOUTUBE LAUNCH FILM — ${narration === null ? 'VOICEOVER SCRIPT (first cut)' : 'SELECTED RECORDED VO (OPTION A)'}`,
   `Runtime ${tc(FRAMES)} (${FRAMES} frames at ${FPS} fps). ${film.voiceover.reduce((n, l) => n + l.words, 0)} words.`,
-  'Each line has a window. Read naturally; if a line finishes early, leave the silence. Numbers are checked against the code: keep them exactly.',
+  narration === null ? 'Each line has a window. Read naturally; if a line finishes early, leave the silence. Numbers are checked against the code: keep them exactly.' : 'These are the selected recorded performances, placed at exact source-derived sample times. See audio/narration-manifest.json for take/range provenance. No new recording is required for this build.',
   '',
   ...film.voiceover.flatMap((l) => [`[${tc(l.from)} – ${tc(l.to)}]  ${l.id} · ${l.act} · ${l.words} words`, l.text, '']),
 ].join('\n')
 writeFileSync(path.join(out, 'voiceover-script.txt'), script)
 writeFileSync(path.join(out, 'music-cue-sheet.json'), JSON.stringify({
   schema: 'shootthemoon.youtube-music-cues/1',
-  film: 'shoot-the-moon-youtube-first-cut.mp4',
+  film: path.basename(firstCut),
+  status: 'Future music handoff markers only; no music in this build.',
   frames: FRAMES, fps: FPS, durationS: FRAMES / FPS, bpm: film.tempo.bpm, framesPerBeat: film.tempo.framesPerBeat, bars: film.tempo.bars,
   hardSync: film.music.filter((m) => m.kind === 'impact'),
   markers: film.music,
@@ -261,7 +276,7 @@ const draw = film.voiceover.map((l) => {
   return `drawtext=fontfile='${font}':textfile='${textFile}':x=24:y=h-th-24:fontsize=17:line_spacing=6:fontcolor=white:box=1:boxcolor=black@0.62:boxborderw=10:enable='between(n,${l.from},${l.to})'`
 })
 const stamp = `drawtext=fontfile='${font}':text='TEMP VO REFERENCE  %{frame_num}  %{pts\\:hms}':start_number=0:x=w-tw-16:y=14:fontsize=14:fontcolor=white@0.8`
-ffmpeg(['-i', firstCut, '-vf', `scale=960:540:flags=lanczos,${draw.join(',')},${stamp}`, '-an', '-c:v', 'libx264', '-crf', '24', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv', '-movflags', '+faststart', path.join(out, 'qa', 'vo-reference-960.mp4')])
+if (narration === null) ffmpeg(['-i', firstCut, '-vf', `scale=960:540:flags=lanczos,${draw.join(',')},${stamp}`, '-an', '-c:v', 'libx264', '-crf', '24', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv', '-movflags', '+faststart', path.join(out, 'qa', 'vo-reference-960.mp4')])
 
 // 5. Provenance.
 const tool = (cmd) => execFileSync(cmd, ['-version']).toString().split('\n')[0]
@@ -275,16 +290,17 @@ const manifest = {
     reelClean: { sha256: cleanSha, register: 'capture/youtube/media-sources.json' },
     assets: film.assets,
     titleTrack: { sha256: titlesManifest.track.sha256, browser: titlesManifest.browser, drawnFrames: titlesManifest.drawnFrames, inputs: titlesManifest.inputs },
+    ...(narrationManifest === null ? {} : { narration: narrationManifest }),
   },
   sourcePolicy: 'reel frames from reel-clean only (validateFilm/checkTimelineSources); no titled media read',
   tools: { ffmpeg: tool('ffmpeg'), node: process.version },
   encode: film.output.encode,
   audio: film.output.audio,
-  segments: film.timeline.map((s) => ({ id: s.id, kind: s.kind, from: s.from, to: s.to, source: s.source ?? (s.board ? { board: s.board } : null), push: s.push ?? null })),
+  segments: film.timeline.map((s) => ({ id: s.id, kind: s.kind, from: s.from, to: s.to, source: s.source ?? (s.board ? { board: s.board } : null), sourceCrop: s.sourceCrop ?? null, push: s.push ?? null })),
   outputs: {
     pictureLock: describe(pictureLock),
     firstCut: describe(firstCut),
-    voReference: { ...describe(path.join(out, 'qa', 'vo-reference-960.mp4')), note: 'temporary narration reference; burned-in captions; never a master' },
+    ...(narration === null ? { voReference: { ...describe(path.join(out, 'qa', 'vo-reference-960.mp4')), note: 'temporary narration reference; burned-in captions; never a master' } } : {}),
   },
   elapsedSec: Math.round((Date.now() - started) / 1000),
 }

@@ -58,6 +58,19 @@
       "cleanCounterpart": "loop-clean",
       "cues": "capture/titles/loop-titles.cues.json",
       "note": "ORBITAL RECORD loop edition: L1-L3 records and the LP1 plate push."
+    },
+    {
+      "id": "reel-titled-repo",
+      "role": "creative-reference",
+      "file": "artifacts/reel-motion-review/reel-57s-1080-titled.mp4",
+      "sha256": "7be8b4f8e896a0c639b3aad3be3a71e6c0be2a6fd09b6c9e9a0e408f9083c5fb",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "frames": 3456,
+      "cleanCounterpart": "reel-clean",
+      "cues": "capture/titles/reel-titles.cues.json",
+      "note": "Existing repository ORBITAL RECORD finish. Reference-only alternate for QA when the separately supplied a523e35c release is unavailable. Its verified titled-manifest.json pins the cue sheet, corrected c12 and this hash; it is never film source footage. The four original release pins are unchanged."
     }
   ],
   "footage": [

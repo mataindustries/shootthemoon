@@ -1,6 +1,6 @@
 {
   "schema": "shootthemoon.youtube-captures/1",
-  "note": "The three new gameplay captures for the YouTube film (the pass allows at most three). Each is an existing capture/manifest.ts shot, run unmodified through capture/capture.spec.ts; nothing in src/ changed. capture.json is copied verbatim from capture-output/<shot>/.",
+  "note": "Original three YouTube captures retained verbatim. The fourth and final capture is the explicitly authorized continuous Helios Spire mass-driver sequence, through the existing game and exact-clock final-render infrastructure; no gameplay or approved reel/loop edits.",
   "command": "PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium npx playwright test --config=capture/playwright.capture.config.ts capture/capture.spec.ts -g \"title-screen|landing-site-panel|mining-laser-closeup\"",
   "captures": [
     {
@@ -118,6 +118,53 @@
         "notes": "EXTRACTOR fixture (createLegacyActiveExtractorSave, e2e/rivalFixtures.ts) — an already-landed save with a built extractor on deposit-alpha at a fixed known site, reused unmodified from the existing e2e fixture architecture. Targets deposit-beta, the exact second deposit e2e/mining-asset-pass.spec.ts's own passing test already taps at this same site/fixture (proven to always project onto the canvas and to still read \"MINE DEPOSIT\" rather than \"EXTRACTOR ACTIVE\", since the built extractor sits on the other deposit). Clicks MINE DEPOSIT and pauses the live simulation the instant data-robot-state=\"mining\". Camera auto-frames a close-up via CameraRig's surface-focus-mining mode — no manual zoom. Replaces an earlier FRESH + canvas-center-claim approach whose default site was not guaranteed to have a deposit nearby — this fixture removes that gamble instead of searching around it (see the full history on reachMiningCloseup in gameActions.ts).",
         "gitCommitSha": "ead2bbdf5b13999a8639549ec29e030e68d0460b",
         "capturedAtIso": "2026-10-04T23:28:10.403Z"
+      }
+    },
+    {
+      "id": "helios-mechanical-peak",
+      "file": "capture-final/youtube/captures/helios-mass-driver/helios-mass-driver-clean.mkv",
+      "sha256": "6be1d788984cabbc7e4411622eb7cb23feddf232b93f69a99c8be010e74a3033",
+      "provenance": {
+        "file": "capture-final/youtube/captures/helios-mass-driver/capture.json",
+        "sha256": "15a9ba4802bc7d475262ba92e82ef3e12918fc7f09364a82980c8b7e46a9c4f4",
+        "frameHashesFile": "capture-final/youtube/captures/helios-mass-driver/frames.sha256",
+        "frameHashesSha256": "7680f4cb67e3345d540196100431fbcf46b624aa789b841a611477b197fad0c6"
+      },
+      "capture": {
+        "shotId": "helios-mechanical-peak",
+        "name": "Helios Spire — mass-driver fire",
+        "profile": "HUD",
+        "cssViewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "deviceScaleFactor": 1.5,
+        "actualBufferSize": {
+          "width": 1920,
+          "height": 1080
+        },
+        "expectedDpr": 1.5,
+        "requestedFps": 60,
+        "startMs": 300,
+        "endMs": 13483.333333333334,
+        "frameCount": 792,
+        "fixture": "MON_HELIOS_SPIRE",
+        "hudMode": "hidden",
+        "clockMode": "exact elapsed-ms via captureFinalRenderJob/sampleClockAt",
+        "pageErrors": [],
+        "consoleErrors": [],
+        "nudgedFrames": [],
+        "notes": "One continuous 13.2-second session, reveal through first fire and recovery; ends before next fire. Full-frame clean lossless source, no titles or audio. Exact frame times, PNG hashes, capture/game input hashes and browser provenance are in the pinned capture.json.",
+        "gitCommitSha": "668c724039f7d0e17f31df21060444d1738a836c",
+        "captureStartedAtIso": "2026-10-06T04:13:06.212Z",
+        "capturedAtIso": "2026-10-06T04:39:39.651Z",
+        "browser": {
+          "name": "chromium",
+          "version": "151.0.7922.34",
+          "playwrightVersion": "1.62.1",
+          "renderer": "existing capture config: ANGLE SwiftShader"
+        },
+        "sequenceSha256": "f2a6a49c65fbe61ac99f7c8dfc3a294da5d95d8b041f9e30fd7bc3103da2e733"
       }
     }
   ]

@@ -20,10 +20,15 @@ const covered = (ranges: readonly FrameRange[], f: number) => ranges.some((r) =>
 const MEASURED_REEL = [[36, 137], [432, 575], [579, 719], [731, 863], [1152, 1289], [1623, 1724], [1730, 1859], [2016, 2159], [2448, 2837], [2952, 3089], [3168, 3455]] as const
 const MEASURED_LOOP = [[81, 123], [216, 239], [333, 377], [339, 413]] as const
 
-test('two clean sources and two titled references, identified by hash', () => {
+test('original release pins retained; repository reference is separately identified and never footage', () => {
   assert.equal(sources.schema, MEDIA_SOURCES_SCHEMA)
-  assert.deepEqual(sources.media.map((m) => [m.id, m.role]), [['reel-clean', 'primary-clean'], ['loop-clean', 'primary-clean'], ['reel-titled', 'creative-reference'], ['loop-titled', 'creative-reference']])
-  assert.equal(new Set(sources.media.map((m) => m.sha256)).size, 4)
+  assert.deepEqual(sources.media.map((m) => [m.id, m.role]), [['reel-clean', 'primary-clean'], ['loop-clean', 'primary-clean'], ['reel-titled', 'creative-reference'], ['loop-titled', 'creative-reference'], ['reel-titled-repo', 'creative-reference']])
+  assert.equal(new Set(sources.media.map((m) => m.sha256)).size, 5)
+  assert.equal(mediaById(sources, 'reel-clean').sha256, 'f1150945eb5356f4260351622201edc14d982ac1baaab804091ab1d8c74680d0')
+  assert.equal(mediaById(sources, 'reel-titled').sha256, 'a523e35c53b76043bbad9bfd277f666a99c0ecbab4c79c4acdbe98500ee7b188')
+  const alternate = mediaById(sources, 'reel-titled-repo')
+  assert.equal(alternate.sha256, '7be8b4f8e896a0c639b3aad3be3a71e6c0be2a6fd09b6c9e9a0e408f9083c5fb')
+  assert.equal(checkTimelineSources(sources, [{ media: alternate.id, from: 0, to: 59 }]).length, 1)
   for (const m of sources.media) assert.match(m.sha256, /^[0-9a-f]{64}$/)
   // Both loops were supplied under the same name; only the hash tells them apart.
   assert.equal(identifyMedia(sources, '9ad3f69823d74d1826d624cef0555a46fcac9becbf7a5fe914e3e61f9e134864')?.id, 'loop-clean')

@@ -45,7 +45,7 @@ const sha256 = (data) => createHash('sha256').update(data).digest('hex')
 
 const film = readJson('capture/youtube/youtube-film.json')
 const cues = readJson('capture/youtube/youtubeTitles.cues.json')
-const problems = validateFilm(film, readJson('capture/youtube/media-sources.json'), readJson('capture/finalEdit.json'), cues)
+const problems = validateFilm(film, readJson('capture/youtube/media-sources.json'), readJson('capture/finalEdit.json'), cues, readJson('capture/youtube/vo-selects.json'))
 if (problems.length > 0) {
   console.error(`youtube-film.json is not safe to render:\n  ${problems.join('\n  ')}`)
   process.exit(1)
@@ -196,11 +196,26 @@ try {
     for (let i = 0; i < jobs; i++) stages.push(await openStage(browser))
     const frameHashes = {}
     frameHashes.blank = sha256(await shoot(stages[0].stage, stages[0].page, 0, path.join(framesDir, 'blank.png'), []))
-    await inParallel(drawn, jobs, async (frame, worker) => {
+    // Identical draw ops produce identical pixels. Render static holds once;
+    // all entrances/exits/counters still render at every distinct state.
+    const byOps = new Map()
+    const unique = []
+    const copies = []
+    for (const frame of drawn) {
+      const key = JSON.stringify(filmSceneAt(resolved, frame))
+      const previous = byOps.get(key)
+      if (previous === undefined) { byOps.set(key, frame); unique.push(frame) }
+      else copies.push([frame, previous])
+    }
+    await inParallel(unique, jobs, async (frame, worker) => {
       const name = `${String(frame).padStart(6, '0')}.png`
       frameHashes[frame] = sha256(await shoot(stages[worker].stage, stages[worker].page, frame, path.join(framesDir, name)))
       if (frame % 500 === 0) console.log(`frame ${frame}`)
     })
+    for (const [frame, previous] of copies) {
+      symlinkSync(`${String(previous).padStart(6, '0')}.png`, path.join(framesDir, `${String(frame).padStart(6, '0')}.png`))
+      frameHashes[frame] = frameHashes[previous]
+    }
     const drawnSet = new Set(drawn)
     for (let frame = 0; frame < frames; frame++) {
       if (!drawnSet.has(frame)) symlinkSync('blank.png', path.join(framesDir, `${String(frame).padStart(6, '0')}.png`))
