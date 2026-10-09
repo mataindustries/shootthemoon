@@ -16,7 +16,12 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm test && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "music:validate": "node --experimental-strip-types scripts/music/build-web-music.mjs validate",
+    "music:build": "node --experimental-strip-types scripts/music/build-web-music.mjs build",
+    "music:auditions": "node --experimental-strip-types scripts/music/build-web-music.mjs auditions",
+    "music:fixtures": "node --experimental-strip-types scripts/music/build-web-music.mjs fixtures",
+    "music:test": "tsc --noEmit -p scripts/music/tsconfig.json && node --experimental-strip-types --test scripts/music/*.test.ts"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",
