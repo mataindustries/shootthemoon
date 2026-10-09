@@ -510,6 +510,8 @@ interface MusicDirector {
 
 ## 9. Part B — asset build (`scripts/music/build-web-music.mjs`)
 
+> **Implemented.** Commands: `npm run music:validate`, `music:build`, `music:auditions`, `music:fixtures`, `music:test`. Usage, thresholds and the manifest schema are in [ADAPTIVE_MUSIC_ASSET_PIPELINE.md](ADAPTIVE_MUSIC_ASSET_PIPELINE.md). The manifest is written to `<output>/manifest.json` (`public/music/manifest.json`) by default; `--manifest src/audio/music/musicManifest.json` selects the location in 9.4.
+
 ### 9.1 Per loop
 
 1. Assert RIFF PCM16, 44,100 Hz, 2 ch, **5,080,320 frames**, and a SHA-256 equal to the render manifest.
