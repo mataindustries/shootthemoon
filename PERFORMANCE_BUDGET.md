@@ -363,6 +363,7 @@ reviewed budget change, not an assumption in asset authoring.
 | Render targets/depth/MSAA estimate | 16 MiB | 32 MiB |
 | Estimated total GPU resources | 96 MiB | 128 MiB |
 | Chrome tab memory footprint | 180 MiB | 240 MiB peak during a handoff |
+| Decoded audio (adaptive music) | 48 MiB | 64 MiB |
 
 The categories overlap differently across browser/GPU implementations, so each
 must be measured or estimated separately; they are not summed into a fictitious
@@ -383,6 +384,34 @@ Memory acceptance:
 Removing a mesh from the scene does not dispose of its GPU resources. Disposal
 is an asset-repository responsibility and is tested as behavior, not left to
 garbage collection.
+
+### Adaptive music memory and transfer
+
+The adaptive soundtrack (`src/audio/music/`) decodes its guarded MP3s into
+float32 AudioBuffers by residency, and keeps them for the session; NEW GAME
+reuses them. Decoded sizes follow from the exact decoded lengths measured in
+Chromium (every file decodes to its guarded length at 44.1 and 48 kHz):
+
+| Resident after | Assets | MiB at 44.1 kHz | MiB at 48 kHz |
+| --- | --- | ---: | ---: |
+| BEGIN / CONTINUE | bed, engine | 19.6 | 21.3 |
+| extractor active or rival awake | + pressure, assault, 5 stingers | 35.8 | 39.0 |
+| First Strike READY | + first-strike | 40.0 | 43.5 |
+| monuments unlocked | + claim, territory-claimed | 56.4 | 61.4 |
+
+Everything resident stays under the 64 MiB hard ceiling. The 24 kHz decode
+fallback (handoff section 17) is not implemented; it waits for a reference-phone
+measurement that shows it is needed.
+
+Transfer: 3.64 MB of MP3 plus a 21.5 kB (5.1 kB gzip) manifest chunk, all after
+BEGIN / CONTINUE and none with SOUND OFF or `?music=0`. The music runtime adds
+43.3 kB raw / 14.5 KiB `gzip -9` to the initial JavaScript (441,480 bytes
+`gzip -9`, up from 426,995).
+
+Pending on the reference phone (Pixel 6a, Chrome for Android): tab footprint
+with and without music after the claim group is resident, no growth across five
+NEW GAME cycles, and `SYNC_VISUAL_OFFSET_MS` (40 ms; desktop Chromium measured
+the First Strike impact 39.9 ms after the flash state change) tuned by ear.
 
 ## Transfer and startup budget
 

@@ -574,6 +574,13 @@ Before composition lands, generate synthetic assets of the exact lengths: each l
 
 ## 10. Runtime deliverables
 
+> **Implemented** in `src/audio/` (engine, director, loader, state, mix, clock, transitions) with the tests in section 11 and `e2e/adaptive-music.spec.ts`. The manifest lives at `src/audio/music/musicManifest.json` and loads as its own chunk after BEGIN. Where this handoff left a choice open, the runtime does the following:
+> - **Start:** BED swells over the first bar from the epoch; the other layers swell over the second bar ("join at the next bar").
+> - **Sequencing:** when nothing falls, rises start on the boundary. A hard ASSAULT entrance lands on the boundary only if its envelope stays under −1 dBFS; otherwise it is sequenced (H3 holds for every pair).
+> - **Unlisted classes:** FOOTHOLD ⇄ FOOTHOLD_WORKS moves on the next bar, 1 bar (bible 2.3 row 6). Calm modifier changes wait for the next phrase, 1 bar. Combat → tension takes the next beat, 1 beat. Tension → tension takes the next bar, 1 bar.
+> - **SFX re-level:** measured against the music's short-term level, the +9 to +12 dB bus re-level alone left the alert tones and the strike impact short of +6 dB. The bus takes +12 dB, and `target-lock` +9, `fire-window` +6, `threat-warning` +1 and `impact` +3 dB while music is audible. Every impact and alert then clears the music by ≥ 6 dB.
+> - **Resume:** hidden-tab return resumes at the next React commit, so EXACT stingers re-anchor on the game's shifted presentation clocks.
+
 1. **Shared AudioEngine.** `useCinematicAudio` keeps its cue API.
 2. **The director:** derivation, mix, transitions, stingers, ducks, dwell and rotation, lifecycle and modes.
 3. **Loader and residency:**

@@ -1,0 +1,215 @@
+{
+  "formatVersion": 1,
+  "title": "STM Package 1 — outcome-breach",
+  "bpm": 100,
+  "timeSignature": "4/4",
+  "key": "D minor",
+  "bars": 2,
+  "seed": 1001704,
+  "render": {
+    "duration": {
+      "bars": 2
+    },
+    "tail": "none"
+  },
+  "master": {
+    "gainDb": -1,
+    "effects": [
+      {
+        "type": "highpass",
+        "frequencyHz": 30
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "id": "breach-impact",
+      "instrument": {
+        "type": "sampler",
+        "sample": "assets/orbital-foundry/07-cinematic-impact.wav"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 2,
+          "notes": [
+            {
+              "start": "1:1",
+              "velocity": 0.45
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": 1,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 48
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": 1
+          },
+          {
+            "at": {
+              "seconds": 3.95
+            },
+            "value": 1,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 4.55
+            },
+            "value": -60
+          }
+        ]
+      }
+    },
+    {
+      "id": "breach-field",
+      "instrument": {
+        "type": "gm",
+        "program": "pad_6_metallic"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 2,
+          "notes": [
+            {
+              "start": "1:1",
+              "pitch": [
+                "D3",
+                "Eb4",
+                "Ab4"
+              ],
+              "duration": "1/2",
+              "velocity": 0.65
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": 6,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 300
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 4200
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": 6
+          },
+          {
+            "at": {
+              "seconds": 3.95
+            },
+            "value": 6,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 4.55
+            },
+            "value": -60
+          }
+        ]
+      }
+    },
+    {
+      "id": "delayed-weight",
+      "instrument": {
+        "type": "drumkit",
+        "kit": "assets/orbital-foundry/kit.json"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 2,
+          "notes": [
+            {
+              "start": "1:1+1/16",
+              "pitch": "low-boom",
+              "velocity": 0.64
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": -3,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 35
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 1400
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": -3
+          },
+          {
+            "at": {
+              "seconds": 3.95
+            },
+            "value": -3,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 4.55
+            },
+            "value": -60
+          }
+        ]
+      }
+    }
+  ]
+}

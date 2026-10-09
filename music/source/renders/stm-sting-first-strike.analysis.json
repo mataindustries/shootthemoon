@@ -1,0 +1,109 @@
+{
+  "master": {
+    "durationSeconds": 12,
+    "frames": 529200,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "format": "pcm_s16le",
+    "peakDbfs": -2.866968,
+    "rmsDbfs": -24.711798,
+    "fullScaleSamples": 0,
+    "clipping": false,
+    "integratedLufs": -18.39,
+    "loudnessRangeLu": 14.9,
+    "truePeakDbfs": -2.83
+  },
+  "tracks": [
+    {
+      "trackId": "launch-tension",
+      "analysis": {
+        "durationSeconds": 12,
+        "frames": 529200,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -19.722959,
+        "rmsDbfs": -43.636674,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -31.25,
+        "loudnessRangeLu": 6.9,
+        "truePeakDbfs": -19.34
+      }
+    },
+    {
+      "trackId": "impact-mass",
+      "analysis": {
+        "durationSeconds": 12,
+        "frames": 529200,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -4.790799,
+        "rmsDbfs": -33.466861,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -20.72,
+        "loudnessRangeLu": 9.6,
+        "truePeakDbfs": -4.7
+      }
+    },
+    {
+      "trackId": "impact-foundation",
+      "analysis": {
+        "durationSeconds": 12,
+        "frames": 529200,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -9.823391,
+        "rmsDbfs": -34.89541,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -25.5,
+        "loudnessRangeLu": 10.7,
+        "truePeakDbfs": -9.82
+      }
+    },
+    {
+      "trackId": "shocked-field",
+      "analysis": {
+        "durationSeconds": 12,
+        "frames": 529200,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -5.894811,
+        "rmsDbfs": -25.168181,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -17.62,
+        "loudnessRangeLu": 4.7,
+        "truePeakDbfs": -5.89
+      }
+    },
+    {
+      "trackId": "ejecta",
+      "analysis": {
+        "durationSeconds": 12,
+        "frames": 529200,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -20.660103,
+        "rmsDbfs": -50.76533,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -38.51,
+        "loudnessRangeLu": 20.2,
+        "truePeakDbfs": -20.65
+      }
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "master": {
+    "durationSeconds": 4.8,
+    "frames": 211680,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "format": "pcm_s16le",
+    "peakDbfs": -11.273509,
+    "rmsDbfs": -27.160091,
+    "fullScaleSamples": 0,
+    "clipping": false,
+    "integratedLufs": -22.51,
+    "loudnessRangeLu": 4.3,
+    "truePeakDbfs": -11.26
+  },
+  "tracks": [
+    {
+      "trackId": "vesper-voice",
+      "analysis": {
+        "durationSeconds": 4.8,
+        "frames": 211680,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -9.16557,
+        "rmsDbfs": -25.490415,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -20.59,
+        "loudnessRangeLu": 4.1,
+        "truePeakDbfs": -9.16
+      }
+    },
+    {
+      "trackId": "beacon",
+      "analysis": {
+        "durationSeconds": 4.8,
+        "frames": 211680,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -9.88604,
+        "rmsDbfs": -36.208162,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -28.55,
+        "loudnessRangeLu": 0,
+        "truePeakDbfs": -9.86
+      }
+    }
+  ]
+}

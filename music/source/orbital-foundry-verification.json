@@ -1,0 +1,66 @@
+{
+  "pack": "ORBITAL FOUNDRY",
+  "license": "CC0-1.0",
+  "results": [
+    {
+      "file": "assets/orbital-foundry/01-sub-pulse.wav",
+      "expected": "b72d3dd7ef57e8e5e50a41b0ab20205f0be13b92ecba4bfb12f6c0981f35e216",
+      "actual": "b72d3dd7ef57e8e5e50a41b0ab20205f0be13b92ecba4bfb12f6c0981f35e216"
+    },
+    {
+      "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+      "expected": "19b350b860aac8864d5e5710f1fdfef59120bd3ccb38b0feb51acd0b7bcb9eb6",
+      "actual": "19b350b860aac8864d5e5710f1fdfef59120bd3ccb38b0feb51acd0b7bcb9eb6"
+    },
+    {
+      "file": "assets/orbital-foundry/03-metallic-strike.wav",
+      "expected": "03a660ea5e3c00dc4d0ebc9831483910d4f83f844e38092ee133c196b378d54a",
+      "actual": "03a660ea5e3c00dc4d0ebc9831483910d4f83f844e38092ee133c196b378d54a"
+    },
+    {
+      "file": "assets/orbital-foundry/04-machine-tick.wav",
+      "expected": "76f29351c8c7e257a985e195158db933fc7117e564af6c84a110ae8f6e60e1a2",
+      "actual": "76f29351c8c7e257a985e195158db933fc7117e564af6c84a110ae8f6e60e1a2"
+    },
+    {
+      "file": "assets/orbital-foundry/05-industrial-snare.wav",
+      "expected": "9067d0eaf903a0fc949ace114869502d5a6fab6f0d01ad5a7f2535492d2dd0ac",
+      "actual": "9067d0eaf903a0fc949ace114869502d5a6fab6f0d01ad5a7f2535492d2dd0ac"
+    },
+    {
+      "file": "assets/orbital-foundry/06-low-boom.wav",
+      "expected": "37decaa1b61b4afe42c0dd0a1b00e6cd1685eeb651d521849e47f9ff877d73a8",
+      "actual": "37decaa1b61b4afe42c0dd0a1b00e6cd1685eeb651d521849e47f9ff877d73a8"
+    },
+    {
+      "file": "assets/orbital-foundry/07-cinematic-impact.wav",
+      "expected": "8867476d527289a237221f9a4674e050855a7e5a209ef8547cf8637074d22951",
+      "actual": "8867476d527289a237221f9a4674e050855a7e5a209ef8547cf8637074d22951"
+    },
+    {
+      "file": "assets/orbital-foundry/08-tension-riser.wav",
+      "expected": "fc7dc6370e311a1b37b824d49f676ff858bc89a21a3957560b26a6a2c43ecfe0",
+      "actual": "fc7dc6370e311a1b37b824d49f676ff858bc89a21a3957560b26a6a2c43ecfe0"
+    },
+    {
+      "file": "assets/orbital-foundry/09-reverse-swell.wav",
+      "expected": "d4a56cf02bbcd27da2e021bc374b098d4239f467c0e7b762da0200cea52a4033",
+      "actual": "d4a56cf02bbcd27da2e021bc374b098d4239f467c0e7b762da0200cea52a4033"
+    },
+    {
+      "file": "assets/orbital-foundry/10-dark-drone.wav",
+      "expected": "d77f3be6222f38b382d19e480361eef9a80f7619cd9ea2664373d35c13a21c81",
+      "actual": "d77f3be6222f38b382d19e480361eef9a80f7619cd9ea2664373d35c13a21c81"
+    },
+    {
+      "file": "assets/orbital-foundry/11-air-texture.wav",
+      "expected": "c103c24ffe274a10d3d1a5aa157f24c16d6542a3835aaf6246009231860ceb1a",
+      "actual": "c103c24ffe274a10d3d1a5aa157f24c16d6542a3835aaf6246009231860ceb1a"
+    },
+    {
+      "file": "assets/orbital-foundry/12-alarm-energy-pulse.wav",
+      "expected": "64c3850860bf20e9349ddbde84f07d11c0b967fcf8ecc749937d0facbc7e532d",
+      "actual": "64c3850860bf20e9349ddbde84f07d11c0b967fcf8ecc749937d0facbc7e532d"
+    }
+  ]
+}

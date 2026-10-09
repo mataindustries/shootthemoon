@@ -1,0 +1,73 @@
+{
+  "master": {
+    "durationSeconds": 115.2,
+    "frames": 5080320,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "format": "pcm_s16le",
+    "peakDbfs": -15.531803,
+    "rmsDbfs": -29.795359,
+    "fullScaleSamples": 0,
+    "clipping": false,
+    "integratedLufs": -26.03,
+    "loudnessRangeLu": 2.2,
+    "truePeakDbfs": -15.17
+  },
+  "tracks": [
+    {
+      "trackId": "atmos-drone",
+      "analysis": {
+        "durationSeconds": 115.2,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -14.193546,
+        "rmsDbfs": -27.157322,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -25.22,
+        "loudnessRangeLu": 1.8,
+        "truePeakDbfs": -14.19
+      }
+    },
+    {
+      "trackId": "atmos-air",
+      "analysis": {
+        "durationSeconds": 115.2,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -13.566072,
+        "rmsDbfs": -30.134609,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -23.85,
+        "loudnessRangeLu": 3.5,
+        "truePeakDbfs": -12
+      }
+    },
+    {
+      "trackId": "floor",
+      "analysis": {
+        "durationSeconds": 115.2,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -19.065521,
+        "rmsDbfs": -36.502281,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -34.38,
+        "loudnessRangeLu": 3.8,
+        "truePeakDbfs": -19.06
+      }
+    }
+  ]
+}

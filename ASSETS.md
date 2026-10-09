@@ -68,14 +68,41 @@ selection surface; the coordinate readout explicitly remains on the
   raster of that same file, provided for browsers without SVG icon support.
   Neither contains third-party art.
 
+## Adaptive music (Package 1)
+
+The in-game soundtrack is five phase-locked 16-bar loops and seven stingers,
+composed for this project in DaemonV12 0.5.0 (checkout `e84a62e`) with
+FluidSynth 2.3.7 / FluidR3_GM and the CC0-1.0 Orbital Foundry sample pack (all
+12 sample hashes verified against the DaemonV12 catalog). The projects, render
+manifests, analysis reports and canonical WAV SHA-256 values are in
+[music/source/](./music/source/README.md); the canonical WAV masters stay outside
+git. The shipped files were built and verified by `npm run music:build` and are
+listed, with their provenance, in `src/audio/music/musicManifest.json`. They
+load only after BEGIN / CONTINUE with SOUND ON.
+
+| Runtime file | Asset | Format | Bytes | SHA-256 |
+| --- | --- | --- | ---: | --- |
+| `public/music/bed.cf383ebd28.mp3` | bed | 2 ch, 160 kbps CBR | 777,449 | `cf383ebd2838149b39280a43be366efc4494970ec28cf36e83a90af1f33ba4b1` |
+| `public/music/engine.bcd23f6b8e.mp3` | engine | 1 ch, 96 kbps CBR | 466,487 | `bcd23f6b8ea5900eb246572ebd481d6d37ed8c64ba43988f2b465ae252b1a584` |
+| `public/music/pressure.b0edef154c.mp3` | pressure | 1 ch, 96 kbps CBR | 466,487 | `b0edef154c5d8631274a22cb576b71b8f6fa8767d97d2194a56ddaa44c654ce5` |
+| `public/music/assault.96c4d72401.mp3` | assault | 1 ch, 96 kbps CBR | 466,487 | `96c4d724018b599943afea360b02294fce15271d5dbdc4940dc07bf789aff808` |
+| `public/music/claim.0f08a786e3.mp3` | claim | 2 ch, 160 kbps CBR | 777,449 | `0f08a786e394e7f6612b5dd0c596376a5c1752dcd84be70241ce05cf3c6e85fd` |
+| `public/music/vesper-arrival.74fde37bf2.mp3` | vesper-arrival | 1 ch, 96 kbps CBR | 63,365 | `74fde37bf2c2bbad459e392359d144e2bc7b54e84f0a917ee9f73470ed8e32a2` |
+| `public/music/first-strike.822a63fddc.mp3` | first-strike | 2 ch, 160 kbps CBR | 249,253 | `822a63fddc80e18880768925c90dd3baa3670efc3d779d556ae2a2a8c1106b91` |
+| `public/music/vesper-retaliation.0a163ee31a.mp3` | vesper-retaliation | 1 ch, 96 kbps CBR | 34,526 | `0a163ee31a0e03c9eb991e78d329f07e9aa6419e62dd97edea0e69b2efd57820` |
+| `public/music/divider-contact.6279e88582.mp3` | divider-contact | 1 ch, 96 kbps CBR | 34,526 | `6279e8858231558938f6159575d133ebab712a98ac3ce12e317663f9a2d5ea24` |
+| `public/music/outcome-hold.dd892715dc.mp3` | outcome-hold | 1 ch, 96 kbps CBR | 34,526 | `dd892715dc87940838c37b9bfae723ad6c9441241fcd5e6b5d6e9ecd21b82ed8` |
+| `public/music/outcome-breach.1900881342.mp3` | outcome-breach | 1 ch, 96 kbps CBR | 63,365 | `1900881342369a486b2916e008109a95cf0c0de9952a58b7c02bf055a0fcb493` |
+| `public/music/territory-claimed.50efb21db7.mp3` | territory-claimed | 2 ch, 160 kbps CBR | 201,187 | `50efb21db782ed5730b8e31c1fbae8d57eb9e9b88759af0220ac4b129c0e1802` |
+
 ## Project-authored audio and haptics
 
 The optional sound layer is synthesized at runtime with the browser Web Audio
 API. Oscillators, filters, gain envelopes, and a deterministic generated noise
 buffer produce interface confirmations, capsule and miner machinery, drilling,
 rival and scan textures, arming, ignition, flight, impact, and completion cues.
-There are no recorded, sampled, licensed, downloaded, or generated audio files
-in the repository.
+The synthesized effects use no audio files; the only audio files are the
+adaptive music above.
 
 Optional ignition and impact haptics use the feature-detected browser Vibration
 API. Vibration patterns are code, not third-party assets, and the experience

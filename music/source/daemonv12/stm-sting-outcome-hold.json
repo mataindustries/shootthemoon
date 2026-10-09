@@ -1,0 +1,237 @@
+{
+  "formatVersion": 1,
+  "title": "STM Package 1 — outcome-hold",
+  "bpm": 100,
+  "timeSignature": "4/4",
+  "key": "D minor",
+  "bars": 1,
+  "seed": 1001703,
+  "render": {
+    "duration": {
+      "bars": 1
+    },
+    "tail": "none"
+  },
+  "master": {
+    "gainDb": -2,
+    "effects": [
+      {
+        "type": "highpass",
+        "frequencyHz": 30
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "id": "claim-seed",
+      "instrument": {
+        "type": "gm",
+        "program": "lead_1_square"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 1,
+          "notes": [
+            {
+              "start": "1:1",
+              "pitch": "D4",
+              "duration": "1/8",
+              "velocity": 0.78
+            },
+            {
+              "start": "1:1+3/16",
+              "pitch": "A4",
+              "duration": "3/8",
+              "velocity": 0.72
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": -11,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 260
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 2700
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": -11
+          },
+          {
+            "at": {
+              "seconds": 1.55
+            },
+            "value": -11,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 2.15
+            },
+            "value": -60
+          }
+        ]
+      }
+    },
+    {
+      "id": "held-ground",
+      "instrument": {
+        "type": "drumkit",
+        "kit": "assets/orbital-foundry/kit.json"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 1,
+          "notes": [
+            {
+              "start": "1:1",
+              "pitch": "metallic-strike",
+              "velocity": 0.64
+            },
+            {
+              "start": "1:1",
+              "pitch": "low-boom",
+              "velocity": 0.38
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": -5,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 45
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": -5
+          },
+          {
+            "at": {
+              "seconds": 1.55
+            },
+            "value": -5,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 2.15
+            },
+            "value": -60
+          }
+        ]
+      }
+    },
+    {
+      "id": "claim-core",
+      "instrument": {
+        "type": "gm",
+        "program": "synth_bass_2"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 1,
+          "notes": [
+            {
+              "start": "1:1",
+              "pitch": "D4",
+              "duration": "1/8",
+              "velocity": 0.78
+            },
+            {
+              "start": "1:1+3/16",
+              "pitch": "A4",
+              "duration": "3/8",
+              "velocity": 0.72
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": 8,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 170
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 2700
+        },
+        {
+          "type": "compressor",
+          "thresholdDb": -20,
+          "ratio": 3,
+          "attackMs": 1,
+          "releaseMs": 100
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": 8
+          },
+          {
+            "at": {
+              "seconds": 1.55
+            },
+            "value": 8,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 2.15
+            },
+            "value": -60
+          }
+        ]
+      }
+    }
+  ]
+}

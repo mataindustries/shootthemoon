@@ -1,0 +1,73 @@
+{
+  "master": {
+    "durationSeconds": 4.8,
+    "frames": 211680,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "format": "pcm_s16le",
+    "peakDbfs": -6.636201,
+    "rmsDbfs": -24.643857,
+    "fullScaleSamples": 0,
+    "clipping": false,
+    "integratedLufs": -18.31,
+    "loudnessRangeLu": 24.1,
+    "truePeakDbfs": -6.63
+  },
+  "tracks": [
+    {
+      "trackId": "breach-impact",
+      "analysis": {
+        "durationSeconds": 4.8,
+        "frames": 211680,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -12.483826,
+        "rmsDbfs": -37.152173,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -31.38,
+        "loudnessRangeLu": 19.1,
+        "truePeakDbfs": -12.25
+      }
+    },
+    {
+      "trackId": "breach-field",
+      "analysis": {
+        "durationSeconds": 4.8,
+        "frames": 211680,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -5.800745,
+        "rmsDbfs": -24.298254,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -17.83,
+        "loudnessRangeLu": 23.7,
+        "truePeakDbfs": -5.79
+      }
+    },
+    {
+      "trackId": "delayed-weight",
+      "analysis": {
+        "durationSeconds": 4.8,
+        "frames": 211680,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -13.261839,
+        "rmsDbfs": -33.600324,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -29.21,
+        "loudnessRangeLu": 18.9,
+        "truePeakDbfs": -13.26
+      }
+    }
+  ]
+}

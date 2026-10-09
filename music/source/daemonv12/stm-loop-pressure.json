@@ -1,0 +1,597 @@
+{
+  "formatVersion": 1,
+  "title": "STM Package 1 — PRESSURE / Null Meridian watch",
+  "bpm": 100,
+  "timeSignature": "4/4",
+  "key": "D minor",
+  "bars": 48,
+  "seed": 1001603,
+  "render": {
+    "duration": {
+      "bars": 48
+    },
+    "tail": "none"
+  },
+  "master": {
+    "gainDb": 3,
+    "effects": [
+      {
+        "type": "highpass",
+        "frequencyHz": 30
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "id": "vesper-voice",
+      "instrument": {
+        "type": "gm",
+        "program": "pad_6_metallic"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 16,
+          "notes": [
+            {
+              "start": "1:1",
+              "pitch": "Eb5",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "1:1+1/8",
+              "pitch": "D5",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "2:3",
+              "pitch": "Eb5",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "2:3+1/8",
+              "pitch": "D5",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "4:1",
+              "pitch": "Eb5",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "4:1+1/8",
+              "pitch": "D5",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "5:1",
+              "pitch": "Ab4",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "5:1+1/8",
+              "pitch": "F4",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "6:3",
+              "pitch": "Ab4",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "6:3+1/8",
+              "pitch": "F4",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "8:1",
+              "pitch": "Ab4",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "8:1+1/8",
+              "pitch": "F4",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "9:1",
+              "pitch": "Ab4",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "9:1+1/8",
+              "pitch": "G4",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "10:3",
+              "pitch": "Ab4",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "10:3+1/8",
+              "pitch": "G4",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "12:1",
+              "pitch": "Ab4",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "12:1+1/8",
+              "pitch": "G4",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "13:1",
+              "pitch": "A4",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "13:1+1/8",
+              "pitch": "Ab4",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "14:3",
+              "pitch": "A4",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "14:3+1/8",
+              "pitch": "Ab4",
+              "duration": "3/16",
+              "velocity": 0.53
+            },
+            {
+              "start": "16:1",
+              "pitch": "A4",
+              "duration": "1/8",
+              "velocity": 0.64
+            },
+            {
+              "start": "16:1+1/8",
+              "pitch": "Ab4",
+              "duration": "3/16",
+              "velocity": 0.53
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 17,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 33,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": 7,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 520
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 6200
+        },
+        {
+          "type": "compressor",
+          "thresholdDb": -24,
+          "ratio": 3,
+          "attackMs": 0.5,
+          "releaseMs": 100
+        }
+      ]
+    },
+    {
+      "id": "vesper-heart",
+      "instrument": {
+        "type": "drumkit",
+        "kit": "assets/orbital-foundry/kit.json"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 16,
+          "notes": [
+            {
+              "start": "1:1",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "1:1+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "1:4",
+              "pitch": "sub-pulse",
+              "velocity": 0.36
+            },
+            {
+              "start": "1:4+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "2:3",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "2:3+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "3:2",
+              "pitch": "sub-pulse",
+              "velocity": 0.36
+            },
+            {
+              "start": "3:2+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "4:1",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "4:1+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "5:1",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "5:1+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "5:4",
+              "pitch": "sub-pulse",
+              "velocity": 0.36
+            },
+            {
+              "start": "5:4+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "6:3",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "6:3+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "7:2",
+              "pitch": "sub-pulse",
+              "velocity": 0.36
+            },
+            {
+              "start": "7:2+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "8:1",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "8:1+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "9:1",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "9:1+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "9:4",
+              "pitch": "sub-pulse",
+              "velocity": 0.36
+            },
+            {
+              "start": "9:4+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "10:3",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "10:3+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "11:2",
+              "pitch": "sub-pulse",
+              "velocity": 0.36
+            },
+            {
+              "start": "11:2+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "12:1",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "12:1+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "13:1",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "13:1+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "13:4",
+              "pitch": "sub-pulse",
+              "velocity": 0.36
+            },
+            {
+              "start": "13:4+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "14:3",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "14:3+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "15:2",
+              "pitch": "sub-pulse",
+              "velocity": 0.36
+            },
+            {
+              "start": "15:2+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            },
+            {
+              "start": "16:1",
+              "pitch": "sub-pulse",
+              "velocity": 0.46
+            },
+            {
+              "start": "16:1+1/8",
+              "pitch": "sub-pulse",
+              "velocity": 0.31
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 17,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 33,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": -4,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 35
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 190
+        },
+        {
+          "type": "compressor",
+          "thresholdDb": -25,
+          "ratio": 3,
+          "attackMs": 6,
+          "releaseMs": 100
+        }
+      ]
+    },
+    {
+      "id": "vesper-grind",
+      "instrument": {
+        "type": "gm",
+        "program": "synth_bass_1"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 16,
+          "notes": [
+            {
+              "start": "1:2+1/16",
+              "pitch": [
+                "D2",
+                "Eb2"
+              ],
+              "duration": "5/4",
+              "velocity": 0.5
+            },
+            {
+              "start": "3:2+1/16",
+              "pitch": [
+                "D2",
+                "Eb2"
+              ],
+              "duration": "5/4",
+              "velocity": 0.45
+            },
+            {
+              "start": "5:2+1/16",
+              "pitch": [
+                "Bb1",
+                "D2"
+              ],
+              "duration": "5/4",
+              "velocity": 0.5
+            },
+            {
+              "start": "7:2+1/16",
+              "pitch": [
+                "Bb1",
+                "D2"
+              ],
+              "duration": "5/4",
+              "velocity": 0.45
+            },
+            {
+              "start": "9:2+1/16",
+              "pitch": [
+                "G1",
+                "Ab1"
+              ],
+              "duration": "5/4",
+              "velocity": 0.5
+            },
+            {
+              "start": "11:2+1/16",
+              "pitch": [
+                "G1",
+                "Ab1"
+              ],
+              "duration": "5/4",
+              "velocity": 0.45
+            },
+            {
+              "start": "13:2+1/16",
+              "pitch": [
+                "A1",
+                "Ab1"
+              ],
+              "duration": "5/4",
+              "velocity": 0.5
+            },
+            {
+              "start": "15:2+1/16",
+              "pitch": [
+                "A1",
+                "Ab1"
+              ],
+              "duration": "5/4",
+              "velocity": 0.45
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 17,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 33,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": 6,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 70
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 900
+        },
+        {
+          "type": "saturation",
+          "driveDb": 5,
+          "mix": 0.3
+        },
+        {
+          "type": "compressor",
+          "thresholdDb": -29,
+          "ratio": 5,
+          "attackMs": 0.1,
+          "releaseMs": 170
+        }
+      ]
+    }
+  ]
+}

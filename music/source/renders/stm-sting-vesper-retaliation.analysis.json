@@ -1,0 +1,73 @@
+{
+  "master": {
+    "durationSeconds": 2.4,
+    "frames": 105840,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "format": "pcm_s16le",
+    "peakDbfs": -12.003113,
+    "rmsDbfs": -27.581306,
+    "fullScaleSamples": 0,
+    "clipping": false,
+    "integratedLufs": -22.59,
+    "loudnessRangeLu": 0,
+    "truePeakDbfs": -11.99
+  },
+  "tracks": [
+    {
+      "trackId": "vesper-answer",
+      "analysis": {
+        "durationSeconds": 2.4,
+        "frames": 105840,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -13.015218,
+        "rmsDbfs": -29.614555,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -23.66,
+        "loudnessRangeLu": 0,
+        "truePeakDbfs": -13.02
+      }
+    },
+    {
+      "trackId": "grind",
+      "analysis": {
+        "durationSeconds": 2.4,
+        "frames": 105840,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -18.153467,
+        "rmsDbfs": -30.454274,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -24.95,
+        "loudnessRangeLu": 0,
+        "truePeakDbfs": -18.15
+      }
+    },
+    {
+      "trackId": "steel",
+      "analysis": {
+        "durationSeconds": 2.4,
+        "frames": 105840,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -13.712635,
+        "rmsDbfs": -36.524973,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -29.9,
+        "loudnessRangeLu": 0,
+        "truePeakDbfs": -13.45
+      }
+    }
+  ]
+}

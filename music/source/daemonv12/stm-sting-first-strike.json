@@ -1,0 +1,328 @@
+{
+  "formatVersion": 1,
+  "title": "STM Package 1 — first-strike",
+  "bpm": 100,
+  "timeSignature": "4/4",
+  "key": "D minor",
+  "bars": 5,
+  "seed": 1001705,
+  "render": {
+    "duration": {
+      "bars": 5
+    },
+    "tail": "none"
+  },
+  "master": {
+    "gainDb": -0.6
+  },
+  "tracks": [
+    {
+      "id": "launch-tension",
+      "instrument": {
+        "type": "sampler",
+        "sample": "assets/orbital-foundry/08-tension-riser.wav"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 5,
+          "notes": [
+            {
+              "start": "1:1",
+              "velocity": 0.82
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": -10,
+        "pan": 0
+      },
+      "effects": []
+    },
+    {
+      "id": "impact-mass",
+      "instrument": {
+        "type": "sampler",
+        "sample": "assets/orbital-foundry/07-cinematic-impact.wav"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 5,
+          "notes": [
+            {
+              "start": "2:4+1/6",
+              "velocity": 0.95
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": 2,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 40
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": 2
+          },
+          {
+            "at": {
+              "seconds": 11.15
+            },
+            "value": 2,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 11.75
+            },
+            "value": -60
+          }
+        ]
+      }
+    },
+    {
+      "id": "impact-foundation",
+      "instrument": {
+        "type": "drumkit",
+        "kit": "assets/orbital-foundry/kit.json"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 5,
+          "notes": [
+            {
+              "start": "2:4+1/6",
+              "pitch": "low-boom",
+              "velocity": 0.86
+            },
+            {
+              "start": "2:4+1/6",
+              "pitch": "mechanical-kick",
+              "velocity": 0.82
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": -4,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 32
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 2200
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": -4
+          },
+          {
+            "at": {
+              "seconds": 11.15
+            },
+            "value": -4,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 11.75
+            },
+            "value": -60
+          }
+        ]
+      }
+    },
+    {
+      "id": "shocked-field",
+      "instrument": {
+        "type": "gm",
+        "program": "pad_3_polysynth"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 5,
+          "notes": [
+            {
+              "start": "2:4+1/6",
+              "pitch": [
+                "D3",
+                "A3",
+                "Eb4"
+              ],
+              "duration": "5/4",
+              "velocity": 0.83
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": 8,
+        "pan": -0.13
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 170
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 3900
+        },
+        {
+          "type": "reverb",
+          "roomSize": 0.62,
+          "decaySeconds": 1.2,
+          "wet": 0.2
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": 8
+          },
+          {
+            "at": {
+              "seconds": 11.15
+            },
+            "value": 8,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 11.75
+            },
+            "value": -60
+          }
+        ]
+      }
+    },
+    {
+      "id": "ejecta",
+      "instrument": {
+        "type": "drumkit",
+        "kit": "assets/orbital-foundry/kit.json"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 5,
+          "notes": [
+            {
+              "start": "3:2+1/32",
+              "pitch": "metallic-strike",
+              "velocity": 0.53
+            },
+            {
+              "start": "3:4+3/32",
+              "pitch": "machine-tick",
+              "velocity": 0.49
+            },
+            {
+              "start": "4:2+5/32",
+              "pitch": "metallic-strike",
+              "velocity": 0.34
+            },
+            {
+              "start": "5:1+1/32",
+              "pitch": "machine-tick",
+              "velocity": 0.21
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": -8,
+        "pan": 0.28
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 650
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 8500
+        }
+      ],
+      "automation": {
+        "gainDb": [
+          {
+            "at": {
+              "seconds": 0
+            },
+            "value": -8
+          },
+          {
+            "at": {
+              "seconds": 11.15
+            },
+            "value": -8,
+            "transition": "linear"
+          },
+          {
+            "at": {
+              "seconds": 11.75
+            },
+            "value": -60
+          }
+        ]
+      }
+    }
+  ]
+}
