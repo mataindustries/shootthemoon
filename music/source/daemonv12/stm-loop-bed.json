@@ -1,0 +1,277 @@
+{
+  "formatVersion": 1,
+  "title": "STM Package 1 — BED / Regolith memory",
+  "bpm": 100,
+  "timeSignature": "4/4",
+  "key": "D minor",
+  "bars": 48,
+  "seed": 1001601,
+  "render": {
+    "duration": {
+      "bars": 48
+    },
+    "tail": "none"
+  },
+  "master": {
+    "gainDb": -4.7,
+    "effects": [
+      {
+        "type": "highpass",
+        "frequencyHz": 30
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "id": "atmos-drone",
+      "instrument": {
+        "type": "sampler",
+        "sample": "assets/orbital-foundry/10-dark-drone.wav"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 16,
+          "notes": [
+            {
+              "start": "1:1",
+              "velocity": 0.6
+            },
+            {
+              "start": "3:4",
+              "velocity": 0.52
+            },
+            {
+              "start": "6:2",
+              "velocity": 0.58
+            },
+            {
+              "start": "9:1+1/8",
+              "velocity": 0.55
+            },
+            {
+              "start": "11:4",
+              "velocity": 0.63
+            },
+            {
+              "start": "14:3",
+              "velocity": 0.56
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 17,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 33,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": -1,
+        "pan": -0.15
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 110
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 1800
+        }
+      ]
+    },
+    {
+      "id": "atmos-air",
+      "instrument": {
+        "type": "sampler",
+        "sample": "assets/orbital-foundry/11-air-texture.wav"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 16,
+          "notes": [
+            {
+              "start": "2:1",
+              "velocity": 0.58
+            },
+            {
+              "start": "4:4",
+              "velocity": 0.5
+            },
+            {
+              "start": "7:2+1/8",
+              "velocity": 0.55
+            },
+            {
+              "start": "10:1",
+              "velocity": 0.62
+            },
+            {
+              "start": "12:4",
+              "velocity": 0.5
+            },
+            {
+              "start": "15:3",
+              "velocity": 0.57
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 17,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 33,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": 1,
+        "pan": 0.22
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 2500
+        }
+      ]
+    },
+    {
+      "id": "floor",
+      "instrument": {
+        "type": "gm",
+        "program": "pad_3_polysynth"
+      },
+      "patterns": [
+        {
+          "id": "cycle",
+          "bars": 16,
+          "notes": [
+            {
+              "start": "1:1+1/8",
+              "pitch": [
+                "D3",
+                "A3"
+              ],
+              "duration": "7/4",
+              "velocity": 0.47
+            },
+            {
+              "start": "3:1+1/8",
+              "pitch": [
+                "D3",
+                "A3"
+              ],
+              "duration": "7/4",
+              "velocity": 0.5
+            },
+            {
+              "start": "5:1+1/8",
+              "pitch": [
+                "Bb2",
+                "D3"
+              ],
+              "duration": "7/4",
+              "velocity": 0.47
+            },
+            {
+              "start": "7:1+1/8",
+              "pitch": [
+                "Bb2",
+                "D3"
+              ],
+              "duration": "7/4",
+              "velocity": 0.5
+            },
+            {
+              "start": "9:1+1/8",
+              "pitch": [
+                "G2",
+                "D3"
+              ],
+              "duration": "7/4",
+              "velocity": 0.47
+            },
+            {
+              "start": "11:1+1/8",
+              "pitch": [
+                "G2",
+                "D3"
+              ],
+              "duration": "7/4",
+              "velocity": 0.5
+            },
+            {
+              "start": "13:1+1/8",
+              "pitch": [
+                "A2",
+                "D3"
+              ],
+              "duration": "7/4",
+              "velocity": 0.47
+            },
+            {
+              "start": "15:1+1/8",
+              "pitch": [
+                "A2",
+                "D3"
+              ],
+              "duration": "7/4",
+              "velocity": 0.5
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "bar": 1,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 17,
+          "pattern": "cycle"
+        },
+        {
+          "bar": 33,
+          "pattern": "cycle"
+        }
+      ],
+      "mix": {
+        "gainDb": 1,
+        "pan": 0
+      },
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 150
+        },
+        {
+          "type": "lowpass",
+          "frequencyHz": 2600
+        },
+        {
+          "type": "reverb",
+          "roomSize": 0.6,
+          "decaySeconds": 1.6,
+          "wet": 0.2
+        }
+      ]
+    }
+  ]
+}

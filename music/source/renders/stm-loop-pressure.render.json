@@ -1,0 +1,1890 @@
+{
+  "engine": {
+    "name": "daemonv12",
+    "version": "0.5.0"
+  },
+  "project": {
+    "file": "stm-loop-pressure.json",
+    "sha256": "769512ac0a24c879d3827185bb8648d44c746d1e461746f38cc5d1e152766d95",
+    "formatVersion": 1,
+    "seed": 1001603
+  },
+  "midi": {
+    "file": "stm-loop-pressure.mid",
+    "sha256": "8ac4cb888077a8ab371ab96c5f23d2092f06c94131d9d489a140925635cbd693",
+    "bytes": 1280,
+    "ppq": 960,
+    "durationTicks": 184320,
+    "durationSeconds": 115.2,
+    "notes": 120
+  },
+  "renderer": {
+    "name": "daemonv12-production",
+    "version": "2",
+    "settings": {
+      "sampleRate": 44100,
+      "channels": 2,
+      "bitsPerSample": 16,
+      "panLaw": "linear stereo balance; unity center",
+      "order": "source and tail cap, track gain/pan automation, ordered track effects, tail cap, s16 track elements; sum, master gain, ordered master effects, tail cap and final trim/pad, VO ducking, s16 master; trim/pad pre-master stems to master frames",
+      "normalization": false,
+      "dither": false,
+      "automation": "absolute values; step or outgoing linear segment; gain interpolated in dB; rounded sample positions",
+      "reverb": "schroeder-4-comb-2-allpass-v1; finite RT60 tail",
+      "saturation": "tanh-v1; no output compensation",
+      "ducking": "trailing 20ms channel-energy RMS; threshold gate; exponential reduction in dB; v1"
+    }
+  },
+  "gmRenderer": {
+    "name": "fluidsynth",
+    "version": "2.3.7",
+    "settings": {
+      "sampleRate": 44100,
+      "sampleFormat": "s16",
+      "channels": 2,
+      "gain": 0.5,
+      "reverb": false,
+      "chorus": false,
+      "cpuCores": 1
+    }
+  },
+  "gmSource": null,
+  "soundfont": {
+    "file": "FluidR3_GM.sf2",
+    "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0",
+    "bytes": 148398306
+  },
+  "samples": {
+    "timing": "nearest absolute trigger and fixed boundary, ties later; ceil minimum only without fixed boundary; tick * usPerQuarter * 44100 / 960000000",
+    "assets": [
+      {
+        "file": "assets/orbital-foundry/01-sub-pulse.wav",
+        "sha256": "b72d3dd7ef57e8e5e50a41b0ab20205f0be13b92ecba4bfb12f6c0981f35e216",
+        "bytes": 26504,
+        "frames": 13230,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+        "sha256": "19b350b860aac8864d5e5710f1fdfef59120bd3ccb38b0feb51acd0b7bcb9eb6",
+        "bytes": 37088,
+        "frames": 18522,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/03-metallic-strike.wav",
+        "sha256": "03a660ea5e3c00dc4d0ebc9831483910d4f83f844e38092ee133c196b378d54a",
+        "bytes": 145574,
+        "frames": 72765,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/04-machine-tick.wav",
+        "sha256": "76f29351c8c7e257a985e195158db933fc7117e564af6c84a110ae8f6e60e1a2",
+        "bytes": 7542,
+        "frames": 3749,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/05-industrial-snare.wav",
+        "sha256": "9067d0eaf903a0fc949ace114869502d5a6fab6f0d01ad5a7f2535492d2dd0ac",
+        "bytes": 33560,
+        "frames": 16758,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/06-low-boom.wav",
+        "sha256": "37decaa1b61b4afe42c0dd0a1b00e6cd1685eeb651d521849e47f9ff877d73a8",
+        "bytes": 211724,
+        "frames": 105840,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/07-cinematic-impact.wav",
+        "sha256": "8867476d527289a237221f9a4674e050855a7e5a209ef8547cf8637074d22951",
+        "bytes": 635084,
+        "frames": 158760,
+        "channels": 2,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/kit.json",
+        "sha256": "aa3a8052fa23217a0ef4d24451060bb8b47ffcbc60cf5651d4dfeabf63a942f5",
+        "bytes": 744,
+        "kind": "drumkit"
+      }
+    ],
+    "tracks": [
+      {
+        "trackId": "vesper-heart",
+        "trackIndex": 1,
+        "instrument": {
+          "type": "drumkit",
+          "kit": "assets/orbital-foundry/kit.json"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 0,
+            "frame": 0,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 480,
+            "frame": 13230,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 2880,
+            "frame": 79380,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 3360,
+            "frame": 92610,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 5760,
+            "frame": 158760,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 6240,
+            "frame": 171990,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 8640,
+            "frame": 238140,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 9120,
+            "frame": 251370,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 11520,
+            "frame": 317520,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 12000,
+            "frame": 330750,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 15360,
+            "frame": 423360,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 15840,
+            "frame": 436590,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 18240,
+            "frame": 502740,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 18720,
+            "frame": 515970,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 21120,
+            "frame": 582120,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 21600,
+            "frame": 595350,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 24000,
+            "frame": 661500,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 24480,
+            "frame": 674730,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 26880,
+            "frame": 740880,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 27360,
+            "frame": 754110,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 30720,
+            "frame": 846720,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 31200,
+            "frame": 859950,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 33600,
+            "frame": 926100,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 34080,
+            "frame": 939330,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 36480,
+            "frame": 1005480,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 36960,
+            "frame": 1018710,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 39360,
+            "frame": 1084860,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 39840,
+            "frame": 1098090,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 42240,
+            "frame": 1164240,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 42720,
+            "frame": 1177470,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 46080,
+            "frame": 1270080,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 46560,
+            "frame": 1283310,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 48960,
+            "frame": 1349460,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 49440,
+            "frame": 1362690,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 51840,
+            "frame": 1428840,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 52320,
+            "frame": 1442070,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 54720,
+            "frame": 1508220,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 55200,
+            "frame": 1521450,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 57600,
+            "frame": 1587600,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 58080,
+            "frame": 1600830,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 61440,
+            "frame": 1693440,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 61920,
+            "frame": 1706670,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 64320,
+            "frame": 1772820,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 64800,
+            "frame": 1786050,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 67200,
+            "frame": 1852200,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 67680,
+            "frame": 1865430,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 70080,
+            "frame": 1931580,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 70560,
+            "frame": 1944810,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 72960,
+            "frame": 2010960,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 73440,
+            "frame": 2024190,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 76800,
+            "frame": 2116800,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 77280,
+            "frame": 2130030,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 79680,
+            "frame": 2196180,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 80160,
+            "frame": 2209410,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 82560,
+            "frame": 2275560,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 83040,
+            "frame": 2288790,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 85440,
+            "frame": 2354940,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 85920,
+            "frame": 2368170,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 88320,
+            "frame": 2434320,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 88800,
+            "frame": 2447550,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 92160,
+            "frame": 2540160,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 92640,
+            "frame": 2553390,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 95040,
+            "frame": 2619540,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 95520,
+            "frame": 2632770,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 97920,
+            "frame": 2698920,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 98400,
+            "frame": 2712150,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 100800,
+            "frame": 2778300,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 101280,
+            "frame": 2791530,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 103680,
+            "frame": 2857680,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 104160,
+            "frame": 2870910,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 107520,
+            "frame": 2963520,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 108000,
+            "frame": 2976750,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 110400,
+            "frame": 3042900,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 110880,
+            "frame": 3056130,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 113280,
+            "frame": 3122280,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 113760,
+            "frame": 3135510,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 116160,
+            "frame": 3201660,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 116640,
+            "frame": 3214890,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 119040,
+            "frame": 3281040,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 119520,
+            "frame": 3294270,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 122880,
+            "frame": 3386880,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 123360,
+            "frame": 3400110,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 125760,
+            "frame": 3466260,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 126240,
+            "frame": 3479490,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 128640,
+            "frame": 3545640,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 129120,
+            "frame": 3558870,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 131520,
+            "frame": 3625020,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 132000,
+            "frame": 3638250,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 134400,
+            "frame": 3704400,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 134880,
+            "frame": 3717630,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 138240,
+            "frame": 3810240,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 138720,
+            "frame": 3823470,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 141120,
+            "frame": 3889620,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 141600,
+            "frame": 3902850,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 144000,
+            "frame": 3969000,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 144480,
+            "frame": 3982230,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 146880,
+            "frame": 4048380,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 147360,
+            "frame": 4061610,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 149760,
+            "frame": 4127760,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 150240,
+            "frame": 4140990,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 153600,
+            "frame": 4233600,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 154080,
+            "frame": 4246830,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 156480,
+            "frame": 4312980,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 156960,
+            "frame": 4326210,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 159360,
+            "frame": 4392360,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 159840,
+            "frame": 4405590,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 162240,
+            "frame": 4471740,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 162720,
+            "frame": 4484970,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 165120,
+            "frame": 4551120,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 165600,
+            "frame": 4564350,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 168960,
+            "frame": 4656960,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 169440,
+            "frame": 4670190,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 171840,
+            "frame": 4736340,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 172320,
+            "frame": 4749570,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 174720,
+            "frame": 4815720,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 175200,
+            "frame": 4828950,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 177600,
+            "frame": 4895100,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 178080,
+            "frame": 4908330,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 180480,
+            "frame": 4974480,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 180960,
+            "frame": 4987710,
+            "velocity": 0.31
+          }
+        ],
+        "clippedSamples": 0
+      }
+    ]
+  },
+  "timeline": {
+    "authoredDurationTicks": 184320,
+    "authoredFrames": 5080320,
+    "duration": {
+      "bars": 48
+    },
+    "tail": "none",
+    "requestedFinalFrames": 5080320,
+    "audioEndFrames": 5080320,
+    "resultingFrames": 5080320,
+    "rounding": "nearest sample frame; ties later; combined musical timeline + explicit tail rounded once"
+  },
+  "production": {
+    "processor": {
+      "name": "ffmpeg",
+      "version": "6.1.1"
+    },
+    "runtime": {
+      "name": "node",
+      "version": "v24.14.0"
+    },
+    "tracks": [
+      {
+        "trackId": "vesper-voice",
+        "gainDb": 7,
+        "pan": 0,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 520
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 6200
+          },
+          {
+            "type": "compressor",
+            "thresholdDb": -24,
+            "ratio": 3,
+            "attackMs": 0.5,
+            "releaseMs": 100
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -19.779803
+      },
+      {
+        "trackId": "vesper-heart",
+        "gainDb": -4,
+        "pan": 0,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 35
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 190
+          },
+          {
+            "type": "compressor",
+            "thresholdDb": -25,
+            "ratio": 3,
+            "attackMs": 6,
+            "releaseMs": 100
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -21.194222
+      },
+      {
+        "trackId": "vesper-grind",
+        "gainDb": 6,
+        "pan": 0,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 70
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 900
+          },
+          {
+            "type": "saturation",
+            "driveDb": 5,
+            "mix": 0.3
+          },
+          {
+            "type": "compressor",
+            "thresholdDb": -29,
+            "ratio": 5,
+            "attackMs": 0.1,
+            "releaseMs": 170
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -25.405846
+      }
+    ],
+    "master": {
+      "gainDb": 3,
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 30
+        }
+      ],
+      "clippedSamples": 0,
+      "preClipPeakDbfs": -12.764546
+    },
+    "stemAlignment": "trim/pad to master frames; post-track, pre-master gain/effects/ducking"
+  },
+  "mix": {
+    "clippedSamples": 0,
+    "gm": "sum processed independent tracks",
+    "samples": "sum exported track PCM"
+  },
+  "wav": {
+    "file": "stm-loop-pressure.wav",
+    "sha256": "48e76a7bdbb13a1542eb34714173a23621f7cd15dc859a7c58d8be58f8e0bccf",
+    "bytes": 20321324,
+    "frames": 5080320,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "durationSeconds": 115.2
+  },
+  "stems": [
+    {
+      "trackId": "vesper-voice",
+      "trackIndex": 0,
+      "midi": {
+        "sha256": "effc2e16ed770553a07e31ab460732199d699d9ce050d1996d5cd59005898ff8",
+        "bytes": 816,
+        "notes": 72
+      },
+      "renderer": {
+        "name": "fluidsynth",
+        "version": "2.3.7",
+        "settings": {
+          "sampleRate": 44100,
+          "sampleFormat": "s16",
+          "channels": 2,
+          "gain": 0.5,
+          "reverb": false,
+          "chorus": false,
+          "cpuCores": 1
+        }
+      },
+      "wav": {
+        "file": "stm-loop-pressure.stems/vesper-voice.wav",
+        "sha256": "08ef989ffa7253ee57cddec93182f9044cc6ab4aa47368422b816f8dfa9291da",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    },
+    {
+      "trackId": "vesper-heart",
+      "trackIndex": 1,
+      "sample": {
+        "instrument": {
+          "type": "drumkit",
+          "kit": "assets/orbital-foundry/kit.json"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 0,
+            "frame": 0,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 480,
+            "frame": 13230,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 2880,
+            "frame": 79380,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 3360,
+            "frame": 92610,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 5760,
+            "frame": 158760,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 6240,
+            "frame": 171990,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 8640,
+            "frame": 238140,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 9120,
+            "frame": 251370,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 11520,
+            "frame": 317520,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 12000,
+            "frame": 330750,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 15360,
+            "frame": 423360,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 15840,
+            "frame": 436590,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 18240,
+            "frame": 502740,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 18720,
+            "frame": 515970,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 21120,
+            "frame": 582120,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 21600,
+            "frame": 595350,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 24000,
+            "frame": 661500,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 24480,
+            "frame": 674730,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 26880,
+            "frame": 740880,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 27360,
+            "frame": 754110,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 30720,
+            "frame": 846720,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 31200,
+            "frame": 859950,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 33600,
+            "frame": 926100,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 34080,
+            "frame": 939330,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 36480,
+            "frame": 1005480,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 36960,
+            "frame": 1018710,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 39360,
+            "frame": 1084860,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 39840,
+            "frame": 1098090,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 42240,
+            "frame": 1164240,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 42720,
+            "frame": 1177470,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 46080,
+            "frame": 1270080,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 46560,
+            "frame": 1283310,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 48960,
+            "frame": 1349460,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 49440,
+            "frame": 1362690,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 51840,
+            "frame": 1428840,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 52320,
+            "frame": 1442070,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 54720,
+            "frame": 1508220,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 55200,
+            "frame": 1521450,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 57600,
+            "frame": 1587600,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 58080,
+            "frame": 1600830,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 61440,
+            "frame": 1693440,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 61920,
+            "frame": 1706670,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 64320,
+            "frame": 1772820,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 64800,
+            "frame": 1786050,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 67200,
+            "frame": 1852200,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 67680,
+            "frame": 1865430,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 70080,
+            "frame": 1931580,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 70560,
+            "frame": 1944810,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 72960,
+            "frame": 2010960,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 73440,
+            "frame": 2024190,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 76800,
+            "frame": 2116800,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 77280,
+            "frame": 2130030,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 79680,
+            "frame": 2196180,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 80160,
+            "frame": 2209410,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 82560,
+            "frame": 2275560,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 83040,
+            "frame": 2288790,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 85440,
+            "frame": 2354940,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 85920,
+            "frame": 2368170,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 88320,
+            "frame": 2434320,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 88800,
+            "frame": 2447550,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 92160,
+            "frame": 2540160,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 92640,
+            "frame": 2553390,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 95040,
+            "frame": 2619540,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 95520,
+            "frame": 2632770,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 97920,
+            "frame": 2698920,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 98400,
+            "frame": 2712150,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 100800,
+            "frame": 2778300,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 101280,
+            "frame": 2791530,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 103680,
+            "frame": 2857680,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 104160,
+            "frame": 2870910,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 107520,
+            "frame": 2963520,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 108000,
+            "frame": 2976750,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 110400,
+            "frame": 3042900,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 110880,
+            "frame": 3056130,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 113280,
+            "frame": 3122280,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 113760,
+            "frame": 3135510,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 116160,
+            "frame": 3201660,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 116640,
+            "frame": 3214890,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 119040,
+            "frame": 3281040,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 119520,
+            "frame": 3294270,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 122880,
+            "frame": 3386880,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 123360,
+            "frame": 3400110,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 125760,
+            "frame": 3466260,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 126240,
+            "frame": 3479490,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 128640,
+            "frame": 3545640,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 129120,
+            "frame": 3558870,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 131520,
+            "frame": 3625020,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 132000,
+            "frame": 3638250,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 134400,
+            "frame": 3704400,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 134880,
+            "frame": 3717630,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 138240,
+            "frame": 3810240,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 138720,
+            "frame": 3823470,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 141120,
+            "frame": 3889620,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 141600,
+            "frame": 3902850,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 144000,
+            "frame": 3969000,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 144480,
+            "frame": 3982230,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 146880,
+            "frame": 4048380,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 147360,
+            "frame": 4061610,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 149760,
+            "frame": 4127760,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 150240,
+            "frame": 4140990,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 153600,
+            "frame": 4233600,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 154080,
+            "frame": 4246830,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 156480,
+            "frame": 4312980,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 156960,
+            "frame": 4326210,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 159360,
+            "frame": 4392360,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 159840,
+            "frame": 4405590,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 162240,
+            "frame": 4471740,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 162720,
+            "frame": 4484970,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 165120,
+            "frame": 4551120,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 165600,
+            "frame": 4564350,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 168960,
+            "frame": 4656960,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 169440,
+            "frame": 4670190,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 171840,
+            "frame": 4736340,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 172320,
+            "frame": 4749570,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 174720,
+            "frame": 4815720,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 175200,
+            "frame": 4828950,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 177600,
+            "frame": 4895100,
+            "velocity": 0.36
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 178080,
+            "frame": 4908330,
+            "velocity": 0.31
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 180480,
+            "frame": 4974480,
+            "velocity": 0.46
+          },
+          {
+            "file": "assets/orbital-foundry/01-sub-pulse.wav",
+            "tick": 180960,
+            "frame": 4987710,
+            "velocity": 0.31
+          }
+        ],
+        "clippedSamples": 0
+      },
+      "renderer": {
+        "name": "daemonv12-pcm",
+        "version": "1",
+        "settings": {
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "velocity": "round(sample * velocity)",
+          "mix": "integer sum, saturate s16",
+          "resampling": false
+        }
+      },
+      "wav": {
+        "file": "stm-loop-pressure.stems/vesper-heart.wav",
+        "sha256": "6f5d5e67d0e32a0430d5e2da56de5ca952ed4aa8f548ed51f1174eb00321505a",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    },
+    {
+      "trackId": "vesper-grind",
+      "trackIndex": 2,
+      "midi": {
+        "sha256": "e6407b1c935abbcfa2bdfbad04ead722ed419c480267551484841c2a83a275f7",
+        "bytes": 565,
+        "notes": 48
+      },
+      "renderer": {
+        "name": "fluidsynth",
+        "version": "2.3.7",
+        "settings": {
+          "sampleRate": 44100,
+          "sampleFormat": "s16",
+          "channels": 2,
+          "gain": 0.5,
+          "reverb": false,
+          "chorus": false,
+          "cpuCores": 1
+        }
+      },
+      "wav": {
+        "file": "stm-loop-pressure.stems/vesper-grind.wav",
+        "sha256": "63794c16897129690c7ba7e4de8ff4cf3c5c58bc78b2d5b053f053e6756909e3",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    }
+  ],
+  "audioTool": {
+    "name": "ffmpeg",
+    "version": "6.1.1"
+  },
+  "analysis": {
+    "master": {
+      "durationSeconds": 115.2,
+      "frames": 5080320,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bitsPerSample": 16,
+      "format": "pcm_s16le",
+      "peakDbfs": -12.765028,
+      "rmsDbfs": -29.514609,
+      "fullScaleSamples": 0,
+      "clipping": false,
+      "integratedLufs": -25.95,
+      "loudnessRangeLu": 3.4,
+      "truePeakDbfs": -12.76
+    },
+    "tracks": [
+      {
+        "trackId": "vesper-voice",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -19.779628,
+          "rmsDbfs": -34.012349,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -28.43,
+          "loudnessRangeLu": 4.3,
+          "truePeakDbfs": -19.74
+        }
+      },
+      {
+        "trackId": "vesper-heart",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -21.193835,
+          "rmsDbfs": -38.387394,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -34.97,
+          "loudnessRangeLu": 2.7,
+          "truePeakDbfs": -21.19
+        }
+      },
+      {
+        "trackId": "vesper-grind",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -25.403682,
+          "rmsDbfs": -44.985946,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -42.41,
+          "loudnessRangeLu": 11.4,
+          "truePeakDbfs": -25.4
+        }
+      }
+    ]
+  }
+}

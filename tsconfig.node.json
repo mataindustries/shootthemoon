@@ -21,5 +21,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
+  "include": ["vite.config.ts", "vitest.config.ts", "playwright.config.ts", "src/audio/music/musicManifest.test.ts"]
 }

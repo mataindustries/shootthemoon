@@ -1,0 +1,840 @@
+{
+  "engine": {
+    "name": "daemonv12",
+    "version": "0.5.0"
+  },
+  "project": {
+    "file": "stm-loop-claim.json",
+    "sha256": "5f896e07924f6d1509ac18b60a738bb1e53e68207eeab85ecc0f7293112fab02",
+    "formatVersion": 1,
+    "seed": 1001605
+  },
+  "midi": {
+    "file": "stm-loop-claim.mid",
+    "sha256": "6de1349ab0a8a6fcc6ced14ee68951060d5e1b43d6e53a52db288c0bec009b76",
+    "bytes": 1095,
+    "ppq": 960,
+    "durationTicks": 184320,
+    "durationSeconds": 115.2,
+    "notes": 105
+  },
+  "renderer": {
+    "name": "daemonv12-production",
+    "version": "2",
+    "settings": {
+      "sampleRate": 44100,
+      "channels": 2,
+      "bitsPerSample": 16,
+      "panLaw": "linear stereo balance; unity center",
+      "order": "source and tail cap, track gain/pan automation, ordered track effects, tail cap, s16 track elements; sum, master gain, ordered master effects, tail cap and final trim/pad, VO ducking, s16 master; trim/pad pre-master stems to master frames",
+      "normalization": false,
+      "dither": false,
+      "automation": "absolute values; step or outgoing linear segment; gain interpolated in dB; rounded sample positions",
+      "reverb": "schroeder-4-comb-2-allpass-v1; finite RT60 tail",
+      "saturation": "tanh-v1; no output compensation",
+      "ducking": "trailing 20ms channel-energy RMS; threshold gate; exponential reduction in dB; v1"
+    }
+  },
+  "gmRenderer": {
+    "name": "fluidsynth",
+    "version": "2.3.7",
+    "settings": {
+      "sampleRate": 44100,
+      "sampleFormat": "s16",
+      "channels": 2,
+      "gain": 0.5,
+      "reverb": false,
+      "chorus": false,
+      "cpuCores": 1
+    }
+  },
+  "gmSource": null,
+  "soundfont": {
+    "file": "FluidR3_GM.sf2",
+    "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0",
+    "bytes": 148398306
+  },
+  "samples": {
+    "timing": "nearest absolute trigger and fixed boundary, ties later; ceil minimum only without fixed boundary; tick * usPerQuarter * 44100 / 960000000",
+    "assets": [
+      {
+        "file": "assets/orbital-foundry/01-sub-pulse.wav",
+        "sha256": "b72d3dd7ef57e8e5e50a41b0ab20205f0be13b92ecba4bfb12f6c0981f35e216",
+        "bytes": 26504,
+        "frames": 13230,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+        "sha256": "19b350b860aac8864d5e5710f1fdfef59120bd3ccb38b0feb51acd0b7bcb9eb6",
+        "bytes": 37088,
+        "frames": 18522,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/03-metallic-strike.wav",
+        "sha256": "03a660ea5e3c00dc4d0ebc9831483910d4f83f844e38092ee133c196b378d54a",
+        "bytes": 145574,
+        "frames": 72765,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/04-machine-tick.wav",
+        "sha256": "76f29351c8c7e257a985e195158db933fc7117e564af6c84a110ae8f6e60e1a2",
+        "bytes": 7542,
+        "frames": 3749,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/05-industrial-snare.wav",
+        "sha256": "9067d0eaf903a0fc949ace114869502d5a6fab6f0d01ad5a7f2535492d2dd0ac",
+        "bytes": 33560,
+        "frames": 16758,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/06-low-boom.wav",
+        "sha256": "37decaa1b61b4afe42c0dd0a1b00e6cd1685eeb651d521849e47f9ff877d73a8",
+        "bytes": 211724,
+        "frames": 105840,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/07-cinematic-impact.wav",
+        "sha256": "8867476d527289a237221f9a4674e050855a7e5a209ef8547cf8637074d22951",
+        "bytes": 635084,
+        "frames": 158760,
+        "channels": 2,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/kit.json",
+        "sha256": "aa3a8052fa23217a0ef4d24451060bb8b47ffcbc60cf5651d4dfeabf63a942f5",
+        "bytes": 744,
+        "kind": "drumkit"
+      }
+    ],
+    "tracks": [
+      {
+        "trackId": "claim-weight",
+        "trackIndex": 2,
+        "instrument": {
+          "type": "drumkit",
+          "kit": "assets/orbital-foundry/kit.json"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/06-low-boom.wav",
+            "tick": 30720,
+            "frame": 846720,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/06-low-boom.wav",
+            "tick": 92160,
+            "frame": 2540160,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/06-low-boom.wav",
+            "tick": 153600,
+            "frame": 4233600,
+            "velocity": 0.55
+          }
+        ],
+        "clippedSamples": 0
+      },
+      {
+        "trackId": "claim-gravity",
+        "trackIndex": 3,
+        "instrument": {
+          "type": "drumkit",
+          "kit": "assets/orbital-foundry/kit.json"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 30720,
+            "frame": 846720,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 36480,
+            "frame": 1005480,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 38400,
+            "frame": 1058400,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 44160,
+            "frame": 1217160,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 46080,
+            "frame": 1270080,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 51840,
+            "frame": 1428840,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 53760,
+            "frame": 1481760,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 59520,
+            "frame": 1640520,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 92160,
+            "frame": 2540160,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 97920,
+            "frame": 2698920,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 99840,
+            "frame": 2751840,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 105600,
+            "frame": 2910600,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 107520,
+            "frame": 2963520,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 113280,
+            "frame": 3122280,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 115200,
+            "frame": 3175200,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 120960,
+            "frame": 3333960,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 153600,
+            "frame": 4233600,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 159360,
+            "frame": 4392360,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 161280,
+            "frame": 4445280,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 167040,
+            "frame": 4604040,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 168960,
+            "frame": 4656960,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 174720,
+            "frame": 4815720,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 176640,
+            "frame": 4868640,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 182400,
+            "frame": 5027400,
+            "velocity": 0.42
+          }
+        ],
+        "clippedSamples": 0
+      }
+    ]
+  },
+  "timeline": {
+    "authoredDurationTicks": 184320,
+    "authoredFrames": 5080320,
+    "duration": {
+      "bars": 48
+    },
+    "tail": "none",
+    "requestedFinalFrames": 5080320,
+    "audioEndFrames": 5080320,
+    "resultingFrames": 5080320,
+    "rounding": "nearest sample frame; ties later; combined musical timeline + explicit tail rounded once"
+  },
+  "production": {
+    "processor": {
+      "name": "ffmpeg",
+      "version": "6.1.1"
+    },
+    "runtime": {
+      "name": "node",
+      "version": "v24.14.0"
+    },
+    "tracks": [
+      {
+        "trackId": "claim-strings",
+        "gainDb": 5,
+        "pan": 0.15,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 110
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 6500
+          },
+          {
+            "type": "reverb",
+            "roomSize": 0.7,
+            "decaySeconds": 1.8,
+            "wet": 0.25
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -14.330563
+      },
+      {
+        "trackId": "claim-lead",
+        "gainDb": 3,
+        "pan": -0.16,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 260
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 2700
+          },
+          {
+            "type": "delay",
+            "timeMs": 150,
+            "wet": 0.18
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -18.489953
+      },
+      {
+        "trackId": "claim-weight",
+        "gainDb": -9,
+        "pan": 0,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 35
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 1200
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -20.575762
+      },
+      {
+        "trackId": "claim-gravity",
+        "gainDb": -9,
+        "pan": 0,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 48
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 2000
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -21.559124
+      }
+    ],
+    "master": {
+      "gainDb": 2.2,
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 30
+        }
+      ],
+      "clippedSamples": 0,
+      "preClipPeakDbfs": -10.279735
+    },
+    "stemAlignment": "trim/pad to master frames; post-track, pre-master gain/effects/ducking"
+  },
+  "mix": {
+    "clippedSamples": 0,
+    "gm": "sum processed independent tracks",
+    "samples": "sum exported track PCM"
+  },
+  "wav": {
+    "file": "stm-loop-claim.wav",
+    "sha256": "518399e02b02d6df402e5ff2f7ab2b5ce6efd757ef8225881290dd5c7944c757",
+    "bytes": 20321324,
+    "frames": 5080320,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "durationSeconds": 115.2
+  },
+  "stems": [
+    {
+      "trackId": "claim-strings",
+      "trackIndex": 0,
+      "midi": {
+        "sha256": "ace42b7e144892de5222eee5e0b73356bc3aa67e2e4fab421ad8ae3d0ed5f2df",
+        "bytes": 850,
+        "notes": 84
+      },
+      "renderer": {
+        "name": "fluidsynth",
+        "version": "2.3.7",
+        "settings": {
+          "sampleRate": 44100,
+          "sampleFormat": "s16",
+          "channels": 2,
+          "gain": 0.5,
+          "reverb": false,
+          "chorus": false,
+          "cpuCores": 1
+        }
+      },
+      "wav": {
+        "file": "stm-loop-claim.stems/claim-strings.wav",
+        "sha256": "c73c48d9d2547de16829a9397807a61dcb18f59024cac529f16feda48232bf02",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    },
+    {
+      "trackId": "claim-lead",
+      "trackIndex": 1,
+      "midi": {
+        "sha256": "a4474bcf347e79acd8f03dfa24c36b1ab56c994a515cdca140e84bffbea7d4e7",
+        "bytes": 342,
+        "notes": 21
+      },
+      "renderer": {
+        "name": "fluidsynth",
+        "version": "2.3.7",
+        "settings": {
+          "sampleRate": 44100,
+          "sampleFormat": "s16",
+          "channels": 2,
+          "gain": 0.5,
+          "reverb": false,
+          "chorus": false,
+          "cpuCores": 1
+        }
+      },
+      "wav": {
+        "file": "stm-loop-claim.stems/claim-lead.wav",
+        "sha256": "a135e990f22b8cd905dfee9843e6f17d680410d53ad1020635da3f4096b0e87a",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    },
+    {
+      "trackId": "claim-weight",
+      "trackIndex": 2,
+      "sample": {
+        "instrument": {
+          "type": "drumkit",
+          "kit": "assets/orbital-foundry/kit.json"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/06-low-boom.wav",
+            "tick": 30720,
+            "frame": 846720,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/06-low-boom.wav",
+            "tick": 92160,
+            "frame": 2540160,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/06-low-boom.wav",
+            "tick": 153600,
+            "frame": 4233600,
+            "velocity": 0.55
+          }
+        ],
+        "clippedSamples": 0
+      },
+      "renderer": {
+        "name": "daemonv12-pcm",
+        "version": "1",
+        "settings": {
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "velocity": "round(sample * velocity)",
+          "mix": "integer sum, saturate s16",
+          "resampling": false
+        }
+      },
+      "wav": {
+        "file": "stm-loop-claim.stems/claim-weight.wav",
+        "sha256": "adc033720e3f647d00842ca53744745a00a092660a417e0b267e85f602e2ad57",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    },
+    {
+      "trackId": "claim-gravity",
+      "trackIndex": 3,
+      "sample": {
+        "instrument": {
+          "type": "drumkit",
+          "kit": "assets/orbital-foundry/kit.json"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 30720,
+            "frame": 846720,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 36480,
+            "frame": 1005480,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 38400,
+            "frame": 1058400,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 44160,
+            "frame": 1217160,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 46080,
+            "frame": 1270080,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 51840,
+            "frame": 1428840,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 53760,
+            "frame": 1481760,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 59520,
+            "frame": 1640520,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 92160,
+            "frame": 2540160,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 97920,
+            "frame": 2698920,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 99840,
+            "frame": 2751840,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 105600,
+            "frame": 2910600,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 107520,
+            "frame": 2963520,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 113280,
+            "frame": 3122280,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 115200,
+            "frame": 3175200,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 120960,
+            "frame": 3333960,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 153600,
+            "frame": 4233600,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 159360,
+            "frame": 4392360,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 161280,
+            "frame": 4445280,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 167040,
+            "frame": 4604040,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 168960,
+            "frame": 4656960,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 174720,
+            "frame": 4815720,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 176640,
+            "frame": 4868640,
+            "velocity": 0.42
+          },
+          {
+            "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+            "tick": 182400,
+            "frame": 5027400,
+            "velocity": 0.42
+          }
+        ],
+        "clippedSamples": 0
+      },
+      "renderer": {
+        "name": "daemonv12-pcm",
+        "version": "1",
+        "settings": {
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "velocity": "round(sample * velocity)",
+          "mix": "integer sum, saturate s16",
+          "resampling": false
+        }
+      },
+      "wav": {
+        "file": "stm-loop-claim.stems/claim-gravity.wav",
+        "sha256": "52efee129c64feddf58eb208d0613040a7f30b1eb053483107ca41195b56043b",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    }
+  ],
+  "audioTool": {
+    "name": "ffmpeg",
+    "version": "6.1.1"
+  },
+  "analysis": {
+    "master": {
+      "durationSeconds": 115.2,
+      "frames": 5080320,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bitsPerSample": 16,
+      "format": "pcm_s16le",
+      "peakDbfs": -10.279517,
+      "rmsDbfs": -26.631113,
+      "fullScaleSamples": 0,
+      "clipping": false,
+      "integratedLufs": -23.83,
+      "loudnessRangeLu": 4.4,
+      "truePeakDbfs": -10.28
+    },
+    "tracks": [
+      {
+        "trackId": "claim-strings",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -14.330464,
+          "rmsDbfs": -29.779704,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -26.84,
+          "loudnessRangeLu": 3.3,
+          "truePeakDbfs": -14.33
+        }
+      },
+      {
+        "trackId": "claim-lead",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -18.489934,
+          "rmsDbfs": -36.121703,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -27.19,
+          "loudnessRangeLu": 7.5,
+          "truePeakDbfs": -18.49
+        }
+      },
+      {
+        "trackId": "claim-weight",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -20.574723,
+          "rmsDbfs": -49.948144,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -35.99,
+          "loudnessRangeLu": 9.5,
+          "truePeakDbfs": -20.57
+        }
+      },
+      {
+        "trackId": "claim-gravity",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -21.56033,
+          "rmsDbfs": -48.107047,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -36.3,
+          "loudnessRangeLu": 3,
+          "truePeakDbfs": -21.56
+        }
+      }
+    ]
+  }
+}

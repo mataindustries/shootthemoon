@@ -1,0 +1,1071 @@
+{
+  "schema": 1,
+  "bpm": 100,
+  "meter": "4/4",
+  "beatsPerBar": 4,
+  "loopBars": 16,
+  "loopFrames": 1693440,
+  "loopSeconds": 38.4,
+  "canonicalSampleRate": 44100,
+  "guardSeconds": 0.2,
+  "guardFrames": 8820,
+  "encoding": {
+    "codec": "mp3",
+    "encoder": "libmp3lame",
+    "bitrateMode": "cbr",
+    "sampleRate": 44100,
+    "stereoBitrateKbps": 160,
+    "monoBitrateKbps": 96
+  },
+  "toolchain": {
+    "ffmpeg": "6.1.1-3ubuntu5"
+  },
+  "daemonv12": {
+    "engineVersion": "0.5.0",
+    "commit": null
+  },
+  "loops": [
+    {
+      "id": "bed",
+      "kind": "loop",
+      "url": "/music/bed.cf383ebd28.mp3",
+      "file": "bed.cf383ebd28.mp3",
+      "sha256": "cf383ebd2838149b39280a43be366efc4494970ec28cf36e83a90af1f33ba4b1",
+      "bytes": 777449,
+      "channels": 2,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 160,
+      "frames": 1711080,
+      "durationSeconds": 38.8,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 38.6,
+      "guardedWavSha256": "71d8fbf5fabc1269a7656c57372f2957acf7b4052e2f945c40911b8313fe26ee",
+      "decodedFrames": 1711080,
+      "integratedLufs": -26.3,
+      "truePeakDbtp": -15.5,
+      "samplePeakDbfs": -15.82,
+      "guard": "neighbor-cycle",
+      "loopStartSeconds": 0.2,
+      "loopEndSeconds": 38.6,
+      "canonical": {
+        "file": "stm-loop-bed.wav",
+        "renderWavSha256": "935747a7e1c88256ff684c5f296951b27d40e61907810c9f364e21ba4db54b88",
+        "loopWavSha256": "61972f066ed70449d0006324a4651dab2a062e3772008ecd44f9e797b61edbe7",
+        "sourceFrames": 5080320,
+        "cycleStartFrame": 1693440,
+        "frames": 1693440,
+        "samplePeakDbfs": -15.53,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-loop-bed.render.json",
+        "renderManifestSha256": "68174ba1ee206b4a8d522eb572a3784b4e7092e002bd64927b394c0135bf7eff",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-loop-bed.json",
+          "sha256": "740ed5db0efe635460b239ac1f3181dc9ab6f95815885fdd5bad4ecb2cf9cfe0",
+          "seed": 1001601
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "935747a7e1c88256ff684c5f296951b27d40e61907810c9f364e21ba4db54b88"
+      },
+      "periodicity": {
+        "maxAbsDeltaLsb": 0,
+        "preGuardMaxAbsDeltaLsb": 0,
+        "identical": true
+      },
+      "unity": {
+        "integratedLufs": -25.9,
+        "truePeakDbtp": -15.2,
+        "targetLufs": -26,
+        "toleranceLu": 1,
+        "truePeakCeilingDbtp": -14
+      },
+      "foldDown": null
+    },
+    {
+      "id": "engine",
+      "kind": "loop",
+      "url": "/music/engine.bcd23f6b8e.mp3",
+      "file": "engine.bcd23f6b8e.mp3",
+      "sha256": "bcd23f6b8ea5900eb246572ebd481d6d37ed8c64ba43988f2b465ae252b1a584",
+      "bytes": 466487,
+      "channels": 1,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 96,
+      "frames": 1711080,
+      "durationSeconds": 38.8,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 38.6,
+      "guardedWavSha256": "fa2c024f520b1bdf9cafb408ebc9bce92d9d87def731718b9df363e5cb999617",
+      "decodedFrames": 1711080,
+      "integratedLufs": -27.5,
+      "truePeakDbtp": -15,
+      "samplePeakDbfs": -15.02,
+      "guard": "neighbor-cycle",
+      "loopStartSeconds": 0.2,
+      "loopEndSeconds": 38.6,
+      "canonical": {
+        "file": "stm-loop-engine.wav",
+        "renderWavSha256": "9bc3599b1301081d998b14309929bee74fd3afa6b7c6c17af4f60211399f4f82",
+        "loopWavSha256": "a58e92365ec7deb0d467af7fc8885d0dddee22cd7a7a24bd272687cdf29bae31",
+        "sourceFrames": 5080320,
+        "cycleStartFrame": 1693440,
+        "frames": 1693440,
+        "samplePeakDbfs": -14.58,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-loop-engine.render.json",
+        "renderManifestSha256": "f9dcccaddc53c4b75e448bdbfced8f16e94f5e53571f5f3e27c4d2fccac9bbc3",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-loop-engine.json",
+          "sha256": "4e79c29ea9c36ab9efffbf16972713b08995a59bb49e3ae325b589a6a8ada748",
+          "seed": 1001602
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "9bc3599b1301081d998b14309929bee74fd3afa6b7c6c17af4f60211399f4f82"
+      },
+      "periodicity": {
+        "maxAbsDeltaLsb": 0,
+        "preGuardMaxAbsDeltaLsb": 0,
+        "identical": true
+      },
+      "unity": {
+        "integratedLufs": -27,
+        "truePeakDbtp": -14.6,
+        "targetLufs": -27,
+        "toleranceLu": 1,
+        "truePeakCeilingDbtp": -12
+      },
+      "foldDown": {
+        "rule": "(L+R)/2, round half to even, PCM16, no dither",
+        "correlation": 1,
+        "loudnessDeltaLu": 0
+      }
+    },
+    {
+      "id": "pressure",
+      "kind": "loop",
+      "url": "/music/pressure.b0edef154c.mp3",
+      "file": "pressure.b0edef154c.mp3",
+      "sha256": "b0edef154c5d8631274a22cb576b71b8f6fa8767d97d2194a56ddaa44c654ce5",
+      "bytes": 466487,
+      "channels": 1,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 96,
+      "frames": 1711080,
+      "durationSeconds": 38.8,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 38.6,
+      "guardedWavSha256": "ae9fcb05875a1ddfd916a35f0ca8c5a5c8e884b73e667adbee30e9ec63685930",
+      "decodedFrames": 1711080,
+      "integratedLufs": -26.4,
+      "truePeakDbtp": -13.2,
+      "samplePeakDbfs": -13.19,
+      "guard": "neighbor-cycle",
+      "loopStartSeconds": 0.2,
+      "loopEndSeconds": 38.6,
+      "canonical": {
+        "file": "stm-loop-pressure.wav",
+        "renderWavSha256": "48e76a7bdbb13a1542eb34714173a23621f7cd15dc859a7c58d8be58f8e0bccf",
+        "loopWavSha256": "586456f08a9145da4abf54b3057c45756555dff7590dafa4214912eaf2e1dffc",
+        "sourceFrames": 5080320,
+        "cycleStartFrame": 1693440,
+        "frames": 1693440,
+        "samplePeakDbfs": -12.77,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-loop-pressure.render.json",
+        "renderManifestSha256": "1db7e14d401697fa04f30bb6698ad2a7ec87f1e827ffd561f30e8900573f8742",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-loop-pressure.json",
+          "sha256": "769512ac0a24c879d3827185bb8648d44c746d1e461746f38cc5d1e152766d95",
+          "seed": 1001603
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "48e76a7bdbb13a1542eb34714173a23621f7cd15dc859a7c58d8be58f8e0bccf"
+      },
+      "periodicity": {
+        "maxAbsDeltaLsb": 0,
+        "preGuardMaxAbsDeltaLsb": 0,
+        "identical": true
+      },
+      "unity": {
+        "integratedLufs": -25.9,
+        "truePeakDbtp": -12.8,
+        "targetLufs": -25,
+        "toleranceLu": 1,
+        "truePeakCeilingDbtp": -12
+      },
+      "foldDown": {
+        "rule": "(L+R)/2, round half to even, PCM16, no dither",
+        "correlation": 0.988149,
+        "loudnessDeltaLu": 0
+      }
+    },
+    {
+      "id": "assault",
+      "kind": "loop",
+      "url": "/music/assault.96c4d72401.mp3",
+      "file": "assault.96c4d72401.mp3",
+      "sha256": "96c4d724018b599943afea360b02294fce15271d5dbdc4940dc07bf789aff808",
+      "bytes": 466487,
+      "channels": 1,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 96,
+      "frames": 1711080,
+      "durationSeconds": 38.8,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 38.6,
+      "guardedWavSha256": "d5a627521c8c5de59ef1ca36771509121c2a5364daec7a0e0df13c31d1799de3",
+      "decodedFrames": 1711080,
+      "integratedLufs": -21.1,
+      "truePeakDbtp": -7.5,
+      "samplePeakDbfs": -7.49,
+      "guard": "neighbor-cycle",
+      "loopStartSeconds": 0.2,
+      "loopEndSeconds": 38.6,
+      "canonical": {
+        "file": "stm-loop-assault.wav",
+        "renderWavSha256": "7e4fd5697f2e31e88c3dd1811dd736f683d84b779a370bf97f5a00515c2f6629",
+        "loopWavSha256": "f255473e64ea3f5676cc6c4ae7583b4cbeccbf5e194e25224d241a2defc2da16",
+        "sourceFrames": 5080320,
+        "cycleStartFrame": 1693440,
+        "frames": 1693440,
+        "samplePeakDbfs": -7.33,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-loop-assault.render.json",
+        "renderManifestSha256": "1edb153d7ab5885673785b2ce79ad357cd819648634b22399e0cb1c8d4872b49",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-loop-assault.json",
+          "sha256": "74121276a2678156026523bbe268ceb21c8ef1866aa46633182d0c005aa5b8ec",
+          "seed": 1001604
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "7e4fd5697f2e31e88c3dd1811dd736f683d84b779a370bf97f5a00515c2f6629"
+      },
+      "periodicity": {
+        "maxAbsDeltaLsb": 0,
+        "preGuardMaxAbsDeltaLsb": 0,
+        "identical": true
+      },
+      "unity": {
+        "integratedLufs": -20.6,
+        "truePeakDbtp": -7.2,
+        "targetLufs": -20,
+        "toleranceLu": 1,
+        "truePeakCeilingDbtp": -7
+      },
+      "foldDown": {
+        "rule": "(L+R)/2, round half to even, PCM16, no dither",
+        "correlation": 1,
+        "loudnessDeltaLu": 0
+      }
+    },
+    {
+      "id": "claim",
+      "kind": "loop",
+      "url": "/music/claim.0f08a786e3.mp3",
+      "file": "claim.0f08a786e3.mp3",
+      "sha256": "0f08a786e394e7f6612b5dd0c596376a5c1752dcd84be70241ce05cf3c6e85fd",
+      "bytes": 777449,
+      "channels": 2,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 160,
+      "frames": 1711080,
+      "durationSeconds": 38.8,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 38.6,
+      "guardedWavSha256": "371ccbc9bd1f64a0058eb86859e5972438a67249f148d5f58ec1435d0ad2e970",
+      "decodedFrames": 1711080,
+      "integratedLufs": -24.2,
+      "truePeakDbtp": -10.8,
+      "samplePeakDbfs": -10.81,
+      "guard": "neighbor-cycle",
+      "loopStartSeconds": 0.2,
+      "loopEndSeconds": 38.6,
+      "canonical": {
+        "file": "stm-loop-claim.wav",
+        "renderWavSha256": "518399e02b02d6df402e5ff2f7ab2b5ce6efd757ef8225881290dd5c7944c757",
+        "loopWavSha256": "01e87cede352f160efc95101b40f7eac8e16ad0f741b9bfdcf0a9cfccb46f8d0",
+        "sourceFrames": 5080320,
+        "cycleStartFrame": 1693440,
+        "frames": 1693440,
+        "samplePeakDbfs": -10.28,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-loop-claim.render.json",
+        "renderManifestSha256": "eee1982601e96ae3346460e2331ff9d8091e312245de702fc8af3572359af2c7",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-loop-claim.json",
+          "sha256": "5f896e07924f6d1509ac18b60a738bb1e53e68207eeab85ecc0f7293112fab02",
+          "seed": 1001605
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "518399e02b02d6df402e5ff2f7ab2b5ce6efd757ef8225881290dd5c7944c757"
+      },
+      "periodicity": {
+        "maxAbsDeltaLsb": 0,
+        "preGuardMaxAbsDeltaLsb": 0,
+        "identical": true
+      },
+      "unity": {
+        "integratedLufs": -23.8,
+        "truePeakDbtp": -10.3,
+        "targetLufs": -23,
+        "toleranceLu": 1,
+        "truePeakCeilingDbtp": -10
+      },
+      "foldDown": null
+    }
+  ],
+  "stingers": [
+    {
+      "id": "vesper-arrival",
+      "kind": "stinger",
+      "url": "/music/vesper-arrival.74fde37bf2.mp3",
+      "file": "vesper-arrival.74fde37bf2.mp3",
+      "sha256": "74fde37bf2c2bbad459e392359d144e2bc7b54e84f0a917ee9f73470ed8e32a2",
+      "bytes": 63365,
+      "channels": 1,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 96,
+      "frames": 229320,
+      "durationSeconds": 5.2,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 5,
+      "guardedWavSha256": "a7628bce86e47bf9caf44d6942479bb140f218d3a264850609fe9cc70de3b98d",
+      "decodedFrames": 229320,
+      "integratedLufs": -22.8,
+      "truePeakDbtp": -11.7,
+      "samplePeakDbfs": -11.71,
+      "guard": "zero",
+      "bars": 2,
+      "contentFrames": 211680,
+      "contentSeconds": 4.8,
+      "syncPosition": "1:1",
+      "syncSeconds": 0,
+      "syncFrames": 0,
+      "timing": [
+        "beat"
+      ],
+      "priority": 70,
+      "duck": {
+        "kind": "duck",
+        "gainDb": -3,
+        "bars": 2,
+        "fadeSeconds": 0.4
+      },
+      "waveGainDb": null,
+      "canonical": {
+        "file": "stm-sting-vesper-arrival.wav",
+        "renderWavSha256": "9f1f06554c35d7ac1ab424293b73669145a23673f040113ea2d772667ffcd23f",
+        "frames": 211680,
+        "samplePeakDbfs": -11.27,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-sting-vesper-arrival.render.json",
+        "renderManifestSha256": "43add1ac446839421b693d93de1f4e590e577196b3fa3e37559fd8665781a211",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-sting-vesper-arrival.json",
+          "sha256": "2df3598521146752a1bc8c5487622208040ec01624d09cf849a3a4da5a8b201d",
+          "seed": 1001700
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "9f1f06554c35d7ac1ab424293b73669145a23673f040113ea2d772667ffcd23f"
+      },
+      "unity": {
+        "integratedLufs": -22.3,
+        "truePeakDbtp": -11.3,
+        "truePeakCeilingDbtp": -9,
+        "tailRmsDbfs": null
+      },
+      "foldDown": {
+        "rule": "(L+R)/2, round half to even, PCM16, no dither",
+        "correlation": 1,
+        "loudnessDeltaLu": 0
+      }
+    },
+    {
+      "id": "first-strike",
+      "kind": "stinger",
+      "url": "/music/first-strike.822a63fddc.mp3",
+      "file": "first-strike.822a63fddc.mp3",
+      "sha256": "822a63fddc80e18880768925c90dd3baa3670efc3d779d556ae2a2a8c1106b91",
+      "bytes": 249253,
+      "channels": 2,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 160,
+      "frames": 546840,
+      "durationSeconds": 12.4,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 12.2,
+      "guardedWavSha256": "8076f563fe6f4d17db482fd3795c60a9d444d0adecba460da6cf2fb4447574c6",
+      "decodedFrames": 546840,
+      "integratedLufs": -18.7,
+      "truePeakDbtp": -3.2,
+      "samplePeakDbfs": -3.17,
+      "guard": "zero",
+      "bars": 5,
+      "contentFrames": 529200,
+      "contentSeconds": 12,
+      "syncPosition": "2:4+1/6",
+      "syncSeconds": 4.6,
+      "syncFrames": 202860,
+      "timing": [
+        "exact"
+      ],
+      "priority": 100,
+      "duck": {
+        "kind": "vacuum",
+        "leadSeconds": 0.6,
+        "rampSeconds": 0.04
+      },
+      "waveGainDb": null,
+      "canonical": {
+        "file": "stm-sting-first-strike.wav",
+        "renderWavSha256": "0c17c7dd4a70bba58840c8d3e895c59e2fed90a2bc6a07309ae17253f1cf51cf",
+        "frames": 529200,
+        "samplePeakDbfs": -2.87,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-sting-first-strike.render.json",
+        "renderManifestSha256": "c7d8a43eac056e584e9e4af58701be19ab9ca7001b5ab1d2d8415dc6a1ffd051",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-sting-first-strike.json",
+          "sha256": "24d29b4ed1e71421bafccd71f65a374e2366c59b26b53ec6e6e6fb6ad6b14a70",
+          "seed": 1001705
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "0c17c7dd4a70bba58840c8d3e895c59e2fed90a2bc6a07309ae17253f1cf51cf"
+      },
+      "unity": {
+        "integratedLufs": -18.4,
+        "truePeakDbtp": -2.8,
+        "truePeakCeilingDbtp": -2,
+        "tailRmsDbfs": null
+      },
+      "foldDown": null
+    },
+    {
+      "id": "vesper-retaliation",
+      "kind": "stinger",
+      "url": "/music/vesper-retaliation.0a163ee31a.mp3",
+      "file": "vesper-retaliation.0a163ee31a.mp3",
+      "sha256": "0a163ee31a0e03c9eb991e78d329f07e9aa6419e62dd97edea0e69b2efd57820",
+      "bytes": 34526,
+      "channels": 1,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 96,
+      "frames": 123480,
+      "durationSeconds": 2.8,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 2.6,
+      "guardedWavSha256": "15264fa8e3566110219bdb1ff97fe08ac77b4de39034cc38a90cd9741b09bc15",
+      "decodedFrames": 123480,
+      "integratedLufs": -23,
+      "truePeakDbtp": -12.4,
+      "samplePeakDbfs": -12.44,
+      "guard": "zero",
+      "bars": 1,
+      "contentFrames": 105840,
+      "contentSeconds": 2.4,
+      "syncPosition": "1:1",
+      "syncSeconds": 0,
+      "syncFrames": 0,
+      "timing": [
+        "beat"
+      ],
+      "priority": 70,
+      "duck": {
+        "kind": "duck",
+        "gainDb": -3,
+        "bars": 1,
+        "fadeSeconds": 0.4
+      },
+      "waveGainDb": null,
+      "canonical": {
+        "file": "stm-sting-vesper-retaliation.wav",
+        "renderWavSha256": "5dccfbc0e7d73c91fee7a6050413bdbac8c30572c285a03d3ee25f893733bdb3",
+        "frames": 105840,
+        "samplePeakDbfs": -12,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-sting-vesper-retaliation.render.json",
+        "renderManifestSha256": "38286c8556b98d67a5f197006934bae2af545569cddad6cbd06b7d5e3e008161",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-sting-vesper-retaliation.json",
+          "sha256": "c809f97de806ddead89c3f18ce250b1acec46e640ad9920b86073e953d86378b",
+          "seed": 1001701
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "5dccfbc0e7d73c91fee7a6050413bdbac8c30572c285a03d3ee25f893733bdb3"
+      },
+      "unity": {
+        "integratedLufs": -22.6,
+        "truePeakDbtp": -12,
+        "truePeakCeilingDbtp": -9,
+        "tailRmsDbfs": null
+      },
+      "foldDown": {
+        "rule": "(L+R)/2, round half to even, PCM16, no dither",
+        "correlation": 1,
+        "loudnessDeltaLu": 0
+      }
+    },
+    {
+      "id": "divider-contact",
+      "kind": "stinger",
+      "url": "/music/divider-contact.6279e88582.mp3",
+      "file": "divider-contact.6279e88582.mp3",
+      "sha256": "6279e8858231558938f6159575d133ebab712a98ac3ce12e317663f9a2d5ea24",
+      "bytes": 34526,
+      "channels": 1,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 96,
+      "frames": 123480,
+      "durationSeconds": 2.8,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 2.6,
+      "guardedWavSha256": "fd9e6e5dd7d672b8d0ac69cf0202e1e5e9bb5f4e7c7f7f057ee08c84fe6b847c",
+      "decodedFrames": 123480,
+      "integratedLufs": -29,
+      "truePeakDbtp": -13.1,
+      "samplePeakDbfs": -13.05,
+      "guard": "zero",
+      "bars": 1,
+      "contentFrames": 105840,
+      "contentSeconds": 2.4,
+      "syncPosition": "1:1",
+      "syncSeconds": 0,
+      "syncFrames": 0,
+      "timing": [
+        "beat"
+      ],
+      "priority": 50,
+      "duck": {
+        "kind": "duck",
+        "gainDb": -4,
+        "bars": 1,
+        "fadeSeconds": 0.4
+      },
+      "waveGainDb": [
+        0,
+        1,
+        2
+      ],
+      "canonical": {
+        "file": "stm-sting-divider-contact.wav",
+        "renderWavSha256": "6ccb4ad64de9e7294f98ca8a65661581eb25a800b2185edc4d572077006cbad2",
+        "frames": 105840,
+        "samplePeakDbfs": -12.08,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-sting-divider-contact.render.json",
+        "renderManifestSha256": "50fd82ac104a4f90f08cbda39c3e12c2b934252c044c3214bf58d3096371e209",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-sting-divider-contact.json",
+          "sha256": "1c5b7d6c730e8a8306fe26887dfa9d6b14bb9430ca3a23ed8a3c44825d76b5fc",
+          "seed": 1001702
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": null,
+          "version": null
+        },
+        "soundfont": {
+          "file": null,
+          "sha256": null
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "6ccb4ad64de9e7294f98ca8a65661581eb25a800b2185edc4d572077006cbad2"
+      },
+      "unity": {
+        "integratedLufs": -29.2,
+        "truePeakDbtp": -12,
+        "truePeakCeilingDbtp": -11,
+        "tailRmsDbfs": null
+      },
+      "foldDown": {
+        "rule": "(L+R)/2, round half to even, PCM16, no dither",
+        "correlation": 1,
+        "loudnessDeltaLu": 0
+      }
+    },
+    {
+      "id": "outcome-hold",
+      "kind": "stinger",
+      "url": "/music/outcome-hold.dd892715dc.mp3",
+      "file": "outcome-hold.dd892715dc.mp3",
+      "sha256": "dd892715dc87940838c37b9bfae723ad6c9441241fcd5e6b5d6e9ecd21b82ed8",
+      "bytes": 34526,
+      "channels": 1,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 96,
+      "frames": 123480,
+      "durationSeconds": 2.8,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 2.6,
+      "guardedWavSha256": "7ed0deb8a10e6dd40f67eb600c2d3eeff82424e2c5ba3399728bf4a410007d43",
+      "decodedFrames": 123480,
+      "integratedLufs": -23.4,
+      "truePeakDbtp": -11.6,
+      "samplePeakDbfs": -11.63,
+      "guard": "zero",
+      "bars": 1,
+      "contentFrames": 105840,
+      "contentSeconds": 2.4,
+      "syncPosition": "1:1",
+      "syncSeconds": 0,
+      "syncFrames": 0,
+      "timing": [
+        "beat"
+      ],
+      "priority": 60,
+      "duck": {
+        "kind": "duck",
+        "gainDb": -8,
+        "bars": 1,
+        "fadeSeconds": 0.4
+      },
+      "waveGainDb": null,
+      "canonical": {
+        "file": "stm-sting-outcome-hold.wav",
+        "renderWavSha256": "4575c36a252d2ed03abb49dac413e387e7afadae2cb92b2495d98366d21883b7",
+        "frames": 105840,
+        "samplePeakDbfs": -11.09,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-sting-outcome-hold.render.json",
+        "renderManifestSha256": "fc995f5fdd1d8ea89e72179e131b50471f7e83e73db04ea8cf9836b3576d3f18",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-sting-outcome-hold.json",
+          "sha256": "d4e2ec56d7fbc5fc2cfd56e08b8fcc3a3ab6ef3ef65b122dd0d4c6cd466ee630",
+          "seed": 1001703
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "4575c36a252d2ed03abb49dac413e387e7afadae2cb92b2495d98366d21883b7"
+      },
+      "unity": {
+        "integratedLufs": -23,
+        "truePeakDbtp": -11.1,
+        "truePeakCeilingDbtp": -9,
+        "tailRmsDbfs": null
+      },
+      "foldDown": {
+        "rule": "(L+R)/2, round half to even, PCM16, no dither",
+        "correlation": 0.987417,
+        "loudnessDeltaLu": -0.1
+      }
+    },
+    {
+      "id": "outcome-breach",
+      "kind": "stinger",
+      "url": "/music/outcome-breach.1900881342.mp3",
+      "file": "outcome-breach.1900881342.mp3",
+      "sha256": "1900881342369a486b2916e008109a95cf0c0de9952a58b7c02bf055a0fcb493",
+      "bytes": 63365,
+      "channels": 1,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 96,
+      "frames": 229320,
+      "durationSeconds": 5.2,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 5,
+      "guardedWavSha256": "f8589dfc839b61b664500196e8eb49c977d4825437a68067b99ac11f44ad5620",
+      "decodedFrames": 229320,
+      "integratedLufs": -19,
+      "truePeakDbtp": -7.2,
+      "samplePeakDbfs": -7.17,
+      "guard": "zero",
+      "bars": 2,
+      "contentFrames": 211680,
+      "contentSeconds": 4.8,
+      "syncPosition": "1:1",
+      "syncSeconds": 0,
+      "syncFrames": 0,
+      "timing": [
+        "exact",
+        "immediate"
+      ],
+      "priority": 80,
+      "duck": {
+        "kind": "duck",
+        "gainDb": -8,
+        "bars": 2,
+        "fadeSeconds": 0.4
+      },
+      "waveGainDb": null,
+      "canonical": {
+        "file": "stm-sting-outcome-breach.wav",
+        "renderWavSha256": "f434e35d03bba0845e8f2064b621ef480b5659a96379c802898727f1451d089b",
+        "frames": 211680,
+        "samplePeakDbfs": -6.64,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-sting-outcome-breach.render.json",
+        "renderManifestSha256": "c953611e59d79a4cac6d8601f1428e845a81b02890161f22163357dc58f7fc4e",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-sting-outcome-breach.json",
+          "sha256": "155a78024cdd869fdaee640860edc1275dfc635a840deade113694722fcf5f84",
+          "seed": 1001704
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "f434e35d03bba0845e8f2064b621ef480b5659a96379c802898727f1451d089b"
+      },
+      "unity": {
+        "integratedLufs": -18.3,
+        "truePeakDbtp": -6.6,
+        "truePeakCeilingDbtp": -6,
+        "tailRmsDbfs": null
+      },
+      "foldDown": {
+        "rule": "(L+R)/2, round half to even, PCM16, no dither",
+        "correlation": 0.991014,
+        "loudnessDeltaLu": 0
+      }
+    },
+    {
+      "id": "territory-claimed",
+      "kind": "stinger",
+      "url": "/music/territory-claimed.50efb21db7.mp3",
+      "file": "territory-claimed.50efb21db7.mp3",
+      "sha256": "50efb21db782ed5730b8e31c1fbae8d57eb9e9b88759af0220ac4b129c0e1802",
+      "bytes": 201187,
+      "channels": 2,
+      "sampleRate": 44100,
+      "codec": "mp3",
+      "bitrateMode": "cbr",
+      "bitrateKbps": 160,
+      "frames": 441000,
+      "durationSeconds": 10,
+      "guardFrames": 8820,
+      "contentStartSeconds": 0.2,
+      "contentEndSeconds": 9.8,
+      "guardedWavSha256": "1b4325593d9f2915bbe73d227c4accc9cbf536e84689ad71679ca61b0987527e",
+      "decodedFrames": 441000,
+      "integratedLufs": -18.3,
+      "truePeakDbtp": -6.6,
+      "samplePeakDbfs": -6.69,
+      "guard": "zero",
+      "bars": 4,
+      "contentFrames": 423360,
+      "contentSeconds": 9.6,
+      "syncPosition": "1:1",
+      "syncSeconds": 0,
+      "syncFrames": 0,
+      "timing": [
+        "exact"
+      ],
+      "priority": 90,
+      "duck": {
+        "kind": "stage-clear",
+        "bedGainDb": -12,
+        "fadeSeconds": 0.3,
+        "resumeAfterSeconds": 8.4,
+        "resumeCue": "CLAIMED",
+        "resumeSwellBars": 1
+      },
+      "waveGainDb": null,
+      "canonical": {
+        "file": "stm-sting-territory-claimed.wav",
+        "renderWavSha256": "14a086740cbd13bdc52e376b396fdaed0ce95db1491c461461e62b55f9f15908",
+        "frames": 423360,
+        "samplePeakDbfs": -6.48,
+        "fullScaleSamples": 0
+      },
+      "provenance": {
+        "renderManifest": "stm-sting-territory-claimed.render.json",
+        "renderManifestSha256": "2ad39e23187bf6db4f86152a53ffc742e64a4b93a10cfdb33a75d5956e1126f0",
+        "engine": {
+          "name": "daemonv12",
+          "version": "0.5.0",
+          "commit": null
+        },
+        "project": {
+          "file": "stm-sting-territory-claimed.json",
+          "sha256": "402dad8a9ea566a8feb2670218ab4f8aabb006c14efa0a4d785d55082fe4f62a",
+          "seed": 1001706
+        },
+        "renderer": {
+          "name": "daemonv12-production",
+          "version": "2"
+        },
+        "gmRenderer": {
+          "name": "fluidsynth",
+          "version": "2.3.7"
+        },
+        "soundfont": {
+          "file": "FluidR3_GM.sf2",
+          "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0"
+        },
+        "audioTool": {
+          "name": "ffmpeg",
+          "version": "6.1.1"
+        },
+        "wavSha256": "14a086740cbd13bdc52e376b396fdaed0ce95db1491c461461e62b55f9f15908"
+      },
+      "unity": {
+        "integratedLufs": -17.8,
+        "truePeakDbtp": -6.4,
+        "truePeakCeilingDbtp": -5,
+        "tailRmsDbfs": -88.72
+      },
+      "foldDown": null
+    }
+  ]
+}

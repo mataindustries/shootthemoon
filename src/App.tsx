@@ -70,6 +70,8 @@ import { FirstStrikeHud } from './app/FirstStrikeHud.tsx'
 import { RENDER_EXPOSURE } from './render/visualSystem.ts'
 import { LaunchGate } from './app/LaunchGate.tsx'
 import { useCinematicAudio } from './audio/useCinematicAudio.ts'
+import { useAdaptiveMusic } from './audio/useAdaptiveMusic.ts'
+import { buildMusicSnapshot } from './audio/music/buildMusicSnapshot.ts'
 import {
   COUNTERSTRIKE_TIMING,
   counterstrikeFactsReducer,
@@ -340,6 +342,41 @@ function App() {
       rivalPresentationNeedsContinuousFrames(rivalPresentation.phase) ||
       firstStrikeNeedsContinuousFrames(firstStrikePresentation.phase) ||
       counterstrikeNeedsContinuousFrames(counterstrikeRun.status))
+  const platformDefenseWave = platformDefense?.wavesResolved ?? null
+  const musicSnapshot = useMemo(
+    () =>
+      buildMusicSnapshot({
+        entryOpen,
+        phase: state.phase,
+        monumentView,
+        outpost,
+        rival,
+        rivalPresentation,
+        firstStrike,
+        firstStrikePresentation,
+        strikeConfirmationOpen,
+        counterstrike,
+        counterstrikeRun,
+        platformDefense: platformDefenseWave === null ? null : { wavesResolved: platformDefenseWave },
+        monumentRevealAtMs,
+      }),
+    [
+      counterstrike,
+      counterstrikeRun,
+      entryOpen,
+      firstStrike,
+      firstStrikePresentation,
+      monumentRevealAtMs,
+      monumentView,
+      outpost,
+      platformDefenseWave,
+      rival,
+      rivalPresentation,
+      state.phase,
+      strikeConfirmationOpen,
+    ],
+  )
+  const music = useAdaptiveMusic(musicSnapshot, { harnessActive: e2eHarnessActive })
 
   useEffect(() => {
     const updateDpr = () =>
@@ -368,6 +405,7 @@ function App() {
         transitionGenerationRef.current += 1
         rivalHiddenAtRef.current = performance.now()
         audio.stopAll()
+        music.suspend()
         stopHaptics()
         setRivalClockRunning(false)
         return
@@ -407,12 +445,13 @@ function App() {
       setMonumentRevealAtMs(current => current === null || hiddenAtMs === null ? current : current + performance.now() - hiddenAtMs)
       dispatchOutpost({ type: 'resumeSurface', nowMs: Date.now() })
       setRivalClockRunning(true)
+      music.resume()
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () =>
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [audio.stopAll])
+  }, [audio.stopAll, music.resume, music.suspend])
 
   useEffect(() => {
     if (!e2eHarnessActive) {
@@ -1777,7 +1816,9 @@ function App() {
 
   const handleBeginExperience = useCallback(() => {
     entryOpenRef.current = false
+    // Both unlock the one shared AudioContext inside this gesture, before any await.
     audio.unlock()
+    music.unlockAndStart()
     audio.play('enter')
     setEntryOpen(false)
     // Keep LaunchGate mounted a moment longer so it can fade out over the
@@ -1791,7 +1832,11 @@ function App() {
       gateClosingTimeoutRef.current = null
       setGateClosing(false)
     }, LAUNCH_GATE_TRANSITION_MS)
-  }, [audio])
+  }, [audio, music.unlockAndStart])
+
+  const handleToggleSound = useCallback(() => {
+    music.setEnabled(audio.toggle())
+  }, [audio.toggle, music.setEnabled])
 
   const handleClaim = useCallback(() => {
     audio.play('ui-confirm')
@@ -1820,6 +1865,7 @@ function App() {
     }
     setGateClosing(false)
     audio.reset()
+    music.reset()
     stopHaptics()
     saveEnabledRef.current = false
     restoredSessionRef.current = false
@@ -1847,7 +1893,7 @@ function App() {
     dispatchFirstStrike({ type: 'reset' })
     dispatchCounterstrike({ type: 'reset' })
     dispatch({ type: 'resetPrototype' })
-  }, [audio])
+  }, [audio, music.reset])
 
   const handleCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
     configureRenderer(gl)
@@ -2025,6 +2071,11 @@ function App() {
             : 'uncontested'
       }
       data-render-mode={continuousRendering ? 'continuous' : 'demand'}
+      data-music-status={music.debug.status}
+      data-music-arc={music.debug.arc}
+      data-music-cue={music.debug.cue}
+      data-music-last-stinger={music.debug.lastStinger ?? 'none'}
+      data-music-stingers={music.debug.stingerCount}
     >
       <Canvas
         className="scene-canvas"
@@ -2092,7 +2143,7 @@ function App() {
         counterstrikeOrder={counterstrike?.acceptedOrder ?? null}
         soundAvailable={audio.available}
         soundEnabled={audio.enabled}
-        onToggleSound={audio.toggle}
+        onToggleSound={handleToggleSound}
         onClaim={handleClaim}
         onClear={handleClearSite}
         onReturn={handleReturnToOrbit}
@@ -2192,7 +2243,7 @@ function App() {
           soundAvailable={audio.available}
           soundEnabled={audio.enabled}
           onBegin={handleBeginExperience}
-          onToggleSound={audio.toggle}
+          onToggleSound={handleToggleSound}
           onResetPrototype={handleResetPrototype}
         />
       ) : null}

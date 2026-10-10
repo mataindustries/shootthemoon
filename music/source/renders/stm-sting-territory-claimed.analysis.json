@@ -1,0 +1,91 @@
+{
+  "master": {
+    "durationSeconds": 9.6,
+    "frames": 423360,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "format": "pcm_s16le",
+    "peakDbfs": -6.478302,
+    "rmsDbfs": -21.339803,
+    "fullScaleSamples": 0,
+    "clipping": false,
+    "integratedLufs": -17.96,
+    "loudnessRangeLu": 5.1,
+    "truePeakDbfs": -6.42
+  },
+  "tracks": [
+    {
+      "trackId": "ownership-arrival",
+      "analysis": {
+        "durationSeconds": 9.6,
+        "frames": 423360,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -12.770792,
+        "rmsDbfs": -36.117519,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -30.15,
+        "loudnessRangeLu": 21.9,
+        "truePeakDbfs": -12.77
+      }
+    },
+    {
+      "trackId": "claim-answer",
+      "analysis": {
+        "durationSeconds": 9.6,
+        "frames": 423360,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -11.963091,
+        "rmsDbfs": -25.205769,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -20.1,
+        "loudnessRangeLu": 1.6,
+        "truePeakDbfs": -11.96
+      }
+    },
+    {
+      "trackId": "monument-strings",
+      "analysis": {
+        "durationSeconds": 9.6,
+        "frames": 423360,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -4.952428,
+        "rmsDbfs": -20.813451,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -16.97,
+        "loudnessRangeLu": 4.4,
+        "truePeakDbfs": -4.94
+      }
+    },
+    {
+      "trackId": "lunar-bloom",
+      "analysis": {
+        "durationSeconds": 9.6,
+        "frames": 423360,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -20.244083,
+        "rmsDbfs": -37.984495,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -29.47,
+        "loudnessRangeLu": 4.1,
+        "truePeakDbfs": -19.48
+      }
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "master": {
+    "durationSeconds": 115.2,
+    "frames": 5080320,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "format": "pcm_s16le",
+    "peakDbfs": -10.279517,
+    "rmsDbfs": -26.631113,
+    "fullScaleSamples": 0,
+    "clipping": false,
+    "integratedLufs": -23.83,
+    "loudnessRangeLu": 4.4,
+    "truePeakDbfs": -10.28
+  },
+  "tracks": [
+    {
+      "trackId": "claim-strings",
+      "analysis": {
+        "durationSeconds": 115.2,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -14.330464,
+        "rmsDbfs": -29.779704,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -26.84,
+        "loudnessRangeLu": 3.3,
+        "truePeakDbfs": -14.33
+      }
+    },
+    {
+      "trackId": "claim-lead",
+      "analysis": {
+        "durationSeconds": 115.2,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -18.489934,
+        "rmsDbfs": -36.121703,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -27.19,
+        "loudnessRangeLu": 7.5,
+        "truePeakDbfs": -18.49
+      }
+    },
+    {
+      "trackId": "claim-weight",
+      "analysis": {
+        "durationSeconds": 115.2,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -20.574723,
+        "rmsDbfs": -49.948144,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -35.99,
+        "loudnessRangeLu": 9.5,
+        "truePeakDbfs": -20.57
+      }
+    },
+    {
+      "trackId": "claim-gravity",
+      "analysis": {
+        "durationSeconds": 115.2,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -21.56033,
+        "rmsDbfs": -48.107047,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -36.3,
+        "loudnessRangeLu": 3,
+        "truePeakDbfs": -21.56
+      }
+    }
+  ]
+}

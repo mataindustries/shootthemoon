@@ -1,4 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  SFX_BUS_GAIN,
+  audioContextConstructor,
+  emitAudioAlert,
+  ensureAudioEngine,
+  getAudioEngine,
+  isMusicAudible,
+  releaseAudioSuspend,
+  requestAudioSuspend,
+  type AudioEngine,
+} from './audioEngine.ts'
+import { SOUND_OFF_FADE_SECONDS, dbToGain, type AlertCue } from './music/musicConstants.ts'
 
 export type CinematicSoundCue =
   | 'enter'
@@ -22,11 +34,14 @@ export type CinematicSoundCue =
   | 'orbital-interception'
   | 'structural-impact'
 
-interface AudioGraph {
+/** The SFX voices of the shared engine; they play into its sfxBus. */
+export interface AudioGraph {
   readonly context: AudioContext
-  readonly master: GainNode
+  readonly output: GainNode
   readonly activeVoices: Set<ActiveVoice>
   noiseBuffer: AudioBuffer | null
+  /** Per-cue level trim while one cue is being voiced. */
+  volumeScale?: number
 }
 
 interface ActiveVoice {
@@ -38,35 +53,19 @@ interface CinematicAudioController {
   readonly available: boolean
   readonly enabled: boolean
   readonly unlock: () => void
-  readonly toggle: () => void
+  /** Flips SOUND ON / OFF and returns the new state. */
+  readonly toggle: () => boolean
   readonly play: (cue: CinematicSoundCue) => void
   readonly stopAll: () => void
   readonly reset: () => void
 }
 
-type AudioWindow = Window &
-  typeof globalThis & {
-    readonly webkitAudioContext?: typeof AudioContext
-  }
+/** Gameplay-critical alerts duck the music bus (handoff section 5). */
+const ALERT_CUES: ReadonlySet<CinematicSoundCue> = new Set<AlertCue>(['threat-warning', 'target-lock', 'fire-window'])
 
-function getAudioContextConstructor(): typeof AudioContext | null {
-  const audioWindow = window as AudioWindow
-  return window.AudioContext ?? audioWindow.webkitAudioContext ?? null
-}
-
-function createGraph(): AudioGraph | null {
-  const AudioContextConstructor = getAudioContextConstructor()
-  if (AudioContextConstructor === null) return null
-
-  try {
-    const context = new AudioContextConstructor()
-    const master = context.createGain()
-    master.gain.value = 0.16
-    master.connect(context.destination)
-    return { context, master, activeVoices: new Set(), noiseBuffer: null }
-  } catch {
-    return null
-  }
+function graphFor(engine: AudioEngine, current: AudioGraph | null): AudioGraph {
+  if (current?.context === engine.context) return current
+  return { context: engine.context, output: engine.sfxBus, activeVoices: new Set(), noiseBuffer: null }
 }
 
 function disconnectNode(node: AudioNode): void {
@@ -107,20 +106,6 @@ function stopAllVoices(graph: AudioGraph): void {
   })
 }
 
-function settleAudioOperation(operation: Promise<void>): void {
-  void operation.catch(() => undefined)
-}
-
-function closeGraph(graph: AudioGraph): void {
-  stopAllVoices(graph)
-  disconnectNode(graph.master)
-  graph.noiseBuffer = null
-
-  if (graph.context.state !== 'closed') {
-    settleAudioOperation(graph.context.close())
-  }
-}
-
 function getNoiseBuffer(graph: AudioGraph): AudioBuffer {
   if (graph.noiseBuffer !== null) return graph.noiseBuffer
 
@@ -157,10 +142,10 @@ function tone(
     now + durationSeconds,
   )
   gain.gain.setValueAtTime(0.0001, now)
-  gain.gain.exponentialRampToValueAtTime(volume, now + 0.018)
+  gain.gain.exponentialRampToValueAtTime(volume * (graph.volumeScale ?? 1), now + 0.018)
   gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds)
   oscillator.connect(gain)
-  gain.connect(graph.master)
+  gain.connect(graph.output)
   const voice = trackVoice(graph, oscillator, [oscillator, gain])
 
   try {
@@ -190,11 +175,11 @@ function noise(
     now + durationSeconds,
   )
   gain.gain.setValueAtTime(0.0001, now)
-  gain.gain.exponentialRampToValueAtTime(volume, now + 0.012)
+  gain.gain.exponentialRampToValueAtTime(volume * (graph.volumeScale ?? 1), now + 0.012)
   gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds)
   source.connect(filter)
   filter.connect(gain)
-  gain.connect(graph.master)
+  gain.connect(graph.output)
   const voice = trackVoice(graph, source, [source, filter, gain])
 
   try {
@@ -205,7 +190,33 @@ function noise(
   }
 }
 
-function playCue(graph: AudioGraph, cue: CinematicSoundCue): void {
+/**
+ * While the adaptive score is audible, `rival` speaks Vesper's E♭→D collapse
+ * instead of E-glides that clash with her motif, and `impact` leaves the sub
+ * to the first-strike stinger (bible section 14).
+ */
+export function playCue(graph: AudioGraph, cue: CinematicSoundCue, musicAudible: boolean): void {
+  graph.volumeScale = musicAudible ? dbToGain(MUSIC_CUE_TRIM_DB[cue] ?? 0) : 1
+  try {
+    voiceCue(graph, cue, musicAudible)
+  } finally {
+    graph.volumeScale = 1
+  }
+}
+
+/**
+ * Measured against the score's short-term level at each moment (acceptance G:
+ * impact and alert peaks ≥ 6 dB above the music, alert duck included). The
+ * bus re-level alone leaves these alert tones and the strike impact short.
+ */
+export const MUSIC_CUE_TRIM_DB: Readonly<Partial<Record<CinematicSoundCue, number>>> = Object.freeze({
+  'threat-warning': 1,
+  'target-lock': 9,
+  'fire-window': 6,
+  impact: 3,
+})
+
+function voiceCue(graph: AudioGraph, cue: CinematicSoundCue, musicAudible: boolean): void {
   switch (cue) {
     case 'enter':
       tone(graph, 52, 0.7, 0.3, 'sine', 72)
@@ -230,8 +241,13 @@ function playCue(graph: AudioGraph, cue: CinematicSoundCue): void {
       tone(graph, 76, 0.38, 0.13, 'sawtooth', 66)
       break
     case 'rival':
-      tone(graph, 330, 0.34, 0.1, 'triangle', 284)
-      tone(graph, 660, 0.18, 0.055, 'sine', 570, 0.11)
+      if (musicAudible) {
+        tone(graph, 311.13, 0.34, 0.1, 'triangle', 293.66)
+        tone(graph, 622.25, 0.18, 0.055, 'sine', 587.33, 0.11)
+      } else {
+        tone(graph, 330, 0.34, 0.1, 'triangle', 284)
+        tone(graph, 660, 0.18, 0.055, 'sine', 570, 0.11)
+      }
       break
     case 'scan':
       tone(graph, 210, 0.62, 0.09, 'sine', 880)
@@ -249,7 +265,7 @@ function playCue(graph: AudioGraph, cue: CinematicSoundCue): void {
       break
     case 'impact':
       noise(graph, 1.18, 0.42, 1_900)
-      tone(graph, 36, 1.05, 0.48, 'sine', 28)
+      if (!musicAudible) tone(graph, 36, 1.05, 0.48, 'sine', 28)
       tone(graph, 82, 0.44, 0.16, 'square', 44)
       break
     case 'complete':
@@ -295,19 +311,13 @@ export function useCinematicAudio(): CinematicAudioController {
   const graphRef = useRef<AudioGraph | null>(null)
   const [enabled, setEnabled] = useState(true)
   const enabledRef = useRef(true)
-  const available = getAudioContextConstructor() !== null
+  const available = audioContextConstructor() !== null
 
   const ensureGraph = useCallback((): AudioGraph | null => {
-    if (graphRef.current?.context.state === 'closed') {
-      graphRef.current = null
-    }
-
-    graphRef.current ??= createGraph()
-    const graph = graphRef.current
-    if (graph !== null && graph.context.state === 'suspended') {
-      settleAudioOperation(graph.context.resume())
-    }
-    return graph
+    const engine = ensureAudioEngine()
+    if (engine === null) return null
+    graphRef.current = graphFor(engine, graphRef.current)
+    return graphRef.current
   }, [])
 
   const unlock = useCallback(() => {
@@ -321,10 +331,11 @@ export function useCinematicAudio(): CinematicAudioController {
       const graph = ensureGraph()
       if (graph !== null) {
         try {
-          playCue(graph, cue)
+          playCue(graph, cue, isMusicAudible())
         } catch {
           stopAllVoices(graph)
         }
+        if (ALERT_CUES.has(cue)) emitAudioAlert(cue as AlertCue)
       }
     },
     [enabled, ensureGraph],
@@ -335,31 +346,31 @@ export function useCinematicAudio(): CinematicAudioController {
     if (graph !== null) stopAllVoices(graph)
   }, [])
 
+  // NEW GAME stops every voice but keeps the shared context (and the music's decoded buffers).
   const reset = useCallback(() => {
     const graph = graphRef.current
-    graphRef.current = null
-    if (graph !== null) closeGraph(graph)
+    if (graph !== null) stopAllVoices(graph)
   }, [])
 
-  const toggle = useCallback(() => {
+  const toggle = useCallback((): boolean => {
     const next = !enabledRef.current
     enabledRef.current = next
     setEnabled(next)
-    const graph = graphRef.current
 
-    if (graph !== null) {
-      if (next) {
-        graph.master.gain.setValueAtTime(0.16, graph.context.currentTime)
-        settleAudioOperation(graph.context.resume())
-      } else {
-        stopAllVoices(graph)
-        graph.master.gain.setValueAtTime(0.0001, graph.context.currentTime)
-        settleAudioOperation(graph.context.suspend())
-      }
-    } else if (next) {
-      ensureGraph()
+    if (next) {
+      void releaseAudioSuspend('sound-off')
+      const engine = ensureAudioEngine()
+      engine?.sfxBus.gain.setValueAtTime(SFX_BUS_GAIN, engine.context.currentTime)
+    } else {
+      const graph = graphRef.current
+      if (graph !== null) stopAllVoices(graph)
+      const engine = getAudioEngine()
+      engine?.sfxBus.gain.setValueAtTime(0, engine.context.currentTime)
+      // The music bus fades out over this time before the shared context suspends.
+      requestAudioSuspend('sound-off', SOUND_OFF_FADE_SECONDS)
     }
-  }, [ensureGraph])
+    return next
+  }, [])
 
   useEffect(() => () => reset(), [reset])
 

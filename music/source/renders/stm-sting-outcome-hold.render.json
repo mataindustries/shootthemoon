@@ -1,0 +1,583 @@
+{
+  "engine": {
+    "name": "daemonv12",
+    "version": "0.5.0"
+  },
+  "project": {
+    "file": "stm-sting-outcome-hold.json",
+    "sha256": "d4e2ec56d7fbc5fc2cfd56e08b8fcc3a3ab6ef3ef65b122dd0d4c6cd466ee630",
+    "formatVersion": 1,
+    "seed": 1001703
+  },
+  "midi": {
+    "file": "stm-sting-outcome-hold.mid",
+    "sha256": "7aeeff9ab4c69366a4cd1c8d72add1cc91fba8bf93214cbbd075f223baa6dcf8",
+    "bytes": 180,
+    "ppq": 960,
+    "durationTicks": 3840,
+    "durationSeconds": 2.4,
+    "notes": 4
+  },
+  "renderer": {
+    "name": "daemonv12-production",
+    "version": "2",
+    "settings": {
+      "sampleRate": 44100,
+      "channels": 2,
+      "bitsPerSample": 16,
+      "panLaw": "linear stereo balance; unity center",
+      "order": "source and tail cap, track gain/pan automation, ordered track effects, tail cap, s16 track elements; sum, master gain, ordered master effects, tail cap and final trim/pad, VO ducking, s16 master; trim/pad pre-master stems to master frames",
+      "normalization": false,
+      "dither": false,
+      "automation": "absolute values; step or outgoing linear segment; gain interpolated in dB; rounded sample positions",
+      "reverb": "schroeder-4-comb-2-allpass-v1; finite RT60 tail",
+      "saturation": "tanh-v1; no output compensation",
+      "ducking": "trailing 20ms channel-energy RMS; threshold gate; exponential reduction in dB; v1"
+    }
+  },
+  "gmRenderer": {
+    "name": "fluidsynth",
+    "version": "2.3.7",
+    "settings": {
+      "sampleRate": 44100,
+      "sampleFormat": "s16",
+      "channels": 2,
+      "gain": 0.5,
+      "reverb": false,
+      "chorus": false,
+      "cpuCores": 1
+    }
+  },
+  "gmSource": null,
+  "soundfont": {
+    "file": "FluidR3_GM.sf2",
+    "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0",
+    "bytes": 148398306
+  },
+  "samples": {
+    "timing": "nearest absolute trigger and fixed boundary, ties later; ceil minimum only without fixed boundary; tick * usPerQuarter * 44100 / 960000000",
+    "assets": [
+      {
+        "file": "assets/orbital-foundry/01-sub-pulse.wav",
+        "sha256": "b72d3dd7ef57e8e5e50a41b0ab20205f0be13b92ecba4bfb12f6c0981f35e216",
+        "bytes": 26504,
+        "frames": 13230,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/02-mechanical-kick.wav",
+        "sha256": "19b350b860aac8864d5e5710f1fdfef59120bd3ccb38b0feb51acd0b7bcb9eb6",
+        "bytes": 37088,
+        "frames": 18522,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/03-metallic-strike.wav",
+        "sha256": "03a660ea5e3c00dc4d0ebc9831483910d4f83f844e38092ee133c196b378d54a",
+        "bytes": 145574,
+        "frames": 72765,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/04-machine-tick.wav",
+        "sha256": "76f29351c8c7e257a985e195158db933fc7117e564af6c84a110ae8f6e60e1a2",
+        "bytes": 7542,
+        "frames": 3749,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/05-industrial-snare.wav",
+        "sha256": "9067d0eaf903a0fc949ace114869502d5a6fab6f0d01ad5a7f2535492d2dd0ac",
+        "bytes": 33560,
+        "frames": 16758,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/06-low-boom.wav",
+        "sha256": "37decaa1b61b4afe42c0dd0a1b00e6cd1685eeb651d521849e47f9ff877d73a8",
+        "bytes": 211724,
+        "frames": 105840,
+        "channels": 1,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/07-cinematic-impact.wav",
+        "sha256": "8867476d527289a237221f9a4674e050855a7e5a209ef8547cf8637074d22951",
+        "bytes": 635084,
+        "frames": 158760,
+        "channels": 2,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/kit.json",
+        "sha256": "aa3a8052fa23217a0ef4d24451060bb8b47ffcbc60cf5651d4dfeabf63a942f5",
+        "bytes": 744,
+        "kind": "drumkit"
+      }
+    ],
+    "tracks": [
+      {
+        "trackId": "held-ground",
+        "trackIndex": 1,
+        "instrument": {
+          "type": "drumkit",
+          "kit": "assets/orbital-foundry/kit.json"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/06-low-boom.wav",
+            "tick": 0,
+            "frame": 0,
+            "velocity": 0.38
+          },
+          {
+            "file": "assets/orbital-foundry/03-metallic-strike.wav",
+            "tick": 0,
+            "frame": 0,
+            "velocity": 0.64
+          }
+        ],
+        "clippedSamples": 0
+      }
+    ]
+  },
+  "timeline": {
+    "authoredDurationTicks": 3840,
+    "authoredFrames": 105840,
+    "duration": {
+      "bars": 1
+    },
+    "tail": "none",
+    "requestedFinalFrames": 105840,
+    "audioEndFrames": 105840,
+    "resultingFrames": 105840,
+    "rounding": "nearest sample frame; ties later; combined musical timeline + explicit tail rounded once"
+  },
+  "production": {
+    "processor": {
+      "name": "ffmpeg",
+      "version": "6.1.1"
+    },
+    "runtime": {
+      "name": "node",
+      "version": "v24.14.0"
+    },
+    "tracks": [
+      {
+        "trackId": "claim-seed",
+        "gainDb": -11,
+        "pan": 0,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 260
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 2700
+          }
+        ],
+        "automation": {
+          "gainDb": [
+            {
+              "at": {
+                "seconds": 0
+              },
+              "value": -11,
+              "transition": "step"
+            },
+            {
+              "at": {
+                "seconds": 1.55
+              },
+              "value": -11,
+              "transition": "linear"
+            },
+            {
+              "at": {
+                "seconds": 2.15
+              },
+              "value": -60,
+              "transition": "step"
+            }
+          ]
+        },
+        "resolvedAutomation": {
+          "gainDb": [
+            {
+              "frame": 0,
+              "value": -11,
+              "transition": "step"
+            },
+            {
+              "frame": 68355,
+              "value": -11,
+              "transition": "linear"
+            },
+            {
+              "frame": 94815,
+              "value": -60,
+              "transition": "step"
+            }
+          ]
+        },
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -29.862273
+      },
+      {
+        "trackId": "held-ground",
+        "gainDb": -5,
+        "pan": 0,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 45
+          }
+        ],
+        "automation": {
+          "gainDb": [
+            {
+              "at": {
+                "seconds": 0
+              },
+              "value": -5,
+              "transition": "step"
+            },
+            {
+              "at": {
+                "seconds": 1.55
+              },
+              "value": -5,
+              "transition": "linear"
+            },
+            {
+              "at": {
+                "seconds": 2.15
+              },
+              "value": -60,
+              "transition": "step"
+            }
+          ]
+        },
+        "resolvedAutomation": {
+          "gainDb": [
+            {
+              "frame": 0,
+              "value": -5,
+              "transition": "step"
+            },
+            {
+              "frame": 68355,
+              "value": -5,
+              "transition": "linear"
+            },
+            {
+              "frame": 94815,
+              "value": -60,
+              "transition": "step"
+            }
+          ]
+        },
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -12.71081
+      },
+      {
+        "trackId": "claim-core",
+        "gainDb": 8,
+        "pan": 0,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 170
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 2700
+          },
+          {
+            "type": "compressor",
+            "thresholdDb": -20,
+            "ratio": 3,
+            "attackMs": 1,
+            "releaseMs": 100
+          }
+        ],
+        "automation": {
+          "gainDb": [
+            {
+              "at": {
+                "seconds": 0
+              },
+              "value": 8,
+              "transition": "step"
+            },
+            {
+              "at": {
+                "seconds": 1.55
+              },
+              "value": 8,
+              "transition": "linear"
+            },
+            {
+              "at": {
+                "seconds": 2.15
+              },
+              "value": -60,
+              "transition": "step"
+            }
+          ]
+        },
+        "resolvedAutomation": {
+          "gainDb": [
+            {
+              "frame": 0,
+              "value": 8,
+              "transition": "step"
+            },
+            {
+              "frame": 68355,
+              "value": 8,
+              "transition": "linear"
+            },
+            {
+              "frame": 94815,
+              "value": -60,
+              "transition": "step"
+            }
+          ]
+        },
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -13.580091
+      }
+    ],
+    "master": {
+      "gainDb": -2,
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 30
+        }
+      ],
+      "clippedSamples": 0,
+      "preClipPeakDbfs": -11.085974
+    },
+    "stemAlignment": "trim/pad to master frames; post-track, pre-master gain/effects/ducking"
+  },
+  "mix": {
+    "clippedSamples": 0,
+    "gm": "sum processed independent tracks",
+    "samples": "sum exported track PCM"
+  },
+  "wav": {
+    "file": "stm-sting-outcome-hold.wav",
+    "sha256": "4575c36a252d2ed03abb49dac413e387e7afadae2cb92b2495d98366d21883b7",
+    "bytes": 423404,
+    "frames": 105840,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "durationSeconds": 2.4
+  },
+  "stems": [
+    {
+      "trackId": "claim-seed",
+      "trackIndex": 0,
+      "midi": {
+        "sha256": "1594ccfe5fe39e7aea81d3e901b7b215f9466650db7fa66c21dd3432a64998a4",
+        "bytes": 131,
+        "notes": 2
+      },
+      "renderer": {
+        "name": "fluidsynth",
+        "version": "2.3.7",
+        "settings": {
+          "sampleRate": 44100,
+          "sampleFormat": "s16",
+          "channels": 2,
+          "gain": 0.5,
+          "reverb": false,
+          "chorus": false,
+          "cpuCores": 1
+        }
+      },
+      "wav": {
+        "file": "stm-sting-outcome-hold.stems/claim-seed.wav",
+        "sha256": "91af0445bef24709cf86ddb7b25817bdbb779c8ce1a1c59bd286659db8692be5",
+        "bytes": 423404,
+        "frames": 105840,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 2.4
+      }
+    },
+    {
+      "trackId": "held-ground",
+      "trackIndex": 1,
+      "sample": {
+        "instrument": {
+          "type": "drumkit",
+          "kit": "assets/orbital-foundry/kit.json"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/06-low-boom.wav",
+            "tick": 0,
+            "frame": 0,
+            "velocity": 0.38
+          },
+          {
+            "file": "assets/orbital-foundry/03-metallic-strike.wav",
+            "tick": 0,
+            "frame": 0,
+            "velocity": 0.64
+          }
+        ],
+        "clippedSamples": 0
+      },
+      "renderer": {
+        "name": "daemonv12-pcm",
+        "version": "1",
+        "settings": {
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "velocity": "round(sample * velocity)",
+          "mix": "integer sum, saturate s16",
+          "resampling": false
+        }
+      },
+      "wav": {
+        "file": "stm-sting-outcome-hold.stems/held-ground.wav",
+        "sha256": "d6fd0269427062f80cdb1237a699fbb5cc104153a27b003d4c29abff6bb15b70",
+        "bytes": 423404,
+        "frames": 105840,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 2.4
+      }
+    },
+    {
+      "trackId": "claim-core",
+      "trackIndex": 2,
+      "midi": {
+        "sha256": "ba142f0a8266ab0b964eef96112d10cf5204b04591235af660fb0ebf9368d051",
+        "bytes": 131,
+        "notes": 2
+      },
+      "renderer": {
+        "name": "fluidsynth",
+        "version": "2.3.7",
+        "settings": {
+          "sampleRate": 44100,
+          "sampleFormat": "s16",
+          "channels": 2,
+          "gain": 0.5,
+          "reverb": false,
+          "chorus": false,
+          "cpuCores": 1
+        }
+      },
+      "wav": {
+        "file": "stm-sting-outcome-hold.stems/claim-core.wav",
+        "sha256": "86b7b5651c0d8c94bbab0ba72459623737fa7ca8b25e294073e2235b554b4177",
+        "bytes": 423404,
+        "frames": 105840,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 2.4
+      }
+    }
+  ],
+  "audioTool": {
+    "name": "ffmpeg",
+    "version": "6.1.1"
+  },
+  "analysis": {
+    "master": {
+      "durationSeconds": 2.4,
+      "frames": 105840,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bitsPerSample": 16,
+      "format": "pcm_s16le",
+      "peakDbfs": -11.086274,
+      "rmsDbfs": -27.080911,
+      "fullScaleSamples": 0,
+      "clipping": false,
+      "integratedLufs": -23.08,
+      "loudnessRangeLu": 0,
+      "truePeakDbfs": -11.09
+    },
+    "tracks": [
+      {
+        "trackId": "claim-seed",
+        "analysis": {
+          "durationSeconds": 2.4,
+          "frames": 105840,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -29.860431,
+          "rmsDbfs": -41.982067,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -37.57,
+          "loudnessRangeLu": 0,
+          "truePeakDbfs": -29.83
+        }
+      },
+      {
+        "trackId": "held-ground",
+        "analysis": {
+          "durationSeconds": 2.4,
+          "frames": 105840,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -12.711032,
+          "rmsDbfs": -35.638798,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -31.64,
+          "loudnessRangeLu": 0,
+          "truePeakDbfs": -12.71
+        }
+      },
+      {
+        "trackId": "claim-core",
+        "analysis": {
+          "durationSeconds": 2.4,
+          "frames": 105840,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -13.579984,
+          "rmsDbfs": -25.307553,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -21.14,
+          "loudnessRangeLu": 0,
+          "truePeakDbfs": -13.56
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "master": {
+    "durationSeconds": 2.4,
+    "frames": 105840,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "format": "pcm_s16le",
+    "peakDbfs": -12.075196,
+    "rmsDbfs": -32.531447,
+    "fullScaleSamples": 0,
+    "clipping": false,
+    "integratedLufs": -29.27,
+    "loudnessRangeLu": 0,
+    "truePeakDbfs": -12.05
+  },
+  "tracks": [
+    {
+      "trackId": "divider-alarm",
+      "analysis": {
+        "durationSeconds": 2.4,
+        "frames": 105840,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -14.470977,
+        "rmsDbfs": -35.868634,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -28.98,
+        "loudnessRangeLu": 0,
+        "truePeakDbfs": -14.46
+      }
+    },
+    {
+      "trackId": "eight-sided",
+      "analysis": {
+        "durationSeconds": 2.4,
+        "frames": 105840,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "format": "pcm_s16le",
+        "peakDbfs": -13.097448,
+        "rmsDbfs": -35.109197,
+        "fullScaleSamples": 0,
+        "clipping": false,
+        "integratedLufs": -33.64,
+        "loudnessRangeLu": 0,
+        "truePeakDbfs": -13.08
+      }
+    }
+  ]
+}

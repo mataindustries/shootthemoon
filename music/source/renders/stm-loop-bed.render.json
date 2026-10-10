@@ -1,0 +1,821 @@
+{
+  "engine": {
+    "name": "daemonv12",
+    "version": "0.5.0"
+  },
+  "project": {
+    "file": "stm-loop-bed.json",
+    "sha256": "740ed5db0efe635460b239ac1f3181dc9ab6f95815885fdd5bad4ecb2cf9cfe0",
+    "formatVersion": 1,
+    "seed": 1001601
+  },
+  "midi": {
+    "file": "stm-loop-bed.mid",
+    "sha256": "2e43e6db9edc3cd8eb2645a04786fb6894c380ae3535313060c81cef938a50bd",
+    "bytes": 549,
+    "ppq": 960,
+    "durationTicks": 184320,
+    "durationSeconds": 115.2,
+    "notes": 48
+  },
+  "renderer": {
+    "name": "daemonv12-production",
+    "version": "2",
+    "settings": {
+      "sampleRate": 44100,
+      "channels": 2,
+      "bitsPerSample": 16,
+      "panLaw": "linear stereo balance; unity center",
+      "order": "source and tail cap, track gain/pan automation, ordered track effects, tail cap, s16 track elements; sum, master gain, ordered master effects, tail cap and final trim/pad, VO ducking, s16 master; trim/pad pre-master stems to master frames",
+      "normalization": false,
+      "dither": false,
+      "automation": "absolute values; step or outgoing linear segment; gain interpolated in dB; rounded sample positions",
+      "reverb": "schroeder-4-comb-2-allpass-v1; finite RT60 tail",
+      "saturation": "tanh-v1; no output compensation",
+      "ducking": "trailing 20ms channel-energy RMS; threshold gate; exponential reduction in dB; v1"
+    }
+  },
+  "gmRenderer": {
+    "name": "fluidsynth",
+    "version": "2.3.7",
+    "settings": {
+      "sampleRate": 44100,
+      "sampleFormat": "s16",
+      "channels": 2,
+      "gain": 0.5,
+      "reverb": false,
+      "chorus": false,
+      "cpuCores": 1
+    }
+  },
+  "gmSource": null,
+  "soundfont": {
+    "file": "FluidR3_GM.sf2",
+    "sha256": "74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0",
+    "bytes": 148398306
+  },
+  "samples": {
+    "timing": "nearest absolute trigger and fixed boundary, ties later; ceil minimum only without fixed boundary; tick * usPerQuarter * 44100 / 960000000",
+    "assets": [
+      {
+        "file": "assets/orbital-foundry/10-dark-drone.wav",
+        "sha256": "d77f3be6222f38b382d19e480361eef9a80f7619cd9ea2664373d35c13a21c81",
+        "bytes": 1411244,
+        "frames": 352800,
+        "channels": 2,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      },
+      {
+        "file": "assets/orbital-foundry/11-air-texture.wav",
+        "sha256": "c103c24ffe274a10d3d1a5aa157f24c16d6542a3835aaf6246009231860ceb1a",
+        "bytes": 1411244,
+        "frames": 352800,
+        "channels": 2,
+        "sampleRate": 44100,
+        "bitsPerSample": 16
+      }
+    ],
+    "tracks": [
+      {
+        "trackId": "atmos-drone",
+        "trackIndex": 0,
+        "instrument": {
+          "type": "sampler",
+          "sample": "assets/orbital-foundry/10-dark-drone.wav"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 0,
+            "frame": 0,
+            "velocity": 0.6
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 10560,
+            "frame": 291060,
+            "velocity": 0.52
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 20160,
+            "frame": 555660,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 31200,
+            "frame": 859950,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 41280,
+            "frame": 1137780,
+            "velocity": 0.63
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 51840,
+            "frame": 1428840,
+            "velocity": 0.56
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 61440,
+            "frame": 1693440,
+            "velocity": 0.6
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 72000,
+            "frame": 1984500,
+            "velocity": 0.52
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 81600,
+            "frame": 2249100,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 92640,
+            "frame": 2553390,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 102720,
+            "frame": 2831220,
+            "velocity": 0.63
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 113280,
+            "frame": 3122280,
+            "velocity": 0.56
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 122880,
+            "frame": 3386880,
+            "velocity": 0.6
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 133440,
+            "frame": 3677940,
+            "velocity": 0.52
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 143040,
+            "frame": 3942540,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 154080,
+            "frame": 4246830,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 164160,
+            "frame": 4524660,
+            "velocity": 0.63
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 174720,
+            "frame": 4815720,
+            "velocity": 0.56
+          }
+        ],
+        "clippedSamples": 0
+      },
+      {
+        "trackId": "atmos-air",
+        "trackIndex": 1,
+        "instrument": {
+          "type": "sampler",
+          "sample": "assets/orbital-foundry/11-air-texture.wav"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 3840,
+            "frame": 105840,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 14400,
+            "frame": 396900,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 24480,
+            "frame": 674730,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 34560,
+            "frame": 952560,
+            "velocity": 0.62
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 45120,
+            "frame": 1243620,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 55680,
+            "frame": 1534680,
+            "velocity": 0.57
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 65280,
+            "frame": 1799280,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 75840,
+            "frame": 2090340,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 85920,
+            "frame": 2368170,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 96000,
+            "frame": 2646000,
+            "velocity": 0.62
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 106560,
+            "frame": 2937060,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 117120,
+            "frame": 3228120,
+            "velocity": 0.57
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 126720,
+            "frame": 3492720,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 137280,
+            "frame": 3783780,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 147360,
+            "frame": 4061610,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 157440,
+            "frame": 4339440,
+            "velocity": 0.62
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 168000,
+            "frame": 4630500,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 178560,
+            "frame": 4921560,
+            "velocity": 0.57
+          }
+        ],
+        "clippedSamples": 0
+      }
+    ]
+  },
+  "timeline": {
+    "authoredDurationTicks": 184320,
+    "authoredFrames": 5080320,
+    "duration": {
+      "bars": 48
+    },
+    "tail": "none",
+    "requestedFinalFrames": 5080320,
+    "audioEndFrames": 5080320,
+    "resultingFrames": 5080320,
+    "rounding": "nearest sample frame; ties later; combined musical timeline + explicit tail rounded once"
+  },
+  "production": {
+    "processor": {
+      "name": "ffmpeg",
+      "version": "6.1.1"
+    },
+    "runtime": {
+      "name": "node",
+      "version": "v24.14.0"
+    },
+    "tracks": [
+      {
+        "trackId": "atmos-drone",
+        "gainDb": -1,
+        "pan": -0.15,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 110
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 1800
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -14.193362
+      },
+      {
+        "trackId": "atmos-air",
+        "gainDb": 1,
+        "pan": 0.22,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 2500
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -13.566187
+      },
+      {
+        "trackId": "floor",
+        "gainDb": 1,
+        "pan": 0,
+        "effects": [
+          {
+            "type": "highpass",
+            "frequencyHz": 150
+          },
+          {
+            "type": "lowpass",
+            "frequencyHz": 2600
+          },
+          {
+            "type": "reverb",
+            "roomSize": 0.6,
+            "decaySeconds": 1.6,
+            "wet": 0.2
+          }
+        ],
+        "clippedSamples": 0,
+        "preClipPeakDbfs": -19.06468
+      }
+    ],
+    "master": {
+      "gainDb": -4.7,
+      "effects": [
+        {
+          "type": "highpass",
+          "frequencyHz": 30
+        }
+      ],
+      "clippedSamples": 0,
+      "preClipPeakDbfs": -15.531251
+    },
+    "stemAlignment": "trim/pad to master frames; post-track, pre-master gain/effects/ducking"
+  },
+  "mix": {
+    "clippedSamples": 0,
+    "gm": "sum processed independent tracks",
+    "samples": "sum exported track PCM"
+  },
+  "wav": {
+    "file": "stm-loop-bed.wav",
+    "sha256": "935747a7e1c88256ff684c5f296951b27d40e61907810c9f364e21ba4db54b88",
+    "bytes": 20321324,
+    "frames": 5080320,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bitsPerSample": 16,
+    "durationSeconds": 115.2
+  },
+  "stems": [
+    {
+      "trackId": "atmos-drone",
+      "trackIndex": 0,
+      "sample": {
+        "instrument": {
+          "type": "sampler",
+          "sample": "assets/orbital-foundry/10-dark-drone.wav"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 0,
+            "frame": 0,
+            "velocity": 0.6
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 10560,
+            "frame": 291060,
+            "velocity": 0.52
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 20160,
+            "frame": 555660,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 31200,
+            "frame": 859950,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 41280,
+            "frame": 1137780,
+            "velocity": 0.63
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 51840,
+            "frame": 1428840,
+            "velocity": 0.56
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 61440,
+            "frame": 1693440,
+            "velocity": 0.6
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 72000,
+            "frame": 1984500,
+            "velocity": 0.52
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 81600,
+            "frame": 2249100,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 92640,
+            "frame": 2553390,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 102720,
+            "frame": 2831220,
+            "velocity": 0.63
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 113280,
+            "frame": 3122280,
+            "velocity": 0.56
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 122880,
+            "frame": 3386880,
+            "velocity": 0.6
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 133440,
+            "frame": 3677940,
+            "velocity": 0.52
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 143040,
+            "frame": 3942540,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 154080,
+            "frame": 4246830,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 164160,
+            "frame": 4524660,
+            "velocity": 0.63
+          },
+          {
+            "file": "assets/orbital-foundry/10-dark-drone.wav",
+            "tick": 174720,
+            "frame": 4815720,
+            "velocity": 0.56
+          }
+        ],
+        "clippedSamples": 0
+      },
+      "renderer": {
+        "name": "daemonv12-pcm",
+        "version": "1",
+        "settings": {
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "velocity": "round(sample * velocity)",
+          "mix": "integer sum, saturate s16",
+          "resampling": false
+        }
+      },
+      "wav": {
+        "file": "stm-loop-bed.stems/atmos-drone.wav",
+        "sha256": "e7d1a814d8e337dafc35940a74661d5c7351a320ee0c933b4020df1d00b05be3",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    },
+    {
+      "trackId": "atmos-air",
+      "trackIndex": 1,
+      "sample": {
+        "instrument": {
+          "type": "sampler",
+          "sample": "assets/orbital-foundry/11-air-texture.wav"
+        },
+        "triggers": [
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 3840,
+            "frame": 105840,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 14400,
+            "frame": 396900,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 24480,
+            "frame": 674730,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 34560,
+            "frame": 952560,
+            "velocity": 0.62
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 45120,
+            "frame": 1243620,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 55680,
+            "frame": 1534680,
+            "velocity": 0.57
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 65280,
+            "frame": 1799280,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 75840,
+            "frame": 2090340,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 85920,
+            "frame": 2368170,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 96000,
+            "frame": 2646000,
+            "velocity": 0.62
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 106560,
+            "frame": 2937060,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 117120,
+            "frame": 3228120,
+            "velocity": 0.57
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 126720,
+            "frame": 3492720,
+            "velocity": 0.58
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 137280,
+            "frame": 3783780,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 147360,
+            "frame": 4061610,
+            "velocity": 0.55
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 157440,
+            "frame": 4339440,
+            "velocity": 0.62
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 168000,
+            "frame": 4630500,
+            "velocity": 0.5
+          },
+          {
+            "file": "assets/orbital-foundry/11-air-texture.wav",
+            "tick": 178560,
+            "frame": 4921560,
+            "velocity": 0.57
+          }
+        ],
+        "clippedSamples": 0
+      },
+      "renderer": {
+        "name": "daemonv12-pcm",
+        "version": "1",
+        "settings": {
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "velocity": "round(sample * velocity)",
+          "mix": "integer sum, saturate s16",
+          "resampling": false
+        }
+      },
+      "wav": {
+        "file": "stm-loop-bed.stems/atmos-air.wav",
+        "sha256": "be0560fb977af64663a95ae6bfbc927b95419b508ca42c3c9a378ad51b521de3",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    },
+    {
+      "trackId": "floor",
+      "trackIndex": 2,
+      "midi": {
+        "sha256": "2e43e6db9edc3cd8eb2645a04786fb6894c380ae3535313060c81cef938a50bd",
+        "bytes": 549,
+        "notes": 48
+      },
+      "renderer": {
+        "name": "fluidsynth",
+        "version": "2.3.7",
+        "settings": {
+          "sampleRate": 44100,
+          "sampleFormat": "s16",
+          "channels": 2,
+          "gain": 0.5,
+          "reverb": false,
+          "chorus": false,
+          "cpuCores": 1
+        }
+      },
+      "wav": {
+        "file": "stm-loop-bed.stems/floor.wav",
+        "sha256": "79994bd7796c0bec00fee9e2e7fe4f0140965b46949c7c50094aecc9bc5e04ce",
+        "bytes": 20321324,
+        "frames": 5080320,
+        "sampleRate": 44100,
+        "channels": 2,
+        "bitsPerSample": 16,
+        "durationSeconds": 115.2
+      }
+    }
+  ],
+  "audioTool": {
+    "name": "ffmpeg",
+    "version": "6.1.1"
+  },
+  "analysis": {
+    "master": {
+      "durationSeconds": 115.2,
+      "frames": 5080320,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bitsPerSample": 16,
+      "format": "pcm_s16le",
+      "peakDbfs": -15.531803,
+      "rmsDbfs": -29.795359,
+      "fullScaleSamples": 0,
+      "clipping": false,
+      "integratedLufs": -26.03,
+      "loudnessRangeLu": 2.2,
+      "truePeakDbfs": -15.17
+    },
+    "tracks": [
+      {
+        "trackId": "atmos-drone",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -14.193546,
+          "rmsDbfs": -27.157322,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -25.22,
+          "loudnessRangeLu": 1.8,
+          "truePeakDbfs": -14.19
+        }
+      },
+      {
+        "trackId": "atmos-air",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -13.566072,
+          "rmsDbfs": -30.134609,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -23.85,
+          "loudnessRangeLu": 3.5,
+          "truePeakDbfs": -12
+        }
+      },
+      {
+        "trackId": "floor",
+        "analysis": {
+          "durationSeconds": 115.2,
+          "frames": 5080320,
+          "sampleRate": 44100,
+          "channels": 2,
+          "bitsPerSample": 16,
+          "format": "pcm_s16le",
+          "peakDbfs": -19.065521,
+          "rmsDbfs": -36.502281,
+          "fullScaleSamples": 0,
+          "clipping": false,
+          "integratedLufs": -34.38,
+          "loudnessRangeLu": 3.8,
+          "truePeakDbfs": -19.06
+        }
+      }
+    ]
+  }
+}
