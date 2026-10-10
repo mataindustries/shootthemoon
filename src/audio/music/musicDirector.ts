@@ -537,6 +537,8 @@ class Director implements MusicDirector {
     this.#hidden = false
     const graph = this.#graph
     if (graph === null || !this.#running()) {
+      // A claim made before NEW GAME outlives the session: the shown page must not stay held.
+      if (graph !== null) void graph.host.resume('hidden')
       this.#publish()
       return
     }
@@ -617,6 +619,8 @@ class Director implements MusicDirector {
         }
       }
       graph.host.setMusicAudible?.(false)
+      // The next session starts with SOUND on: drop this director's claim and its pending fade-out suspend.
+      if (this.#soundOff) void graph.host.resume('sound-off')
     }
     this.#clearPlayback()
     this.#lastStinger = null

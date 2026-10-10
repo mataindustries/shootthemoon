@@ -4,10 +4,10 @@
  * only those.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEngineMusicHost, isMusicAudible, releaseAudioSuspend, requestAudioSuspend, resetAudioEngineForTests } from './audioEngine.ts'
+import { createEngineMusicHost, getAudioEngine, isMusicAudible, releaseAudioSuspend, requestAudioSuspend, resetAudioEngineForTests } from './audioEngine.ts'
 import { SOUND_OFF_FADE_SECONDS } from './music/musicConstants.ts'
 import { createMusicDirector } from './music/musicDirector.ts'
-import { createFakeAssets, createManualScheduler, FakeAudioContext, FakeNode, flushPromises } from './music/testing/fakeAudioContext.ts'
+import { createFakeAssets, createManualScheduler, FakeAudioContext, type FakeGainNode, FakeNode, flushPromises } from './music/testing/fakeAudioContext.ts'
 import { packageBuffers, snapshot } from './music/testing/musicFixtures.ts'
 
 class EngineContext extends FakeAudioContext {
@@ -41,6 +41,15 @@ function director() {
     openAssets: () => assets,
     scheduler: createManualScheduler(),
   })
+}
+
+/** The music bus is open and the bed swells in: the current targets reach the speakers. */
+function expectAudible(): void {
+  const engine = getAudioEngine()
+  const later = context().currentTime + 60
+  expect((engine?.musicBus.gain as unknown as FakeGainNode['gain']).valueAt(later)).toBeCloseTo(1)
+  const bed = context().gains[5] as FakeGainNode
+  expect(bed.gain.valueAt(later)).toBeGreaterThan(0)
 }
 
 function loopsSounding(): number {
@@ -158,5 +167,80 @@ describe('music director ownership on the shared engine', () => {
     b.dispose()
     expect(loopsSounding()).toBe(0)
     expect(isMusicAudible()).toBe(false)
+  })
+
+  it('SOUND OFF completed, NEW GAME, SOUND ON, BEGIN: plays on a running context', async () => {
+    const d = director()
+    d.unlockAndStart(snapshot())
+    d.setEnabled(false, snapshot())
+    vi.advanceTimersByTime(SOUND_OFF_FADE_SECONDS * 1000)
+    expect(context().state).toBe('suspended')
+    d.reset()
+    await flushPromises()
+    d.setEnabled(true, snapshot())
+    d.unlockAndStart(snapshot())
+    await flushPromises()
+    expect(context().state).toBe('running')
+    expect(d.debug.status).toBe('playing')
+    expect(d.debug.stingerCount).toBe(0)
+    expect(loopsSounding()).toBe(5)
+    expectAudible()
+    d.dispose()
+  })
+
+  it('NEW GAME during SOUND OFF keeps a hidden tab suspended until it shows again', async () => {
+    const d = director()
+    d.unlockAndStart(snapshot())
+    d.setEnabled(false, snapshot())
+    vi.advanceTimersByTime(SOUND_OFF_FADE_SECONDS * 1000)
+    d.suspend()
+    d.reset()
+    await flushPromises()
+    expect(context().state).toBe('suspended')
+    d.resume(snapshot())
+    await flushPromises()
+    d.setEnabled(true, snapshot())
+    d.unlockAndStart(snapshot())
+    await flushPromises()
+    expect(context().state).toBe('running')
+    expect(d.debug.status).toBe('playing')
+    expectAudible()
+    d.dispose()
+  })
+
+  it('a delayed SOUND OFF suspend pending at NEW GAME cannot suspend the next session', async () => {
+    const d = director()
+    d.unlockAndStart(snapshot())
+    d.setEnabled(false, snapshot())
+    expect(context().state).toBe('running')
+    d.reset()
+    d.setEnabled(true, snapshot())
+    d.unlockAndStart(snapshot())
+    vi.advanceTimersByTime(SOUND_OFF_FADE_SECONDS * 1000 * 4)
+    await flushPromises()
+    expect(context().suspendCalls).toBe(0)
+    expect(context().state).toBe('running')
+    expect(d.debug.status).toBe('playing')
+    expectAudible()
+    d.dispose()
+  })
+
+  it("NEW GAME releases only this director's SOUND OFF claim", async () => {
+    const a = director()
+    const b = director()
+    a.unlockAndStart(snapshot())
+    b.unlockAndStart(snapshot())
+    a.setEnabled(false, snapshot())
+    b.setEnabled(false, snapshot())
+    vi.advanceTimersByTime(SOUND_OFF_FADE_SECONDS * 1000)
+    a.reset()
+    await flushPromises()
+    expect(context().state).toBe('suspended')
+    expect(EngineContext.instances).toHaveLength(1)
+    b.setEnabled(true, snapshot())
+    await flushPromises()
+    expect(context().state).toBe('running')
+    a.dispose()
+    b.dispose()
   })
 })
