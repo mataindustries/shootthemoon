@@ -862,6 +862,29 @@ describe('music director: lifecycle races', () => {
     }
   })
 
+  it('dispose during the NEW GAME fade cuts a stinger still fading on its own gain', () => {
+    const r = rig()
+    const base = contested({ firstStrikeStatus: 'COMPLETE', phase: 'landed' })
+    r.director.unlockAndStart(base)
+    r.advance(6)
+    r.director.update({ ...base, csStatus: 'command' })
+    const playing = r.sourcesOf('vesper-retaliation')[0]
+    r.advance(0.5)
+    const resetAt = r.context.currentTime
+    const node = r.context.gains.find((gain) => playing?.connections.includes(gain))
+    r.director.reset()
+    // The ordinary reset fade is kept.
+    expect(playing?.stops.at(-1)).toBeCloseTo(resetAt + 0.5, 6)
+    r.advance(0.2)
+    const disposeAt = r.context.currentTime
+    r.director.dispose()
+    expect(playing?.stops.at(-1)).toBe(disposeAt)
+    expect(playing?.disconnected).toBe(true)
+    expect(node?.disconnected).toBe(true)
+    expect(soundingAfter(r, disposeAt)).toEqual([])
+    expect(r.host.releases).toBe(1)
+  })
+
   it('dispose stops every source, clears wakes, ignores later calls and pending resumes, and is idempotent', async () => {
     const r = rig()
     const base = contested({ firstStrikeStatus: 'COMPLETE', phase: 'landed' })

@@ -42,11 +42,33 @@ type AudioGlobal = typeof globalThis & {
   readonly webkitAudioContext?: typeof AudioContext
 }
 
+/**
+ * Who holds a suspension or audible claim: the SFX layer, or one music
+ * director's host. Claims are per owner, so tearing one director down releases
+ * only what it held and never what another owner still needs.
+ */
+export type AudioOwner = object
+
+/** The SFX layer's claims (and any caller that names no owner). */
+const sharedOwner: AudioOwner = {}
+
 let engine: AudioEngine | null = null
-const suspendReasons = new Set<SuspendReason>()
-const delayedSuspends = new Map<SuspendReason, ReturnType<typeof setTimeout>>()
+const suspendClaims = new Map<AudioOwner, Set<SuspendReason>>()
+const delayedSuspends = new Map<AudioOwner, Map<SuspendReason, ReturnType<typeof setTimeout>>>()
+const audibleOwners = new Set<AudioOwner>()
 const alertListeners = new Set<(cue: AlertCue) => void>()
-let musicAudible = false
+
+function suspendHeld(): boolean {
+  return suspendClaims.size > 0
+}
+
+function cancelDelayedSuspend(owner: AudioOwner, reason: SuspendReason): void {
+  const pending = delayedSuspends.get(owner)
+  const timer = pending?.get(reason)
+  if (timer !== undefined) globalThis.clearTimeout(timer)
+  pending?.delete(reason)
+  if (pending?.size === 0) delayedSuspends.delete(owner)
+}
 
 function settle(operation: Promise<void>): Promise<void> {
   return operation.catch(() => undefined)
@@ -88,7 +110,7 @@ function buildEngine(Context: typeof AudioContext): AudioEngine {
 /** A context the browser suspended (iOS interruption, backgrounding) resumes on the next tap. */
 function resumeOnGesture(): void {
   const context = engine?.context
-  if (context === undefined || suspendReasons.size > 0) return
+  if (context === undefined || suspendHeld()) return
   if (context.state === 'suspended' || (context.state as string) === 'interrupted') void settle(context.resume())
 }
 
@@ -109,51 +131,71 @@ export function ensureAudioEngine(): AudioEngine | null {
     if (typeof document !== 'undefined') {
       document.addEventListener('pointerdown', resumeOnGesture, { passive: true })
     }
-    if (suspendReasons.size > 0) void settle(engine.context.suspend())
+    if (suspendHeld()) void settle(engine.context.suspend())
   }
   resumeOnGesture()
   return engine
 }
 
-/** Suspends the context for `reason`, at once or after a fade. */
-export function requestAudioSuspend(reason: SuspendReason, afterSeconds = 0): void {
-  suspendReasons.add(reason)
-  const pending = delayedSuspends.get(reason)
-  if (pending !== undefined) globalThis.clearTimeout(pending)
-  delayedSuspends.delete(reason)
+/** Suspends the context for `owner`'s `reason`, at once or after a fade. */
+export function requestAudioSuspend(reason: SuspendReason, afterSeconds = 0, owner: AudioOwner = sharedOwner): void {
+  let reasons = suspendClaims.get(owner)
+  if (reasons === undefined) suspendClaims.set(owner, (reasons = new Set()))
+  reasons.add(reason)
+  cancelDelayedSuspend(owner, reason)
   const context = engine?.context
   if (context === undefined) return
   if (afterSeconds <= 0) {
     void settle(context.suspend())
     return
   }
-  delayedSuspends.set(
+  let pending = delayedSuspends.get(owner)
+  if (pending === undefined) delayedSuspends.set(owner, (pending = new Map()))
+  pending.set(
     reason,
     globalThis.setTimeout(() => {
-      delayedSuspends.delete(reason)
-      if (suspendReasons.has(reason)) void settle(context.suspend())
+      cancelDelayedSuspend(owner, reason)
+      // Only a claim still held suspends: a released or disposed owner's timer is inert.
+      if (suspendClaims.get(owner)?.has(reason) === true) void settle(context.suspend())
     }, afterSeconds * 1000),
   )
 }
 
-/** Releases `reason`; the context resumes once no reason holds it. */
-export function releaseAudioSuspend(reason: SuspendReason): Promise<void> {
-  suspendReasons.delete(reason)
-  const pending = delayedSuspends.get(reason)
-  if (pending !== undefined) globalThis.clearTimeout(pending)
-  delayedSuspends.delete(reason)
+/** Releases `owner`'s `reason`; the context resumes once no claim of any owner holds it. */
+export function releaseAudioSuspend(reason: SuspendReason, owner: AudioOwner = sharedOwner): Promise<void> {
+  const reasons = suspendClaims.get(owner)
+  reasons?.delete(reason)
+  if (reasons?.size === 0) suspendClaims.delete(owner)
+  cancelDelayedSuspend(owner, reason)
   const context = engine?.context
-  if (context === undefined || suspendReasons.size > 0) return Promise.resolve()
+  if (context === undefined || suspendHeld()) return Promise.resolve()
   return settle(context.resume())
 }
 
-/** True while adaptive music is audible: the score then owns the sub at big impacts. */
-export function isMusicAudible(): boolean {
-  return musicAudible
+/**
+ * Drops every claim `owner` holds (a disposed music director): its suspension
+ * reasons, its pending delayed suspends and its audible claim. Another owner's
+ * claims stay; the context resumes only if this owner was the last holding it.
+ * The shared context is never closed.
+ */
+export function releaseAudioOwner(owner: AudioOwner): Promise<void> {
+  const held = suspendClaims.delete(owner)
+  for (const timer of delayedSuspends.get(owner)?.values() ?? []) globalThis.clearTimeout(timer)
+  delayedSuspends.delete(owner)
+  audibleOwners.delete(owner)
+  const context = engine?.context
+  if (!held || context === undefined || suspendHeld()) return Promise.resolve()
+  return settle(context.resume())
 }
 
-export function setMusicAudible(audible: boolean): void {
-  musicAudible = audible
+/** True while any owner's adaptive music is audible: the score then owns the sub at big impacts. */
+export function isMusicAudible(): boolean {
+  return audibleOwners.size > 0
+}
+
+export function setMusicAudible(audible: boolean, owner: AudioOwner = sharedOwner): void {
+  if (audible) audibleOwners.add(owner)
+  else audibleOwners.delete(owner)
 }
 
 /** Gameplay alerts (threat-warning, target-lock, fire-window) duck the music bus. */
@@ -166,28 +208,45 @@ export function emitAudioAlert(cue: AlertCue): void {
   for (const listener of alertListeners) listener(cue)
 }
 
-/** The music director's view of the engine (full mode). */
+/**
+ * The music director's view of the engine (full mode). Each call is a new
+ * owner: its suspension and audible claims are its own, and once released it
+ * can no longer suspend, resume or mark music audible.
+ */
 export function createEngineMusicHost(): MusicHost | null {
   const current = ensureAudioEngine()
   if (current === null) return null
+  const owner: AudioOwner = {}
+  let released = false
   return {
     context: current.context,
     musicBus: current.musicBus,
     layersBus: current.layersBus,
     stingerBus: current.stingerBus,
-    suspend: requestAudioSuspend,
-    resume: releaseAudioSuspend,
-    setMusicAudible,
+    suspend(reason, afterSeconds) {
+      if (!released) requestAudioSuspend(reason, afterSeconds, owner)
+    },
+    resume(reason) {
+      return released ? Promise.resolve() : releaseAudioSuspend(reason, owner)
+    },
+    setMusicAudible(audible) {
+      if (!released) setMusicAudible(audible, owner)
+    },
+    release() {
+      if (released) return
+      released = true
+      void releaseAudioOwner(owner)
+    },
   }
 }
 
 /** Tests only: forget the singleton and every registered listener. */
 export function resetAudioEngineForTests(): void {
-  for (const pending of delayedSuspends.values()) globalThis.clearTimeout(pending)
+  for (const pending of delayedSuspends.values()) for (const timer of pending.values()) globalThis.clearTimeout(timer)
   delayedSuspends.clear()
-  suspendReasons.clear()
+  suspendClaims.clear()
   alertListeners.clear()
-  musicAudible = false
+  audibleOwners.clear()
   if (typeof document !== 'undefined') document.removeEventListener('pointerdown', resumeOnGesture)
   engine = null
 }

@@ -98,6 +98,8 @@ export interface MusicHost {
   resume(reason: SuspendReason): Promise<void>
   /** Lets the SFX layer hand the sub to the score (handoff section 14). */
   setMusicAudible?(audible: boolean): void
+  /** Drops every suspension and audible claim this host holds, and cancels its delayed suspends (dispose). */
+  release?(): void
 }
 
 export type AssetState = 'pending' | 'ready' | 'error'
@@ -288,6 +290,8 @@ class Director implements MusicDirector {
   #unsubscribeAssets: (() => void) | null = null
   /** Layer sources NEW GAME left fading out: a new session cuts them before reopening the bus. */
   #retiring: { readonly source: AudioBufferSourceNodeLike; readonly stopAt: number }[] = []
+  /** Stingers NEW GAME left fading on their own gain: dispose cuts them before their fade ends. */
+  #retiringStingers: { readonly source: AudioBufferSourceNodeLike; readonly node: GainNodeLike | null; readonly stopAt: number }[] = []
   #snapshot: MusicSnapshot | null = null
   #baseline: MusicSnapshot | null = null
   #graph: Graph | null = null
@@ -601,11 +605,13 @@ class Director implements MusicDirector {
         }
         layer.source = null
       }
+      this.#retiringStingers = this.#retiringStingers.filter((retiring) => retiring.stopAt > now)
       for (const voice of this.#voices) {
         if (fadesOut(voice.when)) {
           // On its own gain too: a quick next BEGIN reopens the music bus under it.
           voice.lane?.update(now, () => true, [ramp('stinger', now, NEW_GAME_FADE_SECONDS, 0)])
           this.#stopSource(voice.source, stopAt)
+          if (voice.source !== null) this.#retiringStingers.push({ source: voice.source, node: voice.node, stopAt })
         } else {
           this.#stopSource(voice.source, now)
         }
@@ -645,9 +651,16 @@ class Director implements MusicDirector {
         voice.node?.disconnect()
       }
       for (const retiring of this.#retiring) this.#stopSource(retiring.source, now)
+      for (const retiring of this.#retiringStingers) {
+        this.#stopSource(retiring.source, now)
+        retiring.source.disconnect()
+        retiring.node?.disconnect()
+      }
       if (this.#running()) graph.host.setMusicAudible?.(false)
+      graph.host.release?.()
     }
     this.#retiring = []
+    this.#retiringStingers = []
     this.#clearPlayback()
     this.#status = this.#options.mode === 'off' ? 'disabled' : 'stopped'
     this.#debug = { ...this.#debug, status: this.#status, cue: 'SILENT' }

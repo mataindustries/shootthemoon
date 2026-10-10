@@ -186,6 +186,7 @@ export interface FakeHost extends MusicHost {
   readonly stingerBus: FakeGainNode
   readonly suspendRequests: { readonly reason: SuspendReason; readonly afterSeconds: number }[]
   audible: boolean
+  releases: number
 }
 
 /** Reason-based suspension like the engine's; delayed suspends apply at once here. */
@@ -198,6 +199,7 @@ export function createFakeHost(context = new FakeAudioContext()): FakeHost {
     stingerBus: context.createGain(),
     suspendRequests: [],
     audible: false,
+    releases: 0,
     suspend(reason, afterSeconds = 0) {
       host.suspendRequests.push({ reason, afterSeconds })
       reasons.add(reason)
@@ -209,6 +211,11 @@ export function createFakeHost(context = new FakeAudioContext()): FakeHost {
     },
     setMusicAudible(audible) {
       host.audible = audible
+    },
+    release() {
+      host.releases += 1
+      reasons.clear()
+      host.audible = false
     },
   }
   return host
