@@ -632,7 +632,12 @@ describe('music director: lifecycle (h–k)', () => {
     const resetAt = r.context.currentTime
     r.director.reset()
     expect(r.director.debug).toMatchObject({ status: 'stopped', cue: 'SILENT', stingerCount: 0, lastStinger: null })
-    for (const source of r.context.sources) expect(source.stops.at(-1)).toBeCloseTo(resetAt + 0.5, 6)
+    // Sounding sources fade with the bus; the retaliation scheduled on the next beat never starts.
+    for (const source of r.context.sources) {
+      const started = (source.starts[0]?.when ?? 0) <= resetAt
+      expect(source.stops.at(-1)).toBeCloseTo(started ? resetAt + 0.5 : resetAt, 6)
+    }
+    expect(r.sourcesOf('vesper-retaliation')[0]?.stops.at(-1)).toBe(resetAt)
     expect(r.host.musicBus.gain.valueAt(resetAt + 0.5)).toBe(0)
     expect(r.scheduler.pending).toBeNull()
     expect(r.opened).toBe(1)
@@ -701,5 +706,216 @@ describe('music director: lifecycle (h–k)', () => {
     expect(bus.valueAt(at + 0.02)).toBeCloseTo(g(-4), 6)
     expect(bus.valueAt(at + 0.42)).toBeCloseTo(g(-4), 6)
     expect(bus.valueAt(at + 1.02)).toBeCloseTo(1, 6)
+  })
+})
+
+/** Holds every host.resume() promise until settle(): the context's resume() is asynchronous in a browser. */
+function deferResumes(r: ReturnType<typeof rig>) {
+  const pending: (() => void)[] = []
+  const original = r.host.resume.bind(r.host)
+  r.host.resume = (reason) => {
+    const done = original(reason)
+    return new Promise<void>((resolve) => pending.push(() => void done.then(resolve)))
+  }
+  return {
+    get pending() {
+      return pending.length
+    },
+    async settle() {
+      for (const resolve of pending.splice(0)) resolve()
+      await flushPromises()
+    },
+  }
+}
+
+function gainOf(r: ReturnType<typeof rig>, source: FakeBufferSource | undefined): FakeAudioParam | undefined {
+  return (r.context.gains.find((node) => source?.connections.includes(node)) as { gain: FakeAudioParam } | undefined)?.gain
+}
+
+/** Every source that can still produce sound after `time`. */
+function soundingAfter(r: ReturnType<typeof rig>, time: number): FakeBufferSource[] {
+  return r.context.sources.filter((source) => {
+    const stop = source.stops.at(-1)
+    return stop === undefined || stop > Math.max(time, source.starts[0]?.when ?? 0)
+  })
+}
+
+describe('music director: lifecycle races', () => {
+  it('SOUND ON whose resume a hidden tab interrupts still unmutes when the tab returns', async () => {
+    const r = rig()
+    const base = contested({ firstStrikeStatus: 'COMPLETE', phase: 'landed' })
+    r.director.unlockAndStart(base)
+    r.advance(6)
+    const resumes = deferResumes(r)
+    r.director.setEnabled(false, base)
+    r.advance(0.2)
+    expect(r.host.musicBus.gain.valueAt(r.context.currentTime)).toBe(0)
+    // The game moves on while the sound is off: Vesper answers, unheard.
+    const later = { ...base, csStatus: 'command' as const }
+    r.director.update(later)
+    const sourcesBefore = r.context.sources.length
+
+    r.director.setEnabled(true, later)
+    expect(resumes.pending).toBe(1)
+    r.director.suspend()
+    // The interrupted SOUND ON resume lands late: stale, it must not start playback.
+    await resumes.settle()
+    expect(r.director.debug.status).toBe('suspended')
+
+    r.director.resume(later)
+    expect(r.director.debug.status).toBe('suspended')
+    await resumes.settle()
+    const on = r.context.currentTime
+    expect(r.director.debug).toMatchObject({ status: 'playing', cue: 'CS_ALERT', stingerCount: 0 })
+    expect(r.host.musicBus.gain.valueAt(on + 0.15)).toBeCloseTo(1, 6)
+    expect(r.layer('assault').valueAt(on)).toBeCloseTo(g(-14), 6)
+    // No new layer source, no replayed stinger.
+    expect(r.context.sources).toHaveLength(sourcesBefore)
+    expect(r.sourcesOf('vesper-retaliation')).toHaveLength(0)
+    expect(soundingAfter(r, on)).toHaveLength(5)
+
+    // The pending unmute was consumed: a later hidden round trip lands as a plain resume.
+    r.director.update(later)
+    r.director.suspend()
+    r.director.resume(later)
+    await resumes.settle()
+    expect(r.context.sources).toHaveLength(sourcesBefore)
+    expect(r.host.musicBus.gain.valueAt(r.context.currentTime + 1)).toBeCloseTo(1, 6)
+  })
+
+  it('SOUND ON pressed while hidden unmutes once the tab is visible', async () => {
+    const r = rig()
+    const base = contested({ firstStrikeStatus: 'COMPLETE', phase: 'landed' })
+    r.director.unlockAndStart(base)
+    r.advance(6)
+    r.director.setEnabled(false, base)
+    r.advance(0.2)
+    r.director.suspend()
+    r.director.setEnabled(true, base)
+    await flushPromises()
+    expect(r.director.debug.status).toBe('suspended')
+    r.director.resume(base)
+    await flushPromises()
+    expect(r.director.debug.status).toBe('playing')
+    expect(r.host.musicBus.gain.valueAt(r.context.currentTime + 0.15)).toBeCloseTo(1, 6)
+  })
+
+  it('NEW GAME then a quick BEGIN: a stinger that had not started never sounds in the new session', () => {
+    const r = rig()
+    const base = contested({ firstStrikeStatus: 'COMPLETE', phase: 'landed' })
+    r.director.unlockAndStart(base)
+    r.advance(6)
+    r.director.update({ ...base, csStatus: 'command' })
+    const old = r.sourcesOf('vesper-retaliation')[0]
+    const oldWhen = old?.starts[0]?.when ?? 0
+    const resetAt = r.context.currentTime
+    expect(oldWhen).toBeGreaterThan(resetAt)
+    r.director.reset()
+    // BEGIN again inside the 0.5 s reset fade, before the old stinger's start.
+    r.advance(0.1)
+    const beginAt = r.context.currentTime
+    expect(beginAt).toBeLessThan(oldWhen)
+    const before = r.context.sources.slice()
+    r.director.unlockAndStart(snapshot())
+    expect(r.director.debug).toMatchObject({ status: 'playing', cue: 'RECON', stingerCount: 0, lastStinger: null })
+    expect(r.host.musicBus.gain.valueAt(beginAt)).toBe(1)
+    // Stopped no later than its start: it never plays.
+    expect(old?.stops.at(-1)).toBeLessThanOrEqual(oldWhen)
+    expect(old?.stops.at(-1)).toBe(resetAt)
+    // No source of the old session sounds past the new BEGIN.
+    for (const source of before) expect(source.stops.at(-1)).toBeLessThanOrEqual(Math.max(beginAt, source.starts[0]?.when ?? 0))
+    const fresh = r.context.sources.slice(before.length)
+    expect(fresh).toHaveLength(5)
+    expect(soundingAfter(r, beginAt)).toEqual(fresh)
+  })
+
+  it('NEW GAME fades a stinger that is already playing on its own gain, even under a quick BEGIN', () => {
+    const r = rig()
+    const base = contested({ firstStrikeStatus: 'COMPLETE', phase: 'landed' })
+    r.director.unlockAndStart(base)
+    r.advance(6)
+    r.director.update({ ...base, csStatus: 'command' })
+    const playing = r.sourcesOf('vesper-retaliation')[0]
+    r.advance(0.5)
+    const resetAt = r.context.currentTime
+    expect(playing?.starts[0]?.when).toBeLessThan(resetAt)
+    const gain = gainOf(r, playing)
+    const level = gain?.valueAt(resetAt) ?? 0
+    expect(level).toBeGreaterThan(0)
+    r.director.reset()
+    expect(playing?.stops.at(-1)).toBeCloseTo(resetAt + 0.5, 6)
+    expect(r.host.musicBus.gain.valueAt(resetAt + 0.5)).toBe(0)
+    expect(gain?.valueAt(resetAt + 0.25)).toBeLessThan(level)
+    expect(gain?.valueAt(resetAt + 0.5)).toBeCloseTo(0, 6)
+    for (const id of LAYER_IDS) expect(r.sourcesOf(id)[0]?.stops.at(-1)).toBeCloseTo(resetAt + 0.5, 6)
+
+    r.advance(0.1)
+    const beginAt = r.context.currentTime
+    r.director.unlockAndStart(snapshot())
+    // The reopened bus cannot bring it back: it keeps fading on its own gain to the same stop.
+    expect(playing?.stops.at(-1)).toBeCloseTo(resetAt + 0.5, 6)
+    expect(gain?.valueAt(resetAt + 0.5)).toBeCloseTo(0, 6)
+    // The old layers share the new session's layer gains: they stop as it begins.
+    for (const id of LAYER_IDS) {
+      expect(r.sourcesOf(id)).toHaveLength(2)
+      expect(r.sourcesOf(id)[0]?.stops.at(-1)).toBe(beginAt)
+    }
+  })
+
+  it('dispose stops every source, clears wakes, ignores later calls and pending resumes, and is idempotent', async () => {
+    const r = rig()
+    const base = contested({ firstStrikeStatus: 'COMPLETE', phase: 'landed' })
+    r.director.unlockAndStart(base)
+    r.advance(6)
+    expect(r.scheduler.pending).not.toBeNull()
+    r.director.update({ ...base, csStatus: 'command' })
+    const resumes = deferResumes(r)
+    r.director.setEnabled(false, base)
+    r.director.setEnabled(true, base)
+    const at = r.context.currentTime
+    const sources = r.context.sources.length
+    r.director.dispose()
+    r.director.dispose()
+    expect(r.director.disposed).toBe(true)
+    expect(r.director.debug).toMatchObject({ status: 'stopped', cue: 'SILENT' })
+    expect(soundingAfter(r, at)).toEqual([])
+    expect(r.scheduler.pending).toBeNull()
+    for (const id of LAYER_IDS) expect((r.context.gains[3 + LAYER_IDS.indexOf(id)] as { disconnected: boolean }).disconnected).toBe(true)
+    // The shared buses stay connected; the context is not closed.
+    expect(r.host.musicBus.disconnected).toBe(false)
+    expect(r.context.state).not.toBe('closed')
+
+    await resumes.settle()
+    r.director.update({ ...base, csStatus: 'success' })
+    r.director.unlockAndStart(base)
+    r.director.notifyAlert('target-lock')
+    r.director.suspend()
+    r.director.resume(base)
+    r.director.setEnabled(false, base)
+    r.director.reset()
+    r.assets.ready('bed', r.buffers.bed as FakeBuffer)
+    await flushPromises()
+    expect(r.context.sources).toHaveLength(sources)
+    expect(r.director.debug.status).toBe('stopped')
+    expect(r.scheduler.pending).toBeNull()
+  })
+
+  it('a second director on the same host after dispose plays exactly one set of loops', () => {
+    const r = rig()
+    r.director.unlockAndStart(snapshot())
+    r.advance(4)
+    r.director.dispose()
+    const second = createMusicDirector({ mode: 'full', openHost: () => r.host, openAssets: () => r.assets, scheduler: r.scheduler })
+    second.unlockAndStart(snapshot())
+    const at = r.context.currentTime
+    expect(second.debug.status).toBe('playing')
+    const sounding = soundingAfter(r, at)
+    expect(sounding).toHaveLength(5)
+    expect(new Set(sounding.map((source) => source.buffer)).size).toBe(5)
+    // RECON rotation keeps a wake pending: disposing clears it.
+    expect(r.scheduler.pending).not.toBeNull()
+    second.dispose()
+    expect(r.scheduler.pending).toBeNull()
+    expect(soundingAfter(r, at)).toEqual([])
   })
 })

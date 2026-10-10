@@ -39,6 +39,19 @@ function createAppMusicDirector(mode: MusicMode): MusicDirector {
   })
 }
 
+/**
+ * Ties a director's lifetime to the effect that owns it: cleanup disposes it.
+ * A StrictMode replay finds the director it just disposed and asks for a
+ * fresh one instead of reviving it.
+ */
+export function bindDirectorLifetime(director: MusicDirector, replace: () => void): (() => void) | undefined {
+  if (director.disposed) {
+    replace()
+    return undefined
+  }
+  return () => director.dispose()
+}
+
 export interface AdaptiveMusicController {
   readonly debug: MusicDebug
   /** Synchronously inside the BEGIN / CONTINUE gesture. */
@@ -52,8 +65,9 @@ export interface AdaptiveMusicController {
 }
 
 export function useAdaptiveMusic(snapshot: MusicSnapshot, options: { readonly harnessActive: boolean }): AdaptiveMusicController {
-  const [director] = useState(() =>
-    createAppMusicDirector(resolveMusicMode(window.location.search, options.harnessActive, audioContextConstructor() !== null)),
+  const harnessActive = options.harnessActive
+  const [director, setDirector] = useState(() =>
+    createAppMusicDirector(resolveMusicMode(window.location.search, harnessActive, audioContextConstructor() !== null)),
   )
   const snapshotRef = useRef(snapshot)
   const resumeRequestedRef = useRef(false)
@@ -68,6 +82,14 @@ export function useAdaptiveMusic(snapshot: MusicSnapshot, options: { readonly ha
       director.resume(snapshot)
     }
   })
+
+  useEffect(
+    () =>
+      bindDirectorLifetime(director, () =>
+        setDirector(createAppMusicDirector(resolveMusicMode(window.location.search, harnessActive, audioContextConstructor() !== null))),
+      ),
+    [director, harnessActive],
+  )
 
   useEffect(() => {
     director.update(snapshot)

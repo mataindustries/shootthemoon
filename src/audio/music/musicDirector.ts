@@ -135,6 +135,14 @@ export interface MusicDirector {
   setEnabled(enabled: boolean, snapshot: MusicSnapshot): void
   notifyAlert(cue: AlertCue): void
   reset(): void
+  /**
+   * Tears the director down for good (hook unmount): stops every source,
+   * clears wakes and pending resumes, drops its asset subscription and
+   * disconnects its own nodes. The shared AudioContext, its buses and the
+   * decoded buffers are left alone. Idempotent; every later call is a no-op.
+   */
+  dispose(): void
+  readonly disposed: boolean
   readonly debug: MusicDebug
   subscribe(listener: () => void): () => void
 }
@@ -183,6 +191,8 @@ interface Voice {
   readonly id: StingerId
   readonly priority: number
   readonly sync: number
+  /** When the source begins playing (`source.start(when)`). */
+  readonly when: number
   readonly start: number
   readonly end: number
   readonly timing: 'beat' | 'exact' | 'immediate'
@@ -220,6 +230,8 @@ interface Layer {
   readonly node: GainNodeLike
   readonly lane: GainLane
   source: AudioBufferSourceNodeLike | null
+  /** When `source` begins playing. */
+  sourceWhen: number
 }
 
 interface Graph {
@@ -267,6 +279,15 @@ class Director implements MusicDirector {
   #hidden = false
   #soundOff = false
   #resumeToken = 0
+  /**
+   * SOUND ON asked for the music bus to come back. Survives a resume that a
+   * hidden tab interrupted, so whichever resume finally lands does the unmute.
+   */
+  #unmutePending = false
+  #disposed = false
+  #unsubscribeAssets: (() => void) | null = null
+  /** Layer sources NEW GAME left fading out: a new session cuts them before reopening the bus. */
+  #retiring: { readonly source: AudioBufferSourceNodeLike; readonly stopAt: number }[] = []
   #snapshot: MusicSnapshot | null = null
   #baseline: MusicSnapshot | null = null
   #graph: Graph | null = null
@@ -293,6 +314,10 @@ class Director implements MusicDirector {
     this.#debug = { ...this.#debug, status: this.#status }
   }
 
+  get disposed(): boolean {
+    return this.#disposed
+  }
+
   get debug(): MusicDebug {
     return this.#debug
   }
@@ -307,6 +332,7 @@ class Director implements MusicDirector {
   // -------------------------------------------------------------------------
 
   unlockAndStart(snapshot: MusicSnapshot): void {
+    if (this.#disposed) return
     this.#snapshot = snapshot
     if (this.#options.mode === 'off') return this.#publish()
     if (this.#status === 'unlocked' || this.#status === 'loading' || this.#status === 'playing' || this.#status === 'suspended') return
@@ -339,7 +365,7 @@ class Director implements MusicDirector {
     }
     if (this.#assets === null && this.#options.openAssets !== undefined) {
       this.#assets = this.#options.openAssets(host)
-      this.#assets.subscribe((id) => this.#onAssetSettled(id))
+      this.#unsubscribeAssets = this.#assets.subscribe((id) => this.#onAssetSettled(id))
     }
     this.#setStatus('loading')
     this.#requestResidency()
@@ -352,7 +378,7 @@ class Director implements MusicDirector {
     for (const id of LAYER_IDS) {
       const node = host.context.createGain()
       node.connect(host.layersBus)
-      layers[id] = { node, lane: new GainLane(node.gain, 0), source: null }
+      layers[id] = { node, lane: new GainLane(node.gain, 0), source: null, sourceWhen: 0 }
     }
     this.#graph = {
       host,
@@ -385,6 +411,10 @@ class Director implements MusicDirector {
     const sampleRate = graph.host.context.sampleRate
     this.#epoch = epochFor(now, sampleRate)
     this.#baseline = snapshot
+    // The previous session's fading layers would sound again through the reopened bus.
+    for (const retiring of this.#retiring) if (retiring.stopAt > now) this.#stopSource(retiring.source, now)
+    this.#retiring = []
+    this.#unmutePending = false
     graph.musicBus.hold(now, this.#soundOff ? 0 : 1)
     graph.layersBus.hold(now, 1)
     for (const id of LAYER_IDS) {
@@ -425,6 +455,7 @@ class Director implements MusicDirector {
     source.connect(layer.node)
     source.start(when, layerStartOffset(when, this.#epoch, context.sampleRate))
     layer.source = source
+    layer.sourceWhen = when
   }
 
   #layerPlaying(id: LayerId): boolean {
@@ -460,6 +491,7 @@ class Director implements MusicDirector {
   }
 
   update(snapshot: MusicSnapshot): void {
+    if (this.#disposed) return
     this.#snapshot = snapshot
     if (this.#status === 'loading' || this.#status === 'unlocked' || this.#status === 'playing' || this.#status === 'suspended') {
       this.#requestResidency()
@@ -485,6 +517,7 @@ class Director implements MusicDirector {
   }
 
   suspend(): void {
+    if (this.#disposed) return
     this.#hidden = true
     this.#resumeToken += 1
     if (this.#graph === null || !this.#running()) return
@@ -494,6 +527,7 @@ class Director implements MusicDirector {
   }
 
   resume(snapshot: MusicSnapshot): void {
+    if (this.#disposed) return
     this.#snapshot = snapshot
     if (!this.#hidden) return
     this.#hidden = false
@@ -504,11 +538,12 @@ class Director implements MusicDirector {
     }
     const token = ++this.#resumeToken
     void graph.host.resume('hidden').then(() => {
-      if (token === this.#resumeToken && !this.#hidden && !this.#soundOff && this.#status === 'suspended') this.#afterResume(false)
+      if (token === this.#resumeToken) this.#completeResume()
     })
   }
 
   setEnabled(enabled: boolean, snapshot: MusicSnapshot): void {
+    if (this.#disposed) return
     this.#snapshot = snapshot
     if (enabled === this.#enabled) return
     this.#enabled = enabled
@@ -516,6 +551,7 @@ class Director implements MusicDirector {
     if (!enabled) {
       if (graph === null || !this.#running()) return
       this.#soundOff = true
+      this.#unmutePending = false
       this.#resumeToken += 1
       if (this.#status === 'playing') {
         const now = this.#now()
@@ -534,13 +570,15 @@ class Director implements MusicDirector {
     }
     if (!this.#soundOff || graph === null) return
     this.#soundOff = false
+    this.#unmutePending = true
     const token = ++this.#resumeToken
     void graph.host.resume('sound-off').then(() => {
-      if (token === this.#resumeToken && !this.#hidden && !this.#soundOff && this.#status === 'suspended') this.#afterResume(true)
+      if (token === this.#resumeToken) this.#completeResume()
     })
   }
 
   reset(): void {
+    if (this.#disposed) return
     this.#clearWake()
     this.#resumeToken += 1
     const graph = this.#graph
@@ -548,24 +586,72 @@ class Director implements MusicDirector {
       const context = graph.host.context
       const now = context.currentTime
       const fading = this.#status === 'playing'
-      const stopAt = fading ? now + NEW_GAME_FADE_SECONDS : now
       if (fading) graph.musicBus.update(now, () => true, [ramp('mute', now, NEW_GAME_FADE_SECONDS, 0)])
+      // Sources already sounding fade out with the bus; one that has not started never will.
+      const fadesOut = (when: number) => fading && when <= now
+      const stopAt = now + NEW_GAME_FADE_SECONDS
       for (const id of LAYER_IDS) {
         const layer = graph.layers[id]
-        this.#stopSource(layer.source, stopAt)
+        const source = layer.source
+        if (source !== null && fadesOut(layer.sourceWhen)) {
+          this.#stopSource(source, stopAt)
+          this.#retiring.push({ source, stopAt })
+        } else {
+          this.#stopSource(source, now)
+        }
         layer.source = null
       }
-      for (const voice of this.#voices) this.#stopSource(voice.source, stopAt)
+      for (const voice of this.#voices) {
+        if (fadesOut(voice.when)) {
+          // On its own gain too: a quick next BEGIN reopens the music bus under it.
+          voice.lane?.update(now, () => true, [ramp('stinger', now, NEW_GAME_FADE_SECONDS, 0)])
+          this.#stopSource(voice.source, stopAt)
+        } else {
+          this.#stopSource(voice.source, now)
+        }
+      }
       graph.host.setMusicAudible?.(false)
     }
     this.#clearPlayback()
     this.#lastStinger = null
     this.#stingerCount = 0
     this.#soundOff = false
+    this.#unmutePending = false
     this.#disabledBySound = false
     if (this.#options.mode === 'off') this.#setStatus('disabled')
     else if (this.#status !== 'idle') this.#setStatus('stopped')
     else this.#publish()
+  }
+
+  dispose(): void {
+    if (this.#disposed) return
+    this.#disposed = true
+    this.#clearWake()
+    this.#resumeToken += 1
+    this.#unmutePending = false
+    this.#unsubscribeAssets?.()
+    this.#unsubscribeAssets = null
+    const graph = this.#graph
+    if (graph !== null) {
+      const now = graph.host.context.currentTime
+      for (const id of LAYER_IDS) {
+        const layer = graph.layers[id]
+        this.#stopSource(layer.source, now)
+        layer.source = null
+        layer.node.disconnect()
+      }
+      for (const voice of this.#voices) {
+        this.#stopSource(voice.source, now)
+        voice.node?.disconnect()
+      }
+      for (const retiring of this.#retiring) this.#stopSource(retiring.source, now)
+      if (this.#running()) graph.host.setMusicAudible?.(false)
+    }
+    this.#retiring = []
+    this.#clearPlayback()
+    this.#status = this.#options.mode === 'off' ? 'disabled' : 'stopped'
+    this.#debug = { ...this.#debug, status: this.#status, cue: 'SILENT' }
+    this.#listeners.clear()
   }
 
   notifyAlert(_cue: AlertCue): void {
@@ -582,6 +668,14 @@ class Director implements MusicDirector {
 
   #running(): boolean {
     return this.#status === 'unlocked' || this.#status === 'loading' || this.#status === 'playing' || this.#status === 'suspended'
+  }
+
+  /** A hidden-tab or SOUND ON resume landed; the token check already passed. */
+  #completeResume(): void {
+    if (this.#hidden || this.#soundOff || this.#status !== 'suspended') return
+    const soundOn = this.#unmutePending
+    this.#unmutePending = false
+    this.#afterResume(soundOn)
   }
 
   /** Return from a hidden tab or SOUND OFF (handoff 6.2). */
@@ -867,6 +961,7 @@ class Director implements MusicDirector {
       id,
       priority: spec.priority,
       sync: placement.sync,
+      when: placement.when,
       start: placement.start,
       end,
       timing,
@@ -1171,7 +1266,7 @@ class Director implements MusicDirector {
   /** The wake timer fired. Exposed for tests that drive a fake clock. */
   tick(): void {
     this.#wake = null
-    if (this.#status !== 'playing' || this.#graph === null) return
+    if (this.#disposed || this.#status !== 'playing' || this.#graph === null) return
     const now = this.#now()
     const claim = this.#claim
     if (claim !== null && now >= claim.swellEnd - 1e-6) this.#releaseClaim()

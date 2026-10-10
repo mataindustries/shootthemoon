@@ -133,14 +133,28 @@ test('the extractor works, Vesper arrives once, the reveal plays its cues and le
   test.setTimeout(90_000)
   const errors = watchErrors(page)
   await seed(page, createLegacyActiveExtractorSave())
+  await page.clock.install()
   await open(page, '/?e2e')
   await enter(page)
   await expectMusic(page, { status: 'playing', arc: 'FOOTHOLD', cue: 'FOOTHOLD_WORKS', stingers: 0 })
 
+  // The test advances the reveal by hand: freeze the page clock while the
+  // signal is still held, so the reveal's own phase timers never race the
+  // assertions, then step it only until the reveal begins. Nothing is due
+  // while the signal is held, so a page too busy to pause in time just retries.
+  await expect(async () => {
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000))
+  }).toPass({ timeout: 10_000 })
+  const main = page.locator('main')
   // Back in orbit the held signal is released and the reveal begins.
   await page.getByRole('button', { name: 'RETURN TO ORBIT' }).tap()
   await finishCameraJourney(page)
-  await expect(page.locator('main')).toHaveAttribute('data-rival-presentation', 'warning')
+  await expect
+    .poll(async () => {
+      if ((await main.getAttribute('data-rival-presentation')) !== 'warning') await page.clock.runFor(100)
+      return main.getAttribute('data-rival-presentation')
+    })
+    .toBe('warning')
   await expectMusic(page, { cue: 'REVEAL_APPROACH', lastStinger: 'vesper-arrival', stingers: 1 })
   await advanceRival(page, 'orbital-transition')
   await advanceRival(page, 'capsule-approach')
